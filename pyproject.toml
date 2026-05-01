@@ -1,0 +1,16 @@
+[project]
+name = "fluxtuner"
+version = "0.1.0"
+description = "Terminal internet radio player powered by Python and mpv"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "rich>=13.7.0",
+]
+
+[project.scripts]
+fluxtuner = "fluxtuner.__main__:main"
+
+[tool.ruff]
+line-length = 100

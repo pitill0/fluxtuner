@@ -10,6 +10,20 @@ DEFAULT_HEADERS = {
 }
 
 
+def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact station dictionary used by both CLI and TUI."""
+    return {
+        "name": station.get("name") or "Unknown station",
+        "url": station.get("url_resolved") or station.get("url") or "",
+        "country": station.get("country") or "Unknown",
+        "tags": station.get("tags") or "",
+        "codec": station.get("codec") or "",
+        "bitrate": station.get("bitrate") or 0,
+        "homepage": station.get("homepage") or "",
+        "language": station.get("language") or "",
+    }
+
+
 def search_stations(
     name: str | None = None,
     tag: str | None = None,
@@ -39,3 +53,27 @@ def search_stations(
     )
     response.raise_for_status()
     return response.json()
+
+
+def search_stations_by_text(query: str, limit: int = 40) -> list[dict[str, Any]]:
+    """Search by station name and tag, merging duplicated stream URLs."""
+    query = query.strip()
+    if not query:
+        return []
+
+    results: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for items in (
+        search_stations(name=query, limit=limit),
+        search_stations(tag=query, limit=limit),
+    ):
+        for item in items:
+            station = normalize_station(item)
+            url = station.get("url")
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            results.append(station)
+
+    return results[:limit]

@@ -1,27 +1,17 @@
 from __future__ import annotations
 
+import argparse
 import random
 from typing import Any
 
 from rich.console import Console
 from rich.table import Table
 
-from fluxtuner.core.api import search_stations
+from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
 
 console = Console()
-
-
-def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": station.get("name") or "Unknown station",
-        "url": station.get("url_resolved") or station.get("url") or "",
-        "country": station.get("country") or "Unknown",
-        "tags": station.get("tags") or "",
-        "codec": station.get("codec") or "",
-        "bitrate": station.get("bitrate") or 0,
-    }
 
 
 def print_station_table(stations: list[dict[str, Any]]) -> None:
@@ -81,7 +71,7 @@ def search_flow() -> None:
 
     try:
         stations = [normalize_station(item) for item in search_stations(name=query, limit=25)]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Search failed:[/red] {exc}")
         return
 
@@ -125,15 +115,9 @@ def random_favorite_flow() -> None:
     play_station(station)
 
 
-def main() -> None:
-    try:
-        ensure_mpv_available()
-    except PlayerError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise SystemExit(1) from exc
-
+def run_cli() -> None:
     while True:
-        console.print("\n[bold cyan]FluxTuner[/bold cyan]")
+        console.print("\n[bold cyan]FluxTuner CLI[/bold cyan]")
         console.print("1. Search stations")
         console.print("2. Favorites")
         console.print("3. Random favorite")
@@ -151,6 +135,38 @@ def main() -> None:
             break
         else:
             console.print("[yellow]Unknown option.[/yellow]")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="FluxTuner internet radio player")
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="Run the legacy numbered CLI instead of the Textual TUI.",
+    )
+    args = parser.parse_args()
+
+    try:
+        ensure_mpv_available()
+    except PlayerError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1) from exc
+
+    if args.cli:
+        run_cli()
+        return
+
+    try:
+        from fluxtuner.tui import run_tui
+    except ImportError as exc:
+        console.print(
+            "[red]Textual is required to run the TUI.[/red]\n"
+            "Install dependencies with: [bold]pip install -r requirements.txt[/bold]\n"
+            "Or run the legacy CLI with: [bold]python -m fluxtuner --cli[/bold]"
+        )
+        raise SystemExit(1) from exc
+
+    run_tui()
 
 
 if __name__ == "__main__":

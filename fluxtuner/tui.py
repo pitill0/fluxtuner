@@ -92,7 +92,7 @@ class FluxTunerTUI(App[None]):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("/", "focus_search", "Search"),
-        ("s", "focus_search", "Search"),
+        ("escape", "focus_station_list", "Results"),
         ("enter", "play_selected", "Play"),
         ("a", "add_selected", "Add"),
         ("f", "show_favorites", "Favorites"),
@@ -125,7 +125,7 @@ class FluxTunerTUI(App[None]):
                 yield Button("Play selected", id="play", variant="success")
                 yield Button("Add to favorites", id="add-favorite")
                 yield Button("Remove favorite", id="remove-favorite", variant="warning")
-        yield Static("Ready. Press '/' to search, 'f' for favorites, 'r' for random favorite.", id="status")
+        yield Static("Ready. Main list focused. Press '/' to search, 'f' for favorites, 'r' for random favorite.", id="status")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -136,7 +136,7 @@ class FluxTunerTUI(App[None]):
             self.exit(return_code=1)
             return
 
-        self.query_one("#query", Input).focus()
+        self.query_one("#stations", ListView).focus()
         self.update_now_playing()
 
     def on_unmount(self) -> None:
@@ -144,6 +144,11 @@ class FluxTunerTUI(App[None]):
 
     def action_focus_search(self) -> None:
         self.query_one("#query", Input).focus()
+        self.set_status("Search focused. Type a query and press Enter. Press Escape to return to the station list.")
+
+    def action_focus_station_list(self) -> None:
+        self.query_one("#stations", ListView).focus()
+        self.set_status("Station list focused. Use Enter to play, f for favorites, a to add, r for random.")
 
     async def action_show_favorites(self) -> None:
         await self.show_favorites()
@@ -233,6 +238,7 @@ class FluxTunerTUI(App[None]):
             return
 
         await self.populate_station_list(stations)
+        self.query_one("#stations", ListView).focus()
         self.set_status(f"Found {len(stations)} station(s) for: {query}")
 
     async def show_favorites(self) -> None:
@@ -244,6 +250,7 @@ class FluxTunerTUI(App[None]):
         self.selected_station = None
         self.update_details(None)
         await self.populate_station_list(favorites)
+        self.query_one("#stations", ListView).focus()
         self.set_status(f"Loaded {len(favorites)} favorite station(s).")
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:

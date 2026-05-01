@@ -24,7 +24,8 @@ class StationListItem(ListItem):
         codec = station.get("codec") or "?"
         bitrate = station.get("bitrate") or "?"
         tags = station.get("tags") or "no tags"
-        super().__init__(Label(f"{title}  •  {country}  •  {codec} {bitrate}kbps  •  {tags[:70]}"))
+        row = f"{title}  •  {country}  •  {codec} {bitrate}kbps  •  {tags[:80]}"
+        super().__init__(Label(row))
 
 
 class FluxTunerTUI(App[None]):
@@ -55,9 +56,22 @@ class FluxTunerTUI(App[None]):
 
     #side-panel {
         width: 1fr;
-        min-width: 34;
+        min-width: 38;
         border: solid $secondary;
         padding: 1;
+    }
+
+    #mode-title {
+        height: 1;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    #now-playing {
+        height: 7;
+        border: round $success;
+        padding: 1;
+        margin-bottom: 1;
     }
 
     #details {
@@ -77,10 +91,12 @@ class FluxTunerTUI(App[None]):
 
     BINDINGS = [
         ("q", "quit", "Quit"),
+        ("/", "focus_search", "Search"),
         ("s", "focus_search", "Search"),
         ("enter", "play_selected", "Play"),
-        ("a", "add_selected", "Add favorite"),
+        ("a", "add_selected", "Add"),
         ("f", "show_favorites", "Favorites"),
+        ("d", "remove_selected", "Delete fav"),
         ("r", "play_random_favorite", "Random"),
         ("x", "stop", "Stop"),
     ]
@@ -89,6 +105,7 @@ class FluxTunerTUI(App[None]):
         super().__init__()
         self.player = MpvController()
         self.selected_station: dict[str, Any] | None = None
+        self.playing_station: dict[str, Any] | None = None
         self.view_mode = "search"
 
     def compose(self) -> ComposeResult:
@@ -102,11 +119,13 @@ class FluxTunerTUI(App[None]):
         with Horizontal(id="content"):
             yield ListView(id="stations")
             with Vertical(id="side-panel"):
+                yield Static("Search", id="mode-title")
+                yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
                 yield Static("No station selected.", id="details")
                 yield Button("Play selected", id="play", variant="success")
                 yield Button("Add to favorites", id="add-favorite")
                 yield Button("Remove favorite", id="remove-favorite", variant="warning")
-        yield Static("Ready. Press 's' to search, 'f' for favorites, 'r' for random favorite.", id="status")
+        yield Static("Ready. Press '/' to search, 'f' for favorites, 'r' for random favorite.", id="status")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -118,6 +137,7 @@ class FluxTunerTUI(App[None]):
             return
 
         self.query_one("#query", Input).focus()
+        self.update_now_playing()
 
     def on_unmount(self) -> None:
         self.player.stop()
@@ -133,6 +153,9 @@ class FluxTunerTUI(App[None]):
 
     def action_add_selected(self) -> None:
         self.add_selected_to_favorites()
+
+    async def action_remove_selected(self) -> None:
+        await self.remove_selected_from_favorites()
 
     def action_play_random_favorite(self) -> None:
         self.play_random_favorite()
@@ -171,13 +194,7 @@ class FluxTunerTUI(App[None]):
 
     @on(Button.Pressed, "#remove-favorite")
     async def remove_favorite_from_button(self) -> None:
-        if not self.selected_station:
-            self.set_status("No station selected.")
-            return
-        remove_favorite(self.selected_station["url"])
-        self.set_status(f"Removed favorite: {self.selected_station['name']}")
-        if self.view_mode == "favorites":
-            await self.show_favorites()
+        await self.remove_selected_from_favorites()
 
     @on(ListView.Highlighted, "#stations")
     def station_highlighted(self, event: ListView.Highlighted) -> None:
@@ -201,6 +218,7 @@ class FluxTunerTUI(App[None]):
             return
 
         self.view_mode = "search"
+        self.update_mode_title("Search results")
         self.set_status(f"Searching: {query} ...")
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
@@ -219,7 +237,8 @@ class FluxTunerTUI(App[None]):
 
     async def show_favorites(self) -> None:
         self.view_mode = "favorites"
-        favorites = load_favorites()
+        self.update_mode_title("Favorites")
+        favorites = sorted(load_favorites(), key=lambda item: item.get("name", "").lower())
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
@@ -259,10 +278,14 @@ class FluxTunerTUI(App[None]):
             self.notify(f"Playback failed: {exc}", severity="error")
             return
 
+        self.playing_station = self.selected_station
+        self.update_now_playing()
         self.set_status(f"Playing: {self.selected_station['name']}")
 
     def stop_playback(self) -> None:
         self.player.stop()
+        self.playing_station = None
+        self.update_now_playing()
         self.set_status("Playback stopped.")
 
     def add_selected_to_favorites(self) -> None:
@@ -271,6 +294,17 @@ class FluxTunerTUI(App[None]):
             return
         add_favorite(self.selected_station)
         self.set_status(f"Saved favorite: {self.selected_station['name']}")
+
+    async def remove_selected_from_favorites(self) -> None:
+        if not self.selected_station:
+            self.set_status("No station selected.")
+            return
+
+        remove_favorite(self.selected_station["url"])
+        self.set_status(f"Removed favorite: {self.selected_station['name']}")
+
+        if self.view_mode == "favorites":
+            await self.show_favorites()
 
     def play_random_favorite(self) -> None:
         favorites = load_favorites()
@@ -284,10 +318,11 @@ class FluxTunerTUI(App[None]):
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)
         if not station:
-            details.update("No station selected.")
+            details.update("[b]Selected Station[/b]\nNo station selected.")
             return
 
         details.update(
+            "[b]Selected Station[/b]\n\n"
             "[b]{}[/b]\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}\nTags: {}\nHomepage: {}".format(
                 station.get("name", "Unknown station"),
                 station.get("country", "Unknown"),
@@ -298,6 +333,27 @@ class FluxTunerTUI(App[None]):
                 station.get("homepage") or "?",
             )
         )
+
+    def update_now_playing(self) -> None:
+        now_playing = self.query_one("#now-playing", Static)
+        if not self.playing_station or not self.player.is_playing():
+            now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
+            return
+
+        station = self.playing_station
+        now_playing.update(
+            "[b]Now Playing[/b]\n"
+            "▶ {}\n"
+            "{} • {} kbps • {}".format(
+                station.get("name", "Unknown station"),
+                station.get("country", "Unknown"),
+                station.get("bitrate") or "?",
+                station.get("codec") or "?",
+            )
+        )
+
+    def update_mode_title(self, title: str) -> None:
+        self.query_one("#mode-title", Static).update(title)
 
     def set_status(self, message: str) -> None:
         self.query_one("#status", Static).update(message)

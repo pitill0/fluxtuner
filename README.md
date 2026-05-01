@@ -1,54 +1,69 @@
 # FluxTuner
 
-**FluxTuner** is a lightweight internet radio player for the terminal, powered by Python and `mpv`.
+FluxTuner is a terminal internet radio player powered by Python, Textual and `mpv`.
 
-The goal is to start with a clean CLI foundation and evolve into a full TUI application with search, favorites, random playback, and later GUI-friendly architecture.
+It provides a comfortable TUI for searching public radio stations, playing streams, managing favorites and starting a random favorite station.
 
 ## Features
 
-- Search internet radio stations by name
-- Play streams using `mpv`
-- Validate `mpv` availability at startup
-- Save favorite stations locally
-- Play a random favorite station
-- Modular Python structure, ready to grow into a TUI
+- Search internet radio stations by name or genre/tag.
+- Play stations through `mpv`.
+- Textual-based terminal UI.
+- Favorites stored locally in JSON.
+- Random favorite playback.
+- Non-blocking playback controller for TUI usage.
+- Early `mpv` availability check.
 
 ## Requirements
 
-System dependencies:
+- Python 3.11+
+- `mpv` installed and available in `PATH`
+
+Install `mpv` with your system package manager, for example:
 
 ```bash
-mpv
-python3.11+
-```
-
-FluxTuner checks for `mpv` at startup and exits with a clear error message if it is not available in `PATH`.
-
-Example installation:
-
-```bash
-# Debian/Ubuntu
 sudo apt install mpv
-
-# macOS
-brew install mpv
 ```
 
-Python dependencies:
+On non-systemd or custom desktop sessions, make sure your audio stack is running before starting FluxTuner.
+
+## Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Quick start
+## Run the TUI
 
 ```bash
-git clone <your-repo-url>
-cd fluxtuner
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
 python -m fluxtuner
+```
+
+## Run the legacy CLI
+
+```bash
+python -m fluxtuner --cli
+```
+
+## TUI shortcuts
+
+| Key | Action |
+| --- | --- |
+| `/` or `s` | Focus search input |
+| `Enter` | Play selected station |
+| `a` | Add selected station to favorites |
+| `f` | Show favorites |
+| `d` | Remove selected favorite |
+| `r` | Play random favorite |
+| `x` | Stop playback |
+| `q` | Quit |
+
+## Favorites file
+
+Favorites are stored at:
+
+```text
+~/.fluxtuner_favorites.json
 ```
 
 ## Project structure
@@ -56,36 +71,17 @@ python -m fluxtuner
 ```text
 fluxtuner/
 ├── fluxtuner/
-│   ├── __init__.py
 │   ├── __main__.py
+│   ├── tui.py
 │   └── core/
-│       ├── __init__.py
 │       ├── api.py
 │       ├── favorites.py
 │       └── player.py
-├── README.md
 ├── requirements.txt
-└── .gitignore
+├── pyproject.toml
+└── README.md
 ```
 
-## Roadmap
+## Notes
 
-- [x] CLI MVP
-- [x] Search stations
-- [x] Favorites
-- [x] Random favorite
-- [x] Startup dependency check for `mpv`
-- [ ] Search by genre/tag
-- [ ] Search by country
-- [ ] Better station detail view
-- [ ] Textual-based TUI
-- [ ] Config file support
-- [ ] Export/import favorites
-
-## Data source
-
-FluxTuner uses the public Radio Browser API to discover internet radio stations.
-
-## License
-
-Pending.
+FluxTuner uses the public Radio Browser API for station discovery.

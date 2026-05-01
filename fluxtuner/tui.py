@@ -89,7 +89,7 @@ class FluxTunerTUI(App[None]):
         super().__init__()
         self.player = MpvController()
         self.selected_station: dict[str, Any] | None = None
-        self.current_mode = "search"
+        self.view_mode = "search"
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -176,7 +176,7 @@ class FluxTunerTUI(App[None]):
             return
         remove_favorite(self.selected_station["url"])
         self.set_status(f"Removed favorite: {self.selected_station['name']}")
-        if self.current_mode == "favorites":
+        if self.view_mode == "favorites":
             await self.show_favorites()
 
     @on(ListView.Highlighted, "#stations")
@@ -200,7 +200,7 @@ class FluxTunerTUI(App[None]):
             self.set_status("Type a station name or genre/tag first.")
             return
 
-        self.current_mode = "search"
+        self.view_mode = "search"
         self.set_status(f"Searching: {query} ...")
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
@@ -218,7 +218,7 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"Found {len(stations)} station(s) for: {query}")
 
     async def show_favorites(self) -> None:
-        self.current_mode = "favorites"
+        self.view_mode = "favorites"
         favorites = load_favorites()
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()

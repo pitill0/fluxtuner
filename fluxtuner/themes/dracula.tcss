@@ -25,7 +25,7 @@ Screen {
 
 #side-panel {
     width: 1fr;
-    min-width: 38;
+    min-width: 44;
     border: solid #ff79c6;
     padding: 1;
     background: #343746;
@@ -39,8 +39,8 @@ Screen {
 }
 
 #now-playing {
-    height: 10;
-    min-height: 10;
+    height: 12;
+    min-height: 12;
     width: 100%;
     border: round #50fa7b;
     padding: 1;

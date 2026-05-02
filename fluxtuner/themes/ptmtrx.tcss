@@ -53,7 +53,7 @@ ListView > ListItem.--highlight Label {
 
 #side-panel {
     width: 1fr;
-    min-width: 38;
+    min-width: 44;
     border: solid #58d68d;
     padding: 1;
     background: #1B1D1E;
@@ -67,8 +67,8 @@ ListView > ListItem.--highlight Label {
 }
 
 #now-playing {
-    height: 10;
-    min-height: 10;
+    height: 12;
+    min-height: 12;
     width: 100%;
     border: round #A6E22E;
     padding: 1;

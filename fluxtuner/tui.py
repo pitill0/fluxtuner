@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -570,12 +571,50 @@ class FluxTunerTUI(App[None]):
             "Preview is applied automatically while browsing."
         )
 
+    def _side_panel_text_width(self) -> int:
+        """Estimate usable text width for the right panel.
+
+        The right panel is roughly one third of the content area. Keeping this
+        adaptive avoids long station names taking over the whole Now Playing box
+        on smaller terminals.
+        """
+        try:
+            terminal_width = int(self.size.width)
+        except Exception:
+            terminal_width = 120
+
+        # Subtract borders/padding and clamp to sensible limits.
+        estimated = (terminal_width // 3) - 8
+        return max(24, min(56, estimated))
+
+    @staticmethod
+    def _ellipsize(value: str, max_length: int) -> str:
+        value = " ".join(str(value or "").split())
+        if len(value) <= max_length:
+            return value
+        if max_length <= 1:
+            return "…"
+        return value[: max_length - 1].rstrip() + "…"
+
+    def _wrap_short(self, value: str, width: int, max_lines: int = 2) -> str:
+        value = " ".join(str(value or "").split())
+        if not value:
+            return "?"
+
+        lines = textwrap.wrap(value, width=max(12, width), break_long_words=False, replace_whitespace=True)
+        if not lines:
+            return "?"
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines[-1] = self._ellipsize(lines[-1], max(12, width))
+        return "\n".join(lines)
+
     def ensure_now_playing_layout(self) -> None:
         """Keep the Now Playing panel readable across themes and terminal sizes."""
         try:
             now_playing = self.query_one("#now-playing", Static)
-            now_playing.styles.height = 10
-            now_playing.styles.min_height = 10
+            now_playing.styles.height = 12
+            now_playing.styles.min_height = 12
             now_playing.styles.width = "100%"
             now_playing.styles.padding = (1, 2)
             now_playing.styles.content_align = ("left", "top")
@@ -622,17 +661,21 @@ class FluxTunerTUI(App[None]):
         volume_label = f"{int(round(volume))}%" if isinstance(volume, (int, float)) else "?"
         tags = station.get("tags") or "no tags"
 
-        name = station.get("name", "Unknown station")
-        country = station.get("country") or "Unknown country"
+        width = self._side_panel_text_width()
+        name = self._wrap_short(station.get("name", "Unknown station"), width=width, max_lines=2)
+        country = self._ellipsize(station.get("country") or "Unknown country", max(18, width // 2))
         bitrate = station.get("bitrate") or "?"
         codec = station.get("codec") or "?"
+        tags_line = self._ellipsize(tags, max(32, width + 10))
 
         now_playing.update(
             "[b]Now Playing[/b]\n"
-            f"{status_icon} [b]{name}[/b]\n"
+            f"{status_icon} {status_label} • Vol {volume_label} • {mute_label}\n"
+            "[b]Station[/b]\n"
+            f"{name}\n"
+            "[b]Info[/b]\n"
             f"{country} • {bitrate} kbps • {codec}\n"
-            f"Volume: {volume_label} • {status_label} • {mute_label}\n"
-            f"Tags: {tags[:95]}"
+            f"[b]Tags[/b] {tags_line}"
         )
 
     def update_mode_title(self, title: str) -> None:

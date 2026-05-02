@@ -38,7 +38,7 @@ Footer {
 
 #side-panel {
     width: 1fr;
-    min-width: 38;
+    min-width: 44;
     border: solid #38bdf8;
     padding: 1;
     background: #111827;
@@ -52,8 +52,8 @@ Footer {
 }
 
 #now-playing {
-    height: 10;
-    min-height: 10;
+    height: 12;
+    min-height: 12;
     width: 100%;
     border: round #22c55e;
     padding: 1;

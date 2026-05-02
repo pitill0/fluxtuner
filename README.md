@@ -2,7 +2,7 @@
 
 FluxTuner is a terminal internet radio player powered by Python, Textual and `mpv`.
 
-It provides a comfortable TUI for searching internet radio stations, playing streams, managing favorites, launching a random favorite station and customizing the interface with themes.
+It provides a comfortable TUI for searching internet radio stations, playing streams, managing favorites, launching random stations, using tag-based dynamic playlists and customizing the interface with themes.
 
 ## Features
 
@@ -14,6 +14,8 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Persistent favorites with custom names and user tags
 - Random favorite playback
 - Favorite tag filtering
+- Tag-based dynamic playlists
+- Smart Play random station from a selected tag playlist
 - Favorites import/export
 - Recently played history
 - Configurable bundled themes
@@ -56,7 +58,7 @@ fluxtuner
 | --- | --- |
 | `/` | Focus search input |
 | `Escape` | Return focus to the main list |
-| `Enter` | Play selected station, or apply selected theme in theme mode |
+| `Enter` | Play selected station, smart play selected playlist, or apply selected theme in theme mode |
 | `a` | Add selected station to favorites |
 | `f` | Show favorites |
 | `h` | Show recently played history |
@@ -65,14 +67,14 @@ fluxtuner
 | `e` | Rename selected favorite |
 | `g` | Edit selected favorite tags |
 | `u` | Filter favorites by user tag |
-| `r` | Play random favorite |
+| `r` | Play random favorite, or smart play the selected playlist in playlist mode |
+| `p` | Open dynamic playlists / Smart Play |
 | `Space` | Pause/resume playback |
 | `+` | Increase volume |
 | `-` | Decrease volume |
 | `m` | Toggle mute |
 | `x` | Stop playback |
 | `t` | Open theme selector |
-| `p` | Preview/apply selected theme |
 | `y` | Save active theme as default |
 | `q` | Quit |
 
@@ -140,6 +142,21 @@ Import favorites:
 ```bash
 python -m fluxtuner --import-favs favorites-backup.json
 ```
+
+## Dynamic playlists and Smart Play
+
+FluxTuner automatically creates dynamic playlists from favorite tags. For example, favorites tagged with `work` become the `#work` playlist, and favorites tagged with `focus` become the `#focus` playlist.
+
+From the TUI:
+
+| Key | Action |
+| --- | --- |
+| `p` | Open dynamic playlists |
+| `Enter` | Smart Play a random station from the selected playlist |
+| `r` | Smart Play the selected playlist while in playlist mode |
+| `f` | Show the favorites matching the selected playlist tag |
+
+Dynamic playlists are not stored separately. They are generated from favorite tags, so editing tags with `g` updates playlists immediately.
 
 ## History
 
@@ -245,7 +262,7 @@ t
 While browsing themes:
 
 - Highlighting a theme previews it immediately.
-- `Enter` or `p` applies/previews the selected theme.
+- `Enter` applies/previews the selected theme.
 - `y` saves the current active theme as the default.
 
 ## Creating a custom theme

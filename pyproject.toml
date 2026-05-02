@@ -1,20 +1,62 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fluxtuner"
-version = "0.4.0"
-description = "Terminal internet radio player powered by Python, Textual and mpv"
+version = "0.1.0"
+description = "A themeable terminal internet radio player powered by Textual and mpv."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "FluxTuner contributors" }
+]
+keywords = [
+    "radio",
+    "internet-radio",
+    "terminal",
+    "tui",
+    "textual",
+    "mpv",
+    "music",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Console :: Curses",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Players",
+]
 dependencies = [
     "requests>=2.31.0",
     "rich>=13.7.0",
     "textual>=0.80.0",
 ]
 
+[project.urls]
+Homepage = "https://example.com/fluxtuner"
+Repository = "https://example.com/fluxtuner"
+Issues = "https://example.com/fluxtuner/issues"
+
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"
+
+[tool.setuptools]
+packages = ["fluxtuner", "fluxtuner.core"]
+include-package-data = true
 
 [tool.setuptools.package-data]
 fluxtuner = ["themes/*.tcss"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

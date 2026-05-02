@@ -1,34 +1,28 @@
 # FluxTuner
 
-FluxTuner is a terminal internet radio player powered by Python, Textual and `mpv`.
+**FluxTuner** is a themeable terminal internet radio player powered by Python, Textual and `mpv`.
 
-It provides a comfortable TUI for searching internet radio stations, playing streams, managing favorites, launching random stations, using tag-based dynamic playlists and customizing the interface with themes.
+It is designed for people who live in the terminal but still want a comfortable, keyboard-first music/radio experience: search stations, play streams, manage favorites, create playlists, switch themes and control playback without leaving your shell.
 
-## Features
+> Status: `v0.1.0` release candidate / alpha.
+
+## Highlights
 
 - Textual-based terminal UI
-- Search stations by name or genre/tag
-- Live search with debounce while typing
-- Filter searches by country and minimum bitrate
-- Play streams with `mpv`
+- Search internet radio stations by name, genre/tag, country and minimum bitrate
+- Live search with debounce and local cache
+- Playback via `mpv`
+- Smooth stream switching through `mpv` JSON IPC
+- Pause, mute and volume controls from the TUI
 - Persistent favorites with custom names and user tags
-- Random favorite playback
-- Favorite tag filtering
-- Persistent playlists stored locally
-- Add favorites to playlists from the TUI
-- Tag-based dynamic playlists
-- Smart Play random station from a selected persistent or tag playlist
-- Favorites import/export
 - Recently played history
-- Configurable bundled themes
+- Dynamic playlists generated from favorite tags
+- Persistent manual playlists
+- Smart Play: random station from a selected playlist
+- Theme system with bundled themes and in-app preview/save flow
 - Theme-aware buttons, footer shortcuts and control states
-- In-app theme selector
-- Theme preview while browsing themes
-- mpv JSON IPC controls for pause, mute, volume and smooth stream switching
-- Richer Now Playing panel with status, visual volume bar and mute state
-- Active station marker in station, favorites and history lists
-- Local search cache for repeated/live searches
-- Restores last station, volume and mute preferences
+- Active station marker and visual volume bar
+- Import/export helpers for favorites and playlists
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -36,22 +30,49 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Python 3.11+
 - `mpv` installed and available in `PATH`
 
-## Install dependencies
+FluxTuner checks for `mpv` at startup and exits with a clear error if it is missing.
+
+## Installation
+
+### Development install
 
 ```bash
-pip install -r requirements.txt
+git clone <your-repo-url> fluxtuner
+cd fluxtuner
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+fluxtuner
 ```
 
-## Run
+### pipx-style install from a local checkout
+
+```bash
+pipx install .
+fluxtuner
+```
+
+### Run without installing
 
 ```bash
 python -m fluxtuner
 ```
 
-Or, after installing the package:
+## Quick start
 
 ```bash
 fluxtuner
+```
+
+Useful commands:
+
+```bash
+fluxtuner --help
+fluxtuner --version
+fluxtuner --list-themes
+fluxtuner --theme nord
+fluxtuner --save-theme ptmtrx
+fluxtuner --clear-cache
 ```
 
 ## Keyboard shortcuts
@@ -62,16 +83,16 @@ fluxtuner
 | `Escape` | Return focus to the main list |
 | `Enter` | Play selected station, smart play selected playlist, or apply selected theme in theme mode |
 | `a` | Add selected station to favorites |
-| `f` | Show favorites |
+| `f` | Show favorites, or show stations for the selected playlist in playlist mode |
 | `h` | Show recently played history |
 | `l` | Play last restored station |
-| `d` | Remove selected favorite |
+| `d` | Remove selected favorite, delete playlist, or remove station from opened playlist |
 | `e` | Rename selected favorite |
 | `g` | Edit selected favorite tags |
 | `u` | Filter favorites by user tag |
 | `b` | Add selected station/favorite to a persistent playlist |
 | `n` | Create a new persistent playlist |
-| `r` | Play random favorite, or smart play the selected playlist in playlist mode |
+| `r` | Play random favorite, or smart play selected playlist in playlist mode |
 | `p` | Open playlists / Smart Play |
 | `Space` | Pause/resume playback |
 | `+` | Increase volume |
@@ -82,29 +103,11 @@ fluxtuner
 | `y` | Save active theme as default |
 | `q` | Quit |
 
-## Search behavior
+## Search
 
-FluxTuner starts a live search automatically once the query has at least 3 characters.
-For shorter searches, type the query and press `Enter`.
+FluxTuner starts a live search automatically once the query has at least 3 characters. For shorter searches, type the query and press `Enter`.
 
-Searches are debounced, so FluxTuner waits briefly while you type before calling the Radio Browser API. Repeated searches are cached locally for a short period to keep live search fast and reduce unnecessary API calls.
-
-
-## Search cache
-
-FluxTuner stores repeated search results in a local cache:
-
-```text
-~/.cache/fluxtuner/search_cache.json
-```
-
-The cache is transparent in normal use. To clear it manually:
-
-```bash
-python -m fluxtuner --clear-cache
-```
-
-## Search filters
+Searches are debounced and cached locally so repeated/live searches stay fast and avoid unnecessary API calls.
 
 The TUI includes optional filters below the search bar:
 
@@ -112,7 +115,6 @@ The TUI includes optional filters below the search bar:
 - `Min kbps`: filters out stations below the selected bitrate.
 
 Use `Clear filters` to reset both fields.
-
 
 ## Favorites
 
@@ -123,7 +125,7 @@ From the TUI:
 | Key | Action |
 | --- | --- |
 | `f` | Open favorites |
-| `a` | Add the selected station to favorites |
+| `a` | Add selected station to favorites |
 | `d` | Remove selected favorite |
 | `e` | Rename selected favorite |
 | `g` | Edit comma-separated favorite tags |
@@ -135,16 +137,9 @@ When editing a favorite name or tags, FluxTuner reuses the search input as a sma
 
 ### Import / export favorites
 
-Export favorites:
-
 ```bash
-python -m fluxtuner --export-favs favorites-backup.json
-```
-
-Import favorites:
-
-```bash
-python -m fluxtuner --import-favs favorites-backup.json
+fluxtuner --export-favs favorites-backup.json
+fluxtuner --import-favs favorites-backup.json
 ```
 
 ## Playlists and Smart Play
@@ -172,132 +167,49 @@ Dynamic playlists are not stored separately. They are generated from favorite ta
 
 ### Import / export persistent playlists
 
-Export playlists:
-
 ```bash
-python -m fluxtuner --export-playlists playlists-backup.json
-```
-
-Import playlists:
-
-```bash
-python -m fluxtuner --import-playlists playlists-backup.json
-```
-
-## History
-
-FluxTuner stores recently played stations locally and shows them with `h` from the TUI.
-
-History is stored in:
-
-```text
-~/.fluxtuner_history.json
-```
-
-Persistent playlists are stored in:
-
-```text
-~/.fluxtuner_playlists.json
-```
-
-Each repeated play updates the station timestamp and increases its `play_count`.
-
-## Now Playing and active station
-
-FluxTuner marks the station currently playing in the visible list with a `▶` marker.
-This works in search results, favorites and history when the current station is present in that list.
-
-The Now Playing panel also shows a compact visual volume bar, playback state, mute state, bitrate, codec, country and tags.
-
-
-## Playback state restore
-
-FluxTuner remembers:
-
-- the last played station
-- the last known volume
-- mute state
-
-On startup, the last station is shown in the Now Playing panel and can be played with `l`. FluxTuner does **not** autoplay on launch. When playback starts, the saved volume and mute state are applied to the new `mpv` session.
-
-Playback state is stored in:
-
-```text
-~/.config/fluxtuner/config.json
+fluxtuner --export-playlists playlists-backup.json
+fluxtuner --import-playlists playlists-backup.json
 ```
 
 ## Themes
 
-Bundled themes live in:
+Bundled themes live in `fluxtuner/themes/`.
 
-```text
-fluxtuner/themes/
-```
-
-Available themes:
+List themes:
 
 ```bash
-python -m fluxtuner --list-themes
+fluxtuner --list-themes
 ```
 
-Run with a specific theme for this session:
+Run with a specific theme for one session:
 
 ```bash
-python -m fluxtuner --theme nord
-python -m fluxtuner --theme dracula
-python -m fluxtuner --theme amber
-python -m fluxtuner --theme ptmtrx
+fluxtuner --theme nord
+fluxtuner --theme dracula
+fluxtuner --theme amber
+fluxtuner --theme ptmtrx
 ```
 
-Save a theme as the default:
+Save a default theme:
 
 ```bash
-python -m fluxtuner --theme nord --save-theme
+fluxtuner --theme nord --save-theme
 ```
 
 This syntax is also supported:
 
 ```bash
-python -m fluxtuner --save-theme nord
+fluxtuner --save-theme nord
 ```
 
-The default config file is stored at:
-
-```text
-~/.config/fluxtuner/config.json
-```
-
-Example:
-
-```json
-{
-  "playback": {
-    "last_station": {
-      "name": "BBC Radio 1",
-      "url": "https://..."
-    },
-    "muted": false,
-    "volume": 70
-  },
-  "theme": "nord"
-}
-```
-
-## In-app theme selector
-
-Open the theme selector from the TUI:
-
-```text
-t
-```
-
-While browsing themes:
+Open the in-app selector with `t`:
 
 - Highlighting a theme previews it immediately.
 - `Enter` applies/previews the selected theme.
 - `y` saves the current active theme as the default.
 
-## Creating a custom theme
+### Creating a custom theme
 
 Create a new `.tcss` file inside `fluxtuner/themes/`, for example:
 
@@ -308,12 +220,8 @@ fluxtuner/themes/my-theme.tcss
 Then run:
 
 ```bash
-python -m fluxtuner --theme my-theme
+fluxtuner --theme my-theme
 ```
-
-Or open the in-app selector with `t` and preview it there.
-
-A theme is a Textual CSS file. The included themes are good starting points.
 
 FluxTuner themes can customize the main surface colors, station list, side panel, Now Playing panel, toolbar buttons, side action buttons and the footer shortcuts/help bar.
 
@@ -333,53 +241,25 @@ Footer .footer--key { ... }
 Footer .footer--description { ... }
 ```
 
-Button roles used by the TUI:
-
-- `.primary-button`: main actions such as Search and Add favorite.
-- `.secondary-button`: neutral actions such as Clear filters.
-- `.success-button`: Play.
-- `.warning-button`: Remove favorite.
-- `.danger-button`: Stop.
-
-When previewing themes in-app, FluxTuner also applies these button roles at runtime.
-
-## Legacy CLI
-
-```bash
-python -m fluxtuner --cli
-```
-
 ## Data files
 
-Favorites are stored in:
+FluxTuner stores local data in predictable user-level files:
 
-```text
-~/.fluxtuner_favorites.json
-```
+| Data | Path |
+| --- | --- |
+| Favorites | `~/.fluxtuner_favorites.json` |
+| Recently played history | `~/.fluxtuner_history.json` |
+| Persistent playlists | `~/.fluxtuner_playlists.json` |
+| Search cache | `~/.cache/fluxtuner/search_cache.json` |
+| Config / theme / playback state | `~/.config/fluxtuner/config.json` |
 
-Recently played history is stored in:
-
-```text
-~/.fluxtuner_history.json
-```
-
-Search cache is stored in:
-
-```text
-~/.cache/fluxtuner/search_cache.json
-```
-
-User configuration and playback state are stored in:
-
-```text
-~/.config/fluxtuner/config.json
-```
+FluxTuner remembers the last played station, volume and mute state, but it does **not** autoplay on launch. Use `l` to play the last restored station.
 
 ## mpv IPC controls
 
-FluxTuner starts `mpv` with its JSON IPC socket enabled in TUI mode. This allows the app to control the active playback session without killing and restarting the process for every action.
+In TUI mode, FluxTuner starts `mpv` with a JSON IPC socket. This allows it to control playback without killing the process for every action.
 
-Current TUI controls:
+Current controls:
 
 - `Space`: pause/resume
 - `+`: volume up
@@ -387,16 +267,55 @@ Current TUI controls:
 - `m`: mute/unmute
 - `x`: stop playback
 
-When a new station is selected while mpv is already running, FluxTuner uses `loadfile ... replace` over IPC instead of killing and restarting mpv. This makes stream switching smoother.
+When a new station is selected while `mpv` is already running, FluxTuner uses `loadfile ... replace` over IPC for smoother stream switching.
 
+## Legacy CLI
 
-## UI notes
+```bash
+fluxtuner --cli
+```
 
-- Toolbar and side-panel buttons use rounded borders, readable minimum sizes and theme-aware role colors.
-- The footer shortcut/help bar can be styled per theme with `Footer` selectors.
-- If your terminal is very narrow, increase the window width so the right action panel can keep labels visible.
+## Development
 
+Install dev dependencies:
 
-## v10 visual theming note
+```bash
+pip install -r requirements-dev.txt
+```
 
-Button colors, action roles and footer shortcut styling now live in theme files, so custom themes can control more of the TUI without Python changes.
+Useful commands:
+
+```bash
+make run
+make cli
+make themes
+make build
+```
+
+Build a wheel/sdist:
+
+```bash
+python -m build
+```
+
+## Release checklist
+
+Before tagging a release:
+
+```bash
+fluxtuner --version
+fluxtuner --help
+fluxtuner --list-themes
+python -m build
+```
+
+Then tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+## License
+
+MIT. See `LICENSE`.

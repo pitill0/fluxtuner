@@ -15,6 +15,7 @@ from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
+from fluxtuner import __version__
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
 
 console = Console()
@@ -145,6 +146,11 @@ def run_cli() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="FluxTuner internet radio player")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"FluxTuner {__version__}",
+    )
     parser.add_argument(
         "--cli",
         action="store_true",

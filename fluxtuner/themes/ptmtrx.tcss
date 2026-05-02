@@ -1,0 +1,115 @@
+/*
+ * FluxTuner theme: ptmtrx
+ * Adapted from a 24-bit fzf theme.
+ */
+
+Screen {
+    layout: vertical;
+    background: #1B1D1E;
+    color: #F8F8F2;
+}
+
+Header {
+    background: #293739;
+    color: #A6E22E;
+}
+
+Footer {
+    background: #293739;
+    color: #7E8E91;
+}
+
+#toolbar {
+    height: 3;
+    padding: 0 1;
+    background: #293739;
+}
+
+#query {
+    width: 1fr;
+    border: round #58d68d;
+}
+
+#content {
+    height: 1fr;
+}
+
+#stations {
+    width: 2fr;
+    border: solid #58d68d;
+    background: #1B1D1E;
+    color: #F8F8F2;
+}
+
+ListView > ListItem.--highlight {
+    background: #293739;
+    color: #F8F8F2;
+}
+
+ListView > ListItem.--highlight Label {
+    color: #F8F8F2;
+    text-style: bold;
+}
+
+#side-panel {
+    width: 1fr;
+    min-width: 38;
+    border: solid #58d68d;
+    padding: 1;
+    background: #1B1D1E;
+}
+
+#mode-title {
+    height: 1;
+    text-style: bold;
+    margin-bottom: 1;
+    color: #A6E22E;
+}
+
+#now-playing {
+    height: 7;
+    border: round #A6E22E;
+    padding: 1;
+    margin-bottom: 1;
+    color: #A6E22E;
+}
+
+#details {
+    height: 1fr;
+    margin-bottom: 1;
+    color: #F8F8F2;
+}
+
+#status {
+    height: 3;
+    padding: 0 1;
+    background: #293739;
+    color: #7E8E91;
+}
+
+Button {
+    margin-left: 1;
+    background: #293739;
+    color: #F8F8F2;
+    border: tall #58d68d;
+}
+
+Button.-primary {
+    background: #58d68d;
+    color: #1B1D1E;
+}
+
+Button.-success {
+    background: #A6E22E;
+    color: #1B1D1E;
+}
+
+Button.-warning {
+    background: #f4d03f;
+    color: #1B1D1E;
+}
+
+Button.-error {
+    background: #F92672;
+    color: #F8F8F2;
+}

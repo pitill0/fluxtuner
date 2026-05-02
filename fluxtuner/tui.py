@@ -359,7 +359,8 @@ class FluxTunerTUI(App[None]):
             return
 
         await self.populate_station_list(stations)
-        self.query_one("#stations", ListView).focus()
+        if not live:
+            self.query_one("#stations", ListView).focus()
         filters = []
         country = self.query_one("#country-filter", Input).value.strip()
         min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()

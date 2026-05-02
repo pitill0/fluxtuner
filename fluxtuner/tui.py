@@ -23,15 +23,26 @@ from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_e
 class StationListItem(ListItem):
     """List item that stores the station represented by the row."""
 
-    def __init__(self, station: dict[str, Any]) -> None:
+    def __init__(self, station: dict[str, Any], active: bool = False) -> None:
         self.station = station
+        self.active = active
+        self.label = Label(self.format_row(station, active))
+        super().__init__(self.label)
+
+    @staticmethod
+    def format_row(station: dict[str, Any], active: bool = False) -> str:
         title = station.get("name", "Unknown station")
         country = station.get("country", "Unknown")
         codec = station.get("codec") or "?"
         bitrate = station.get("bitrate") or "?"
         tags = station.get("tags") or "no tags"
-        row = f"{title}  •  {country}  •  {codec} {bitrate}kbps  •  {tags[:80]}"
-        super().__init__(Label(row))
+        marker = "▶ " if active else "  "
+        row = f"{marker}{title}  •  {country}  •  {codec} {bitrate}kbps  •  {tags[:80]}"
+        return f"[b]{row}[/b]" if active else row
+
+    def set_active(self, active: bool) -> None:
+        self.active = active
+        self.label.update(self.format_row(self.station, active))
 
 
 class ThemeListItem(ListItem):
@@ -428,8 +439,9 @@ class FluxTunerTUI(App[None]):
             await list_view.append(ListItem(Label("No stations available.")))
             return
 
+        current_url = self.current_station_url()
         for station in stations:
-            await list_view.append(StationListItem(station))
+            await list_view.append(StationListItem(station, active=self.station_url(station) == current_url))
 
         list_view.index = 0
         first = list_view.children[0]
@@ -446,7 +458,7 @@ class FluxTunerTUI(App[None]):
             self.set_status("No station selected.")
             return
 
-        url = self.selected_station.get("url")
+        url = self.station_url(self.selected_station)
         if not url:
             self.set_status("Selected station has no playable URL.")
             return
@@ -461,12 +473,14 @@ class FluxTunerTUI(App[None]):
         self.playing_station = self.selected_station
         add_history(self.selected_station)
         self.update_now_playing()
+        self.refresh_active_station_marker()
         self.set_status(f"Playing: {self.selected_station['name']}")
 
     def stop_playback(self) -> None:
         self.player.stop()
         self.playing_station = None
         self.update_now_playing()
+        self.refresh_active_station_marker()
         self.set_status("Playback stopped.")
 
     def add_selected_to_favorites(self) -> None:
@@ -571,6 +585,31 @@ class FluxTunerTUI(App[None]):
             "Preview is applied automatically while browsing."
         )
 
+    def station_url(self, station: dict[str, Any] | None) -> str | None:
+        if not station:
+            return None
+        return station.get("url_resolved") or station.get("url")
+
+    def current_station_url(self) -> str | None:
+        return self.station_url(self.playing_station)
+
+    def refresh_active_station_marker(self) -> None:
+        """Update visible rows so the currently playing station is clearly marked."""
+        list_view = self.query_one("#stations", ListView)
+        current_url = self.current_station_url()
+        for item in list_view.children:
+            if isinstance(item, StationListItem):
+                item.set_active(self.station_url(item.station) == current_url)
+
+    @staticmethod
+    def volume_bar(volume: int | float | None, width: int = 10) -> str:
+        """Return a compact visual volume bar for the Now Playing panel."""
+        if not isinstance(volume, (int, float)):
+            return "░" * width
+        safe_volume = max(0, min(100, int(round(volume))))
+        filled = int(round((safe_volume / 100) * width))
+        return "█" * filled + "░" * (width - filled)
+
     def _side_panel_text_width(self) -> int:
         """Estimate usable text width for the right panel.
 
@@ -658,7 +697,9 @@ class FluxTunerTUI(App[None]):
             status_label = "Playing"
 
         mute_label = "muted" if muted else "sound on"
-        volume_label = f"{int(round(volume))}%" if isinstance(volume, (int, float)) else "?"
+        volume_value = int(round(volume)) if isinstance(volume, (int, float)) else None
+        volume_label = f"{volume_value}%" if volume_value is not None else "?"
+        volume_bar = self.volume_bar(volume_value, width=10)
         tags = station.get("tags") or "no tags"
 
         width = self._side_panel_text_width()
@@ -670,7 +711,8 @@ class FluxTunerTUI(App[None]):
 
         now_playing.update(
             "[b]Now Playing[/b]\n"
-            f"{status_icon} {status_label} • Vol {volume_label} • {mute_label}\n"
+            f"{status_icon} {status_label} • {mute_label}\n"
+            f"Volume {volume_bar} {volume_label}\n"
             "[b]Station[/b]\n"
             f"{name}\n"
             "[b]Info[/b]\n"

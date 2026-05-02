@@ -19,7 +19,8 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - In-app theme selector
 - Theme preview while browsing themes
 - mpv JSON IPC controls for pause, mute, volume and smooth stream switching
-- Richer Now Playing panel with status, volume and mute state
+- Richer Now Playing panel with status, visual volume bar and mute state
+- Active station marker in station, favorites and history lists
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -94,6 +95,13 @@ History is stored in:
 ```
 
 Each repeated play updates the station timestamp and increases its `play_count`.
+
+## Now Playing and active station
+
+FluxTuner marks the station currently playing in the visible list with a `▶` marker.
+This works in search results, favorites and history when the current station is present in that list.
+
+The Now Playing panel also shows a compact visual volume bar, playback state, mute state, bitrate, codec, country and tags.
 
 ## Themes
 

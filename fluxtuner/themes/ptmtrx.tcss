@@ -1,6 +1,6 @@
 /*
  * FluxTuner theme: ptmtrx
- * Adapted from a 24-bit fzf theme.
+ * Buttons, shortcuts and panels are theme-aware.
  */
 
 Screen {
@@ -11,12 +11,27 @@ Screen {
 
 Header {
     background: #293739;
-    color: #A6E22E;
+    color: #58d68d;
 }
 
 Footer {
     background: #293739;
     color: #7E8E91;
+}
+
+Footer .footer--key {
+    background: #58d68d;
+    color: #1B1D1E;
+    text-style: bold;
+}
+
+Footer .footer--description {
+    color: #F8F8F2;
+}
+
+Footer .footer--highlight {
+    background: #243033;
+    color: #F8F8F2;
 }
 
 #toolbar {
@@ -25,9 +40,37 @@ Footer {
     background: #293739;
 }
 
+#filters {
+    height: 3;
+    padding: 0 1;
+    background: #293739;
+}
+
 #query {
     width: 1fr;
     border: round #58d68d;
+    background: #1B1D1E;
+    color: #F8F8F2;
+}
+
+#country-filter {
+    width: 24;
+    border: round #58d68d;
+    background: #1B1D1E;
+    color: #F8F8F2;
+}
+
+#bitrate-filter {
+    width: 14;
+    border: round #58d68d;
+    background: #1B1D1E;
+    color: #F8F8F2;
+}
+
+.filter-label {
+    width: 10;
+    content-align: right middle;
+    color: #58d68d;
 }
 
 #content {
@@ -56,14 +99,14 @@ ListView > ListItem.--highlight Label {
     min-width: 44;
     border: solid #58d68d;
     padding: 1;
-    background: #1B1D1E;
+    background: #293739;
 }
 
 #mode-title {
     height: 1;
     text-style: bold;
     margin-bottom: 1;
-    color: #A6E22E;
+    color: #58d68d;
 }
 
 #now-playing {
@@ -74,6 +117,7 @@ ListView > ListItem.--highlight Label {
     padding: 1;
     margin-bottom: 1;
     color: #A6E22E;
+    background: #1B1D1E;
 }
 
 #details {
@@ -91,51 +135,19 @@ ListView > ListItem.--highlight Label {
 
 Button {
     margin-left: 1;
-    background: #293739;
+    background: #243033;
     color: #F8F8F2;
-    border: tall #58d68d;
+    border: round #58d68d;
 }
 
-Button.-primary {
+Button:focus {
+    text-style: bold;
+    border: heavy #58d68d;
+}
+
+Button:hover {
     background: #58d68d;
     color: #1B1D1E;
-}
-
-Button.-success {
-    background: #A6E22E;
-    color: #1B1D1E;
-}
-
-Button.-warning {
-    background: #f4d03f;
-    color: #1B1D1E;
-}
-
-Button.-error {
-    background: #F92672;
-    color: #F8F8F2;
-}
-
-#filters {
-    height: 3;
-    padding: 0 1;
-    background: #111827;
-}
-
-#country-filter {
-    width: 24;
-    border: round #60a5fa;
-}
-
-#bitrate-filter {
-    width: 14;
-    border: round #60a5fa;
-}
-
-.filter-label {
-    width: 10;
-    content-align: right middle;
-    color: #93c5fd;
 }
 
 .toolbar-button {
@@ -143,7 +155,9 @@ Button.-error {
     min-width: 10;
     height: 3;
     padding: 0 1;
-    border: round #60a5fa;
+    border: round #58d68d;
+    background: #243033;
+    color: #F8F8F2;
 }
 
 .side-button {
@@ -152,5 +166,37 @@ Button.-error {
     height: 3;
     margin: 0 0 1 0;
     padding: 0 1;
-    border: round #60a5fa;
+    border: round #58d68d;
+    background: #243033;
+    color: #F8F8F2;
+}
+
+.primary-button {
+    background: #58d68d;
+    color: #1B1D1E;
+    border: round #58d68d;
+}
+
+.secondary-button {
+    background: #243033;
+    color: #F8F8F2;
+    border: round #7E8E91;
+}
+
+.success-button {
+    background: #A6E22E;
+    color: #1B1D1E;
+    border: round #A6E22E;
+}
+
+.warning-button {
+    background: #f4d03f;
+    color: #1B1D1E;
+    border: round #f4d03f;
+}
+
+.danger-button {
+    background: #F92672;
+    color: #F8F8F2;
+    border: round #F92672;
 }

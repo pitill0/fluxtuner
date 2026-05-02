@@ -81,27 +81,27 @@ class FluxTunerTUI(App[None]):
         yield Header(show_clock=True)
         with Horizontal(id="toolbar"):
             yield Input(placeholder="Search by station name or genre/tag", id="query")
-            yield Button("Search", id="search", variant="primary", classes="toolbar-button")
+            yield Button("Search", id="search", classes="toolbar-button primary-button")
             yield Button("Favs", id="favorites", classes="toolbar-button")
             yield Button("History", id="history", classes="toolbar-button")
             yield Button("Random", id="random", classes="toolbar-button")
             yield Button("Themes", id="themes", classes="toolbar-button")
-            yield Button("Stop", id="stop", variant="error", classes="toolbar-button")
+            yield Button("Stop", id="stop", classes="toolbar-button danger-button")
         with Horizontal(id="filters"):
             yield Label("Country", classes="filter-label")
             yield Input(placeholder="optional", id="country-filter")
             yield Label("Min kbps", classes="filter-label")
             yield Input(placeholder="0", id="bitrate-filter")
-            yield Button("Clear filters", id="clear-filters", classes="toolbar-button")
+            yield Button("Clear filters", id="clear-filters", classes="toolbar-button secondary-button")
         with Horizontal(id="content"):
             yield ListView(id="stations")
             with Vertical(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
                 yield Static("No station selected.", id="details")
-                yield Button("Play", id="play", variant="success", classes="side-button")
-                yield Button("Add fav", id="add-favorite", classes="side-button")
-                yield Button("Remove fav", id="remove-favorite", variant="warning", classes="side-button")
+                yield Button("Play", id="play", classes="side-button success-button")
+                yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
+                yield Button("Remove fav", id="remove-favorite", classes="side-button warning-button")
         yield Static(
             "Ready. Press '/' to search, 'f' favorites, 'h' history, 't' themes, Space pause, +/- volume.",
             id="status",

@@ -15,6 +15,7 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Random favorite playback
 - Recently played history
 - Configurable bundled themes
+- Theme-aware buttons, footer shortcuts and control states
 - In-app theme selector
 - Theme preview while browsing themes
 - mpv JSON IPC controls for pause, mute, volume and smooth stream switching
@@ -175,6 +176,34 @@ Or open the in-app selector with `t` and preview it there.
 
 A theme is a Textual CSS file. The included themes are good starting points.
 
+FluxTuner themes can customize the main surface colors, station list, side panel, Now Playing panel, toolbar buttons, side action buttons and the footer shortcuts/help bar.
+
+Recommended selectors for custom themes:
+
+```css
+Button { ... }
+.toolbar-button { ... }
+.side-button { ... }
+.primary-button { ... }
+.secondary-button { ... }
+.success-button { ... }
+.warning-button { ... }
+.danger-button { ... }
+Footer { ... }
+Footer .footer--key { ... }
+Footer .footer--description { ... }
+```
+
+Button roles used by the TUI:
+
+- `.primary-button`: main actions such as Search and Add favorite.
+- `.secondary-button`: neutral actions such as Clear filters.
+- `.success-button`: Play.
+- `.warning-button`: Remove favorite.
+- `.danger-button`: Stop.
+
+When previewing themes in-app, FluxTuner also applies these button roles at runtime.
+
 ## Legacy CLI
 
 ```bash
@@ -218,10 +247,11 @@ When a new station is selected while mpv is already running, FluxTuner uses `loa
 
 ## UI notes
 
-- Toolbar and side-panel buttons use rounded borders and readable minimum sizes.
+- Toolbar and side-panel buttons use rounded borders, readable minimum sizes and theme-aware role colors.
+- The footer shortcut/help bar can be styled per theme with `Footer` selectors.
 - If your terminal is very narrow, increase the window width so the right action panel can keep labels visible.
 
 
-## v9.3 layout note
+## v10 visual theming note
 
-The Now Playing panel uses a fixed readable height and multiline layout so station metadata, playback status, volume, codec, bitrate, country and tags remain visible in the right panel.
+Button colors, action roles and footer shortcut styling now live in theme files, so custom themes can control more of the TUI without Python changes.

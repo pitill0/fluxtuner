@@ -1,16 +1,20 @@
 [project]
 name = "fluxtuner"
-version = "0.1.0"
-description = "Terminal internet radio player powered by Python and mpv"
+version = "0.2.0"
+description = "Terminal internet radio player powered by Python, Textual and mpv"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "requests>=2.31.0",
     "rich>=13.7.0",
+    "textual>=0.80.0",
 ]
 
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"
+
+[tool.setuptools.package-data]
+fluxtuner = ["themes/*.tcss"]
 
 [tool.ruff]
 line-length = 100

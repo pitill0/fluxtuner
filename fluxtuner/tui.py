@@ -12,6 +12,7 @@ from textual.widgets import Button, Footer, Header, Input, Label, ListItem, List
 from fluxtuner.core.api import search_stations_by_text
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
+from fluxtuner.themes import get_theme_path
 
 
 class StationListItem(ListItem):
@@ -31,64 +32,6 @@ class StationListItem(ListItem):
 class FluxTunerTUI(App[None]):
     """Textual application for FluxTuner."""
 
-    CSS = """
-    Screen {
-        layout: vertical;
-    }
-
-    #toolbar {
-        height: 3;
-        padding: 0 1;
-    }
-
-    #query {
-        width: 1fr;
-    }
-
-    #content {
-        height: 1fr;
-    }
-
-    #stations {
-        width: 2fr;
-        border: solid $primary;
-    }
-
-    #side-panel {
-        width: 1fr;
-        min-width: 38;
-        border: solid $secondary;
-        padding: 1;
-    }
-
-    #mode-title {
-        height: 1;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-
-    #now-playing {
-        height: 7;
-        border: round $success;
-        padding: 1;
-        margin-bottom: 1;
-    }
-
-    #details {
-        height: 1fr;
-        margin-bottom: 1;
-    }
-
-    #status {
-        height: 3;
-        padding: 0 1;
-    }
-
-    Button {
-        margin-left: 1;
-    }
-    """
-
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("/", "focus_search", "Search"),
@@ -101,8 +44,8 @@ class FluxTunerTUI(App[None]):
         ("x", "stop", "Stop"),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, theme: str | None = None) -> None:
+        super().__init__(css_path=str(get_theme_path(theme)))
         self.player = MpvController()
         self.selected_station: dict[str, Any] | None = None
         self.playing_station: dict[str, Any] | None = None
@@ -366,5 +309,5 @@ class FluxTunerTUI(App[None]):
         self.query_one("#status", Static).update(message)
 
 
-def run_tui() -> None:
-    FluxTunerTUI().run()
+def run_tui(theme: str | None = None) -> None:
+    FluxTunerTUI(theme=theme).run()

@@ -1,0 +1,63 @@
+Screen {
+    layout: vertical;
+    background: #111111;
+    color: #f5e6c8;
+}
+
+#toolbar {
+    height: 3;
+    padding: 0 1;
+    background: #1f1a12;
+}
+
+#query {
+    width: 1fr;
+}
+
+#content {
+    height: 1fr;
+}
+
+#stations {
+    width: 2fr;
+    border: solid #e3b241;
+}
+
+#side-panel {
+    width: 1fr;
+    min-width: 38;
+    border: solid #c99a2e;
+    padding: 1;
+    background: #1a1712;
+}
+
+#mode-title {
+    height: 1;
+    text-style: bold;
+    margin-bottom: 1;
+    color: #e3b241;
+}
+
+#now-playing {
+    height: 7;
+    border: round #95d67a;
+    padding: 1;
+    margin-bottom: 1;
+    color: #95d67a;
+}
+
+#details {
+    height: 1fr;
+    margin-bottom: 1;
+}
+
+#status {
+    height: 3;
+    padding: 0 1;
+    background: #1f1a12;
+    color: #d7c6a1;
+}
+
+Button {
+    margin-left: 1;
+}

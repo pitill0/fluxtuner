@@ -1,0 +1,63 @@
+Screen {
+    layout: vertical;
+    background: $surface;
+    color: $text;
+}
+
+#toolbar {
+    height: 3;
+    padding: 0 1;
+    background: $panel;
+}
+
+#query {
+    width: 1fr;
+}
+
+#content {
+    height: 1fr;
+}
+
+#stations {
+    width: 2fr;
+    border: solid $primary;
+}
+
+#side-panel {
+    width: 1fr;
+    min-width: 38;
+    border: solid $secondary;
+    padding: 1;
+    background: $boost;
+}
+
+#mode-title {
+    height: 1;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $accent;
+}
+
+#now-playing {
+    height: 7;
+    border: round $success;
+    padding: 1;
+    margin-bottom: 1;
+    color: $success;
+}
+
+#details {
+    height: 1fr;
+    margin-bottom: 1;
+}
+
+#status {
+    height: 3;
+    padding: 0 1;
+    background: $panel;
+    color: $text-muted;
+}
+
+Button {
+    margin-left: 1;
+}

@@ -10,6 +10,8 @@ from rich.table import Table
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
+from fluxtuner.config import get_config_value, set_config_value
+from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
 
 console = Console()
 
@@ -144,7 +146,46 @@ def main() -> None:
         action="store_true",
         help="Run the legacy numbered CLI instead of the Textual TUI.",
     )
+    parser.add_argument(
+        "--theme",
+        default=None,
+        help="Theme to use for this run. Use --list-themes to see available themes.",
+    )
+    parser.add_argument(
+        "--save-theme",
+        action="store_true",
+        help="Persist the theme passed with --theme as the default theme.",
+    )
+    parser.add_argument(
+        "--list-themes",
+        action="store_true",
+        help="List available themes and exit.",
+    )
     args = parser.parse_args()
+
+    if args.list_themes:
+        console.print("Available themes:")
+        for theme_name in list_themes():
+            console.print(f"- {theme_name}")
+        return
+
+    configured_theme = str(get_config_value("theme", DEFAULT_THEME))
+    selected_theme = args.theme or configured_theme
+
+    if args.theme and not theme_exists(args.theme):
+        console.print(f"[yellow]Theme '{args.theme}' was not found. Falling back to 'default'.[/yellow]")
+        selected_theme = DEFAULT_THEME
+
+    if args.save_theme:
+        if not args.theme:
+            console.print("[red]--save-theme requires --theme THEME_NAME.[/red]")
+            raise SystemExit(2)
+        if not theme_exists(args.theme):
+            console.print(f"[red]Cannot save unknown theme: {args.theme}[/red]")
+            raise SystemExit(2)
+        set_config_value("theme", args.theme)
+        selected_theme = args.theme
+        console.print(f"[green]Saved default theme:[/green] {args.theme}")
 
     try:
         ensure_mpv_available()
@@ -166,7 +207,7 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    run_tui()
+    run_tui(theme=selected_theme)
 
 
 if __name__ == "__main__":

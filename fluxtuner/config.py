@@ -9,6 +9,11 @@ CONFIG_DIR = Path.home() / ".config" / APP_NAME
 CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG: dict[str, Any] = {
     "theme": "default",
+    "playback": {
+        "last_station": None,
+        "volume": None,
+        "muted": False,
+    },
 }
 
 
@@ -43,4 +48,33 @@ def set_config_value(key: str, value: Any) -> None:
     """Set and persist a single configuration value."""
     config = load_config()
     config[key] = value
+    save_config(config)
+
+
+def get_playback_state() -> dict[str, Any]:
+    """Return persisted playback preferences and last station metadata."""
+    state = load_config().get("playback", {})
+    return state if isinstance(state, dict) else {}
+
+
+def save_playback_state(
+    *,
+    last_station: dict[str, Any] | None = None,
+    volume: int | float | None = None,
+    muted: bool | None = None,
+) -> None:
+    """Persist playback state without overwriting omitted values."""
+    config = load_config()
+    playback = config.get("playback", {})
+    if not isinstance(playback, dict):
+        playback = {}
+
+    if last_station is not None:
+        playback["last_station"] = last_station
+    if volume is not None:
+        playback["volume"] = int(round(volume))
+    if muted is not None:
+        playback["muted"] = bool(muted)
+
+    config["playback"] = playback
     save_config(config)

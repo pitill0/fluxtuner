@@ -9,6 +9,7 @@ from rich.table import Table
 
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
+from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
@@ -167,12 +168,22 @@ def main() -> None:
         action="store_true",
         help="List available themes and exit.",
     )
+    parser.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="Clear cached Radio Browser search results and exit.",
+    )
     args = parser.parse_args()
 
     if args.list_themes:
         console.print("Available themes:")
         for theme_name in list_themes():
             console.print(f"- {theme_name}")
+        return
+
+    if args.clear_cache:
+        clear_search_cache()
+        console.print("[green]Search cache cleared.[/green]")
         return
 
     configured_theme = str(get_config_value("theme", DEFAULT_THEME))

@@ -121,6 +121,15 @@ class MpvController:
         """Decrease playback volume."""
         self.command(["add", "volume", -self.volume_step])
 
+    def set_volume(self, volume: int | float) -> None:
+        """Set playback volume to an absolute value."""
+        safe_volume = max(0, min(100, int(round(volume))))
+        self.command(["set_property", "volume", safe_volume])
+
+    def set_mute(self, muted: bool) -> None:
+        """Set mute to an absolute value."""
+        self.command(["set_property", "mute", bool(muted)])
+
     def get_property(self, name: str) -> Any:
         """Return an mpv property through JSON IPC."""
         response = self.command(["get_property", name])

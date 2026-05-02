@@ -21,6 +21,8 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - mpv JSON IPC controls for pause, mute, volume and smooth stream switching
 - Richer Now Playing panel with status, visual volume bar and mute state
 - Active station marker in station, favorites and history lists
+- Local search cache for repeated/live searches
+- Restores last station, volume and mute preferences
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -56,6 +58,7 @@ fluxtuner
 | `a` | Add selected station to favorites |
 | `f` | Show favorites |
 | `h` | Show recently played history |
+| `l` | Play last restored station |
 | `d` | Remove selected favorite |
 | `r` | Play random favorite |
 | `Space` | Pause/resume playback |
@@ -73,7 +76,22 @@ fluxtuner
 FluxTuner starts a live search automatically once the query has at least 3 characters.
 For shorter searches, type the query and press `Enter`.
 
-Searches are debounced, so FluxTuner waits briefly while you type before calling the Radio Browser API.
+Searches are debounced, so FluxTuner waits briefly while you type before calling the Radio Browser API. Repeated searches are cached locally for a short period to keep live search fast and reduce unnecessary API calls.
+
+
+## Search cache
+
+FluxTuner stores repeated search results in a local cache:
+
+```text
+~/.cache/fluxtuner/search_cache.json
+```
+
+The cache is transparent in normal use. To clear it manually:
+
+```bash
+python -m fluxtuner --clear-cache
+```
 
 ## Search filters
 
@@ -102,6 +120,23 @@ FluxTuner marks the station currently playing in the visible list with a `▶` m
 This works in search results, favorites and history when the current station is present in that list.
 
 The Now Playing panel also shows a compact visual volume bar, playback state, mute state, bitrate, codec, country and tags.
+
+
+## Playback state restore
+
+FluxTuner remembers:
+
+- the last played station
+- the last known volume
+- mute state
+
+On startup, the last station is shown in the Now Playing panel and can be played with `l`. FluxTuner does **not** autoplay on launch. When playback starts, the saved volume and mute state are applied to the new `mpv` session.
+
+Playback state is stored in:
+
+```text
+~/.config/fluxtuner/config.json
+```
 
 ## Themes
 
@@ -148,6 +183,14 @@ Example:
 
 ```json
 {
+  "playback": {
+    "last_station": {
+      "name": "BBC Radio 1",
+      "url": "https://..."
+    },
+    "muted": false,
+    "volume": 70
+  },
   "theme": "nord"
 }
 ```
@@ -232,7 +275,13 @@ Recently played history is stored in:
 ~/.fluxtuner_history.json
 ```
 
-User configuration is stored in:
+Search cache is stored in:
+
+```text
+~/.cache/fluxtuner/search_cache.json
+```
+
+User configuration and playback state are stored in:
 
 ```text
 ~/.config/fluxtuner/config.json

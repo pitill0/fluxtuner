@@ -11,7 +11,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, Static
 
-from fluxtuner.config import set_config_value
+from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
@@ -65,6 +65,7 @@ class FluxTunerTUI(App[None]):
         ("a", "add_selected", "Add"),
         ("f", "show_favorites", "Favorites"),
         ("h", "show_history", "History"),
+        ("l", "play_last_station", "Last"),
         ("d", "remove_selected", "Delete fav"),
         ("r", "play_random_favorite", "Random"),
         ("space", "toggle_pause", "Pause"),
@@ -85,6 +86,9 @@ class FluxTunerTUI(App[None]):
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.playing_station: dict[str, Any] | None = None
+        self.last_station: dict[str, Any] | None = None
+        self.restored_volume: int | float | None = None
+        self.restored_muted: bool | None = None
         self.view_mode = "search"
         self._search_task = None
 
@@ -114,7 +118,7 @@ class FluxTunerTUI(App[None]):
                 yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
                 yield Button("Remove fav", id="remove-favorite", classes="side-button warning-button")
         yield Static(
-            "Ready. Press '/' to search, 'f' favorites, 'h' history, 't' themes, Space pause, +/- volume.",
+            "Ready. Press '/' search, 'f' favorites, 'h' history, 'l' last station, 't' themes, Space pause, +/- volume.",
             id="status",
         )
         yield Footer()
@@ -134,10 +138,15 @@ class FluxTunerTUI(App[None]):
         except Exception as exc:  # noqa: BLE001
             self.notify(f"Theme load failed: {exc}", severity="warning", timeout=6)
 
+        self.restore_playback_state()
         self.query_one("#stations", ListView).focus()
         self.update_now_playing()
         self.set_interval(1.5, self.update_now_playing)
-        self.update_details(None)
+        if self.last_station:
+            self.update_details(self.last_station)
+            self.set_status(f"Restored last station: {self.last_station.get('name', 'Unknown station')}. Press l to play it.")
+        else:
+            self.update_details(None)
 
     def on_unmount(self) -> None:
         self.cancel_pending_search()
@@ -183,6 +192,9 @@ class FluxTunerTUI(App[None]):
             return
         await self.remove_selected_from_favorites()
 
+    def action_play_last_station(self) -> None:
+        self.play_last_station()
+
     def action_play_random_favorite(self) -> None:
         if self.view_mode == "themes":
             self.set_status("Random favorite playback is disabled while browsing themes. Press f, h or search first.")
@@ -208,6 +220,7 @@ class FluxTunerTUI(App[None]):
             self.set_status(f"Mute toggle failed: {exc}")
             return
         self.update_now_playing()
+        self.persist_player_state()
         self.set_status("Toggled mute.")
 
     def action_volume_up(self) -> None:
@@ -217,6 +230,7 @@ class FluxTunerTUI(App[None]):
             self.set_status(f"Volume up failed: {exc}")
             return
         self.update_now_playing()
+        self.persist_player_state()
         self.set_status("Volume increased.")
 
     def action_volume_down(self) -> None:
@@ -226,6 +240,7 @@ class FluxTunerTUI(App[None]):
             self.set_status(f"Volume down failed: {exc}")
             return
         self.update_now_playing()
+        self.persist_player_state()
         self.set_status("Volume decreased.")
 
     def action_preview_theme(self) -> None:
@@ -471,7 +486,10 @@ class FluxTunerTUI(App[None]):
             return
 
         self.playing_station = self.selected_station
+        self.last_station = self.selected_station
         add_history(self.selected_station)
+        self.apply_restored_playback_preferences()
+        self.persist_player_state(last_station=self.selected_station)
         self.update_now_playing()
         self.refresh_active_station_marker()
         self.set_status(f"Playing: {self.selected_station['name']}")
@@ -506,6 +524,15 @@ class FluxTunerTUI(App[None]):
 
         if self.view_mode == "favorites":
             await self.show_favorites()
+
+    def play_last_station(self) -> None:
+        if not self.last_station:
+            self.set_status("No last station saved yet.")
+            return
+        self.selected_station = self.last_station
+        self.selected_theme = None
+        self.update_details(self.selected_station)
+        self.play_selected_station()
 
     def play_random_favorite(self) -> None:
         favorites = load_favorites()
@@ -584,6 +611,47 @@ class FluxTunerTUI(App[None]):
             "y: save as default\n"
             "Preview is applied automatically while browsing."
         )
+
+
+    def restore_playback_state(self) -> None:
+        """Load persisted playback metadata and preferences."""
+        state = get_playback_state()
+        last_station = state.get("last_station")
+        self.last_station = last_station if isinstance(last_station, dict) else None
+        self.selected_station = self.last_station
+        volume = state.get("volume")
+        self.restored_volume = volume if isinstance(volume, (int, float)) else None
+        muted = state.get("muted")
+        self.restored_muted = bool(muted) if isinstance(muted, bool) else None
+
+    def apply_restored_playback_preferences(self) -> None:
+        """Apply saved volume and mute values to a newly started mpv session."""
+        if self.restored_volume is not None:
+            try:
+                self.player.set_volume(self.restored_volume)
+            except Exception:
+                pass
+        if self.restored_muted is not None:
+            try:
+                self.player.set_mute(self.restored_muted)
+            except Exception:
+                pass
+
+    def persist_player_state(self, last_station: dict[str, Any] | None = None) -> None:
+        """Persist last station, volume and mute state when available."""
+        volume = None
+        muted = None
+        try:
+            state = self.player.get_state()
+            if isinstance(state.get("volume"), (int, float)):
+                volume = state.get("volume")
+                self.restored_volume = volume
+            if isinstance(state.get("muted"), bool):
+                muted = state.get("muted")
+                self.restored_muted = muted
+        except Exception:
+            pass
+        save_playback_state(last_station=last_station, volume=volume, muted=muted)
 
     def station_url(self, station: dict[str, Any] | None) -> str | None:
         if not station:
@@ -672,7 +740,22 @@ class FluxTunerTUI(App[None]):
         now_playing = self.query_one("#now-playing", Static)
         self.ensure_now_playing_layout()
         if not self.playing_station:
-            now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
+            if self.last_station:
+                width = self._side_panel_text_width()
+                name = self._wrap_short(self.last_station.get("name", "Unknown station"), width=width, max_lines=2)
+                country = self._ellipsize(self.last_station.get("country") or "Unknown country", max(18, width // 2))
+                bitrate = self.last_station.get("bitrate") or "?"
+                codec = self.last_station.get("codec") or "?"
+                now_playing.update(
+                    "[b]Now Playing[/b]\n"
+                    "Nothing playing.\n"
+                    "[b]Last Station[/b]\n"
+                    f"{name}\n"
+                    f"{country} • {bitrate} kbps • {codec}\n"
+                    "Press [b]l[/b] to play last station."
+                )
+            else:
+                now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
             return
 
         station = self.playing_station

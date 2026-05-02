@@ -4,6 +4,8 @@ from typing import Any
 
 import requests
 
+from fluxtuner.core.cache import get_cached_search, make_search_key, set_cached_search
+
 BASE_URL = "https://de1.api.radio-browser.info/json"
 DEFAULT_HEADERS = {
     "User-Agent": "FluxTuner/0.1 (+https://example.local/fluxtuner)"
@@ -57,26 +59,7 @@ def search_stations(
 
 def search_stations_by_text(query: str, limit: int = 40) -> list[dict[str, Any]]:
     """Search by station name and tag, merging duplicated stream URLs."""
-    query = query.strip()
-    if not query:
-        return []
-
-    results: list[dict[str, Any]] = []
-    seen_urls: set[str] = set()
-
-    for items in (
-        search_stations(name=query, limit=limit),
-        search_stations(tag=query, limit=limit),
-    ):
-        for item in items:
-            station = normalize_station(item)
-            url = station.get("url")
-            if not url or url in seen_urls:
-                continue
-            seen_urls.add(url)
-            results.append(station)
-
-    return results[:limit]
+    return search_stations_filtered(query=query, limit=limit)
 
 
 def search_stations_filtered(
@@ -84,17 +67,25 @@ def search_stations_filtered(
     country: str | None = None,
     min_bitrate: int | None = None,
     limit: int = 50,
+    use_cache: bool = True,
 ) -> list[dict[str, Any]]:
     """Search by text and optional filters used by the TUI.
 
     `query` is matched against station names and tags. `country` is passed to
     Radio Browser when provided. `min_bitrate` is applied locally because API
-    results may be inconsistent across mirrors.
+    results may be inconsistent across mirrors. Results are cached locally for
+    a short period to avoid hitting the API on repeated live-search queries.
     """
     query = query.strip()
     country = country.strip() if country else None
     if not query:
         return []
+
+    cache_key = make_search_key(query, country, min_bitrate, limit)
+    if use_cache:
+        cached_results = get_cached_search(cache_key)
+        if cached_results is not None:
+            return cached_results
 
     results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
@@ -114,4 +105,7 @@ def search_stations_filtered(
             seen_urls.add(url)
             results.append(station)
 
-    return results[:limit]
+    results = results[:limit]
+    if use_cache:
+        set_cached_search(cache_key, results)
+    return results

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
+from pathlib import Path
 from typing import Any
 
 from rich.console import Console
 from rich.table import Table
 
 from fluxtuner.core.api import normalize_station, search_stations
-from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
+from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
@@ -173,6 +175,16 @@ def main() -> None:
         action="store_true",
         help="Clear cached Radio Browser search results and exit.",
     )
+    parser.add_argument(
+        "--export-favs",
+        metavar="PATH",
+        help="Export favorites to a JSON file and exit.",
+    )
+    parser.add_argument(
+        "--import-favs",
+        metavar="PATH",
+        help="Import favorites from a JSON file and exit.",
+    )
     args = parser.parse_args()
 
     if args.list_themes:
@@ -184,6 +196,29 @@ def main() -> None:
     if args.clear_cache:
         clear_search_cache()
         console.print("[green]Search cache cleared.[/green]")
+        return
+
+    if args.export_favs:
+        export_path = Path(args.export_favs).expanduser()
+        export_path.write_text(json.dumps(load_favorites(), indent=2, ensure_ascii=False), encoding="utf-8")
+        console.print(f"[green]Favorites exported to:[/green] {export_path}")
+        return
+
+    if args.import_favs:
+        import_path = Path(args.import_favs).expanduser()
+        try:
+            data = json.loads(import_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            console.print(f"[red]Could not read favorites file:[/red] {exc}")
+            raise SystemExit(1) from exc
+        except json.JSONDecodeError as exc:
+            console.print(f"[red]Invalid favorites JSON:[/red] {exc}")
+            raise SystemExit(1) from exc
+        if not isinstance(data, list):
+            console.print("[red]Favorites import must be a JSON list.[/red]")
+            raise SystemExit(1)
+        save_favorites(data)
+        console.print(f"[green]Imported {len(data)} favorite(s).[/green]")
         return
 
     configured_theme = str(get_config_value("theme", DEFAULT_THEME))

@@ -11,8 +11,10 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Live search with debounce while typing
 - Filter searches by country and minimum bitrate
 - Play streams with `mpv`
-- Persistent favorites
+- Persistent favorites with custom names and user tags
 - Random favorite playback
+- Favorite tag filtering
+- Favorites import/export
 - Recently played history
 - Configurable bundled themes
 - Theme-aware buttons, footer shortcuts and control states
@@ -60,6 +62,9 @@ fluxtuner
 | `h` | Show recently played history |
 | `l` | Play last restored station |
 | `d` | Remove selected favorite |
+| `e` | Rename selected favorite |
+| `g` | Edit selected favorite tags |
+| `u` | Filter favorites by user tag |
 | `r` | Play random favorite |
 | `Space` | Pause/resume playback |
 | `+` | Increase volume |
@@ -101,6 +106,40 @@ The TUI includes optional filters below the search bar:
 - `Min kbps`: filters out stations below the selected bitrate.
 
 Use `Clear filters` to reset both fields.
+
+
+## Favorites
+
+Favorites are stored locally and can be personalized without changing the original Radio Browser station metadata.
+
+From the TUI:
+
+| Key | Action |
+| --- | --- |
+| `f` | Open favorites |
+| `a` | Add the selected station to favorites |
+| `d` | Remove selected favorite |
+| `e` | Rename selected favorite |
+| `g` | Edit comma-separated favorite tags |
+| `u` | Filter favorites by a user tag |
+
+Favorite tags are personal labels such as `work`, `focus`, `morning` or `lofi`. They are separate from Radio Browser tags.
+
+When editing a favorite name or tags, FluxTuner reuses the search input as a small command field. Type the new value and press `Enter`. Leaving the value empty clears the custom name or tags.
+
+### Import / export favorites
+
+Export favorites:
+
+```bash
+python -m fluxtuner --export-favs favorites-backup.json
+```
+
+Import favorites:
+
+```bash
+python -m fluxtuner --import-favs favorites-backup.json
+```
 
 ## History
 

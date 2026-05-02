@@ -13,7 +13,16 @@ from textual.widgets import Button, Footer, Header, Input, Label, ListItem, List
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
+from fluxtuner.core.favorites import (
+    add_favorite,
+    all_favorite_tags,
+    favorite_display_name,
+    filter_favorites_by_tag,
+    load_favorites,
+    remove_favorite,
+    station_key,
+    update_favorite,
+)
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
@@ -31,13 +40,15 @@ class StationListItem(ListItem):
 
     @staticmethod
     def format_row(station: dict[str, Any], active: bool = False) -> str:
-        title = station.get("name", "Unknown station")
+        title = favorite_display_name(station)
         country = station.get("country", "Unknown")
         codec = station.get("codec") or "?"
         bitrate = station.get("bitrate") or "?"
-        tags = station.get("tags") or "no tags"
+        radio_tags = station.get("tags") or "no radio tags"
+        favorite_tags = station.get("favorite_tags") or []
+        custom_tag_suffix = f"  ★ {', '.join(favorite_tags)}" if favorite_tags else ""
         marker = "▶ " if active else "  "
-        row = f"{marker}{title}  •  {country}  •  {codec} {bitrate}kbps  •  {tags[:80]}"
+        row = f"{marker}{title}  •  {country}  •  {codec} {bitrate}kbps  •  {radio_tags[:60]}{custom_tag_suffix}"
         return f"[b]{row}[/b]" if active else row
 
     def set_active(self, active: bool) -> None:
@@ -67,6 +78,9 @@ class FluxTunerTUI(App[None]):
         ("h", "show_history", "History"),
         ("l", "play_last_station", "Last"),
         ("d", "remove_selected", "Delete fav"),
+        ("e", "edit_favorite_name", "Rename fav"),
+        ("g", "edit_favorite_tags", "Tags"),
+        ("u", "filter_favorites_by_tag", "Filter tag"),
         ("r", "play_random_favorite", "Random"),
         ("space", "toggle_pause", "Pause"),
         ("plus", "volume_up", "Vol+"),
@@ -91,6 +105,8 @@ class FluxTunerTUI(App[None]):
         self.restored_muted: bool | None = None
         self.view_mode = "search"
         self._search_task = None
+        self.pending_input_action: str | None = None
+        self.favorite_tag_filter: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -117,6 +133,8 @@ class FluxTunerTUI(App[None]):
                 yield Button("Play", id="play", classes="side-button success-button")
                 yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
                 yield Button("Remove fav", id="remove-favorite", classes="side-button warning-button")
+                yield Button("Rename fav", id="rename-favorite", classes="side-button secondary-button")
+                yield Button("Edit tags", id="edit-tags", classes="side-button secondary-button")
         yield Static(
             "Ready. Press '/' search, 'f' favorites, 'h' history, 'l' last station, 't' themes, Space pause, +/- volume.",
             id="status",
@@ -144,7 +162,7 @@ class FluxTunerTUI(App[None]):
         self.set_interval(1.5, self.update_now_playing)
         if self.last_station:
             self.update_details(self.last_station)
-            self.set_status(f"Restored last station: {self.last_station.get('name', 'Unknown station')}. Press l to play it.")
+            self.set_status(f"Restored last station: {favorite_display_name(self.last_station)}. Press l to play it.")
         else:
             self.update_details(None)
 
@@ -191,6 +209,15 @@ class FluxTunerTUI(App[None]):
             self.set_status("Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed.")
             return
         await self.remove_selected_from_favorites()
+
+    def action_edit_favorite_name(self) -> None:
+        self.prepare_favorite_name_edit()
+
+    def action_edit_favorite_tags(self) -> None:
+        self.prepare_favorite_tags_edit()
+
+    def action_filter_favorites_by_tag(self) -> None:
+        self.prepare_favorites_tag_filter()
 
     def action_play_last_station(self) -> None:
         self.play_last_station()
@@ -252,15 +279,24 @@ class FluxTunerTUI(App[None]):
     @on(Input.Submitted, "#query")
     async def search_from_input(self, event: Input.Submitted) -> None:
         self.cancel_pending_search()
+        if self.pending_input_action:
+            await self.handle_pending_input(event.value)
+            return
         await self.search(event.value)
 
     @on(Input.Changed, "#query")
     def live_search_from_input(self, event: Input.Changed) -> None:
+        if self.pending_input_action:
+            return
         self.schedule_live_search(event.value)
 
     @on(Button.Pressed, "#search")
     async def search_from_button(self) -> None:
         query = self.query_one("#query", Input).value
+        self.cancel_pending_search()
+        if self.pending_input_action:
+            await self.handle_pending_input(query)
+            return
         await self.search(query)
 
     @on(Button.Pressed, "#favorites")
@@ -279,7 +315,8 @@ class FluxTunerTUI(App[None]):
     def clear_filters_from_button(self) -> None:
         self.query_one("#country-filter", Input).value = ""
         self.query_one("#bitrate-filter", Input).value = ""
-        self.set_status("Search filters cleared. Type or press Enter in search to refresh results.")
+        self.favorite_tag_filter = None
+        self.set_status("Filters cleared. Type or press Enter in search to refresh results.")
 
     @on(Button.Pressed, "#random")
     def random_from_button(self) -> None:
@@ -300,6 +337,14 @@ class FluxTunerTUI(App[None]):
     @on(Button.Pressed, "#remove-favorite")
     async def remove_favorite_from_button(self) -> None:
         await self.remove_selected_from_favorites()
+
+    @on(Button.Pressed, "#rename-favorite")
+    def rename_favorite_from_button(self) -> None:
+        self.prepare_favorite_name_edit()
+
+    @on(Button.Pressed, "#edit-tags")
+    def edit_tags_from_button(self) -> None:
+        self.prepare_favorite_tags_edit()
 
     @on(ListView.Highlighted, "#stations")
     def item_highlighted(self, event: ListView.Highlighted) -> None:
@@ -400,10 +445,13 @@ class FluxTunerTUI(App[None]):
         prefix = "Live search" if live else "Found"
         self.set_status(f"{prefix}: {len(stations)} station(s) for: {query}{suffix}")
 
-    async def show_favorites(self) -> None:
+    async def show_favorites(self, tag_filter: str | None = None) -> None:
         self.view_mode = "favorites"
-        self.update_mode_title("Favorites")
-        favorites = sorted(load_favorites(), key=lambda item: item.get("name", "").lower())
+        self.favorite_tag_filter = tag_filter
+        title = "Favorites" if not tag_filter else f"Favorites · tag: {tag_filter}"
+        self.update_mode_title(title)
+        favorites = filter_favorites_by_tag(tag_filter) if tag_filter else load_favorites()
+        favorites = sorted(favorites, key=lambda item: favorite_display_name(item).lower())
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
@@ -411,7 +459,12 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
         await self.populate_station_list(favorites)
         self.query_one("#stations", ListView).focus()
-        self.set_status(f"Loaded {len(favorites)} favorite station(s).")
+        if tag_filter:
+            self.set_status(f"Loaded {len(favorites)} favorite station(s) tagged '{tag_filter}'.")
+        else:
+            tags = all_favorite_tags()
+            suffix = f" Tags: {', '.join(tags[:8])}" if tags else " Add tags with g."
+            self.set_status(f"Loaded {len(favorites)} favorite station(s).{suffix}")
 
     async def show_history(self) -> None:
         self.view_mode = "history"
@@ -492,7 +545,7 @@ class FluxTunerTUI(App[None]):
         self.persist_player_state(last_station=self.selected_station)
         self.update_now_playing()
         self.refresh_active_station_marker()
-        self.set_status(f"Playing: {self.selected_station['name']}")
+        self.set_status(f"Playing: {favorite_display_name(self.selected_station)}")
 
     def stop_playback(self) -> None:
         self.player.stop()
@@ -508,8 +561,9 @@ class FluxTunerTUI(App[None]):
         if not self.selected_station:
             self.set_status("No station selected.")
             return
-        add_favorite(self.selected_station)
-        self.set_status(f"Saved favorite: {self.selected_station['name']}")
+        saved = add_favorite(self.selected_station)
+        name = favorite_display_name(self.selected_station)
+        self.set_status(f"Saved favorite: {name}" if saved else f"Already in favorites: {name}")
 
     async def remove_selected_from_favorites(self) -> None:
         if self.view_mode == "themes":
@@ -519,11 +573,17 @@ class FluxTunerTUI(App[None]):
             self.set_status("No station selected.")
             return
 
-        remove_favorite(self.selected_station["url"])
-        self.set_status(f"Removed favorite: {self.selected_station['name']}")
+        key = self.station_url(self.selected_station)
+        if not key:
+            self.set_status("Selected station has no favorite key.")
+            return
+
+        removed = remove_favorite(key)
+        name = favorite_display_name(self.selected_station)
+        self.set_status(f"Removed favorite: {name}" if removed else f"Favorite not found: {name}")
 
         if self.view_mode == "favorites":
-            await self.show_favorites()
+            await self.show_favorites(tag_filter=self.favorite_tag_filter)
 
     def play_last_station(self) -> None:
         if not self.last_station:
@@ -586,10 +646,17 @@ class FluxTunerTUI(App[None]):
 
         play_count = station.get("play_count")
         play_count_line = f"\nPlay count: {play_count}" if play_count else ""
+        favorite_tags = station.get("favorite_tags") or []
+        favorite_tags_line = f"\nFavorite tags: {', '.join(favorite_tags)}" if favorite_tags else ""
+        original_name_line = ""
+        if station.get("custom_name"):
+            original_name_line = f"\nOriginal name: {station.get('name', 'Unknown station')}"
         details.update(
             "[b]Selected Station[/b]\n\n"
-            "[b]{}[/b]\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}{}\nTags: {}\nHomepage: {}".format(
-                station.get("name", "Unknown station"),
+            "[b]{}[/b]{}{}\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}{}\nRadio tags: {}\nHomepage: {}".format(
+                favorite_display_name(station),
+                original_name_line,
+                favorite_tags_line,
                 station.get("country", "Unknown"),
                 station.get("codec") or "?",
                 station.get("bitrate") or "?",
@@ -611,6 +678,81 @@ class FluxTunerTUI(App[None]):
             "y: save as default\n"
             "Preview is applied automatically while browsing."
         )
+
+
+    def ensure_favorite_selected(self) -> bool:
+        if self.view_mode != "favorites":
+            self.set_status("Open favorites first with f to edit favorite metadata.")
+            return False
+        if not self.selected_station:
+            self.set_status("No favorite selected.")
+            return False
+        if not self.station_url(self.selected_station):
+            self.set_status("Selected favorite has no stable URL key.")
+            return False
+        return True
+
+    def prepare_favorite_name_edit(self) -> None:
+        if not self.ensure_favorite_selected():
+            return
+        query = self.query_one("#query", Input)
+        query.value = favorite_display_name(self.selected_station or {})
+        query.focus()
+        self.pending_input_action = "rename_favorite"
+        self.set_status("Rename favorite: edit the search field and press Enter. Leave empty to clear custom name.")
+
+    def prepare_favorite_tags_edit(self) -> None:
+        if not self.ensure_favorite_selected():
+            return
+        query = self.query_one("#query", Input)
+        tags = self.selected_station.get("favorite_tags", []) if self.selected_station else []
+        query.value = ", ".join(tags)
+        query.focus()
+        self.pending_input_action = "edit_favorite_tags"
+        self.set_status("Edit favorite tags: comma-separated values, then press Enter. Leave empty to clear tags.")
+
+    def prepare_favorites_tag_filter(self) -> None:
+        self.view_mode = "favorites"
+        query = self.query_one("#query", Input)
+        query.value = self.favorite_tag_filter or ""
+        query.focus()
+        self.pending_input_action = "filter_favorites_by_tag"
+        tags = all_favorite_tags()
+        suffix = f" Existing tags: {', '.join(tags)}" if tags else " No favorite tags yet."
+        self.set_status(f"Filter favorites by tag: type a tag and press Enter. Empty clears filter.{suffix}")
+
+    async def handle_pending_input(self, value: str) -> None:
+        action = self.pending_input_action
+        self.pending_input_action = None
+        value = value.strip()
+
+        if action == "filter_favorites_by_tag":
+            await self.show_favorites(tag_filter=value or None)
+            return
+
+        if not self.selected_station:
+            self.set_status("No favorite selected.")
+            return
+
+        key = self.station_url(self.selected_station)
+        if not key:
+            self.set_status("Selected favorite has no stable URL key.")
+            return
+
+        if action == "rename_favorite":
+            update_favorite(key, custom_name=value or None)
+            await self.show_favorites(tag_filter=self.favorite_tag_filter)
+            self.set_status("Favorite renamed." if value else "Favorite custom name cleared.")
+            return
+
+        if action == "edit_favorite_tags":
+            tags = [tag.strip() for tag in value.split(",") if tag.strip()]
+            update_favorite(key, favorite_tags=tags)
+            await self.show_favorites(tag_filter=self.favorite_tag_filter)
+            self.set_status(f"Favorite tags updated: {', '.join(tags)}" if tags else "Favorite tags cleared.")
+            return
+
+        self.set_status("Unknown input action.")
 
 
     def restore_playback_state(self) -> None:
@@ -656,7 +798,7 @@ class FluxTunerTUI(App[None]):
     def station_url(self, station: dict[str, Any] | None) -> str | None:
         if not station:
             return None
-        return station.get("url_resolved") or station.get("url")
+        return station_key(station)
 
     def current_station_url(self) -> str | None:
         return self.station_url(self.playing_station)
@@ -742,7 +884,7 @@ class FluxTunerTUI(App[None]):
         if not self.playing_station:
             if self.last_station:
                 width = self._side_panel_text_width()
-                name = self._wrap_short(self.last_station.get("name", "Unknown station"), width=width, max_lines=2)
+                name = self._wrap_short(favorite_display_name(self.last_station), width=width, max_lines=2)
                 country = self._ellipsize(self.last_station.get("country") or "Unknown country", max(18, width // 2))
                 bitrate = self.last_station.get("bitrate") or "?"
                 codec = self.last_station.get("codec") or "?"
@@ -786,7 +928,7 @@ class FluxTunerTUI(App[None]):
         tags = station.get("tags") or "no tags"
 
         width = self._side_panel_text_width()
-        name = self._wrap_short(station.get("name", "Unknown station"), width=width, max_lines=2)
+        name = self._wrap_short(favorite_display_name(station), width=width, max_lines=2)
         country = self._ellipsize(station.get("country") or "Unknown country", max(18, width // 2))
         bitrate = station.get("bitrate") or "?"
         codec = station.get("codec") or "?"

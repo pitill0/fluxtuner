@@ -1,17 +1,28 @@
 Screen {
     layout: vertical;
-    background: $surface;
-    color: $text;
+    background: #0f172a;
+    color: #e5e7eb;
+}
+
+Header {
+    background: #111827;
+    color: #93c5fd;
+}
+
+Footer {
+    background: #111827;
+    color: #9ca3af;
 }
 
 #toolbar {
     height: 3;
     padding: 0 1;
-    background: $panel;
+    background: #111827;
 }
 
 #query {
     width: 1fr;
+    border: round #60a5fa;
 }
 
 #content {
@@ -20,44 +31,50 @@ Screen {
 
 #stations {
     width: 2fr;
-    border: solid $primary;
+    border: solid #60a5fa;
+    background: #0f172a;
+    color: #e5e7eb;
 }
 
 #side-panel {
     width: 1fr;
     min-width: 38;
-    border: solid $secondary;
+    border: solid #38bdf8;
     padding: 1;
-    background: $boost;
+    background: #111827;
 }
 
 #mode-title {
     height: 1;
     text-style: bold;
     margin-bottom: 1;
-    color: $accent;
+    color: #93c5fd;
 }
 
 #now-playing {
     height: 7;
-    border: round $success;
+    border: round #22c55e;
     padding: 1;
     margin-bottom: 1;
-    color: $success;
+    color: #22c55e;
 }
 
 #details {
     height: 1fr;
     margin-bottom: 1;
+    color: #e5e7eb;
 }
 
 #status {
     height: 3;
     padding: 0 1;
-    background: $panel;
-    color: $text-muted;
+    background: #111827;
+    color: #9ca3af;
 }
 
 Button {
     margin-left: 1;
+    background: #1f2937;
+    color: #e5e7eb;
+    border: tall #60a5fa;
 }

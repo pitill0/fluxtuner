@@ -161,3 +161,8 @@ User configuration is stored in:
 ```text
 ~/.config/fluxtuner/config.json
 ```
+
+
+## Runtime theme switching
+
+Use `t` to open the theme selector and `Ctrl+R` to reload the active `.tcss` file.

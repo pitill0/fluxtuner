@@ -14,6 +14,7 @@ from fluxtuner.config import set_config_value
 from fluxtuner.core.api import search_stations_by_text
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
+from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 
 
@@ -100,6 +101,14 @@ class FluxTunerTUI(App[None]):
             self.notify(str(exc), severity="error", timeout=8)
             self.exit(return_code=1)
             return
+
+        # Apply the selected theme programmatically as well as through startup CSS.
+        # This makes theme switching and Ctrl+R reload work in normal app runs,
+        # not only under Textual's development CSS watcher.
+        try:
+            apply_theme_runtime(self, self.active_theme)
+        except Exception as exc:  # noqa: BLE001
+            self.notify(f"Theme load failed: {exc}", severity="warning", timeout=6)
 
         self.query_one("#stations", ListView).focus()
         self.update_now_playing()
@@ -386,20 +395,11 @@ class FluxTunerTUI(App[None]):
         self.active_theme = theme_name
         self.theme_path = get_theme_path(theme_name)
 
-        # Textual exposes CSS hot reloading through refresh_css() in recent versions.
-        # Older versions do not, so this fails gracefully and tells the user to restart.
-        refreshed = False
         try:
-            if hasattr(self, "css_path"):
-                self.css_path = str(self.theme_path)  # type: ignore[assignment]
-            if hasattr(self, "refresh_css"):
-                self.refresh_css()  # type: ignore[attr-defined]
-                refreshed = True
-            elif hasattr(self, "reload_css"):
-                self.reload_css()  # type: ignore[attr-defined]
-                refreshed = True
+            apply_theme_runtime(self, theme_name)
         except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Theme selected but hot reload failed: {exc}. Restart FluxTuner if needed.")
+            self.set_status(f"Theme reload failed: {exc}")
+            self.notify(f"Theme reload failed: {exc}", severity="error")
             return
 
         if save:
@@ -409,10 +409,7 @@ class FluxTunerTUI(App[None]):
             suffix = "saved" if save else "previewed"
             if force_reload:
                 suffix = "reloaded"
-            if refreshed:
-                self.set_status(f"Theme {suffix}: {theme_name}")
-            else:
-                self.set_status(f"Theme selected: {theme_name}. Restart FluxTuner if your Textual version does not hot reload CSS.")
+            self.set_status(f"Theme {suffix}: {theme_name}")
 
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)

@@ -74,6 +74,7 @@ class FluxTunerTUI(App[None]):
         self.selected_theme: str | None = None
         self.playing_station: dict[str, Any] | None = None
         self.view_mode = "search"
+        self._search_task: asyncio.Task[None] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -125,6 +126,7 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
     def on_unmount(self) -> None:
+        self.cancel_pending_search()
         self.player.stop()
 
     def action_focus_search(self) -> None:
@@ -182,6 +184,7 @@ class FluxTunerTUI(App[None]):
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Pause/resume failed: {exc}")
             return
+        self.update_now_playing()
         self.set_status("Toggled pause/resume.")
 
     def action_toggle_mute(self) -> None:
@@ -190,6 +193,7 @@ class FluxTunerTUI(App[None]):
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Mute toggle failed: {exc}")
             return
+        self.update_now_playing()
         self.set_status("Toggled mute.")
 
     def action_volume_up(self) -> None:
@@ -198,6 +202,7 @@ class FluxTunerTUI(App[None]):
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Volume up failed: {exc}")
             return
+        self.update_now_playing()
         self.set_status("Volume increased.")
 
     def action_volume_down(self) -> None:
@@ -206,6 +211,7 @@ class FluxTunerTUI(App[None]):
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Volume down failed: {exc}")
             return
+        self.update_now_playing()
         self.set_status("Volume decreased.")
 
     def action_preview_theme(self) -> None:
@@ -216,7 +222,12 @@ class FluxTunerTUI(App[None]):
 
     @on(Input.Submitted, "#query")
     async def search_from_input(self, event: Input.Submitted) -> None:
+        self.cancel_pending_search()
         await self.search(event.value)
+
+    @on(Input.Changed, "#query")
+    def live_search_from_input(self, event: Input.Changed) -> None:
+        self.schedule_live_search(event.value)
 
     @on(Button.Pressed, "#search")
     async def search_from_button(self) -> None:
@@ -239,7 +250,7 @@ class FluxTunerTUI(App[None]):
     def clear_filters_from_button(self) -> None:
         self.query_one("#country-filter", Input).value = ""
         self.query_one("#bitrate-filter", Input).value = ""
-        self.set_status("Search filters cleared.")
+        self.set_status("Search filters cleared. Type or press Enter in search to refresh results.")
 
     @on(Button.Pressed, "#random")
     def random_from_button(self) -> None:
@@ -286,6 +297,34 @@ class FluxTunerTUI(App[None]):
             self.selected_theme = item.theme_name
             self.preview_selected_theme()
 
+    def cancel_pending_search(self) -> None:
+        if self._search_task and not self._search_task.done():
+            self._search_task.cancel()
+        self._search_task = None
+
+    def schedule_live_search(self, query: str) -> None:
+        query = query.strip()
+        self.cancel_pending_search()
+
+        if not query:
+            self.set_status("Type at least 3 characters to search, or press Enter for an exact short search.")
+            return
+
+        if len(query) < 3:
+            self.set_status("Keep typing... live search starts at 3 characters.")
+            return
+
+        self._search_task = asyncio.create_task(self._debounced_search(query))
+
+    async def _debounced_search(self, query: str) -> None:
+        try:
+            await asyncio.sleep(0.55)
+            current_query = self.query_one("#query", Input).value.strip()
+            if current_query == query:
+                await self.search(query, live=True)
+        except asyncio.CancelledError:
+            return
+
     async def search(self, query: str) -> None:
         query = query.strip()
         if not query:
@@ -293,6 +332,7 @@ class FluxTunerTUI(App[None]):
             return
 
         self.view_mode = "search"
+        self._search_task: asyncio.Task[None] | None = None
         self.update_mode_title("Search results")
         self.set_status(f"Searching: {query} ...")
         list_view = self.query_one("#stations", ListView)
@@ -497,15 +537,17 @@ class FluxTunerTUI(App[None]):
             details.update("[b]Selected Station[/b]\nNo station selected.")
             return
 
+        play_count = station.get("play_count")
+        play_count_line = f"\nPlay count: {play_count}" if play_count else ""
         details.update(
             "[b]Selected Station[/b]\n\n"
-            "[b]{}[/b]\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}\nTags: {}\nHomepage: {}".format(
+            "[b]{}[/b]\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}{}\nTags: {}\nHomepage: {}".format(
                 station.get("name", "Unknown station"),
                 station.get("country", "Unknown"),
                 station.get("codec") or "?",
                 station.get("bitrate") or "?",
                 station.get("language") or "?",
-                station.get("play_count") or "-",
+                play_count_line,
                 station.get("tags") or "?",
                 station.get("homepage") or "?",
             )
@@ -530,14 +572,28 @@ class FluxTunerTUI(App[None]):
             return
 
         station = self.playing_station
+        try:
+            state = self.player.get_state()
+        except Exception:  # noqa: BLE001
+            state = {"playing": True}
+
+        paused = bool(state.get("paused"))
+        muted = bool(state.get("muted"))
+        volume = state.get("volume")
+        status_icon = "⏸" if paused else "▶"
+        mute_label = "muted" if muted else "sound on"
+        volume_label = f"{int(round(volume))}%" if isinstance(volume, (int, float)) else "?"
+
         now_playing.update(
             "[b]Now Playing[/b]\n"
-            "▶ {}\n"
-            "{} • {} kbps • {}".format(
-                station.get("name", "Unknown station"),
+            f"{status_icon} {station.get('name', 'Unknown station')}\n"
+            "{} • {} kbps • {}\n"
+            "Volume: {} • {}".format(
                 station.get("country", "Unknown"),
                 station.get("bitrate") or "?",
                 station.get("codec") or "?",
+                volume_label,
+                mute_label,
             )
         )
 

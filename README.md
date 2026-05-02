@@ -8,6 +8,7 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 
 - Textual-based terminal UI
 - Search stations by name or genre/tag
+- Live search with debounce while typing
 - Filter searches by country and minimum bitrate
 - Play streams with `mpv`
 - Persistent favorites
@@ -16,7 +17,8 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Configurable bundled themes
 - In-app theme selector
 - Theme preview while browsing themes
-- mpv JSON IPC controls for pause, mute and volume
+- mpv JSON IPC controls for pause, mute, volume and smooth stream switching
+- Richer Now Playing panel with status, volume and mute state
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -63,6 +65,13 @@ fluxtuner
 | `p` | Preview/apply selected theme |
 | `y` | Save active theme as default |
 | `q` | Quit |
+
+## Search behavior
+
+FluxTuner starts a live search automatically once the query has at least 3 characters.
+For shorter searches, type the query and press `Enter`.
+
+Searches are debounced, so FluxTuner waits briefly while you type before calling the Radio Browser API.
 
 ## Search filters
 
@@ -203,6 +212,8 @@ Current TUI controls:
 - `-`: volume down
 - `m`: mute/unmute
 - `x`: stop playback
+
+When a new station is selected while mpv is already running, FluxTuner uses `loadfile ... replace` over IPC instead of killing and restarting mpv. This makes stream switching smoother.
 
 
 ## UI notes

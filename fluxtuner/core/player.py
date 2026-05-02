@@ -49,16 +49,24 @@ class MpvController:
     volume_step: int = 5
 
     def play(self, url: str) -> None:
-        """Start playing a stream URL, stopping any previous stream first."""
-        ensure_mpv_available()
-        self.stop()
-        self.ipc_path = self._new_ipc_path()
+        """Play a stream URL.
 
+        If mpv is already running, replace the stream using IPC. This keeps the
+        session alive and makes switching stations feel much smoother.
+        """
+        ensure_mpv_available()
+
+        if self.is_playing():
+            self.load(url)
+            return
+
+        self.ipc_path = self._new_ipc_path()
         self.process = subprocess.Popen(  # noqa: S603
             [
                 "mpv",
                 "--no-video",
                 "--really-quiet",
+                "--force-window=no",
                 f"--input-ipc-server={self.ipc_path}",
                 url,
             ],
@@ -66,6 +74,10 @@ class MpvController:
             stderr=subprocess.DEVNULL,
         )
         self._wait_for_ipc_socket()
+
+    def load(self, url: str) -> None:
+        """Replace the currently playing URL without restarting mpv."""
+        self.command(["loadfile", url, "replace"])
 
     def stop(self) -> None:
         """Stop the current mpv process if it is still running."""
@@ -107,6 +119,24 @@ class MpvController:
     def volume_down(self) -> None:
         """Decrease playback volume."""
         self.command(["add", "volume", -self.volume_step])
+
+    def get_property(self, name: str) -> Any:
+        """Return an mpv property through JSON IPC."""
+        response = self.command(["get_property", name])
+        if not response or response.get("error") != "success":
+            return None
+        return response.get("data")
+
+    def get_state(self) -> dict[str, Any]:
+        """Return a compact snapshot of the current mpv state."""
+        if not self.is_playing():
+            return {"playing": False}
+        return {
+            "playing": True,
+            "paused": bool(self.get_property("pause")),
+            "muted": bool(self.get_property("mute")),
+            "volume": self.get_property("volume"),
+        }
 
     def command(self, command: list[Any]) -> dict[str, Any] | None:
         """Send a JSON IPC command to mpv."""

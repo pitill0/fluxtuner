@@ -118,6 +118,7 @@ class FluxTunerTUI(App[None]):
         # Apply the selected theme programmatically so runtime preview works reliably.
         try:
             apply_theme_runtime(self, self.active_theme)
+            self.ensure_now_playing_layout()
         except Exception as exc:  # noqa: BLE001
             self.notify(f"Theme load failed: {exc}", severity="warning", timeout=6)
 
@@ -522,6 +523,7 @@ class FluxTunerTUI(App[None]):
 
         try:
             apply_theme_runtime(self, theme_name)
+            self.ensure_now_playing_layout()
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Theme apply failed: {exc}")
             self.notify(f"Theme apply failed: {exc}", severity="error")
@@ -568,8 +570,29 @@ class FluxTunerTUI(App[None]):
             "Preview is applied automatically while browsing."
         )
 
+    def ensure_now_playing_layout(self) -> None:
+        """Keep the Now Playing panel readable across themes and terminal sizes."""
+        try:
+            now_playing = self.query_one("#now-playing", Static)
+            now_playing.styles.height = 10
+            now_playing.styles.min_height = 10
+            now_playing.styles.width = "100%"
+            now_playing.styles.padding = (1, 2)
+            now_playing.styles.content_align = ("left", "top")
+            now_playing.styles.text_align = "left"
+            now_playing.styles.overflow = "hidden"
+            now_playing.styles.text_overflow = "ellipsis"
+            # Textual versions differ here; ignore unsupported style names.
+            try:
+                now_playing.styles.white_space = "normal"
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def update_now_playing(self) -> None:
         now_playing = self.query_one("#now-playing", Static)
+        self.ensure_now_playing_layout()
         if not self.playing_station:
             now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
             return
@@ -599,20 +622,17 @@ class FluxTunerTUI(App[None]):
         volume_label = f"{int(round(volume))}%" if isinstance(volume, (int, float)) else "?"
         tags = station.get("tags") or "no tags"
 
+        name = station.get("name", "Unknown station")
+        country = station.get("country") or "Unknown country"
+        bitrate = station.get("bitrate") or "?"
+        codec = station.get("codec") or "?"
+
         now_playing.update(
             "[b]Now Playing[/b]\n"
-            f"{status_icon} [b]{station.get('name', 'Unknown station')}[/b]\n"
-            f"Status: {status_label}\n"
-            "{} • {} kbps • {}\n"
-            "Volume: {} • {}\n"
-            "Tags: {}".format(
-                station.get("country", "Unknown"),
-                station.get("bitrate") or "?",
-                station.get("codec") or "?",
-                volume_label,
-                mute_label,
-                tags[:70],
-            )
+            f"{status_icon} [b]{name}[/b]\n"
+            f"{country} • {bitrate} kbps • {codec}\n"
+            f"Volume: {volume_label} • {status_label} • {mute_label}\n"
+            f"Tags: {tags[:95]}"
         )
 
     def update_mode_title(self, title: str) -> None:

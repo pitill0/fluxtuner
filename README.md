@@ -220,3 +220,8 @@ When a new station is selected while mpv is already running, FluxTuner uses `loa
 
 - Toolbar and side-panel buttons use rounded borders and readable minimum sizes.
 - If your terminal is very narrow, increase the window width so the right action panel can keep labels visible.
+
+
+## v9.3 layout note
+
+The Now Playing panel uses a fixed readable height and multiline layout so station metadata, playback status, volume, codec, bitrate, country and tags remain visible in the right panel.

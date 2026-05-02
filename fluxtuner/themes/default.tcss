@@ -52,7 +52,9 @@ Footer {
 }
 
 #now-playing {
-    height: 7;
+    height: 10;
+    min-height: 10;
+    width: 100%;
     border: round #22c55e;
     padding: 1;
     margin-bottom: 1;

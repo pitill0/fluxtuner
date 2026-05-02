@@ -67,7 +67,9 @@ ListView > ListItem.--highlight Label {
 }
 
 #now-playing {
-    height: 7;
+    height: 10;
+    min-height: 10;
+    width: 100%;
     border: round #A6E22E;
     padding: 1;
     margin-bottom: 1;

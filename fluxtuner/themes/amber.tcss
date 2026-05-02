@@ -39,7 +39,9 @@ Screen {
 }
 
 #now-playing {
-    height: 7;
+    height: 10;
+    min-height: 10;
+    width: 100%;
     border: round #95d67a;
     padding: 1;
     margin-bottom: 1;

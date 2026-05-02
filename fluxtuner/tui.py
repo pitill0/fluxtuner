@@ -24,6 +24,16 @@ from fluxtuner.core.favorites import (
     update_favorite,
 )
 from fluxtuner.core.history import add_history, load_history
+from fluxtuner.core.manual_playlists import (
+    add_station_to_playlist,
+    create_playlist,
+    delete_playlist,
+    get_playlist_stations,
+    playlist_counts,
+    random_from_playlist,
+    remove_station_from_playlist,
+    summarize_playlist,
+)
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
@@ -67,6 +77,16 @@ class ThemeListItem(ListItem):
 
 
 
+class PlaylistListItem(ListItem):
+    """List item that stores a persistent playlist."""
+
+    def __init__(self, playlist_name: str, count: int) -> None:
+        self.playlist_name = playlist_name
+        self.count = count
+        label = f"▣ {playlist_name}  •  {count} station{'s' if count != 1 else ''}"
+        super().__init__(Label(label))
+
+
 class TagListItem(ListItem):
     """List item that stores a dynamic playlist tag."""
 
@@ -93,6 +113,8 @@ class FluxTunerTUI(App[None]):
         ("e", "edit_favorite_name", "Rename fav"),
         ("g", "edit_favorite_tags", "Tags"),
         ("u", "filter_favorites_by_tag", "Filter tag"),
+        ("b", "add_to_playlist", "Add playlist"),
+        ("n", "new_playlist", "New playlist"),
         ("r", "play_random_favorite", "Random"),
         ("space", "toggle_pause", "Pause"),
         ("plus", "volume_up", "Vol+"),
@@ -112,6 +134,8 @@ class FluxTunerTUI(App[None]):
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.selected_tag: str | None = None
+        self.selected_playlist: str | None = None
+        self.active_playlist_name: str | None = None
         self.playing_station: dict[str, Any] | None = None
         self.last_station: dict[str, Any] | None = None
         self.restored_volume: int | float | None = None
@@ -150,7 +174,7 @@ class FluxTunerTUI(App[None]):
                 yield Button("Rename fav", id="rename-favorite", classes="side-button secondary-button")
                 yield Button("Edit tags", id="edit-tags", classes="side-button secondary-button")
         yield Static(
-            "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 't' themes, Space pause, +/- volume.",
+            "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 'b' add to playlist, 't' themes, Space pause, +/- volume.",
             id="status",
         )
         yield Footer()
@@ -195,11 +219,16 @@ class FluxTunerTUI(App[None]):
         elif self.view_mode == "history":
             self.set_status("History focused. Use Enter to play, a to add again to favorites, f for favorites.")
         elif self.view_mode == "playlists":
-            self.set_status("Playlists focused. Use Enter to smart play, f to view matching favorites, r for random favorite.")
+            self.set_status("Playlists focused. Enter/r smart plays, f opens playlist stations, n creates, d deletes persistent playlists.")
+        elif self.view_mode == "playlist_stations":
+            self.set_status("Playlist stations focused. Enter plays, d removes from this persistent playlist, b adds selected to another playlist.")
         else:
             self.set_status("Station list focused. Use Enter to play, f favorites, h history, p playlists, a add, r random.")
 
     async def action_show_favorites(self) -> None:
+        if self.view_mode == "playlists" and self.selected_playlist:
+            await self.show_persistent_playlist_stations(self.selected_playlist)
+            return
         if self.view_mode == "playlists" and self.selected_tag:
             await self.show_favorites(tag_filter=self.selected_tag)
             return
@@ -219,7 +248,7 @@ class FluxTunerTUI(App[None]):
             self.preview_selected_theme()
             return
         if self.view_mode == "playlists":
-            self.smart_play_selected_tag()
+            self.smart_play_selected_playlist_or_tag()
             return
         self.play_selected_station()
 
@@ -228,7 +257,7 @@ class FluxTunerTUI(App[None]):
             self.set_status("Use Enter to preview/apply a theme, or 'y' to save it as default.")
             return
         if self.view_mode == "playlists":
-            self.set_status("Playlist mode: press Enter to smart play, or f to view stations for the selected tag.")
+            self.set_status("Playlist mode: press Enter/r to smart play, f to view stations, n to create a playlist.")
             return
         self.add_selected_to_favorites()
 
@@ -237,7 +266,10 @@ class FluxTunerTUI(App[None]):
             self.set_status("Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed.")
             return
         if self.view_mode == "playlists":
-            self.set_status("Playlists are dynamic tags. Edit favorite tags with g from Favorites.")
+            await self.delete_selected_persistent_playlist()
+            return
+        if self.view_mode == "playlist_stations":
+            await self.remove_selected_from_active_playlist()
             return
         await self.remove_selected_from_favorites()
 
@@ -250,6 +282,12 @@ class FluxTunerTUI(App[None]):
     def action_filter_favorites_by_tag(self) -> None:
         self.prepare_favorites_tag_filter()
 
+    def action_add_to_playlist(self) -> None:
+        self.prepare_add_to_playlist()
+
+    def action_new_playlist(self) -> None:
+        self.prepare_new_playlist()
+
     def action_play_last_station(self) -> None:
         self.play_last_station()
 
@@ -257,8 +295,8 @@ class FluxTunerTUI(App[None]):
         if self.view_mode == "themes":
             self.set_status("Random favorite playback is disabled while browsing themes. Press f, h or search first.")
             return
-        if self.view_mode == "playlists" and self.selected_tag:
-            self.smart_play_selected_tag()
+        if self.view_mode == "playlists":
+            self.smart_play_selected_playlist_or_tag()
             return
         self.play_random_favorite()
 
@@ -397,8 +435,15 @@ class FluxTunerTUI(App[None]):
             self.selected_tag = None
             self.update_theme_details(item.theme_name)
             self.apply_theme(item.theme_name, save=False, announce=False)
+        elif isinstance(item, PlaylistListItem):
+            self.selected_playlist = item.playlist_name
+            self.selected_tag = None
+            self.selected_station = None
+            self.selected_theme = None
+            self.update_persistent_playlist_details(item.playlist_name, item.count)
         elif isinstance(item, TagListItem):
             self.selected_tag = item.tag
+            self.selected_playlist = None
             self.selected_station = None
             self.selected_theme = None
             self.update_playlist_details(item.tag, item.count)
@@ -414,9 +459,12 @@ class FluxTunerTUI(App[None]):
         elif isinstance(item, ThemeListItem):
             self.selected_theme = item.theme_name
             self.preview_selected_theme()
+        elif isinstance(item, PlaylistListItem):
+            self.selected_playlist = item.playlist_name
+            self.smart_play_selected_playlist_or_tag()
         elif isinstance(item, TagListItem):
             self.selected_tag = item.tag
-            self.smart_play_selected_tag()
+            self.smart_play_selected_playlist_or_tag()
 
     def cancel_pending_search(self) -> None:
         if self._search_task and not self._search_task.done():
@@ -461,6 +509,8 @@ class FluxTunerTUI(App[None]):
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
+        self.selected_playlist = None
+        self.active_playlist_name = None
         self.update_details(None)
 
         try:
@@ -505,6 +555,8 @@ class FluxTunerTUI(App[None]):
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
+        self.selected_playlist = None
+        self.active_playlist_name = None
         self.update_details(None)
         await self.populate_station_list(favorites)
         self.query_one("#stations", ListView).focus()
@@ -524,6 +576,8 @@ class FluxTunerTUI(App[None]):
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
+        self.selected_playlist = None
+        self.active_playlist_name = None
         self.update_details(None)
         await self.populate_station_list(history)
         self.query_one("#stations", ListView).focus()
@@ -531,35 +585,52 @@ class FluxTunerTUI(App[None]):
 
     async def show_playlists(self) -> None:
         self.view_mode = "playlists"
-        self.update_mode_title("Dynamic playlists")
+        self.active_playlist_name = None
+        self.update_mode_title("Playlists")
+        manual_counts = playlist_counts()
         tag_counts = get_tag_counts()
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
         self.selected_theme = None
+        self.selected_tag = None
+        self.selected_playlist = None
 
-        if not tag_counts:
-            self.selected_tag = None
-            await list_view.append(ListItem(Label("No favorite tags available yet.")))
+        if not manual_counts and not tag_counts:
+            await list_view.append(ListItem(Label("No playlists yet.")))
             self.query_one("#details", Static).update(
-                "[b]Dynamic Playlists[/b]\n\n"
-                "Add tags to favorites with [b]g[/b]. Each tag becomes a dynamic playlist."
+                "[b]Playlists[/b]\n\n"
+                "Create persistent playlists with [b]n[/b], or add tags to favorites with [b]g[/b] to get dynamic playlists."
             )
             list_view.focus()
-            self.set_status("No dynamic playlists yet. Open favorites with f and add tags with g.")
+            self.set_status("No playlists yet. Press n to create one, or tag favorites with g.")
             return
 
-        for tag, count in tag_counts:
-            await list_view.append(TagListItem(tag, count))
+        if manual_counts:
+            await list_view.append(ListItem(Label("Persistent playlists")))
+            for name, count in manual_counts:
+                await list_view.append(PlaylistListItem(name, count))
 
-        list_view.index = 0
-        first = list_view.children[0]
-        if isinstance(first, TagListItem):
-            self.selected_tag = first.tag
-            self.update_playlist_details(first.tag, first.count)
+        if tag_counts:
+            await list_view.append(ListItem(Label("Dynamic tag playlists")))
+            for tag, count in tag_counts:
+                await list_view.append(TagListItem(tag, count))
+
+        # Select the first actionable item, skipping section labels.
+        for index, item in enumerate(list_view.children):
+            if isinstance(item, PlaylistListItem):
+                list_view.index = index
+                self.selected_playlist = item.playlist_name
+                self.update_persistent_playlist_details(item.playlist_name, item.count)
+                break
+            if isinstance(item, TagListItem):
+                list_view.index = index
+                self.selected_tag = item.tag
+                self.update_playlist_details(item.tag, item.count)
+                break
 
         list_view.focus()
-        self.set_status("Dynamic playlists loaded. Enter plays a random station from the selected tag; f shows matching favorites.")
+        self.set_status("Playlists loaded. Enter/r smart plays, f opens stations, n creates, d deletes persistent playlists.")
 
     async def show_themes(self) -> None:
         self.view_mode = "themes"
@@ -605,7 +676,7 @@ class FluxTunerTUI(App[None]):
             self.preview_selected_theme()
             return
         if self.view_mode == "playlists":
-            self.smart_play_selected_tag()
+            self.smart_play_selected_playlist_or_tag()
             return
 
         if not self.selected_station:
@@ -675,6 +746,28 @@ class FluxTunerTUI(App[None]):
         if self.view_mode == "favorites":
             await self.show_favorites(tag_filter=self.favorite_tag_filter)
 
+    async def delete_selected_persistent_playlist(self) -> None:
+        if not self.selected_playlist:
+            self.set_status("Select a persistent playlist to delete. Dynamic tag playlists are managed by favorite tags.")
+            return
+        name = self.selected_playlist
+        deleted = delete_playlist(name)
+        await self.show_playlists()
+        self.set_status(f"Deleted playlist: {name}" if deleted else f"Playlist not found: {name}")
+
+    async def remove_selected_from_active_playlist(self) -> None:
+        if not self.active_playlist_name:
+            self.set_status("No active persistent playlist.")
+            return
+        if not self.selected_station:
+            self.set_status("No station selected.")
+            return
+        removed = remove_station_from_playlist(self.active_playlist_name, self.selected_station)
+        name = favorite_display_name(self.selected_station)
+        playlist = self.active_playlist_name
+        await self.show_persistent_playlist_stations(playlist)
+        self.set_status(f"Removed {name} from playlist: {playlist}" if removed else f"Station not found in playlist: {playlist}")
+
     def play_last_station(self) -> None:
         if not self.last_station:
             self.set_status("No last station saved yet.")
@@ -695,27 +788,57 @@ class FluxTunerTUI(App[None]):
         self.update_details(self.selected_station)
         self.play_selected_station()
 
-    def smart_play_selected_tag(self) -> None:
-        if not self.selected_tag:
-            self.set_status("No playlist tag selected.")
+    def smart_play_selected_playlist_or_tag(self) -> None:
+        if self.selected_playlist:
+            station = random_from_playlist(self.selected_playlist)
+            if not station:
+                self.set_status(f"Persistent playlist '{self.selected_playlist}' has no available favorite stations.")
+                return
+            self.selected_station = station
+            self.selected_theme = None
+            self.update_details(station)
+            if self.play_station(station):
+                self.set_status(f"Smart Play {self.selected_playlist}: {favorite_display_name(station)}")
             return
 
-        station = random_by_tag(self.selected_tag)
-        if not station:
-            self.set_status(f"No favorite stations tagged '{self.selected_tag}'.")
+        if self.selected_tag:
+            station = random_by_tag(self.selected_tag)
+            if not station:
+                self.set_status(f"No favorite stations tagged '{self.selected_tag}'.")
+                return
+            self.selected_station = station
+            self.selected_theme = None
+            self.update_details(station)
+            if self.play_station(station):
+                self.set_status(f"Smart Play #{self.selected_tag}: {favorite_display_name(station)}")
             return
 
-        self.selected_station = station
-        self.selected_theme = None
-        self.update_details(station)
-        if self.play_station(station):
-            self.set_status(f"Smart Play #{self.selected_tag}: {favorite_display_name(station)}")
+        self.set_status("No playlist selected.")
 
     async def show_selected_playlist_favorites(self) -> None:
-        if not self.selected_tag:
-            self.set_status("No playlist tag selected.")
+        if self.selected_playlist:
+            await self.show_persistent_playlist_stations(self.selected_playlist)
             return
-        await self.show_favorites(tag_filter=self.selected_tag)
+        if self.selected_tag:
+            await self.show_favorites(tag_filter=self.selected_tag)
+            return
+        self.set_status("No playlist selected.")
+
+    async def show_persistent_playlist_stations(self, playlist_name: str) -> None:
+        self.view_mode = "playlist_stations"
+        self.active_playlist_name = playlist_name
+        self.update_mode_title(f"Playlist · {playlist_name}")
+        stations = get_playlist_stations(playlist_name)
+        list_view = self.query_one("#stations", ListView)
+        await list_view.clear()
+        self.selected_station = None
+        self.selected_theme = None
+        self.selected_tag = None
+        self.selected_playlist = playlist_name
+        self.update_details(None)
+        await self.populate_station_list(stations)
+        list_view.focus()
+        self.set_status(f"Loaded {len(stations)} station(s) in playlist '{playlist_name}'. Press d to remove selected from this playlist.")
 
     def preview_selected_theme(self) -> None:
         if not self.selected_theme:
@@ -808,6 +931,20 @@ class FluxTunerTUI(App[None]):
         )
 
 
+    def update_persistent_playlist_details(self, playlist_name: str, count: int) -> None:
+        preview = summarize_playlist(playlist_name)
+        self.query_one("#details", Static).update(
+            "[b]Persistent Playlist[/b]\n\n"
+            f"[b]{playlist_name}[/b]\n"
+            f"Stations: {count}\n\n"
+            "Enter / r: smart play random station\n"
+            "f: show playlist stations\n"
+            "d: delete this playlist\n"
+            "b: add selected station to a playlist from other views\n\n"
+            f"{preview}"
+        )
+
+
     def ensure_favorite_selected(self) -> bool:
         if self.view_mode != "favorites":
             self.set_status("Open favorites first with f to edit favorite metadata.")
@@ -849,6 +986,28 @@ class FluxTunerTUI(App[None]):
         suffix = f" Existing tags: {', '.join(tags)}" if tags else " No favorite tags yet."
         self.set_status(f"Filter favorites by tag: type a tag and press Enter. Empty clears filter.{suffix}")
 
+    def prepare_new_playlist(self) -> None:
+        query = self.query_one("#query", Input)
+        query.value = ""
+        query.focus()
+        self.pending_input_action = "create_playlist"
+        self.set_status("Create playlist: type a playlist name and press Enter.")
+
+    def prepare_add_to_playlist(self) -> None:
+        if self.view_mode in {"themes", "playlists"}:
+            self.set_status("Select a station first, then press b to add it to a playlist.")
+            return
+        if not self.selected_station:
+            self.set_status("No station selected to add to a playlist.")
+            return
+        query = self.query_one("#query", Input)
+        query.value = ""
+        query.focus()
+        self.pending_input_action = "add_to_playlist"
+        names = [name for name, _count in playlist_counts()]
+        suffix = f" Existing: {', '.join(names[:8])}" if names else " Type a new name to create one."
+        self.set_status(f"Add selected station to playlist: type playlist name and press Enter.{suffix}")
+
     async def handle_pending_input(self, value: str) -> None:
         action = self.pending_input_action
         self.pending_input_action = None
@@ -856,6 +1015,27 @@ class FluxTunerTUI(App[None]):
 
         if action == "filter_favorites_by_tag":
             await self.show_favorites(tag_filter=value or None)
+            return
+
+        if action == "create_playlist":
+            if not value:
+                self.set_status("Playlist creation cancelled: empty name.")
+                return
+            created = create_playlist(value)
+            await self.show_playlists()
+            self.set_status(f"Created playlist: {value}" if created else f"Playlist already exists: {value}")
+            return
+
+        if action == "add_to_playlist":
+            if not self.selected_station:
+                self.set_status("No station selected to add to a playlist.")
+                return
+            if not value:
+                self.set_status("Add to playlist cancelled: empty playlist name.")
+                return
+            added = add_station_to_playlist(value, self.selected_station)
+            name = favorite_display_name(self.selected_station)
+            self.set_status(f"Added {name} to playlist: {value}" if added else f"{name} is already in playlist: {value}")
             return
 
         if not self.selected_station:

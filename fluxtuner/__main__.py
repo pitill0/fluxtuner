@@ -11,6 +11,7 @@ from rich.table import Table
 
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
+from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
@@ -185,6 +186,16 @@ def main() -> None:
         metavar="PATH",
         help="Import favorites from a JSON file and exit.",
     )
+    parser.add_argument(
+        "--export-playlists",
+        metavar="PATH",
+        help="Export persistent playlists to a JSON file and exit.",
+    )
+    parser.add_argument(
+        "--import-playlists",
+        metavar="PATH",
+        help="Import persistent playlists from a JSON file and exit.",
+    )
     args = parser.parse_args()
 
     if args.list_themes:
@@ -219,6 +230,29 @@ def main() -> None:
             raise SystemExit(1)
         save_favorites(data)
         console.print(f"[green]Imported {len(data)} favorite(s).[/green]")
+        return
+
+    if args.export_playlists:
+        export_path = Path(args.export_playlists).expanduser()
+        export_path.write_text(json.dumps(load_playlists(), indent=2, ensure_ascii=False), encoding="utf-8")
+        console.print(f"[green]Persistent playlists exported to:[/green] {export_path}")
+        return
+
+    if args.import_playlists:
+        import_path = Path(args.import_playlists).expanduser()
+        try:
+            data = json.loads(import_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            console.print(f"[red]Could not read playlists file:[/red] {exc}")
+            raise SystemExit(1) from exc
+        except json.JSONDecodeError as exc:
+            console.print(f"[red]Invalid playlists JSON:[/red] {exc}")
+            raise SystemExit(1) from exc
+        if not isinstance(data, list):
+            console.print("[red]Playlists import must be a JSON list.[/red]")
+            raise SystemExit(1)
+        save_playlists(data)
+        console.print(f"[green]Imported {len(data)} persistent playlist(s).[/green]")
         return
 
     configured_theme = str(get_config_value("theme", DEFAULT_THEME))

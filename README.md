@@ -14,8 +14,10 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Persistent favorites with custom names and user tags
 - Random favorite playback
 - Favorite tag filtering
+- Persistent playlists stored locally
+- Add favorites to playlists from the TUI
 - Tag-based dynamic playlists
-- Smart Play random station from a selected tag playlist
+- Smart Play random station from a selected persistent or tag playlist
 - Favorites import/export
 - Recently played history
 - Configurable bundled themes
@@ -67,8 +69,10 @@ fluxtuner
 | `e` | Rename selected favorite |
 | `g` | Edit selected favorite tags |
 | `u` | Filter favorites by user tag |
+| `b` | Add selected station/favorite to a persistent playlist |
+| `n` | Create a new persistent playlist |
 | `r` | Play random favorite, or smart play the selected playlist in playlist mode |
-| `p` | Open dynamic playlists / Smart Play |
+| `p` | Open playlists / Smart Play |
 | `Space` | Pause/resume playback |
 | `+` | Increase volume |
 | `-` | Decrease volume |
@@ -143,20 +147,42 @@ Import favorites:
 python -m fluxtuner --import-favs favorites-backup.json
 ```
 
-## Dynamic playlists and Smart Play
+## Playlists and Smart Play
 
-FluxTuner automatically creates dynamic playlists from favorite tags. For example, favorites tagged with `work` become the `#work` playlist, and favorites tagged with `focus` become the `#focus` playlist.
+FluxTuner supports two kinds of playlists:
+
+- **Persistent playlists**: manually created playlists stored in `~/.fluxtuner_playlists.json`.
+- **Dynamic tag playlists**: automatically generated from favorite tags. For example, favorites tagged with `work` become the `#work` playlist.
+
+Persistent playlists contain references to favorites, so add stations to favorites first and then organize them into playlists.
 
 From the TUI:
 
 | Key | Action |
 | --- | --- |
-| `p` | Open dynamic playlists |
+| `p` | Open playlists |
+| `n` | Create a persistent playlist |
+| `b` | Add the selected station/favorite to a persistent playlist |
 | `Enter` | Smart Play a random station from the selected playlist |
 | `r` | Smart Play the selected playlist while in playlist mode |
-| `f` | Show the favorites matching the selected playlist tag |
+| `f` | Show stations for the selected playlist |
+| `d` | Delete selected persistent playlist, or remove selected station from an opened persistent playlist |
 
-Dynamic playlists are not stored separately. They are generated from favorite tags, so editing tags with `g` updates playlists immediately.
+Dynamic playlists are not stored separately. They are generated from favorite tags, so editing tags with `g` updates dynamic playlists immediately. Persistent playlists remain stable until you edit them manually.
+
+### Import / export persistent playlists
+
+Export playlists:
+
+```bash
+python -m fluxtuner --export-playlists playlists-backup.json
+```
+
+Import playlists:
+
+```bash
+python -m fluxtuner --import-playlists playlists-backup.json
+```
 
 ## History
 
@@ -166,6 +192,12 @@ History is stored in:
 
 ```text
 ~/.fluxtuner_history.json
+```
+
+Persistent playlists are stored in:
+
+```text
+~/.fluxtuner_playlists.json
 ```
 
 Each repeated play updates the station timestamp and increases its `play_count`.

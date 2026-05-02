@@ -8,9 +8,11 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 
 - Textual-based terminal UI
 - Search stations by name or genre/tag
+- Filter searches by country and minimum bitrate
 - Play streams with `mpv`
 - Persistent favorites
 - Random favorite playback
+- Recently played history
 - Configurable bundled themes
 - In-app theme selector
 - Theme preview while browsing themes
@@ -49,6 +51,7 @@ fluxtuner
 | `Enter` | Play selected station, or apply selected theme in theme mode |
 | `a` | Add selected station to favorites |
 | `f` | Show favorites |
+| `h` | Show recently played history |
 | `d` | Remove selected favorite |
 | `r` | Play random favorite |
 | `Space` | Pause/resume playback |
@@ -60,6 +63,27 @@ fluxtuner
 | `p` | Preview/apply selected theme |
 | `y` | Save active theme as default |
 | `q` | Quit |
+
+## Search filters
+
+The TUI includes optional filters below the search bar:
+
+- `Country`: restricts Radio Browser results to a country name, such as `Spain`, `France` or `United Kingdom`.
+- `Min kbps`: filters out stations below the selected bitrate.
+
+Use `Clear filters` to reset both fields.
+
+## History
+
+FluxTuner stores recently played stations locally and shows them with `h` from the TUI.
+
+History is stored in:
+
+```text
+~/.fluxtuner_history.json
+```
+
+Each repeated play updates the station timestamp and increases its `play_count`.
 
 ## Themes
 
@@ -153,7 +177,13 @@ python -m fluxtuner --cli
 Favorites are stored in:
 
 ```text
-~/.radio_favs.json
+~/.fluxtuner_favorites.json
+```
+
+Recently played history is stored in:
+
+```text
+~/.fluxtuner_history.json
 ```
 
 User configuration is stored in:

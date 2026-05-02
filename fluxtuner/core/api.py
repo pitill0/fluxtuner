@@ -77,3 +77,41 @@ def search_stations_by_text(query: str, limit: int = 40) -> list[dict[str, Any]]
             results.append(station)
 
     return results[:limit]
+
+
+def search_stations_filtered(
+    query: str,
+    country: str | None = None,
+    min_bitrate: int | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Search by text and optional filters used by the TUI.
+
+    `query` is matched against station names and tags. `country` is passed to
+    Radio Browser when provided. `min_bitrate` is applied locally because API
+    results may be inconsistent across mirrors.
+    """
+    query = query.strip()
+    country = country.strip() if country else None
+    if not query:
+        return []
+
+    results: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for items in (
+        search_stations(name=query, country=country, limit=limit),
+        search_stations(tag=query, country=country, limit=limit),
+    ):
+        for item in items:
+            station = normalize_station(item)
+            url = station.get("url")
+            if not url or url in seen_urls:
+                continue
+            bitrate = int(station.get("bitrate") or 0)
+            if min_bitrate is not None and bitrate < min_bitrate:
+                continue
+            seen_urls.add(url)
+            results.append(station)
+
+    return results[:limit]

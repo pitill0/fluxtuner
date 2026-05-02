@@ -18,7 +18,13 @@ SUPPORTED_SELECTORS = {
     "Footer",
     "Button",
     "#toolbar",
+    "#filters",
     "#query",
+    "#country-filter",
+    "#bitrate-filter",
+    ".toolbar-button",
+    ".side-button",
+    ".filter-label",
     "#stations",
     "#side-panel",
     "#mode-title",
@@ -121,6 +127,11 @@ def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
                     _set_if_supported(styles, "margin", (0, 0, 0, left))
         elif prop == "text-style":
             _set_if_supported(styles, "text_style", value)
+        elif prop in {"height", "width", "min-width", "max-width"}:
+            parsed_value: Any = value
+            if value.isdigit():
+                parsed_value = int(value)
+            _set_if_supported(styles, prop.replace("-", "_"), parsed_value)
 
 
 def apply_theme_runtime(app: App[Any], theme_name: str) -> Path:
@@ -140,7 +151,13 @@ def apply_theme_runtime(app: App[Any], theme_name: str) -> Path:
         "Footer": Footer,
         "Button": Button,
         "#toolbar": "#toolbar",
+        "#filters": "#filters",
         "#query": "#query",
+        "#country-filter": "#country-filter",
+        "#bitrate-filter": "#bitrate-filter",
+        ".toolbar-button": ".toolbar-button",
+        ".side-button": ".side-button",
+        ".filter-label": ".filter-label",
         "#stations": "#stations",
         "#side-panel": "#side-panel",
         "#mode-title": "#mode-title",

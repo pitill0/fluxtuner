@@ -11,8 +11,9 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, Static
 
 from fluxtuner.config import set_config_value
-from fluxtuner.core.api import search_stations_by_text
+from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
+from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
@@ -51,6 +52,7 @@ class FluxTunerTUI(App[None]):
         ("enter", "activate_selected", "Play/apply"),
         ("a", "add_selected", "Add"),
         ("f", "show_favorites", "Favorites"),
+        ("h", "show_history", "History"),
         ("d", "remove_selected", "Delete fav"),
         ("r", "play_random_favorite", "Random"),
         ("space", "toggle_pause", "Pause"),
@@ -77,22 +79,29 @@ class FluxTunerTUI(App[None]):
         yield Header(show_clock=True)
         with Horizontal(id="toolbar"):
             yield Input(placeholder="Search by station name or genre/tag", id="query")
-            yield Button("Search", id="search", variant="primary")
-            yield Button("Favorites", id="favorites")
-            yield Button("Random", id="random")
-            yield Button("Themes", id="themes")
-            yield Button("Stop", id="stop", variant="error")
+            yield Button("Search", id="search", variant="primary", classes="toolbar-button")
+            yield Button("Favs", id="favorites", classes="toolbar-button")
+            yield Button("History", id="history", classes="toolbar-button")
+            yield Button("Random", id="random", classes="toolbar-button")
+            yield Button("Themes", id="themes", classes="toolbar-button")
+            yield Button("Stop", id="stop", variant="error", classes="toolbar-button")
+        with Horizontal(id="filters"):
+            yield Label("Country", classes="filter-label")
+            yield Input(placeholder="optional", id="country-filter")
+            yield Label("Min kbps", classes="filter-label")
+            yield Input(placeholder="0", id="bitrate-filter")
+            yield Button("Clear filters", id="clear-filters", classes="toolbar-button")
         with Horizontal(id="content"):
             yield ListView(id="stations")
             with Vertical(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
                 yield Static("No station selected.", id="details")
-                yield Button("Play selected", id="play", variant="success")
-                yield Button("Add to favorites", id="add-favorite")
-                yield Button("Remove favorite", id="remove-favorite", variant="warning")
+                yield Button("Play", id="play", variant="success", classes="side-button")
+                yield Button("Add fav", id="add-favorite", classes="side-button")
+                yield Button("Remove fav", id="remove-favorite", variant="warning", classes="side-button")
         yield Static(
-            "Ready. Press '/' to search, 'f' for favorites, 't' for themes, Space to pause, +/- for volume.",
+            "Ready. Press '/' to search, 'f' favorites, 'h' history, 't' themes, Space pause, +/- volume.",
             id="status",
         )
         yield Footer()
@@ -126,14 +135,19 @@ class FluxTunerTUI(App[None]):
         self.query_one("#stations", ListView).focus()
         if self.view_mode == "themes":
             self.set_status("Theme list focused. Use ↑/↓ to preview, Enter or p to apply, y to save.")
+        elif self.view_mode == "history":
+            self.set_status("History focused. Use Enter to play, a to add again to favorites, f for favorites.")
         else:
-            self.set_status("Station list focused. Use Enter to play, f for favorites, a to add, r for random.")
+            self.set_status("Station list focused. Use Enter to play, f favorites, h history, a add, r random.")
 
     async def action_show_favorites(self) -> None:
         await self.show_favorites()
 
     async def action_show_themes(self) -> None:
         await self.show_themes()
+
+    async def action_show_history(self) -> None:
+        await self.show_history()
 
     def action_activate_selected(self) -> None:
         if self.view_mode == "themes":
@@ -155,7 +169,7 @@ class FluxTunerTUI(App[None]):
 
     def action_play_random_favorite(self) -> None:
         if self.view_mode == "themes":
-            self.set_status("Random favorite playback is disabled while browsing themes. Press 'f' or search first.")
+            self.set_status("Random favorite playback is disabled while browsing themes. Press f, h or search first.")
             return
         self.play_random_favorite()
 
@@ -216,6 +230,16 @@ class FluxTunerTUI(App[None]):
     @on(Button.Pressed, "#themes")
     async def themes_from_button(self) -> None:
         await self.show_themes()
+
+    @on(Button.Pressed, "#history")
+    async def history_from_button(self) -> None:
+        await self.show_history()
+
+    @on(Button.Pressed, "#clear-filters")
+    def clear_filters_from_button(self) -> None:
+        self.query_one("#country-filter", Input).value = ""
+        self.query_one("#bitrate-filter", Input).value = ""
+        self.set_status("Search filters cleared.")
 
     @on(Button.Pressed, "#random")
     def random_from_button(self) -> None:
@@ -278,7 +302,16 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
         try:
-            stations = await asyncio.to_thread(search_stations_by_text, query, 50)
+            country = self.query_one("#country-filter", Input).value.strip()
+            min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
+            min_bitrate = None
+            if min_bitrate_raw:
+                try:
+                    min_bitrate = int(min_bitrate_raw)
+                except ValueError:
+                    self.set_status("Min kbps must be a number.")
+                    return
+            stations = await asyncio.to_thread(search_stations_filtered, query, country or None, min_bitrate, 50)
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Search failed: {exc}")
             self.notify(f"Search failed: {exc}", severity="error")
@@ -286,7 +319,15 @@ class FluxTunerTUI(App[None]):
 
         await self.populate_station_list(stations)
         self.query_one("#stations", ListView).focus()
-        self.set_status(f"Found {len(stations)} station(s) for: {query}")
+        filters = []
+        country = self.query_one("#country-filter", Input).value.strip()
+        min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
+        if country:
+            filters.append(f"country={country}")
+        if min_bitrate_raw:
+            filters.append(f"min={min_bitrate_raw}kbps")
+        suffix = f" ({', '.join(filters)})" if filters else ""
+        self.set_status(f"Found {len(stations)} station(s) for: {query}{suffix}")
 
     async def show_favorites(self) -> None:
         self.view_mode = "favorites"
@@ -300,6 +341,19 @@ class FluxTunerTUI(App[None]):
         await self.populate_station_list(favorites)
         self.query_one("#stations", ListView).focus()
         self.set_status(f"Loaded {len(favorites)} favorite station(s).")
+
+    async def show_history(self) -> None:
+        self.view_mode = "history"
+        self.update_mode_title("Recently played")
+        history = load_history()
+        list_view = self.query_one("#stations", ListView)
+        await list_view.clear()
+        self.selected_station = None
+        self.selected_theme = None
+        self.update_details(None)
+        await self.populate_station_list(history)
+        self.query_one("#stations", ListView).focus()
+        self.set_status(f"Loaded {len(history)} recently played station(s).")
 
     async def show_themes(self) -> None:
         self.view_mode = "themes"
@@ -360,6 +414,7 @@ class FluxTunerTUI(App[None]):
             return
 
         self.playing_station = self.selected_station
+        add_history(self.selected_station)
         self.update_now_playing()
         self.set_status(f"Playing: {self.selected_station['name']}")
 
@@ -450,6 +505,7 @@ class FluxTunerTUI(App[None]):
                 station.get("codec") or "?",
                 station.get("bitrate") or "?",
                 station.get("language") or "?",
+                station.get("play_count") or "-",
                 station.get("tags") or "?",
                 station.get("homepage") or "?",
             )

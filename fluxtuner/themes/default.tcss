@@ -78,3 +78,38 @@ Button {
     color: #e5e7eb;
     border: tall #60a5fa;
 }
+
+#filters {
+    height: 3;
+    padding: 0 1;
+    background: #111827;
+}
+
+#country-filter {
+    width: 24;
+    border: round #60a5fa;
+}
+
+#bitrate-filter {
+    width: 14;
+    border: round #60a5fa;
+}
+
+.filter-label {
+    width: 10;
+    content-align: right middle;
+    color: #93c5fd;
+}
+
+.toolbar-button {
+    margin-left: 1;
+    min-width: 9;
+    border: round #60a5fa;
+}
+
+.side-button {
+    width: 100%;
+    height: 1;
+    margin: 0 0 1 0;
+    border: round #60a5fa;
+}

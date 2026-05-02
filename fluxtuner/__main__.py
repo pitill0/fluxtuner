@@ -153,8 +153,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--save-theme",
-        action="store_true",
-        help="Persist the theme passed with --theme as the default theme.",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="THEME",
+        help=(
+            "Persist a theme as the default. Use either '--theme THEME --save-theme' "
+            "or '--save-theme THEME'."
+        ),
     )
     parser.add_argument(
         "--list-themes",
@@ -177,15 +183,16 @@ def main() -> None:
         selected_theme = DEFAULT_THEME
 
     if args.save_theme:
-        if not args.theme:
-            console.print("[red]--save-theme requires --theme THEME_NAME.[/red]")
+        theme_to_save = args.theme if args.save_theme is True else str(args.save_theme)
+        if not theme_to_save:
+            console.print("[red]--save-theme requires a theme name or --theme THEME_NAME.[/red]")
             raise SystemExit(2)
-        if not theme_exists(args.theme):
-            console.print(f"[red]Cannot save unknown theme: {args.theme}[/red]")
+        if not theme_exists(theme_to_save):
+            console.print(f"[red]Cannot save unknown theme: {theme_to_save}[/red]")
             raise SystemExit(2)
-        set_config_value("theme", args.theme)
-        selected_theme = args.theme
-        console.print(f"[green]Saved default theme:[/green] {args.theme}")
+        set_config_value("theme", theme_to_save)
+        selected_theme = theme_to_save
+        console.print(f"[green]Saved default theme:[/green] {theme_to_save}")
 
     try:
         ensure_mpv_available()

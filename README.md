@@ -2,7 +2,7 @@
 
 FluxTuner is a terminal internet radio player powered by Python, Textual and `mpv`.
 
-It provides a comfortable TUI for searching internet radio stations, playing streams, managing favorites and launching a random favorite station.
+It provides a comfortable TUI for searching internet radio stations, playing streams, managing favorites, launching a random favorite station and customizing the interface with themes.
 
 ## Features
 
@@ -12,6 +12,9 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Persistent favorites
 - Random favorite playback
 - Configurable bundled themes
+- In-app theme selector
+- Theme preview while browsing themes
+- CSS/theme hot reload from the TUI
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -42,13 +45,17 @@ fluxtuner
 | Key | Action |
 | --- | --- |
 | `/` | Focus search input |
-| `Escape` | Return focus to the station list |
-| `Enter` | Play selected station |
+| `Escape` | Return focus to the main list |
+| `Enter` | Play selected station, or apply selected theme in theme mode |
 | `a` | Add selected station to favorites |
 | `f` | Show favorites |
 | `d` | Remove selected favorite |
 | `r` | Play random favorite |
 | `x` | Stop playback |
+| `t` | Open theme selector |
+| `p` | Preview/apply selected theme |
+| `y` | Save active theme as default |
+| `Ctrl+R` | Reload current theme CSS file |
 | `q` | Quit |
 
 ## Themes
@@ -71,12 +78,19 @@ Run with a specific theme for this session:
 python -m fluxtuner --theme nord
 python -m fluxtuner --theme dracula
 python -m fluxtuner --theme amber
+python -m fluxtuner --theme ptmtrx
 ```
 
 Save a theme as the default:
 
 ```bash
 python -m fluxtuner --theme nord --save-theme
+```
+
+This syntax is also supported:
+
+```bash
+python -m fluxtuner --save-theme nord
 ```
 
 The default config file is stored at:
@@ -93,6 +107,23 @@ Example:
 }
 ```
 
+## In-app theme selector
+
+Open the theme selector from the TUI:
+
+```text
+t
+```
+
+While browsing themes:
+
+- Highlighting a theme previews it immediately.
+- `Enter` or `p` applies/previews the selected theme.
+- `y` saves the current active theme as the default.
+- `Ctrl+R` reloads the active `.tcss` file from disk.
+
+This makes theme editing much faster: edit a `.tcss` file in your editor, return to FluxTuner and press `Ctrl+R`.
+
 ## Creating a custom theme
 
 Create a new `.tcss` file inside `fluxtuner/themes/`, for example:
@@ -106,6 +137,8 @@ Then run:
 ```bash
 python -m fluxtuner --theme my-theme
 ```
+
+Or open the in-app selector with `t` and preview it there.
 
 A theme is a Textual CSS file. The included themes are good starting points.
 

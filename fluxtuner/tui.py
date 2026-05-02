@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+from pathlib import Path
 from typing import Any
 
 from textual import on
@@ -9,10 +10,11 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, Static
 
+from fluxtuner.config import set_config_value
 from fluxtuner.core.api import search_stations_by_text
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
-from fluxtuner.themes import get_theme_path
+from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 
 
 class StationListItem(ListItem):
@@ -29,6 +31,15 @@ class StationListItem(ListItem):
         super().__init__(Label(row))
 
 
+class ThemeListItem(ListItem):
+    """List item that stores the theme represented by the row."""
+
+    def __init__(self, theme_name: str, active_theme: str) -> None:
+        self.theme_name = theme_name
+        marker = "●" if theme_name == active_theme else "○"
+        super().__init__(Label(f"{marker} {theme_name}"))
+
+
 class FluxTunerTUI(App[None]):
     """Textual application for FluxTuner."""
 
@@ -36,18 +47,25 @@ class FluxTunerTUI(App[None]):
         ("q", "quit", "Quit"),
         ("/", "focus_search", "Search"),
         ("escape", "focus_station_list", "Results"),
-        ("enter", "play_selected", "Play"),
+        ("enter", "activate_selected", "Play/apply"),
         ("a", "add_selected", "Add"),
         ("f", "show_favorites", "Favorites"),
         ("d", "remove_selected", "Delete fav"),
         ("r", "play_random_favorite", "Random"),
         ("x", "stop", "Stop"),
+        ("t", "show_themes", "Themes"),
+        ("p", "preview_theme", "Preview"),
+        ("y", "save_theme", "Save theme"),
+        ("ctrl+r", "reload_theme", "Reload CSS"),
     ]
 
     def __init__(self, theme: str | None = None) -> None:
-        super().__init__(css_path=str(get_theme_path(theme)))
+        self.active_theme = theme or DEFAULT_THEME
+        self.theme_path = get_theme_path(self.active_theme)
+        super().__init__(css_path=str(self.theme_path))
         self.player = MpvController()
         self.selected_station: dict[str, Any] | None = None
+        self.selected_theme: str | None = None
         self.playing_station: dict[str, Any] | None = None
         self.view_mode = "search"
 
@@ -58,6 +76,7 @@ class FluxTunerTUI(App[None]):
             yield Button("Search", id="search", variant="primary")
             yield Button("Favorites", id="favorites")
             yield Button("Random", id="random")
+            yield Button("Themes", id="themes")
             yield Button("Stop", id="stop", variant="error")
         with Horizontal(id="content"):
             yield ListView(id="stations")
@@ -68,7 +87,10 @@ class FluxTunerTUI(App[None]):
                 yield Button("Play selected", id="play", variant="success")
                 yield Button("Add to favorites", id="add-favorite")
                 yield Button("Remove favorite", id="remove-favorite", variant="warning")
-        yield Static("Ready. Main list focused. Press '/' to search, 'f' for favorites, 'r' for random favorite.", id="status")
+        yield Static(
+            "Ready. Press '/' to search, 'f' for favorites, 't' for themes, 'r' for random favorite.",
+            id="status",
+        )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -81,35 +103,63 @@ class FluxTunerTUI(App[None]):
 
         self.query_one("#stations", ListView).focus()
         self.update_now_playing()
+        self.update_details(None)
 
     def on_unmount(self) -> None:
         self.player.stop()
 
     def action_focus_search(self) -> None:
         self.query_one("#query", Input).focus()
-        self.set_status("Search focused. Type a query and press Enter. Press Escape to return to the station list.")
+        self.set_status("Search focused. Type a query and press Enter. Press Escape to return to the main list.")
 
     def action_focus_station_list(self) -> None:
         self.query_one("#stations", ListView).focus()
-        self.set_status("Station list focused. Use Enter to play, f for favorites, a to add, r for random.")
+        if self.view_mode == "themes":
+            self.set_status("Theme list focused. Use ↑/↓ to preview, Enter or p to apply, y to save, Ctrl+R to reload CSS.")
+        else:
+            self.set_status("Station list focused. Use Enter to play, f for favorites, a to add, r for random.")
 
     async def action_show_favorites(self) -> None:
         await self.show_favorites()
 
-    def action_play_selected(self) -> None:
+    async def action_show_themes(self) -> None:
+        await self.show_themes()
+
+    def action_activate_selected(self) -> None:
+        if self.view_mode == "themes":
+            self.preview_selected_theme()
+            return
         self.play_selected_station()
 
     def action_add_selected(self) -> None:
+        if self.view_mode == "themes":
+            self.set_status("Use 'p' or Enter to preview/apply a theme, or 'y' to save it as default.")
+            return
         self.add_selected_to_favorites()
 
     async def action_remove_selected(self) -> None:
+        if self.view_mode == "themes":
+            self.set_status("Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed.")
+            return
         await self.remove_selected_from_favorites()
 
     def action_play_random_favorite(self) -> None:
+        if self.view_mode == "themes":
+            self.set_status("Random favorite playback is disabled while browsing themes. Press 'f' or search first.")
+            return
         self.play_random_favorite()
 
     def action_stop(self) -> None:
         self.stop_playback()
+
+    def action_preview_theme(self) -> None:
+        self.preview_selected_theme()
+
+    def action_save_theme(self) -> None:
+        self.save_active_theme()
+
+    def action_reload_theme(self) -> None:
+        self.reload_active_theme()
 
     @on(Input.Submitted, "#query")
     async def search_from_input(self, event: Input.Submitted) -> None:
@@ -123,6 +173,10 @@ class FluxTunerTUI(App[None]):
     @on(Button.Pressed, "#favorites")
     async def favorites_from_button(self) -> None:
         await self.show_favorites()
+
+    @on(Button.Pressed, "#themes")
+    async def themes_from_button(self) -> None:
+        await self.show_themes()
 
     @on(Button.Pressed, "#random")
     def random_from_button(self) -> None:
@@ -145,19 +199,29 @@ class FluxTunerTUI(App[None]):
         await self.remove_selected_from_favorites()
 
     @on(ListView.Highlighted, "#stations")
-    def station_highlighted(self, event: ListView.Highlighted) -> None:
+    def item_highlighted(self, event: ListView.Highlighted) -> None:
         item = event.item
         if isinstance(item, StationListItem):
             self.selected_station = item.station
+            self.selected_theme = None
             self.update_details(item.station)
+        elif isinstance(item, ThemeListItem):
+            self.selected_theme = item.theme_name
+            self.selected_station = None
+            self.update_theme_details(item.theme_name)
+            self.apply_theme(item.theme_name, save=False, announce=False)
 
     @on(ListView.Selected, "#stations")
-    def station_selected(self, event: ListView.Selected) -> None:
+    def item_selected(self, event: ListView.Selected) -> None:
         item = event.item
         if isinstance(item, StationListItem):
             self.selected_station = item.station
+            self.selected_theme = None
             self.update_details(item.station)
             self.play_selected_station()
+        elif isinstance(item, ThemeListItem):
+            self.selected_theme = item.theme_name
+            self.preview_selected_theme()
 
     async def search(self, query: str) -> None:
         query = query.strip()
@@ -171,6 +235,7 @@ class FluxTunerTUI(App[None]):
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
+        self.selected_theme = None
         self.update_details(None)
 
         try:
@@ -191,10 +256,33 @@ class FluxTunerTUI(App[None]):
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
+        self.selected_theme = None
         self.update_details(None)
         await self.populate_station_list(favorites)
         self.query_one("#stations", ListView).focus()
         self.set_status(f"Loaded {len(favorites)} favorite station(s).")
+
+    async def show_themes(self) -> None:
+        self.view_mode = "themes"
+        self.update_mode_title("Themes")
+        list_view = self.query_one("#stations", ListView)
+        await list_view.clear()
+        self.selected_station = None
+        themes = list_themes()
+
+        for theme_name in themes:
+            await list_view.append(ThemeListItem(theme_name, self.active_theme))
+
+        list_view.index = 0
+        if themes:
+            self.selected_theme = themes[0]
+            self.update_theme_details(themes[0])
+        else:
+            self.selected_theme = None
+            self.query_one("#details", Static).update("[b]Themes[/b]\nNo themes found.")
+
+        list_view.focus()
+        self.set_status("Theme selector. Highlight previews automatically. Press Enter/p to apply, y to save, Ctrl+R to reload CSS.")
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:
         list_view = self.query_one("#stations", ListView)
@@ -212,6 +300,10 @@ class FluxTunerTUI(App[None]):
             self.update_details(first.station)
 
     def play_selected_station(self) -> None:
+        if self.view_mode == "themes":
+            self.preview_selected_theme()
+            return
+
         if not self.selected_station:
             self.set_status("No station selected.")
             return
@@ -239,6 +331,9 @@ class FluxTunerTUI(App[None]):
         self.set_status("Playback stopped.")
 
     def add_selected_to_favorites(self) -> None:
+        if self.view_mode == "themes":
+            self.set_status("Themes mode: use Enter/p to apply, y to save as default.")
+            return
         if not self.selected_station:
             self.set_status("No station selected.")
             return
@@ -246,6 +341,9 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"Saved favorite: {self.selected_station['name']}")
 
     async def remove_selected_from_favorites(self) -> None:
+        if self.view_mode == "themes":
+            self.set_status("Themes cannot be removed from the app UI.")
+            return
         if not self.selected_station:
             self.set_status("No station selected.")
             return
@@ -262,8 +360,59 @@ class FluxTunerTUI(App[None]):
             self.set_status("No favorites yet.")
             return
         self.selected_station = random.choice(favorites)
+        self.selected_theme = None
         self.update_details(self.selected_station)
         self.play_selected_station()
+
+    def preview_selected_theme(self) -> None:
+        if not self.selected_theme:
+            self.set_status("No theme selected.")
+            return
+        self.apply_theme(self.selected_theme, save=False, announce=True)
+
+    def save_active_theme(self) -> None:
+        set_config_value("theme", self.active_theme)
+        self.set_status(f"Saved default theme: {self.active_theme}")
+        self.notify(f"Saved default theme: {self.active_theme}", severity="information")
+
+    def reload_active_theme(self) -> None:
+        self.apply_theme(self.active_theme, save=False, announce=True, force_reload=True)
+
+    def apply_theme(self, theme_name: str, save: bool = False, announce: bool = True, force_reload: bool = False) -> None:
+        if not theme_exists(theme_name):
+            self.set_status(f"Theme not found: {theme_name}")
+            return
+
+        self.active_theme = theme_name
+        self.theme_path = get_theme_path(theme_name)
+
+        # Textual exposes CSS hot reloading through refresh_css() in recent versions.
+        # Older versions do not, so this fails gracefully and tells the user to restart.
+        refreshed = False
+        try:
+            if hasattr(self, "css_path"):
+                self.css_path = str(self.theme_path)  # type: ignore[assignment]
+            if hasattr(self, "refresh_css"):
+                self.refresh_css()  # type: ignore[attr-defined]
+                refreshed = True
+            elif hasattr(self, "reload_css"):
+                self.reload_css()  # type: ignore[attr-defined]
+                refreshed = True
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Theme selected but hot reload failed: {exc}. Restart FluxTuner if needed.")
+            return
+
+        if save:
+            set_config_value("theme", theme_name)
+
+        if announce:
+            suffix = "saved" if save else "previewed"
+            if force_reload:
+                suffix = "reloaded"
+            if refreshed:
+                self.set_status(f"Theme {suffix}: {theme_name}")
+            else:
+                self.set_status(f"Theme selected: {theme_name}. Restart FluxTuner if your Textual version does not hot reload CSS.")
 
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)
@@ -282,6 +431,18 @@ class FluxTunerTUI(App[None]):
                 station.get("tags") or "?",
                 station.get("homepage") or "?",
             )
+        )
+
+    def update_theme_details(self, theme_name: str) -> None:
+        path = get_theme_path(theme_name)
+        status = "active" if theme_name == self.active_theme else "available"
+        self.query_one("#details", Static).update(
+            "[b]Theme Preview[/b]\n\n"
+            f"[b]{theme_name}[/b]\nStatus: {status}\nFile: {Path(path).name}\n\n"
+            "Highlight previews automatically.\n"
+            "Enter / p: apply preview\n"
+            "y: save as default\n"
+            "Ctrl+R: reload current theme file"
         )
 
     def update_now_playing(self) -> None:

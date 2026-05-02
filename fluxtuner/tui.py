@@ -74,7 +74,7 @@ class FluxTunerTUI(App[None]):
         self.selected_theme: str | None = None
         self.playing_station: dict[str, Any] | None = None
         self.view_mode = "search"
-        self._search_task: asyncio.Task[None] | None = None
+        self._search_task = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -123,6 +123,7 @@ class FluxTunerTUI(App[None]):
 
         self.query_one("#stations", ListView).focus()
         self.update_now_playing()
+        self.set_interval(1.5, self.update_now_playing)
         self.update_details(None)
 
     def on_unmount(self) -> None:
@@ -325,16 +326,16 @@ class FluxTunerTUI(App[None]):
         except asyncio.CancelledError:
             return
 
-    async def search(self, query: str) -> None:
+    async def search(self, query: str, live: bool = False) -> None:
         query = query.strip()
         if not query:
             self.set_status("Type a station name or genre/tag first.")
             return
 
         self.view_mode = "search"
-        self._search_task: asyncio.Task[None] | None = None
+        self._search_task = None
         self.update_mode_title("Search results")
-        self.set_status(f"Searching: {query} ...")
+        self.set_status(f"Live searching: {query} ..." if live else f"Searching: {query} ...")
         list_view = self.query_one("#stations", ListView)
         await list_view.clear()
         self.selected_station = None
@@ -367,7 +368,8 @@ class FluxTunerTUI(App[None]):
         if min_bitrate_raw:
             filters.append(f"min={min_bitrate_raw}kbps")
         suffix = f" ({', '.join(filters)})" if filters else ""
-        self.set_status(f"Found {len(stations)} station(s) for: {query}{suffix}")
+        prefix = "Live search" if live else "Found"
+        self.set_status(f"{prefix}: {len(stations)} station(s) for: {query}{suffix}")
 
     async def show_favorites(self) -> None:
         self.view_mode = "favorites"
@@ -567,7 +569,7 @@ class FluxTunerTUI(App[None]):
 
     def update_now_playing(self) -> None:
         now_playing = self.query_one("#now-playing", Static)
-        if not self.playing_station or not self.player.is_playing():
+        if not self.playing_station:
             now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
             return
 
@@ -575,25 +577,40 @@ class FluxTunerTUI(App[None]):
         try:
             state = self.player.get_state()
         except Exception:  # noqa: BLE001
-            state = {"playing": True}
+            state = {"playing": self.player.is_playing()}
 
+        is_running = bool(state.get("playing"))
         paused = bool(state.get("paused"))
         muted = bool(state.get("muted"))
         volume = state.get("volume")
-        status_icon = "⏸" if paused else "▶"
+
+        if not is_running:
+            status_icon = "■"
+            status_label = "Stopped"
+        elif paused:
+            status_icon = "⏸"
+            status_label = "Paused"
+        else:
+            status_icon = "▶"
+            status_label = "Playing"
+
         mute_label = "muted" if muted else "sound on"
         volume_label = f"{int(round(volume))}%" if isinstance(volume, (int, float)) else "?"
+        tags = station.get("tags") or "no tags"
 
         now_playing.update(
             "[b]Now Playing[/b]\n"
-            f"{status_icon} {station.get('name', 'Unknown station')}\n"
+            f"{status_icon} [b]{station.get('name', 'Unknown station')}[/b]\n"
+            f"Status: {status_label}\n"
             "{} • {} kbps • {}\n"
-            "Volume: {} • {}".format(
+            "Volume: {} • {}\n"
+            "Tags: {}".format(
                 station.get("country", "Unknown"),
                 station.get("bitrate") or "?",
                 station.get("codec") or "?",
                 volume_label,
                 mute_label,
+                tags[:70],
             )
         )
 

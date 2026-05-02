@@ -47,6 +47,7 @@ class MpvController:
     process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     ipc_path: Path | None = field(default=None, init=False)
     volume_step: int = 5
+    _request_id: int = field(default=0, init=False)
 
     def play(self, url: str) -> None:
         """Play a stream URL.
@@ -139,25 +140,40 @@ class MpvController:
         }
 
     def command(self, command: list[Any]) -> dict[str, Any] | None:
-        """Send a JSON IPC command to mpv."""
+        """Send a JSON IPC command to mpv and return the matching response.
+
+        mpv can emit async event messages on the IPC socket. A request_id lets us
+        ignore those events and read until the response for this command arrives.
+        """
         if not self.is_playing() or not self.ipc_path:
             raise PlayerError("No active mpv playback session.")
 
-        payload = json.dumps({"command": command}).encode("utf-8") + b"\n"
+        self._request_id += 1
+        request_id = self._request_id
+        payload = json.dumps({"command": command, "request_id": request_id}).encode("utf-8") + b"\n"
 
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(1.5)
             client.connect(str(self.ipc_path))
             client.sendall(payload)
-            response = client.recv(4096)
 
-        if not response:
-            return None
+            buffer = b""
+            while True:
+                chunk = client.recv(4096)
+                if not chunk:
+                    return None
+                buffer += chunk
 
-        try:
-            return json.loads(response.decode("utf-8"))
-        except json.JSONDecodeError:
-            return None
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    if not line.strip():
+                        continue
+                    try:
+                        message = json.loads(line.decode("utf-8"))
+                    except json.JSONDecodeError:
+                        continue
+                    if message.get("request_id") == request_id:
+                        return message
 
     def _new_ipc_path(self) -> Path:
         runtime_dir = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()

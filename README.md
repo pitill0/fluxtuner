@@ -203,3 +203,9 @@ Current TUI controls:
 - `-`: volume down
 - `m`: mute/unmute
 - `x`: stop playback
+
+
+## UI notes
+
+- Toolbar and side-panel buttons use rounded borders and readable minimum sizes.
+- If your terminal is very narrow, increase the window width so the right action panel can keep labels visible.

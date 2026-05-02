@@ -53,11 +53,14 @@ class FluxTunerTUI(App[None]):
         ("f", "show_favorites", "Favorites"),
         ("d", "remove_selected", "Delete fav"),
         ("r", "play_random_favorite", "Random"),
+        ("space", "toggle_pause", "Pause"),
+        ("plus", "volume_up", "Vol+"),
+        ("minus", "volume_down", "Vol-"),
+        ("m", "toggle_mute", "Mute"),
         ("x", "stop", "Stop"),
         ("t", "show_themes", "Themes"),
         ("p", "preview_theme", "Preview"),
         ("y", "save_theme", "Save theme"),
-        ("ctrl+r", "reload_theme", "Reload CSS"),
     ]
 
     def __init__(self, theme: str | None = None) -> None:
@@ -89,7 +92,7 @@ class FluxTunerTUI(App[None]):
                 yield Button("Add to favorites", id="add-favorite")
                 yield Button("Remove favorite", id="remove-favorite", variant="warning")
         yield Static(
-            "Ready. Press '/' to search, 'f' for favorites, 't' for themes, 'r' for random favorite.",
+            "Ready. Press '/' to search, 'f' for favorites, 't' for themes, Space to pause, +/- for volume.",
             id="status",
         )
         yield Footer()
@@ -102,9 +105,7 @@ class FluxTunerTUI(App[None]):
             self.exit(return_code=1)
             return
 
-        # Apply the selected theme programmatically as well as through startup CSS.
-        # This makes theme switching and Ctrl+R reload work in normal app runs,
-        # not only under Textual's development CSS watcher.
+        # Apply the selected theme programmatically so runtime preview works reliably.
         try:
             apply_theme_runtime(self, self.active_theme)
         except Exception as exc:  # noqa: BLE001
@@ -124,7 +125,7 @@ class FluxTunerTUI(App[None]):
     def action_focus_station_list(self) -> None:
         self.query_one("#stations", ListView).focus()
         if self.view_mode == "themes":
-            self.set_status("Theme list focused. Use ↑/↓ to preview, Enter or p to apply, y to save, Ctrl+R to reload CSS.")
+            self.set_status("Theme list focused. Use ↑/↓ to preview, Enter or p to apply, y to save.")
         else:
             self.set_status("Station list focused. Use Enter to play, f for favorites, a to add, r for random.")
 
@@ -161,14 +162,43 @@ class FluxTunerTUI(App[None]):
     def action_stop(self) -> None:
         self.stop_playback()
 
+    def action_toggle_pause(self) -> None:
+        try:
+            self.player.toggle_pause()
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Pause/resume failed: {exc}")
+            return
+        self.set_status("Toggled pause/resume.")
+
+    def action_toggle_mute(self) -> None:
+        try:
+            self.player.toggle_mute()
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Mute toggle failed: {exc}")
+            return
+        self.set_status("Toggled mute.")
+
+    def action_volume_up(self) -> None:
+        try:
+            self.player.volume_up()
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Volume up failed: {exc}")
+            return
+        self.set_status("Volume increased.")
+
+    def action_volume_down(self) -> None:
+        try:
+            self.player.volume_down()
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Volume down failed: {exc}")
+            return
+        self.set_status("Volume decreased.")
+
     def action_preview_theme(self) -> None:
         self.preview_selected_theme()
 
     def action_save_theme(self) -> None:
         self.save_active_theme()
-
-    def action_reload_theme(self) -> None:
-        self.reload_active_theme()
 
     @on(Input.Submitted, "#query")
     async def search_from_input(self, event: Input.Submitted) -> None:
@@ -291,7 +321,7 @@ class FluxTunerTUI(App[None]):
             self.query_one("#details", Static).update("[b]Themes[/b]\nNo themes found.")
 
         list_view.focus()
-        self.set_status("Theme selector. Highlight previews automatically. Press Enter/p to apply, y to save, Ctrl+R to reload CSS.")
+        self.set_status("Theme selector. Highlight previews automatically. Press Enter/p to apply, y to save.")
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:
         list_view = self.query_one("#stations", ListView)
@@ -384,10 +414,7 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"Saved default theme: {self.active_theme}")
         self.notify(f"Saved default theme: {self.active_theme}", severity="information")
 
-    def reload_active_theme(self) -> None:
-        self.apply_theme(self.active_theme, save=False, announce=True, force_reload=True)
-
-    def apply_theme(self, theme_name: str, save: bool = False, announce: bool = True, force_reload: bool = False) -> None:
+    def apply_theme(self, theme_name: str, save: bool = False, announce: bool = True) -> None:
         if not theme_exists(theme_name):
             self.set_status(f"Theme not found: {theme_name}")
             return
@@ -398,8 +425,8 @@ class FluxTunerTUI(App[None]):
         try:
             apply_theme_runtime(self, theme_name)
         except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Theme reload failed: {exc}")
-            self.notify(f"Theme reload failed: {exc}", severity="error")
+            self.set_status(f"Theme apply failed: {exc}")
+            self.notify(f"Theme apply failed: {exc}", severity="error")
             return
 
         if save:
@@ -407,8 +434,6 @@ class FluxTunerTUI(App[None]):
 
         if announce:
             suffix = "saved" if save else "previewed"
-            if force_reload:
-                suffix = "reloaded"
             self.set_status(f"Theme {suffix}: {theme_name}")
 
     def update_details(self, station: dict[str, Any] | None) -> None:
@@ -439,7 +464,7 @@ class FluxTunerTUI(App[None]):
             "Highlight previews automatically.\n"
             "Enter / p: apply preview\n"
             "y: save as default\n"
-            "Ctrl+R: reload current theme file"
+            "Preview is applied automatically while browsing."
         )
 
     def update_now_playing(self) -> None:

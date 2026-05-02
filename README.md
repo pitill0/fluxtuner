@@ -14,7 +14,7 @@ It provides a comfortable TUI for searching internet radio stations, playing str
 - Configurable bundled themes
 - In-app theme selector
 - Theme preview while browsing themes
-- CSS/theme hot reload from the TUI
+- mpv JSON IPC controls for pause, mute and volume
 - Legacy numbered CLI available with `--cli`
 
 ## Requirements
@@ -51,11 +51,14 @@ fluxtuner
 | `f` | Show favorites |
 | `d` | Remove selected favorite |
 | `r` | Play random favorite |
+| `Space` | Pause/resume playback |
+| `+` | Increase volume |
+| `-` | Decrease volume |
+| `m` | Toggle mute |
 | `x` | Stop playback |
 | `t` | Open theme selector |
 | `p` | Preview/apply selected theme |
 | `y` | Save active theme as default |
-| `Ctrl+R` | Reload current theme CSS file |
 | `q` | Quit |
 
 ## Themes
@@ -120,9 +123,6 @@ While browsing themes:
 - Highlighting a theme previews it immediately.
 - `Enter` or `p` applies/previews the selected theme.
 - `y` saves the current active theme as the default.
-- `Ctrl+R` reloads the active `.tcss` file from disk.
-
-This makes theme editing much faster: edit a `.tcss` file in your editor, return to FluxTuner and press `Ctrl+R`.
 
 ## Creating a custom theme
 
@@ -162,7 +162,14 @@ User configuration is stored in:
 ~/.config/fluxtuner/config.json
 ```
 
+## mpv IPC controls
 
-## Runtime theme switching
+FluxTuner starts `mpv` with its JSON IPC socket enabled in TUI mode. This allows the app to control the active playback session without killing and restarting the process for every action.
 
-Use `t` to open the theme selector and `Ctrl+R` to reload the active `.tcss` file.
+Current TUI controls:
+
+- `Space`: pause/resume
+- `+`: volume up
+- `-`: volume down
+- `m`: mute/unmute
+- `x`: stop playback

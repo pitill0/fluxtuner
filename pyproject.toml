@@ -1,6 +1,6 @@
 [project]
 name = "fluxtuner"
-version = "0.2.0"
+version = "0.3.0"
 description = "Terminal internet radio player powered by Python, Textual and mpv"
 readme = "README.md"
 requires-python = ">=3.11"

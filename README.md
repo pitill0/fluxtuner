@@ -5,9 +5,9 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
 ![Player](https://img.shields.io/badge/player-mpv-orange)
-![GitHub stars](https://img.shields.io/github/stars/tu-usuario/fluxtuner)
-![GitHub forks](https://img.shields.io/github/forks/tu-usuario/fluxtuner)
-![GitHub issues](https://img.shields.io/github/issues/tu-usuario/fluxtuner)
+![GitHub stars](https://img.shields.io/github/stars/pitill0/fluxtuner)
+![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
+![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
 
 A modern terminal-based internet radio player with powerful search, playlists, theming, and a clean TUI.
 

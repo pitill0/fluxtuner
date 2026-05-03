@@ -40,9 +40,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://example.com/fluxtuner"
-Repository = "https://example.com/fluxtuner"
-Issues = "https://example.com/fluxtuner/issues"
+Homepage = "https://github.com/pitill0/fluxtuner"
+Repository = "https://github.com/pitill0/fluxtuner"
+Issues = "https://github.com/pitill0/fluxtuner/issues"
 
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"

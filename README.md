@@ -134,13 +134,30 @@ PRs are welcome.
 
 ---
 
+## 💼 Commercial Use
+
+FluxTuner is open source and available under the MIT license.
+
+You are free to use, modify, and distribute it, including for commercial purposes.
+
+That said, if you plan to integrate FluxTuner into a commercial product, service, or distribution, please consider reaching out.
+
+Contributions, attribution, or collaboration are always appreciated.
+
+---
+
 ## 📄 License
 
 MIT
 
-## 💼 Commercial Use
+---
 
-FluxTuner is open source under the MIT license.
+## 🙌 Support the project
 
-If you plan to integrate it into a commercial product, feel free to reach out.
+If you find FluxTuner useful:
+- ⭐ Star the repository
+- 🐛 Report issues
+- 💡 Suggest improvements
+
+Your support helps shape the future of the project.
 

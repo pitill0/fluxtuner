@@ -1,5 +1,14 @@
 # 🎧 FluxTuner
 
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![TUI](https://img.shields.io/badge/TUI-Textual-purple)
+![Player](https://img.shields.io/badge/player-mpv-orange)
+![GitHub stars](https://img.shields.io/github/stars/tu-usuario/fluxtuner)
+![GitHub forks](https://img.shields.io/github/forks/tu-usuario/fluxtuner)
+![GitHub issues](https://img.shields.io/github/issues/tu-usuario/fluxtuner)
+
 A modern terminal-based internet radio player with powerful search, playlists, theming, and a clean TUI.
 
 Built with Python, powered by mpv, and designed for daily use.

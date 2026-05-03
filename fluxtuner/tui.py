@@ -35,7 +35,8 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
-from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
+from fluxtuner.players import create_player
+from fluxtuner.players.mpv import PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 
@@ -69,11 +70,11 @@ class FluxTunerTUI(App[None]):
         ("y", "save_theme", "Save theme"),
     ]
 
-    def __init__(self, theme: str | None = None) -> None:
+    def __init__(self, theme: str | None = None, player_name: str = "mpv") -> None:
         self.active_theme = theme or DEFAULT_THEME
         self.theme_path = get_theme_path(self.active_theme)
         super().__init__(css_path=str(self.theme_path))
-        self.player = MpvController()
+        self.player = create_player(player_name)
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.previewed_theme: str | None = None
@@ -1343,5 +1344,5 @@ class FluxTunerTUI(App[None]):
         self.query_one("#status", Static).update(message)
 
 
-def run_tui(theme: str | None = None) -> None:
-    FluxTunerTUI(theme=theme).run()
+def run_tui(theme: str | None = None, player_name: str = "mpv") -> None:
+    FluxTunerTUI(theme=theme, player_name=player_name).run()

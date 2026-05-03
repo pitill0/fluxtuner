@@ -13,7 +13,8 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
-from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
+from fluxtuner.players import available_players
+from fluxtuner.players.mpv import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner import __version__
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
@@ -155,6 +156,12 @@ def main() -> None:
         "--cli",
         action="store_true",
         help="Run the legacy numbered CLI instead of the Textual TUI.",
+    )
+    parser.add_argument(
+        "--player",
+        default="mpv",
+        choices=available_players(),
+        help="Player backend to use.",
     )
     parser.add_argument(
         "--theme",
@@ -300,7 +307,7 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    run_tui(theme=selected_theme)
+    run_tui(theme=selected_theme, player_name=args.player)
 
 
 if __name__ == "__main__":

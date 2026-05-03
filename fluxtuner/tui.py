@@ -627,6 +627,95 @@ class FluxTunerTUI(App[None]):
                 self.selected_station = payload
                 self.update_details(payload)
 
+
+    def reset_station_table(self) -> DataTable:
+        """Reset the main table for station-like rows."""
+        table = self.query_one("#stations", DataTable)
+        table.clear(columns=True)
+        self.table_items.clear()
+        self.table_key_counter = 0
+        table.add_columns("", "Name", "ID", "Country", "Genre / tags", "Codec", "kbps", "Custom tags")
+        return table
+
+    def reset_playlist_table(self) -> DataTable:
+        """Reset the main table for playlist/theme rows."""
+        table = self.query_one("#stations", DataTable)
+        table.clear(columns=True)
+        self.table_items.clear()
+        self.table_key_counter = 0
+        table.add_columns("Type", "Name", "Count / Status", "Description")
+        return table
+
+    def next_table_key(self, prefix: str) -> str:
+        self.table_key_counter += 1
+        return f"{prefix}-{self.table_key_counter}"
+
+    def add_table_payload(self, key: str, kind: str, payload: Any) -> None:
+        self.table_items[str(key)] = (kind, payload)
+
+    def row_key_to_string(self, row_key: Any) -> str:
+        value = getattr(row_key, "value", row_key)
+        return str(value)
+
+    def selected_payload_from_event(self, event: Any) -> tuple[str, Any] | None:
+        key = self.row_key_to_string(getattr(event, "row_key", ""))
+        return self.table_items.get(key)
+
+    def station_short_id(self, station: dict[str, Any]) -> str:
+        raw = station.get("stationuuid") or station.get("changeuuid") or self.station_url(station) or ""
+        return str(raw)[:8] if raw else "-"
+
+    def station_genre_tags(self, station: dict[str, Any], max_length: int = 42) -> str:
+        tags = station.get("tags") or ""
+        if isinstance(tags, list):
+            tags = ", ".join(str(tag) for tag in tags)
+        return self._ellipsize(str(tags) if tags else "-", max_length)
+
+    def station_custom_tags(self, station: dict[str, Any], max_length: int = 28) -> str:
+        tags = station.get("favorite_tags") or station.get("tags_custom") or []
+        if isinstance(tags, str):
+            value = tags
+        else:
+            value = ", ".join(str(tag) for tag in tags)
+        return self._ellipsize(value if value else "-", max_length)
+
+    def add_station_table_row(self, table: DataTable, station: dict[str, Any]) -> None:
+        key = self.next_table_key("station")
+        self.add_table_payload(key, "station", station)
+        marker = "▶" if self.station_url(station) == self.current_station_url() else ""
+        name = self._ellipsize(favorite_display_name(station), 52)
+        table.add_row(
+            marker,
+            name,
+            self.station_short_id(station),
+            self._ellipsize(station.get("country") or "-", 18),
+            self.station_genre_tags(station),
+            str(station.get("codec") or "-"),
+            str(station.get("bitrate") or "-"),
+            self.station_custom_tags(station),
+            key=key,
+        )
+
+    def refresh_active_station_marker(self) -> None:
+        """Refresh the active marker without rebuilding the whole view.
+
+        DataTable cells are intentionally updated best-effort because older
+        Textual versions differ slightly in their cell update API.
+        """
+        try:
+            table = self.query_one("#stations", DataTable)
+            current_url = self.current_station_url()
+            for key, (kind, payload) in self.table_items.items():
+                if kind != "station":
+                    continue
+                marker = "▶" if self.station_url(payload) == current_url else ""
+                try:
+                    table.update_cell(key, "", marker)
+                except Exception:  # noqa: BLE001
+                    return
+        except Exception:  # noqa: BLE001
+            return
+
     def play_selected_station(self) -> None:
         if self.view_mode == "themes":
             self.preview_selected_theme()

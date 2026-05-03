@@ -84,14 +84,21 @@ Footer .footer--highlight {
     color: #e5e7eb;
 }
 
-ListView > ListItem.--highlight {
+DataTable > .datatable--header {
     background: #1e3a8a;
     color: #e5e7eb;
+    text-style: bold;
 }
 
-ListView > ListItem.--highlight Label {
+DataTable > .datatable--cursor {
+    background: #1e3a8a;
     color: #e5e7eb;
     text-style: bold;
+}
+
+DataTable > .datatable--hover {
+    background: #1e3a8a;
+    color: #e5e7eb;
 }
 
 #side-panel {

@@ -9,6 +9,7 @@ It is designed for people who live in the terminal but still want a comfortable,
 ## Highlights
 
 - Textual-based terminal UI
+- Table-based station browser with named columns for consistent scanning
 - Search internet radio stations by name, genre/tag, country and minimum bitrate
 - Live search with debounce and local cache
 - Playback via `mpv`
@@ -102,6 +103,26 @@ fluxtuner --clear-cache
 | `t` | Open theme selector |
 | `y` | Save active theme as default |
 | `q` | Quit |
+
+
+## Main table view
+
+Search results, favorites, history and playlist stations are displayed in a structured table instead of a compressed single-line list.
+
+Station rows include:
+
+| Column | Description |
+| --- | --- |
+| `▶` | Marks the currently playing station |
+| `Name` | Station name or your custom favorite name |
+| `ID` | Short Radio Browser/station identifier |
+| `Country` | Station country |
+| `Genre / radio tags` | Radio Browser tags/genres |
+| `Codec` | Stream codec when available |
+| `kbps` | Stream bitrate when available |
+| `Fav tags` | Your personal favorite tags |
+
+This keeps search results and favorites easier to scan, especially once your library starts growing.
 
 ## Search
 

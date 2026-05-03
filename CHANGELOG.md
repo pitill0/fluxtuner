@@ -3,6 +3,7 @@
 ## 0.1.0 - Initial public release candidate
 
 - Textual TUI for internet radio playback.
+- Table-based station browser with named columns for search, favorites, history and playlist stations.
 - Radio Browser search with live debounce and local cache.
 - Playback through `mpv` with JSON IPC controls.
 - Favorites with custom names and user tags.

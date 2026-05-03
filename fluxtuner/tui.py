@@ -9,7 +9,7 @@ from typing import Any
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, Static
+from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core.api import search_stations_filtered
@@ -38,63 +38,6 @@ from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
 from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
-
-
-class StationListItem(ListItem):
-    """List item that stores the station represented by the row."""
-
-    def __init__(self, station: dict[str, Any], active: bool = False) -> None:
-        self.station = station
-        self.active = active
-        self.label = Label(self.format_row(station, active))
-        super().__init__(self.label)
-
-    @staticmethod
-    def format_row(station: dict[str, Any], active: bool = False) -> str:
-        title = favorite_display_name(station)
-        country = station.get("country", "Unknown")
-        codec = station.get("codec") or "?"
-        bitrate = station.get("bitrate") or "?"
-        radio_tags = station.get("tags") or "no radio tags"
-        favorite_tags = station.get("favorite_tags") or []
-        custom_tag_suffix = f"  ★ {', '.join(favorite_tags)}" if favorite_tags else ""
-        marker = "▶ " if active else "  "
-        row = f"{marker}{title}  •  {country}  •  {codec} {bitrate}kbps  •  {radio_tags[:60]}{custom_tag_suffix}"
-        return f"[b]{row}[/b]" if active else row
-
-    def set_active(self, active: bool) -> None:
-        self.active = active
-        self.label.update(self.format_row(self.station, active))
-
-
-class ThemeListItem(ListItem):
-    """List item that stores the theme represented by the row."""
-
-    def __init__(self, theme_name: str, active_theme: str) -> None:
-        self.theme_name = theme_name
-        marker = "●" if theme_name == active_theme else "○"
-        super().__init__(Label(f"{marker} {theme_name}"))
-
-
-
-class PlaylistListItem(ListItem):
-    """List item that stores a persistent playlist."""
-
-    def __init__(self, playlist_name: str, count: int) -> None:
-        self.playlist_name = playlist_name
-        self.count = count
-        label = f"▣ {playlist_name}  •  {count} station{'s' if count != 1 else ''}"
-        super().__init__(Label(label))
-
-
-class TagListItem(ListItem):
-    """List item that stores a dynamic playlist tag."""
-
-    def __init__(self, tag: str, count: int) -> None:
-        self.tag = tag
-        self.count = count
-        label = f"# {tag}  •  {count} station{'s' if count != 1 else ''}"
-        super().__init__(Label(label))
 
 
 class FluxTunerTUI(App[None]):
@@ -144,6 +87,8 @@ class FluxTunerTUI(App[None]):
         self._search_task = None
         self.pending_input_action: str | None = None
         self.favorite_tag_filter: str | None = None
+        self.table_items: dict[str, tuple[str, Any]] = {}
+        self.table_key_counter = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -163,7 +108,7 @@ class FluxTunerTUI(App[None]):
             yield Input(placeholder="0", id="bitrate-filter")
             yield Button("Clear filters", id="clear-filters", classes="toolbar-button secondary-button")
         with Horizontal(id="content"):
-            yield ListView(id="stations")
+            yield DataTable(id="stations", cursor_type="row", zebra_stripes=True)
             with Vertical(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
@@ -195,7 +140,7 @@ class FluxTunerTUI(App[None]):
             self.notify(f"Theme load failed: {exc}", severity="warning", timeout=6)
 
         self.restore_playback_state()
-        self.query_one("#stations", ListView).focus()
+        self.query_one("#stations", DataTable).focus()
         self.update_now_playing()
         self.set_interval(1.5, self.update_now_playing)
         if self.last_station:
@@ -213,7 +158,7 @@ class FluxTunerTUI(App[None]):
         self.set_status("Search focused. Type a query and press Enter. Press Escape to return to the main list.")
 
     def action_focus_station_list(self) -> None:
-        self.query_one("#stations", ListView).focus()
+        self.query_one("#stations", DataTable).focus()
         if self.view_mode == "themes":
             self.set_status("Theme list focused. Use ↑/↓ to preview, Enter to apply, y to save.")
         elif self.view_mode == "history":
@@ -422,48 +367,57 @@ class FluxTunerTUI(App[None]):
     def edit_tags_from_button(self) -> None:
         self.prepare_favorite_tags_edit()
 
-    @on(ListView.Highlighted, "#stations")
-    def item_highlighted(self, event: ListView.Highlighted) -> None:
-        item = event.item
-        if isinstance(item, StationListItem):
-            self.selected_station = item.station
+    @on(DataTable.RowHighlighted, "#stations")
+    def item_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        payload = self.selected_payload_from_event(event)
+        if not payload:
+            return
+        kind, item_payload = payload
+        if kind == "station":
+            self.selected_station = item_payload
             self.selected_theme = None
-            self.update_details(item.station)
-        elif isinstance(item, ThemeListItem):
-            self.selected_theme = item.theme_name
+            self.selected_tag = None
+            self.selected_playlist = None if self.view_mode != "playlist_stations" else self.selected_playlist
+            self.update_details(item_payload)
+        elif kind == "theme":
+            self.selected_theme = item_payload
             self.selected_station = None
             self.selected_tag = None
-            self.update_theme_details(item.theme_name)
-            self.apply_theme(item.theme_name, save=False, announce=False)
-        elif isinstance(item, PlaylistListItem):
-            self.selected_playlist = item.playlist_name
+            self.selected_playlist = None
+            self.update_theme_details(item_payload)
+            self.apply_theme(item_payload, save=False, announce=False)
+        elif kind == "playlist":
+            self.selected_playlist = item_payload["name"]
             self.selected_tag = None
             self.selected_station = None
             self.selected_theme = None
-            self.update_persistent_playlist_details(item.playlist_name, item.count)
-        elif isinstance(item, TagListItem):
-            self.selected_tag = item.tag
+            self.update_persistent_playlist_details(item_payload["name"], item_payload["count"])
+        elif kind == "tag":
+            self.selected_tag = item_payload["tag"]
             self.selected_playlist = None
             self.selected_station = None
             self.selected_theme = None
-            self.update_playlist_details(item.tag, item.count)
+            self.update_playlist_details(item_payload["tag"], item_payload["count"])
 
-    @on(ListView.Selected, "#stations")
-    def item_selected(self, event: ListView.Selected) -> None:
-        item = event.item
-        if isinstance(item, StationListItem):
-            self.selected_station = item.station
+    @on(DataTable.RowSelected, "#stations")
+    def item_selected(self, event: DataTable.RowSelected) -> None:
+        payload = self.selected_payload_from_event(event)
+        if not payload:
+            return
+        kind, item_payload = payload
+        if kind == "station":
+            self.selected_station = item_payload
             self.selected_theme = None
-            self.update_details(item.station)
+            self.update_details(item_payload)
             self.play_selected_station()
-        elif isinstance(item, ThemeListItem):
-            self.selected_theme = item.theme_name
+        elif kind == "theme":
+            self.selected_theme = item_payload
             self.preview_selected_theme()
-        elif isinstance(item, PlaylistListItem):
-            self.selected_playlist = item.playlist_name
+        elif kind == "playlist":
+            self.selected_playlist = item_payload["name"]
             self.smart_play_selected_playlist_or_tag()
-        elif isinstance(item, TagListItem):
-            self.selected_tag = item.tag
+        elif kind == "tag":
+            self.selected_tag = item_payload["tag"]
             self.smart_play_selected_playlist_or_tag()
 
     def cancel_pending_search(self) -> None:
@@ -504,8 +458,8 @@ class FluxTunerTUI(App[None]):
         self._search_task = None
         self.update_mode_title("Search results")
         self.set_status(f"Live searching: {query} ..." if live else f"Searching: {query} ...")
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
+        list_view = self.query_one("#stations", DataTable)
+        list_view.clear(columns=True)
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
@@ -531,7 +485,7 @@ class FluxTunerTUI(App[None]):
 
         await self.populate_station_list(stations)
         if not live:
-            self.query_one("#stations", ListView).focus()
+            self.query_one("#stations", DataTable).focus()
         filters = []
         country = self.query_one("#country-filter", Input).value.strip()
         min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
@@ -550,8 +504,8 @@ class FluxTunerTUI(App[None]):
         self.update_mode_title(title)
         favorites = filter_favorites_by_tag(tag_filter) if tag_filter else load_favorites()
         favorites = sorted(favorites, key=lambda item: favorite_display_name(item).lower())
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
+        list_view = self.query_one("#stations", DataTable)
+        list_view.clear(columns=True)
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
@@ -559,7 +513,7 @@ class FluxTunerTUI(App[None]):
         self.active_playlist_name = None
         self.update_details(None)
         await self.populate_station_list(favorites)
-        self.query_one("#stations", ListView).focus()
+        self.query_one("#stations", DataTable).focus()
         if tag_filter:
             self.set_status(f"Loaded {len(favorites)} favorite station(s) tagged '{tag_filter}'.")
         else:
@@ -571,8 +525,8 @@ class FluxTunerTUI(App[None]):
         self.view_mode = "history"
         self.update_mode_title("Recently played")
         history = load_history()
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
+        list_view = self.query_one("#stations", DataTable)
+        list_view.clear(columns=True)
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
@@ -580,7 +534,7 @@ class FluxTunerTUI(App[None]):
         self.active_playlist_name = None
         self.update_details(None)
         await self.populate_station_list(history)
-        self.query_one("#stations", ListView).focus()
+        self.query_one("#stations", DataTable).focus()
         self.set_status(f"Loaded {len(history)} recently played station(s).")
 
     async def show_playlists(self) -> None:
@@ -589,87 +543,89 @@ class FluxTunerTUI(App[None]):
         self.update_mode_title("Playlists")
         manual_counts = playlist_counts()
         tag_counts = get_tag_counts()
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
+        table = self.reset_playlist_table()
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
         self.selected_playlist = None
 
         if not manual_counts and not tag_counts:
-            await list_view.append(ListItem(Label("No playlists yet.")))
+            table.add_row("Info", "No playlists yet", "0", "Create persistent playlists with n, or add tags to favorites with g.", key="empty-playlists")
             self.query_one("#details", Static).update(
                 "[b]Playlists[/b]\n\n"
                 "Create persistent playlists with [b]n[/b], or add tags to favorites with [b]g[/b] to get dynamic playlists."
             )
-            list_view.focus()
+            table.focus()
             self.set_status("No playlists yet. Press n to create one, or tag favorites with g.")
             return
 
-        if manual_counts:
-            await list_view.append(ListItem(Label("Persistent playlists")))
-            for name, count in manual_counts:
-                await list_view.append(PlaylistListItem(name, count))
+        first_actionable_key: str | None = None
+        for name, count in manual_counts:
+            key = self.next_table_key("playlist")
+            self.add_table_payload(key, "playlist", {"name": name, "count": count})
+            table.add_row("Persistent", name, str(count), "Manual playlist saved in your library", key=key)
+            first_actionable_key = first_actionable_key or key
 
-        if tag_counts:
-            await list_view.append(ListItem(Label("Dynamic tag playlists")))
-            for tag, count in tag_counts:
-                await list_view.append(TagListItem(tag, count))
+        for tag, count in tag_counts:
+            key = self.next_table_key("tag")
+            self.add_table_payload(key, "tag", {"tag": tag, "count": count})
+            table.add_row("Dynamic", f"#{tag}", str(count), "Generated automatically from favorite tags", key=key)
+            first_actionable_key = first_actionable_key or key
 
-        # Select the first actionable item, skipping section labels.
-        for index, item in enumerate(list_view.children):
-            if isinstance(item, PlaylistListItem):
-                list_view.index = index
-                self.selected_playlist = item.playlist_name
-                self.update_persistent_playlist_details(item.playlist_name, item.count)
-                break
-            if isinstance(item, TagListItem):
-                list_view.index = index
-                self.selected_tag = item.tag
-                self.update_playlist_details(item.tag, item.count)
-                break
+        if first_actionable_key:
+            table.move_cursor(row=0)
+            kind, payload = self.table_items[first_actionable_key]
+            if kind == "playlist":
+                self.selected_playlist = payload["name"]
+                self.update_persistent_playlist_details(payload["name"], payload["count"])
+            elif kind == "tag":
+                self.selected_tag = payload["tag"]
+                self.update_playlist_details(payload["tag"], payload["count"])
 
-        list_view.focus()
+        table.focus()
         self.set_status("Playlists loaded. Enter/r smart plays, f opens stations, n creates, d deletes persistent playlists.")
 
     async def show_themes(self) -> None:
         self.view_mode = "themes"
         self.update_mode_title("Themes")
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
+        table = self.reset_playlist_table()
         self.selected_station = None
         self.selected_tag = None
         themes = list_themes()
 
         for theme_name in themes:
-            await list_view.append(ThemeListItem(theme_name, self.active_theme))
+            key = self.next_table_key("theme")
+            self.add_table_payload(key, "theme", theme_name)
+            status = "active" if theme_name == self.active_theme else "available"
+            table.add_row("Theme", theme_name, status, f"{Path(get_theme_path(theme_name)).name}", key=key)
 
-        list_view.index = 0
         if themes:
+            table.move_cursor(row=0)
             self.selected_theme = themes[0]
             self.update_theme_details(themes[0])
         else:
             self.selected_theme = None
             self.query_one("#details", Static).update("[b]Themes[/b]\nNo themes found.")
 
-        list_view.focus()
+        table.focus()
         self.set_status("Theme selector. Highlight previews automatically. Press Enter to apply, y to save.")
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:
-        list_view = self.query_one("#stations", ListView)
+        table = self.reset_station_table()
         if not stations:
-            await list_view.append(ListItem(Label("No stations available.")))
+            table.add_row("", "No stations available", "", "", "", "", "", "", key="empty-stations")
             return
 
-        current_url = self.current_station_url()
         for station in stations:
-            await list_view.append(StationListItem(station, active=self.station_url(station) == current_url))
+            self.add_station_table_row(table, station)
 
-        list_view.index = 0
-        first = list_view.children[0]
-        if isinstance(first, StationListItem):
-            self.selected_station = first.station
-            self.update_details(first.station)
+        table.move_cursor(row=0)
+        first_key = next(iter(self.table_items), None)
+        if first_key:
+            kind, payload = self.table_items[first_key]
+            if kind == "station":
+                self.selected_station = payload
+                self.update_details(payload)
 
     def play_selected_station(self) -> None:
         if self.view_mode == "themes":
@@ -829,15 +785,13 @@ class FluxTunerTUI(App[None]):
         self.active_playlist_name = playlist_name
         self.update_mode_title(f"Playlist · {playlist_name}")
         stations = get_playlist_stations(playlist_name)
-        list_view = self.query_one("#stations", ListView)
-        await list_view.clear()
         self.selected_station = None
         self.selected_theme = None
         self.selected_tag = None
         self.selected_playlist = playlist_name
         self.update_details(None)
         await self.populate_station_list(stations)
-        list_view.focus()
+        self.query_one("#stations", DataTable).focus()
         self.set_status(f"Loaded {len(stations)} station(s) in playlist '{playlist_name}'. Press d to remove selected from this playlist.")
 
     def preview_selected_theme(self) -> None:
@@ -1110,14 +1064,6 @@ class FluxTunerTUI(App[None]):
 
     def current_station_url(self) -> str | None:
         return self.station_url(self.playing_station)
-
-    def refresh_active_station_marker(self) -> None:
-        """Update visible rows so the currently playing station is clearly marked."""
-        list_view = self.query_one("#stations", ListView)
-        current_url = self.current_station_url()
-        for item in list_view.children:
-            if isinstance(item, StationListItem):
-                item.set_active(self.station_url(item.station) == current_url)
 
     @staticmethod
     def volume_bar(volume: int | float | None, width: int = 10) -> str:

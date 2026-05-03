@@ -138,3 +138,9 @@ PRs are welcome.
 
 MIT
 
+## 💼 Commercial Use
+
+FluxTuner is open source under the MIT license.
+
+If you plan to integrate it into a commercial product, feel free to reach out.
+

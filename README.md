@@ -226,9 +226,10 @@ fluxtuner --save-theme nord
 
 Open the in-app selector with `t`:
 
-- Highlighting a theme previews it immediately.
-- `Enter` applies/previews the selected theme.
-- `y` saves the current active theme as the default.
+- Highlighting a theme previews it temporarily.
+- `Enter` applies the selected theme as the active theme.
+- `y` saves the active theme as the default.
+- Leaving the theme selector restores the last applied theme if you only previewed another one.
 
 ### Creating a custom theme
 

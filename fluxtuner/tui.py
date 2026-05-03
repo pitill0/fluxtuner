@@ -76,6 +76,7 @@ class FluxTunerTUI(App[None]):
         self.player = MpvController()
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
+        self.previewed_theme: str | None = None
         self.selected_tag: str | None = None
         self.selected_playlist: str | None = None
         self.active_playlist_name: str | None = None
@@ -190,7 +191,7 @@ class FluxTunerTUI(App[None]):
 
     def action_activate_selected(self) -> None:
         if self.view_mode == "themes":
-            self.preview_selected_theme()
+            self.apply_selected_theme()
             return
         if self.view_mode == "playlists":
             self.smart_play_selected_playlist_or_tag()
@@ -199,7 +200,7 @@ class FluxTunerTUI(App[None]):
 
     def action_add_selected(self) -> None:
         if self.view_mode == "themes":
-            self.set_status("Use Enter to preview/apply a theme, or 'y' to save it as default.")
+            self.set_status("Use ↑/↓ to preview temporarily, Enter to apply, or y to save the active theme as default.")
             return
         if self.view_mode == "playlists":
             self.set_status("Playlist mode: press Enter/r to smart play, f to view stations, n to create a playlist.")
@@ -385,7 +386,7 @@ class FluxTunerTUI(App[None]):
             self.selected_tag = None
             self.selected_playlist = None
             self.update_theme_details(item_payload)
-            self.apply_theme(item_payload, save=False, announce=False)
+            self.preview_theme(item_payload, announce=False)
         elif kind == "playlist":
             self.selected_playlist = item_payload["name"]
             self.selected_tag = None
@@ -412,7 +413,7 @@ class FluxTunerTUI(App[None]):
             self.play_selected_station()
         elif kind == "theme":
             self.selected_theme = item_payload
-            self.preview_selected_theme()
+            self.apply_selected_theme()
         elif kind == "playlist":
             self.selected_playlist = item_payload["name"]
             self.smart_play_selected_playlist_or_tag()
@@ -449,6 +450,7 @@ class FluxTunerTUI(App[None]):
             return
 
     async def search(self, query: str, live: bool = False) -> None:
+        self.restore_active_theme_if_previewing()
         query = query.strip()
         if not query:
             self.set_status("Type a station name or genre/tag first.")
@@ -498,6 +500,7 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"{prefix}: {len(stations)} station(s) for: {query}{suffix}")
 
     async def show_favorites(self, tag_filter: str | None = None) -> None:
+        self.restore_active_theme_if_previewing()
         self.view_mode = "favorites"
         self.favorite_tag_filter = tag_filter
         title = "Favorites" if not tag_filter else f"Favorites · tag: {tag_filter}"
@@ -522,6 +525,7 @@ class FluxTunerTUI(App[None]):
             self.set_status(f"Loaded {len(favorites)} favorite station(s).{suffix}")
 
     async def show_history(self) -> None:
+        self.restore_active_theme_if_previewing()
         self.view_mode = "history"
         self.update_mode_title("Recently played")
         history = load_history()
@@ -538,6 +542,7 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"Loaded {len(history)} recently played station(s).")
 
     async def show_playlists(self) -> None:
+        self.restore_active_theme_if_previewing()
         self.view_mode = "playlists"
         self.active_playlist_name = None
         self.update_mode_title("Playlists")
@@ -608,7 +613,7 @@ class FluxTunerTUI(App[None]):
             self.query_one("#details", Static).update("[b]Themes[/b]\nNo themes found.")
 
         table.focus()
-        self.set_status("Theme selector. Highlight previews automatically. Press Enter to apply, y to save.")
+        self.set_status("Theme selector. Highlight previews temporarily. Press Enter to apply, y to save active theme.")
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:
         table = self.reset_station_table()
@@ -718,7 +723,7 @@ class FluxTunerTUI(App[None]):
 
     def play_selected_station(self) -> None:
         if self.view_mode == "themes":
-            self.preview_selected_theme()
+            self.apply_selected_theme()
             return
         if self.view_mode == "playlists":
             self.smart_play_selected_playlist_or_tag()
@@ -887,20 +892,52 @@ class FluxTunerTUI(App[None]):
         if not self.selected_theme:
             self.set_status("No theme selected.")
             return
+        self.preview_theme(self.selected_theme, announce=True)
+
+    def apply_selected_theme(self) -> None:
+        if not self.selected_theme:
+            self.set_status("No theme selected.")
+            return
         self.apply_theme(self.selected_theme, save=False, announce=True)
 
     def save_active_theme(self) -> None:
         set_config_value("theme", self.active_theme)
+        self.previewed_theme = None
         self.set_status(f"Saved default theme: {self.active_theme}")
         self.notify(f"Saved default theme: {self.active_theme}", severity="information")
+
+    def preview_theme(self, theme_name: str, announce: bool = True) -> None:
+        if not theme_exists(theme_name):
+            self.set_status(f"Theme not found: {theme_name}")
+            return
+
+        try:
+            apply_theme_runtime(self, theme_name)
+            self.ensure_now_playing_layout()
+        except Exception as exc:  # noqa: BLE001
+            self.set_status(f"Theme preview failed: {exc}")
+            self.notify(f"Theme preview failed: {exc}", severity="error")
+            return
+
+        self.previewed_theme = theme_name
+        if announce:
+            self.set_status(f"Theme preview: {theme_name}. Press Enter to apply or y to save the active theme.")
+
+    def restore_active_theme_if_previewing(self) -> None:
+        if not self.previewed_theme or self.previewed_theme == self.active_theme:
+            self.previewed_theme = None
+            return
+        try:
+            apply_theme_runtime(self, self.active_theme)
+            self.ensure_now_playing_layout()
+        except Exception:
+            return
+        self.previewed_theme = None
 
     def apply_theme(self, theme_name: str, save: bool = False, announce: bool = True) -> None:
         if not theme_exists(theme_name):
             self.set_status(f"Theme not found: {theme_name}")
             return
-
-        self.active_theme = theme_name
-        self.theme_path = get_theme_path(theme_name)
 
         try:
             apply_theme_runtime(self, theme_name)
@@ -910,11 +947,17 @@ class FluxTunerTUI(App[None]):
             self.notify(f"Theme apply failed: {exc}", severity="error")
             return
 
+        self.active_theme = theme_name
+        self.theme_path = get_theme_path(theme_name)
+        self.previewed_theme = None
+
         if save:
             set_config_value("theme", theme_name)
 
+        self.update_theme_details(theme_name)
+
         if announce:
-            suffix = "saved" if save else "previewed"
+            suffix = "saved" if save else "applied"
             self.set_status(f"Theme {suffix}: {theme_name}")
 
     def update_details(self, station: dict[str, Any] | None) -> None:
@@ -948,14 +991,19 @@ class FluxTunerTUI(App[None]):
 
     def update_theme_details(self, theme_name: str) -> None:
         path = get_theme_path(theme_name)
-        status = "active" if theme_name == self.active_theme else "available"
+        if theme_name == self.active_theme:
+            status = "active"
+        elif theme_name == self.previewed_theme:
+            status = "preview"
+        else:
+            status = "available"
         self.query_one("#details", Static).update(
             "[b]Theme Preview[/b]\n\n"
             f"[b]{theme_name}[/b]\nStatus: {status}\nFile: {Path(path).name}\n\n"
-            "Highlight previews automatically.\n"
-            "Enter: apply preview\n"
-            "y: save as default\n"
-            "Preview is applied automatically while browsing."
+            "Highlight previews temporarily.\n"
+            "Enter: apply selected theme.\n"
+            "y: save active theme as default.\n"
+            "Leaving the theme selector restores the last applied theme if you only previewed."
         )
 
 

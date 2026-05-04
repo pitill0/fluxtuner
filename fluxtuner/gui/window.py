@@ -189,10 +189,12 @@ class MainWindow(Gtk.ApplicationWindow):
     def _build_bottom_playback_bar(self, root: Gtk.Box) -> None:
         playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         playback_bar.set_hexpand(True)
+        playback_bar.set_halign(Gtk.Align.CENTER)
         root.append(playback_bar)
 
         playback_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         playback_group.set_hexpand(False)
+        playback_group.set_halign(Gtk.Align.CENTER)
         playback_bar.append(playback_group)
 
         self.stop_button = Gtk.Button(label="■")
@@ -212,6 +214,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         volume_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         volume_group.set_hexpand(False)
+        volume_group.set_halign(Gtk.Align.CENTER)
         playback_bar.append(volume_group)
 
         volume_down_button = Gtk.Button(label="−")

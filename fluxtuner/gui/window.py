@@ -29,6 +29,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player = create_player(player_name)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
+        self._player_state_timer_id: int | None = None
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
@@ -140,6 +141,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.data_usage_label.set_wrap(True)
         self.data_usage_label.set_selectable(True)
         side_panel.append(self.data_usage_label)
+
+        self.player_state_label = Gtk.Label(label="Player: stopped")
+        self.player_state_label.set_xalign(0)
+        self.player_state_label.set_wrap(True)
+        self.player_state_label.set_selectable(True)
+        side_panel.append(self.player_state_label)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         controls.set_hexpand(True)
@@ -312,21 +319,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_label.set_text(f"Found {count} station(s).")
         return False
 
-    def on_row_pressed(
-        self,
-        _gesture: Gtk.GestureClick,
-        n_press: int,
-        _x: float,
-        _y: float,
-        row: Gtk.ListBoxRow,
-    ) -> None:
-        """Play a station only on an explicit double click."""
-        if n_press != 2:
-            return
-
-        self.selected_station = getattr(row, "station", None)
-        self.play_selected_station()
-
     def on_row_double_click(
         self,
         _gesture: Gtk.GestureClick,
@@ -398,7 +390,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.usage_tracker.start(self.current_station)
         self.update_now_playing()
         self.update_data_usage()
+        self.update_player_state()
         self._ensure_usage_timer()
+        self._ensure_player_state_timer()
         self.status_label.set_text("Playing")
         self._render_results()
 
@@ -424,6 +418,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._playback_command_failed("Pause", exc)
             return
 
+        self.update_player_state()
         self.status_label.set_text("Toggled pause/resume")
 
     def on_mute_clicked(self, _button: Gtk.Button) -> None:
@@ -437,6 +432,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._playback_command_failed("Mute", exc)
             return
 
+        self.update_player_state()
         self.status_label.set_text("Toggled mute")
 
     def on_volume_down_clicked(self, _button: Gtk.Button) -> None:
@@ -450,6 +446,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._playback_command_failed("Volume down", exc)
             return
 
+        self.update_player_state()
         self.status_label.set_text("Volume down")
 
     def on_volume_up_clicked(self, _button: Gtk.Button) -> None:
@@ -463,17 +460,75 @@ class MainWindow(Gtk.ApplicationWindow):
             self._playback_command_failed("Volume up", exc)
             return
 
+        self.update_player_state()
         self.status_label.set_text("Volume up")
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()
+        self._stop_player_state_timer()
         self.player.stop()
         self.usage_tracker.stop()
         self.update_data_usage()
         self.current_station = None
         self.update_now_playing()
+        self.update_player_state()
         self.status_label.set_text("Stopped")
         self._render_results()
+
+    def _ensure_player_state_timer(self) -> None:
+        """Refresh the player state label while playback is active."""
+        if self._player_state_timer_id is None:
+            self._player_state_timer_id = GLib.timeout_add_seconds(1, self._refresh_player_state)
+
+    def _stop_player_state_timer(self) -> None:
+        """Stop the periodic player state refresh."""
+        if self._player_state_timer_id is not None:
+            GLib.source_remove(self._player_state_timer_id)
+            self._player_state_timer_id = None
+
+    def _refresh_player_state(self) -> bool:
+        """GTK timeout callback used while a player process is active."""
+        if not self._has_active_playback():
+            self._player_state_timer_id = None
+            self.update_player_state()
+            return False
+
+        self.update_player_state()
+        return True
+
+    def update_player_state(self) -> None:
+        if not hasattr(self, "player_state_label"):
+            return
+
+        if not self._has_active_playback():
+            self.player_state_label.set_text("Player: stopped")
+            return
+
+        get_state = getattr(self.player, "get_state", None)
+        if not callable(get_state):
+            self.player_state_label.set_text("Player: playing")
+            return
+
+        try:
+            state = get_state() or {}
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self.player_state_label.set_text(f"Player: state unavailable ({exc})")
+            return
+
+        if not state.get("playing"):
+            self.player_state_label.set_text("Player: stopped")
+            return
+
+        playback = "paused" if state.get("paused") else "playing"
+        muted = "muted" if state.get("muted") else "sound on"
+        volume = state.get("volume")
+
+        if isinstance(volume, (int, float)):
+            volume_text = f"{int(round(volume))}%"
+        else:
+            volume_text = "unknown volume"
+
+        self.player_state_label.set_text(f"Player: {playback} · {muted} · {volume_text}")
 
     def _ensure_usage_timer(self) -> None:
         """Refresh the data usage label while playback is active."""
@@ -498,6 +553,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_close_request(self, _window: Gtk.Window) -> bool:
         """Persist usage and stop mpv when closing the GTK window."""
         self._stop_usage_timer()
+        self._stop_player_state_timer()
         self.usage_tracker.stop()
         try:
             self.player.stop()

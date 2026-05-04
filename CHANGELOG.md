@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Experimental GTK GUI search table with playable station results.
+
+
 ## v0.1.0
 
 Initial public release.

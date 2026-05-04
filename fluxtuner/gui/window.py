@@ -13,7 +13,13 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
-from fluxtuner.core.favorites import add_favorite, favorite_display_name, load_favorites, station_key
+from fluxtuner.core.favorites import (
+    add_favorite,
+    favorite_display_name,
+    load_favorites,
+    remove_favorite,
+    station_key,
+)
 
 DEFAULT_SEARCH = "fip"
 
@@ -218,6 +224,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.add_favorite_button = Gtk.Button(label="Add favorite")
         self.add_favorite_button.connect("clicked", self.on_add_favorite_clicked)
         favorite_controls.append(self.add_favorite_button)
+
+        self.remove_favorite_button = Gtk.Button(label="Remove")
+        self.remove_favorite_button.connect("clicked", self.on_remove_favorite_clicked)
+        favorite_controls.append(self.remove_favorite_button)
 
         self.show_favorites_button = Gtk.Button(label="Favorites")
         self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
@@ -529,6 +539,30 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self.status_label.set_text("Station is already in favorites or has no URL.")
+
+    def on_remove_favorite_clicked(self, _button: Gtk.Button) -> None:
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            return
+
+        key = station_key(self.selected_station)
+        if not key:
+            self.status_label.set_text("Selected station has no favorite URL.")
+            return
+
+        if remove_favorite(key):
+            self._refresh_favorite_cache()
+            self.status_label.set_text("Removed from favorites.")
+
+            # If the current view is the favorites list, remove it from the table too.
+            if all(self._is_favorite_station(station) for station in self.stations):
+                self.stations = load_favorites()
+                self.selected_station = None
+
+            self._render_results()
+            return
+
+        self.status_label.set_text("Selected station is not in favorites.")
 
     def on_show_favorites_clicked(self, _button: Gtk.Button) -> None:
         favorites = load_favorites()

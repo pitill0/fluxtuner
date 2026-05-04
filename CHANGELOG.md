@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- GTK GUI: added row activation playback, current station marker, and synchronized Now Playing details.
+
 ### Fixed
 - Improve GTK GUI country and minimum bitrate filtering.
 - Allow GUI searches using filters without a text query.

@@ -1,5 +1,4 @@
 """Experimental GTK desktop window for FluxTuner."""
-
 from __future__ import annotations
 
 import threading
@@ -8,12 +7,13 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk
+from gi.repository import GLib, Gtk, Pango
 
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
 
 DEFAULT_SEARCH = "fip"
+DEFAULT_STREAM_URL = "https://icecast.radiofrance.fr/fip-hifi.aac"
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -61,8 +61,8 @@ class MainWindow(Gtk.ApplicationWindow):
         search_bar.append(self.search_entry)
 
         self.country_entry = Gtk.Entry()
-        self.country_entry.set_placeholder_text("Country")
-        self.country_entry.set_width_chars(12)
+        self.country_entry.set_placeholder_text("Country or code")
+        self.country_entry.set_width_chars(14)
         self.country_entry.connect("activate", self.on_search_clicked)
         search_bar.append(self.country_entry)
 
@@ -88,9 +88,12 @@ class MainWindow(Gtk.ApplicationWindow):
         table_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         table_header.add_css_class("heading")
         table_box.append(table_header)
-        self._append_cell(table_header, "Name", 34, expand=True)
-        self._append_cell(table_header, "Country", 16)
-        self._append_cell(table_header, "Tags", 30, expand=True)
+
+        self._append_cell(table_header, "", 2)
+        self._append_cell(table_header, "Name", 32, expand=True)
+        self._append_cell(table_header, "Country", 14)
+        self._append_cell(table_header, "Code", 5)
+        self._append_cell(table_header, "Tags", 28, expand=True)
         self._append_cell(table_header, "Codec", 8)
         self._append_cell(table_header, "Kbps", 6)
 
@@ -147,7 +150,7 @@ class MainWindow(Gtk.ApplicationWindow):
         label.set_xalign(0)
         label.set_width_chars(width_chars)
         label.set_max_width_chars(width_chars)
-        label.set_ellipsize(3)  # Pango.EllipsizeMode.END without importing Pango.
+        label.set_ellipsize(Pango.EllipsizeMode.END)
         label.set_hexpand(expand)
         container.append(label)
         return label
@@ -155,7 +158,9 @@ class MainWindow(Gtk.ApplicationWindow):
     def _station_label(self, station: dict[str, Any]) -> str:
         name = station.get("name") or "Unknown station"
         country = station.get("country") or "Unknown"
-        return f"{name}\n{country}"
+        code = station.get("countrycode") or ""
+        country_label = f"{country} ({code})" if code else country
+        return f"{name}\n{country_label}"
 
     def _station_detail(self, station: dict[str, Any]) -> str:
         codec = station.get("codec") or "?"
@@ -183,10 +188,11 @@ class MainWindow(Gtk.ApplicationWindow):
             row_box.set_margin_start(6)
             row_box.set_margin_end(6)
 
-            marker = "▶" if self.current_station and station.get("url") == self.current_station.get("url") else ""
+            marker = "▶" if self._is_current_station(station) else ""
             self._append_cell(row_box, marker, 2)
             self._append_cell(row_box, station.get("name") or "Unknown station", 32, expand=True)
             self._append_cell(row_box, station.get("country") or "Unknown", 14)
+            self._append_cell(row_box, station.get("countrycode") or "", 5)
             self._append_cell(row_box, station.get("tags") or "", 28, expand=True)
             self._append_cell(row_box, station.get("codec") or "", 8)
             self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
@@ -199,17 +205,40 @@ class MainWindow(Gtk.ApplicationWindow):
         else:
             self.selected_station = None
 
+    def _is_current_station(self, station: dict[str, Any]) -> bool:
+        if not self.current_station:
+            return False
+        return station.get("url") == self.current_station.get("url")
+
+    def _parse_min_bitrate(self) -> int | None:
+        raw_value = self.min_bitrate_entry.get_text().strip()
+        if not raw_value:
+            return None
+        if not raw_value.isdigit():
+            raise ValueError("Minimum bitrate must be a number.")
+        return int(raw_value)
+
     def on_search_clicked(self, _widget: Gtk.Widget) -> None:
         query = self.search_entry.get_text().strip()
         country = self.country_entry.get_text().strip() or None
-        min_bitrate_text = self.min_bitrate_entry.get_text().strip()
-        min_bitrate = int(min_bitrate_text) if min_bitrate_text.isdigit() else None
 
-        if not query:
-            self.status_label.set_text("Enter a search term first.")
+        try:
+            min_bitrate = self._parse_min_bitrate()
+        except ValueError as exc:
+            self.status_label.set_text(str(exc))
             return
 
-        self.status_label.set_text("Searching…")
+        if not query and not country and min_bitrate is None:
+            self.status_label.set_text("Enter a search term or at least one filter.")
+            return
+
+        filters = []
+        if country:
+            filters.append(f"country={country}")
+        if min_bitrate is not None:
+            filters.append(f"min={min_bitrate}kbps")
+        suffix = f" ({', '.join(filters)})" if filters else ""
+        self.status_label.set_text(f"Searching{suffix}…")
 
         def worker() -> None:
             try:
@@ -242,6 +271,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if row is None:
             self.selected_station = None
             return
+
         self.selected_station = getattr(row, "station", None)
 
     def on_row_activated(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
@@ -256,7 +286,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Select a station first.")
             return
 
-        url = self.selected_station.get("url")
+        url = self.selected_station.get("url") or DEFAULT_STREAM_URL
         if not url:
             self.status_label.set_text("Selected station has no playable URL.")
             return

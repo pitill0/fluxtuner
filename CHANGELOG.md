@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+- Improve GTK GUI country and minimum bitrate filtering.
+- Allow GUI searches using filters without a text query.
+
 ### Added
 - Experimental GTK GUI search table with playable station results.
 

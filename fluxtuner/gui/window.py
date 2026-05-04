@@ -12,6 +12,7 @@ from gi.repository import GLib, Gtk  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
+from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 
 DEFAULT_SEARCH = "fip"
 
@@ -26,6 +27,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_default_size(980, 620)
 
         self.player = create_player(player_name)
+        self.usage_tracker = DataUsageTracker()
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
@@ -121,6 +123,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing_label.set_wrap(True)
         self.now_playing_label.set_selectable(True)
         side_panel.append(self.now_playing_label)
+        self.data_usage_label = Gtk.Label(label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est.")
+        self.data_usage_label.set_xalign(0)
+        side_panel.append(self.data_usage_label)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         side_panel.append(controls)
@@ -297,7 +302,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self.player.stop()
+        self.usage_tracker.stop()
+        self.update_data_usage()
         self.current_station = None
         self.update_now_playing()
         self.status_label.set_text("Stopped")
         self._render_results()
+
+    def update_data_usage(self):
+        if hasattr(self, "data_usage_label"):
+            self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()))

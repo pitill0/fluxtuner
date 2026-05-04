@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Added
+- Added estimated data usage tracking core.
+- Added session, daily and monthly estimated transfer counters.
+- Added basic GUI data usage display.
+
+## Unreleased
+
+### Added
 - GTK GUI: added row activation playback, current station marker, and synchronized Now Playing details.
 
 ### Fixed

@@ -117,7 +117,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.results_list.set_hexpand(True)
         self.results_list.set_vexpand(True)
         self.results_list.connect("row-selected", self.on_row_selected)
-        self.results_list.connect("row-activated", self.on_row_activated)
         scroller.set_child(self.results_list)
 
         side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -143,17 +142,38 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(self.data_usage_label)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        controls.set_hexpand(True)
         side_panel.append(controls)
 
-        play_button = Gtk.Button(label="Play")
-        play_button.connect("clicked", self.on_play_clicked)
-        controls.append(play_button)
+        self.play_button = Gtk.Button(label="Play")
+        self.play_button.connect("clicked", self.on_play_clicked)
+        controls.append(self.play_button)
 
-        stop_button = Gtk.Button(label="Stop")
-        stop_button.connect("clicked", self.on_stop_clicked)
-        controls.append(stop_button)
+        self.pause_button = Gtk.Button(label="Pause")
+        self.pause_button.connect("clicked", self.on_pause_clicked)
+        controls.append(self.pause_button)
 
-        hint = Gtk.Label(label="Tip: double-click or press Enter on a station to play it.")
+        self.stop_button = Gtk.Button(label="Stop")
+        self.stop_button.connect("clicked", self.on_stop_clicked)
+        controls.append(self.stop_button)
+
+        volume_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        volume_controls.set_hexpand(True)
+        side_panel.append(volume_controls)
+
+        self.mute_button = Gtk.Button(label="Mute")
+        self.mute_button.connect("clicked", self.on_mute_clicked)
+        volume_controls.append(self.mute_button)
+
+        volume_down_button = Gtk.Button(label="Vol−")
+        volume_down_button.connect("clicked", self.on_volume_down_clicked)
+        volume_controls.append(volume_down_button)
+
+        volume_up_button = Gtk.Button(label="Vol+")
+        volume_up_button.connect("clicked", self.on_volume_up_clicked)
+        volume_controls.append(volume_up_button)
+
+        hint = Gtk.Label(label="Tip: select + Play, or double-click a station to play it.")
         hint.set_xalign(0)
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
@@ -210,7 +230,13 @@ class MainWindow(Gtk.ApplicationWindow):
         return self._station_url(station) == self._station_url(self.current_station)
 
     def _render_results(self) -> None:
+        selected_url = self._station_url(self.selected_station) if self.selected_station else None
+        current_url = self._station_url(self.current_station) if self.current_station else None
+        preferred_url = selected_url or current_url
+
         self._clear_results()
+
+        row_to_select: Gtk.ListBoxRow | None = None
 
         for station in self.stations:
             row = Gtk.ListBoxRow()
@@ -230,12 +256,25 @@ class MainWindow(Gtk.ApplicationWindow):
             self._append_cell(row_box, station.get("codec") or "", 8)
             self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
 
+            if preferred_url and self._station_url(station) == preferred_url:
+                row_to_select = row
+
+            double_click = Gtk.GestureClick()
+            double_click.set_button(0)
+            double_click.connect("pressed", self.on_row_double_click, row)
+            row.add_controller(double_click)
+
             row.set_child(row_box)
             self.results_list.append(row)
 
-        if self.stations:
-            self.results_list.select_row(self.results_list.get_row_at_index(0))
-        else:
+        if row_to_select is not None:
+            self.results_list.select_row(row_to_select)
+            self.selected_station = getattr(row_to_select, "station", None)
+        elif self.stations and self.selected_station is None:
+            first_row = self.results_list.get_row_at_index(0)
+            self.results_list.select_row(first_row)
+            self.selected_station = getattr(first_row, "station", None) if first_row else None
+        elif not self.stations:
             self.selected_station = None
 
     def on_search_clicked(self, _widget: Gtk.Widget) -> None:
@@ -273,6 +312,36 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_label.set_text(f"Found {count} station(s).")
         return False
 
+    def on_row_pressed(
+        self,
+        _gesture: Gtk.GestureClick,
+        n_press: int,
+        _x: float,
+        _y: float,
+        row: Gtk.ListBoxRow,
+    ) -> None:
+        """Play a station only on an explicit double click."""
+        if n_press != 2:
+            return
+
+        self.selected_station = getattr(row, "station", None)
+        self.play_selected_station()
+
+    def on_row_double_click(
+        self,
+        _gesture: Gtk.GestureClick,
+        n_press: int,
+        _x: float,
+        _y: float,
+        row: Gtk.ListBoxRow,
+    ) -> None:
+        """Play a station only on an explicit double click."""
+        if n_press != 2:
+            return
+
+        self.selected_station = getattr(row, "station", None)
+        self.play_selected_station()
+
     def on_row_selected(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
         if row is None:
             self.selected_station = None
@@ -280,8 +349,31 @@ class MainWindow(Gtk.ApplicationWindow):
         self.selected_station = getattr(row, "station", None)
 
     def on_row_activated(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        """Do not autoplay on row activation; macOS may emit this on selection."""
         self.selected_station = getattr(row, "station", None)
-        self.play_selected_station()
+
+    def _has_active_playback(self) -> bool:
+        """Return True when there is an active player process."""
+        is_playing = getattr(self.player, "is_playing", None)
+        if not callable(is_playing):
+            return self.current_station is not None
+
+        try:
+            return bool(is_playing())
+        except Exception:
+            return self.current_station is not None
+
+    def _playback_command_failed(self, action: str, exc: Exception) -> None:
+        self.status_label.set_text(f"{action} failed: {exc}")
+
+    def _send_player_command(self, command: list[Any]) -> bool:
+        """Send a low-level command when the player backend supports it."""
+        player_command = getattr(self.player, "command", None)
+        if not callable(player_command):
+            return False
+
+        player_command(command)
+        return True
 
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         self.play_selected_station()
@@ -319,6 +411,59 @@ class MainWindow(Gtk.ApplicationWindow):
             f"{self._station_label(self.current_station)}\n"
             f"{self._station_detail(self.current_station)}"
         )
+
+    def on_pause_clicked(self, _button: Gtk.Button) -> None:
+        if not self._has_active_playback():
+            self.status_label.set_text("Nothing is playing.")
+            return
+
+        try:
+            if not self._send_player_command(["cycle", "pause"]):
+                self.player.toggle_pause()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Pause", exc)
+            return
+
+        self.status_label.set_text("Toggled pause/resume")
+
+    def on_mute_clicked(self, _button: Gtk.Button) -> None:
+        if not self._has_active_playback():
+            self.status_label.set_text("Nothing is playing.")
+            return
+
+        try:
+            self.player.toggle_mute()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Mute", exc)
+            return
+
+        self.status_label.set_text("Toggled mute")
+
+    def on_volume_down_clicked(self, _button: Gtk.Button) -> None:
+        if not self._has_active_playback():
+            self.status_label.set_text("Nothing is playing.")
+            return
+
+        try:
+            self.player.volume_down()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Volume down", exc)
+            return
+
+        self.status_label.set_text("Volume down")
+
+    def on_volume_up_clicked(self, _button: Gtk.Button) -> None:
+        if not self._has_active_playback():
+            self.status_label.set_text("Nothing is playing.")
+            return
+
+        try:
+            self.player.volume_up()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Volume up", exc)
+            return
+
+        self.status_label.set_text("Volume up")
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()

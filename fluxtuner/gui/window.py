@@ -49,6 +49,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_header(root)
         self._build_search_bar(root)
         self._build_content(root)
+        self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
 
     def _build_root(self) -> Gtk.Box:
@@ -124,7 +125,7 @@ class MainWindow(Gtk.ApplicationWindow):
         table_header.add_css_class("heading")
         table_box.append(table_header)
 
-        self._append_cell(table_header, "", 2)
+        self._append_cell(table_header, "Status", 6)
         self._append_cell(table_header, "Name", 32, expand=True)
         self._append_cell(table_header, "Country", 14)
         self._append_cell(table_header, "Tags", 28, expand=True)
@@ -177,57 +178,56 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player_state_label.set_selectable(True)
         side_panel.append(self.player_state_label)
 
-        self._build_playback_controls(side_panel)
         self._build_favorite_controls(side_panel)
 
-        hint = Gtk.Label(label="Tip: select + ▶, or double-click a station to play it.")
+        hint = Gtk.Label(label="Tip: select a station and use ▶ below, or double-click it.")
         hint.set_xalign(0)
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
         side_panel.append(hint)
 
-    def _build_playback_controls(self, side_panel: Gtk.Box) -> None:
-        self._append_section_title(side_panel, "Playback")
+    def _build_bottom_playback_bar(self, root: Gtk.Box) -> None:
+        playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        playback_bar.set_hexpand(True)
+        root.append(playback_bar)
 
-        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        controls.set_hexpand(True)
-        side_panel.append(controls)
-
-        self.play_button = Gtk.Button(label="▶")
-        self.play_button.set_tooltip_text("Play selected station")
-        self.play_button.connect("clicked", self.on_play_clicked)
-        controls.append(self.play_button)
-
-        self.pause_button = Gtk.Button(label="⏯")
-        self.pause_button.set_tooltip_text("Pause / resume")
-        self.pause_button.connect("clicked", self.on_pause_clicked)
-        controls.append(self.pause_button)
+        playback_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        playback_group.set_hexpand(False)
+        playback_bar.append(playback_group)
 
         self.stop_button = Gtk.Button(label="■")
         self.stop_button.set_tooltip_text("Stop playback")
         self.stop_button.connect("clicked", self.on_stop_clicked)
-        controls.append(self.stop_button)
+        playback_group.append(self.stop_button)
 
-        self._append_section_title(side_panel, "Volume")
+        self.pause_button = Gtk.Button(label="⏯")
+        self.pause_button.set_tooltip_text("Pause / resume")
+        self.pause_button.connect("clicked", self.on_pause_clicked)
+        playback_group.append(self.pause_button)
 
-        volume_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        volume_controls.set_hexpand(True)
-        side_panel.append(volume_controls)
+        self.play_button = Gtk.Button(label="▶")
+        self.play_button.set_tooltip_text("Play selected station")
+        self.play_button.connect("clicked", self.on_play_clicked)
+        playback_group.append(self.play_button)
 
-        self.mute_button = Gtk.Button(label="🔇")
-        self.mute_button.set_tooltip_text("Mute / unmute")
-        self.mute_button.connect("clicked", self.on_mute_clicked)
-        volume_controls.append(self.mute_button)
+        volume_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        volume_group.set_hexpand(False)
+        playback_bar.append(volume_group)
 
         volume_down_button = Gtk.Button(label="−")
         volume_down_button.set_tooltip_text("Volume down")
         volume_down_button.connect("clicked", self.on_volume_down_clicked)
-        volume_controls.append(volume_down_button)
+        volume_group.append(volume_down_button)
+
+        self.mute_button = Gtk.Button(label="🔇")
+        self.mute_button.set_tooltip_text("Mute / unmute")
+        self.mute_button.connect("clicked", self.on_mute_clicked)
+        volume_group.append(self.mute_button)
 
         volume_up_button = Gtk.Button(label="+")
         volume_up_button.set_tooltip_text("Volume up")
         volume_up_button.connect("clicked", self.on_volume_up_clicked)
-        volume_controls.append(volume_up_button)
+        volume_group.append(volume_up_button)
 
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Favorites")
@@ -236,21 +236,17 @@ class MainWindow(Gtk.ApplicationWindow):
         favorite_controls.set_hexpand(True)
         side_panel.append(favorite_controls)
 
-        favorite_action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        favorite_action_row.set_hexpand(True)
-        favorite_controls.append(favorite_action_row)
-
-        self.add_favorite_button = Gtk.Button(label="★ Add")
+        self.add_favorite_button = Gtk.Button(label="★ Add favorite")
         self.add_favorite_button.set_tooltip_text("Add selected station to favorites")
         self.add_favorite_button.connect("clicked", self.on_add_favorite_clicked)
-        favorite_action_row.append(self.add_favorite_button)
+        favorite_controls.append(self.add_favorite_button)
 
-        self.remove_favorite_button = Gtk.Button(label="☆ Remove")
+        self.remove_favorite_button = Gtk.Button(label="☆ Remove favorite")
         self.remove_favorite_button.set_tooltip_text("Remove selected station from favorites")
         self.remove_favorite_button.connect("clicked", self.on_remove_favorite_clicked)
-        favorite_action_row.append(self.remove_favorite_button)
+        favorite_controls.append(self.remove_favorite_button)
 
-        self.show_favorites_button = Gtk.Button(label="★ List")
+        self.show_favorites_button = Gtk.Button(label="★ Show favorites")
         self.show_favorites_button.set_tooltip_text("Show favorite stations")
         self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
         favorite_controls.append(self.show_favorites_button)
@@ -346,7 +342,7 @@ class MainWindow(Gtk.ApplicationWindow):
             if self._is_favorite_station(station):
                 marker_parts.append("★")
             marker = "".join(marker_parts)
-            self._append_cell(row_box, marker, 2)
+            self._append_cell(row_box, marker, 6)
             self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
             self._append_cell(row_box, station.get("country") or "Unknown", 14)
             self._append_cell(row_box, station.get("tags") or "", 28, expand=True)

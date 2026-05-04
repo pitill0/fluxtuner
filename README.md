@@ -64,7 +64,15 @@ sudo pacman -S mpv
 # macOS
 brew install mpv
 ```
+### macOS GTK development note
 
+When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
+
+If the GUI fails with `ModuleNotFoundError: No module named 'gi'`, run:
+
+```bash
+PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
+python -m fluxtuner --gui --player mpv
 ---
 
 ### Install with pipx (recommended)

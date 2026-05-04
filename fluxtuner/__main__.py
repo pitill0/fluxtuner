@@ -157,6 +157,12 @@ def main() -> None:
         action="store_true",
         help="Run the legacy numbered CLI instead of the Textual TUI.",
     )
+    
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Run the experimental GTK GUI.",
+    )
     parser.add_argument(
         "--player",
         default="mpv",
@@ -307,8 +313,15 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    run_tui(theme=selected_theme, player_name=args.player)
+    from fluxtuner.gui.app import run_gui
 
 
+    if args.gui:
+
+        run_gui(player_name=getattr(args, 'player', 'mpv'))
+
+    else:
+
+        run_tui(theme=selected_theme, player_name=args.player)
 if __name__ == "__main__":
     main()

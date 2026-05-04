@@ -180,7 +180,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._build_favorite_controls(side_panel)
 
-        hint = Gtk.Label(label="Tip: select a station and use ▶ below, or double-click it.")
+        hint = Gtk.Label(label="Tip: select a station and use ▶/⏸ below, or double-click it.")
         hint.set_xalign(0)
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
@@ -192,45 +192,34 @@ class MainWindow(Gtk.ApplicationWindow):
         playback_bar.set_halign(Gtk.Align.CENTER)
         root.append(playback_bar)
 
-        playback_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        playback_group.set_hexpand(False)
-        playback_group.set_halign(Gtk.Align.CENTER)
-        playback_bar.append(playback_group)
-
         self.stop_button = Gtk.Button(label="■")
         self.stop_button.set_tooltip_text("Stop playback")
         self.stop_button.connect("clicked", self.on_stop_clicked)
-        playback_group.append(self.stop_button)
+        playback_bar.append(self.stop_button)
 
         self.pause_button = Gtk.Button(label="⏯")
         self.pause_button.set_tooltip_text("Pause / resume")
         self.pause_button.connect("clicked", self.on_pause_clicked)
-        playback_group.append(self.pause_button)
+        playback_bar.append(self.pause_button)
 
         self.play_button = Gtk.Button(label="▶")
         self.play_button.set_tooltip_text("Play selected station")
         self.play_button.connect("clicked", self.on_play_clicked)
-        playback_group.append(self.play_button)
+        playback_bar.append(self.play_button)
 
-        volume_group = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        volume_group.set_hexpand(False)
-        volume_group.set_halign(Gtk.Align.CENTER)
-        playback_bar.append(volume_group)
-
-        volume_down_button = Gtk.Button(label="−")
-        volume_down_button.set_tooltip_text("Volume down")
-        volume_down_button.connect("clicked", self.on_volume_down_clicked)
-        volume_group.append(volume_down_button)
-
-        self.mute_button = Gtk.Button(label="🔇")
+        self.mute_button = Gtk.Button(label="🔊")
         self.mute_button.set_tooltip_text("Mute / unmute")
         self.mute_button.connect("clicked", self.on_mute_clicked)
-        volume_group.append(self.mute_button)
+        playback_bar.append(self.mute_button)
 
-        volume_up_button = Gtk.Button(label="+")
-        volume_up_button.set_tooltip_text("Volume up")
-        volume_up_button.connect("clicked", self.on_volume_up_clicked)
-        volume_group.append(volume_up_button)
+        self.volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self.volume_scale.set_value(50)
+        self.volume_scale.set_size_request(160, -1)
+        self.volume_scale.set_hexpand(False)
+        self.volume_scale.set_draw_value(False)
+        self.volume_scale.set_tooltip_text("Volume")
+        self.volume_scale.connect("value-changed", self.on_volume_scale_changed)
+        playback_bar.append(self.volume_scale)
 
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Favorites")
@@ -452,6 +441,13 @@ class MainWindow(Gtk.ApplicationWindow):
         player_command(command)
         return True
 
+    def on_play_pause_clicked(self, _button: Gtk.Button) -> None:
+        if self._has_active_playback():
+            self.toggle_pause()
+            return
+
+        self.play_selected_station()
+
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         self.play_selected_station()
 
@@ -476,6 +472,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
+        self._update_play_pause_button()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
         self.status_label.set_text("Playing")
@@ -490,6 +487,17 @@ class MainWindow(Gtk.ApplicationWindow):
             f"{self._station_label(self.current_station)}\n"
             f"{self._station_detail(self.current_station)}"
         )
+
+    def toggle_pause(self) -> None:
+        try:
+            if not self._send_player_command(["cycle", "pause"]):
+                self.player.toggle_pause()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Pause", exc)
+            return
+
+        self.update_player_state()
+        self.status_label.set_text("Toggled pause/resume")
 
     def on_pause_clicked(self, _button: Gtk.Button) -> None:
         if not self._has_active_playback():
@@ -520,33 +528,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
         self.status_label.set_text("Toggled mute")
 
-    def on_volume_down_clicked(self, _button: Gtk.Button) -> None:
+    def on_volume_scale_changed(self, scale: Gtk.Scale) -> None:
         if not self._has_active_playback():
-            self.status_label.set_text("Nothing is playing.")
             return
 
+        volume = int(round(scale.get_value()))
+
         try:
-            self.player.volume_down()
+            set_volume = getattr(self.player, "set_volume", None)
+            if callable(set_volume):
+                set_volume(volume)
+            else:
+                self._send_player_command(["set_property", "volume", volume])
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self._playback_command_failed("Volume down", exc)
+            self._playback_command_failed("Volume", exc)
             return
 
         self.update_player_state()
-        self.status_label.set_text("Volume down")
-
-    def on_volume_up_clicked(self, _button: Gtk.Button) -> None:
-        if not self._has_active_playback():
-            self.status_label.set_text("Nothing is playing.")
-            return
-
-        try:
-            self.player.volume_up()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self._playback_command_failed("Volume up", exc)
-            return
-
-        self.update_player_state()
-        self.status_label.set_text("Volume up")
 
     def on_add_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:
@@ -602,6 +600,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_station = None
         self.update_now_playing()
         self.update_player_state()
+        self._update_play_pause_button()
         self.status_label.set_text("Stopped")
         self._render_results()
 
@@ -626,39 +625,81 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
         return True
 
+    def _update_mute_button(self, muted: bool | None = None) -> None:
+        if not hasattr(self, "mute_button"):
+            return
+
+        if muted is None:
+            muted = False
+
+        self.mute_button.set_label("🔇" if muted else "🔊")
+
     def update_player_state(self) -> None:
         if not hasattr(self, "player_state_label"):
             return
 
         if not self._has_active_playback():
             self.player_state_label.set_text("Player: stopped")
+            self._update_play_pause_button()
             return
 
         get_state = getattr(self.player, "get_state", None)
         if not callable(get_state):
             self.player_state_label.set_text("Player: playing")
+            self._update_play_pause_button()
             return
 
         try:
             state = get_state() or {}
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
             self.player_state_label.set_text(f"Player: state unavailable ({exc})")
+            self._update_play_pause_button()
             return
 
         if not state.get("playing"):
             self.player_state_label.set_text("Player: stopped")
+            self._update_play_pause_button()
             return
 
+        is_muted = bool(state.get("muted"))
         playback = "paused" if state.get("paused") else "playing"
-        muted = "muted" if state.get("muted") else "sound on"
+        muted = "muted" if is_muted else "sound on"
         volume = state.get("volume")
+        self._update_mute_button(is_muted)
 
         if isinstance(volume, (int, float)):
-            volume_text = f"{int(round(volume))}%"
+            volume_value = int(round(volume))
+            volume_text = f"{volume_value}%"
+            if hasattr(self, "volume_scale") and int(round(self.volume_scale.get_value())) != volume_value:
+                self.volume_scale.handler_block_by_func(self.on_volume_scale_changed)
+                self.volume_scale.set_value(volume_value)
+                self.volume_scale.handler_unblock_by_func(self.on_volume_scale_changed)
         else:
             volume_text = "unknown volume"
 
         self.player_state_label.set_text(f"Player: {playback} · {muted} · {volume_text}")
+        self._update_play_pause_button()
+
+    def _update_play_pause_button(self) -> None:
+        if not hasattr(self, "play_button"):
+            return
+
+        if not self._has_active_playback():
+            self.play_button.set_label("▶")
+            return
+
+        get_state = getattr(self.player, "get_state", None)
+        if not callable(get_state):
+            self.play_button.set_label("⏯")
+            return
+
+        try:
+            state = get_state() or {}
+        except Exception:
+            self.play_button.set_label("⏯")
+            return
+
+        self.play_button.set_label("▶" if state.get("paused") else "⏸")
 
     def _ensure_usage_timer(self) -> None:
         """Refresh the data usage label while playback is active."""

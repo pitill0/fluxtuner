@@ -1346,3 +1346,10 @@ class FluxTunerTUI(App[None]):
 
 def run_tui(theme: str | None = None, player_name: str = "mpv") -> None:
     FluxTunerTUI(theme=theme, player_name=player_name).run()
+
+
+    def show_data_usage(self):
+        try:
+            print(self.data_usage_text())
+        except Exception:
+            pass

@@ -8,11 +8,13 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "4.0")
+
 from gi.repository import GLib, Gtk  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.players import create_player
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
+from fluxtuner.players import create_player
+
 
 DEFAULT_SEARCH = "fip"
 
@@ -25,9 +27,12 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.set_title("FluxTuner")
         self.set_default_size(980, 620)
+        self.connect("close-request", self.on_close_request)
 
         self.player = create_player(player_name)
         self.usage_tracker = DataUsageTracker()
+        self._usage_timer_id: int | None = None
+
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
@@ -123,8 +128,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing_label.set_wrap(True)
         self.now_playing_label.set_selectable(True)
         side_panel.append(self.now_playing_label)
-        self.data_usage_label = Gtk.Label(label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est.")
+
+        self.data_usage_label = Gtk.Label(
+            label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est."
+        )
         self.data_usage_label.set_xalign(0)
+        self.data_usage_label.set_wrap(True)
         side_panel.append(self.data_usage_label)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -148,6 +157,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_label.set_xalign(0)
         self.status_label.set_wrap(True)
         root.append(self.status_label)
+
+        self.start_usage_timer()
 
     def _append_cell(
         self,
@@ -182,6 +193,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _clear_results(self) -> None:
         child = self.results_list.get_first_child()
+
         while child is not None:
             next_child = child.get_next_sibling()
             self.results_list.remove(child)
@@ -206,6 +218,7 @@ class MainWindow(Gtk.ApplicationWindow):
             row_box.set_margin_end(6)
 
             marker = "▶" if self._is_current_station(station) else ""
+
             self._append_cell(row_box, marker, 2)
             self._append_cell(row_box, station.get("name") or "Unknown station", 32, expand=True)
             self._append_cell(row_box, station.get("country") or "Unknown", 14)
@@ -260,6 +273,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if row is None:
             self.selected_station = None
             return
+
         self.selected_station = getattr(row, "station", None)
 
     def on_row_activated(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
@@ -286,7 +300,9 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self.current_station = self.selected_station
+        self.usage_tracker.start(self.current_station)
         self.update_now_playing()
+        self.update_data_usage()
         self.status_label.set_text("Playing")
         self._render_results()
 
@@ -301,14 +317,46 @@ class MainWindow(Gtk.ApplicationWindow):
         )
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
-        self.player.stop()
-        self.usage_tracker.stop()
-        self.update_data_usage()
-        self.current_station = None
-        self.update_now_playing()
+        self.stop_playback()
         self.status_label.set_text("Stopped")
-        self._render_results()
 
-    def update_data_usage(self):
-        if hasattr(self, "data_usage_label"):
-            self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()))
+    def stop_playback(self) -> None:
+        try:
+            self.player.stop()
+        finally:
+            self.usage_tracker.stop()
+            self.update_data_usage()
+            self.current_station = None
+            self.update_now_playing()
+            self._render_results()
+
+    def update_data_usage(self) -> None:
+        self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()))
+
+    def start_usage_timer(self) -> None:
+        if self._usage_timer_id is None:
+            self._usage_timer_id = GLib.timeout_add_seconds(1, self._tick_usage)
+
+    def _tick_usage(self) -> bool:
+        self.update_data_usage()
+        return True
+
+    def on_close_request(self, *_args: object) -> bool:
+        if self._usage_timer_id is not None:
+            try:
+                GLib.source_remove(self._usage_timer_id)
+            except Exception:
+                pass
+            self._usage_timer_id = None
+
+        try:
+            self.player.stop()
+        except Exception:
+            pass
+
+        try:
+            self.usage_tracker.stop()
+        except Exception:
+            pass
+
+        return False

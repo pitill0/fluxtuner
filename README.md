@@ -265,7 +265,7 @@ When using a Python virtual environment, PyGObject installed via Homebrew may no
 Install GTK dependencies:
 
 ```bash
-brew install pygobject3 gtk4
+brew install gtk4 pygobject3 mpv
 ```
 
 If the GUI fails with:
@@ -275,6 +275,13 @@ ModuleNotFoundError: No module named 'gi'
 ```
 
 run FluxTuner with Homebrew's PyGObject path:
+
+```bash
+PYGOBJECT_SITE_PACKAGES="$(dirname "$(find "$(brew --prefix)" -path "*/site-packages/gi/__init__.py" 2>/dev/null | head -n 1)")"
+PYTHONPATH="$PYGOBJECT_SITE_PACKAGES" python -m fluxtuner --gui --player mpv
+```
+
+On Apple Silicon this often resolves to a path similar to:
 
 ```bash
 PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \

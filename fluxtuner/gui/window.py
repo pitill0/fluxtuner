@@ -13,7 +13,6 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
-import traceback
 
 DEFAULT_SEARCH = "fip"
 
@@ -39,6 +38,8 @@ class MainWindow(Gtk.ApplicationWindow):
         root.set_margin_bottom(16)
         root.set_margin_start(16)
         root.set_margin_end(16)
+        root.set_hexpand(True)
+        root.set_vexpand(True)
         self.set_child(root)
         self.connect("close-request", self.on_close_request)
 
@@ -56,6 +57,7 @@ class MainWindow(Gtk.ApplicationWindow):
         header.append(subtitle)
 
         search_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        search_bar.set_hexpand(True)
         root.append(search_bar)
 
         self.search_entry = Gtk.Entry()
@@ -84,6 +86,7 @@ class MainWindow(Gtk.ApplicationWindow):
         search_bar.append(search_button)
 
         content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        content.set_hexpand(True)
         content.set_vexpand(True)
         root.append(content)
 
@@ -104,6 +107,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._append_cell(table_header, "Kbps", 6)
 
         scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
         table_box.append(scroller)
@@ -117,7 +121,9 @@ class MainWindow(Gtk.ApplicationWindow):
         scroller.set_child(self.results_list)
 
         side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        side_panel.set_size_request(280, -1)
+        side_panel.set_size_request(240, -1)
+        side_panel.set_hexpand(False)
+        side_panel.set_vexpand(True)
         content.append(side_panel)
 
         now_title = Gtk.Label(label="Now Playing")
@@ -132,6 +138,8 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(self.now_playing_label)
         self.data_usage_label = Gtk.Label(label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est.")
         self.data_usage_label.set_xalign(0)
+        self.data_usage_label.set_wrap(True)
+        self.data_usage_label.set_selectable(True)
         side_panel.append(self.data_usage_label)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -170,7 +178,7 @@ class MainWindow(Gtk.ApplicationWindow):
         label.set_xalign(0)
         label.set_width_chars(width_chars)
         label.set_max_width_chars(width_chars)
-        label.set_ellipsize(3)  # Pango.EllipsizeMode.END without importing Pango.
+        label.set_ellipsize(Pango.EllipsizeMode.END)
         label.set_hexpand(expand)
         container.append(label)
         return label
@@ -240,10 +248,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         def worker() -> None:
             try:
-                print(
-                    f"GUI search request: query={query!r}, country={country!r}, min_bitrate={min_bitrate!r}",
-                    flush=True,
-                )
                 stations = search_stations_filtered(
                     query=query or None,
                     country=country,
@@ -325,36 +329,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_now_playing()
         self.status_label.set_text("Stopped")
         self._render_results()
-
-    def _ensure_usage_timer(self) -> None:
-        """Refresh the data usage label while playback is active."""
-        if self._usage_timer_id is None:
-            self._usage_timer_id = GLib.timeout_add_seconds(1, self._refresh_data_usage)
-
-    def _stop_usage_timer(self) -> None:
-        """Stop the periodic data usage refresh."""
-        if self._usage_timer_id is not None:
-            GLib.source_remove(self._usage_timer_id)
-            self._usage_timer_id = None
-
-    def _refresh_data_usage(self) -> bool:
-        """GTK timeout callback used while a station is playing."""
-        if self.current_station is None:
-            self._usage_timer_id = None
-            return False
-
-        self.update_data_usage()
-        return True
-
-    def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Persist usage and stop mpv when closing the GTK window."""
-        self._stop_usage_timer()
-        self.usage_tracker.stop()
-        try:
-            self.player.stop()
-        except Exception:
-            pass
-        return False
 
     def _ensure_usage_timer(self) -> None:
         """Refresh the data usage label while playback is active."""

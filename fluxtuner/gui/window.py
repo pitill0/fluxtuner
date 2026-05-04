@@ -8,7 +8,7 @@ from typing import Any
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk  # noqa: E402
+from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
@@ -22,6 +22,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def __init__(self, app: Gtk.Application, player_name: str = "mpv") -> None:
         super().__init__(application=app)
+        self.set_default_size(900, 620)
+        self.set_size_request(520, 420)
 
         self.set_title("FluxTuner")
         self.set_default_size(980, 620)
@@ -63,12 +65,15 @@ class MainWindow(Gtk.ApplicationWindow):
         search_bar.append(self.search_entry)
 
         self.country_entry = Gtk.Entry()
+        self.country_entry.set_hexpand(True)
         self.country_entry.set_placeholder_text("Country")
         self.country_entry.set_width_chars(12)
         self.country_entry.connect("activate", self.on_search_clicked)
         search_bar.append(self.country_entry)
 
         self.min_bitrate_entry = Gtk.Entry()
+        self.min_bitrate_entry.set_hexpand(False)
+        self.min_bitrate_entry.set_width_chars(8)
         self.min_bitrate_entry.set_placeholder_text("Min kbps")
         self.min_bitrate_entry.set_width_chars(10)
         self.min_bitrate_entry.connect("activate", self.on_search_clicked)
@@ -104,6 +109,9 @@ class MainWindow(Gtk.ApplicationWindow):
         table_box.append(scroller)
 
         self.results_list = Gtk.ListBox()
+        self.results_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.results_list.set_hexpand(True)
+        self.results_list.set_vexpand(True)
         self.results_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.results_list.connect("row-selected", self.on_row_selected)
         self.results_list.connect("row-activated", self.on_row_activated)
@@ -145,6 +153,8 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(hint)
 
         self.status_label = Gtk.Label(label="Ready")
+        self.status_label.set_hexpand(True)
+        self.status_label.props.ellipsize = Pango.EllipsizeMode.END
         self.status_label.set_xalign(0)
         self.status_label.set_wrap(True)
         root.append(self.status_label)

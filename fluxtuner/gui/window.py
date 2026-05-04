@@ -34,6 +34,16 @@ class MainWindow(Gtk.ApplicationWindow):
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
 
+        root = self._build_root()
+        self.set_child(root)
+        self.connect("close-request", self.on_close_request)
+
+        self._build_header(root)
+        self._build_search_bar(root)
+        self._build_content(root)
+        self._build_status_bar(root)
+
+    def _build_root(self) -> Gtk.Box:
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         root.set_margin_top(16)
         root.set_margin_bottom(16)
@@ -41,9 +51,9 @@ class MainWindow(Gtk.ApplicationWindow):
         root.set_margin_end(16)
         root.set_hexpand(True)
         root.set_vexpand(True)
-        self.set_child(root)
-        self.connect("close-request", self.on_close_request)
+        return root
 
+    def _build_header(self, root: Gtk.Box) -> None:
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         root.append(header)
 
@@ -57,6 +67,7 @@ class MainWindow(Gtk.ApplicationWindow):
         subtitle.add_css_class("dim-label")
         header.append(subtitle)
 
+    def _build_search_bar(self, root: Gtk.Box) -> None:
         search_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         search_bar.set_hexpand(True)
         root.append(search_bar)
@@ -86,11 +97,16 @@ class MainWindow(Gtk.ApplicationWindow):
         search_button.connect("clicked", self.on_search_clicked)
         search_bar.append(search_button)
 
+    def _build_content(self, root: Gtk.Box) -> None:
         content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         content.set_hexpand(True)
         content.set_vexpand(True)
         root.append(content)
 
+        self._build_results_table(content)
+        self._build_side_panel(content)
+
+    def _build_results_table(self, content: Gtk.Box) -> None:
         table_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         table_box.set_hexpand(True)
         table_box.set_vexpand(True)
@@ -120,6 +136,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.results_list.connect("row-selected", self.on_row_selected)
         scroller.set_child(self.results_list)
 
+    def _build_side_panel(self, content: Gtk.Box) -> None:
         side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         side_panel.set_size_request(240, -1)
         side_panel.set_hexpand(False)
@@ -136,6 +153,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing_label.set_wrap(True)
         self.now_playing_label.set_selectable(True)
         side_panel.append(self.now_playing_label)
+
         self.data_usage_label = Gtk.Label(label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est.")
         self.data_usage_label.set_xalign(0)
         self.data_usage_label.set_wrap(True)
@@ -148,6 +166,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player_state_label.set_selectable(True)
         side_panel.append(self.player_state_label)
 
+        self._build_playback_controls(side_panel)
+
+        hint = Gtk.Label(label="Tip: select + Play, or double-click a station to play it.")
+        hint.set_xalign(0)
+        hint.set_wrap(True)
+        hint.add_css_class("dim-label")
+        side_panel.append(hint)
+
+    def _build_playback_controls(self, side_panel: Gtk.Box) -> None:
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         controls.set_hexpand(True)
         side_panel.append(controls)
@@ -180,12 +207,7 @@ class MainWindow(Gtk.ApplicationWindow):
         volume_up_button.connect("clicked", self.on_volume_up_clicked)
         volume_controls.append(volume_up_button)
 
-        hint = Gtk.Label(label="Tip: select + Play, or double-click a station to play it.")
-        hint.set_xalign(0)
-        hint.set_wrap(True)
-        hint.add_css_class("dim-label")
-        side_panel.append(hint)
-
+    def _build_status_bar(self, root: Gtk.Box) -> None:
         self.status_label = Gtk.Label(label="Ready")
         self.status_label.set_hexpand(True)
         self.status_label.props.ellipsize = Pango.EllipsizeMode.END
@@ -338,10 +360,6 @@ class MainWindow(Gtk.ApplicationWindow):
         if row is None:
             self.selected_station = None
             return
-        self.selected_station = getattr(row, "station", None)
-
-    def on_row_activated(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
-        """Do not autoplay on row activation; macOS may emit this on selection."""
         self.selected_station = getattr(row, "station", None)
 
     def _has_active_playback(self) -> bool:

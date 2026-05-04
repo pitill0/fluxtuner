@@ -13,6 +13,7 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
+from fluxtuner.core.favorites import add_favorite, favorite_display_name, load_favorites, station_key
 
 DEFAULT_SEARCH = "fip"
 
@@ -33,6 +34,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
+        self.favorite_urls = self._favorite_url_set()
 
         root = self._build_root()
         self.set_child(root)
@@ -167,6 +169,7 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(self.player_state_label)
 
         self._build_playback_controls(side_panel)
+        self._build_favorite_controls(side_panel)
 
         hint = Gtk.Label(label="Tip: select + Play, or double-click a station to play it.")
         hint.set_xalign(0)
@@ -207,6 +210,19 @@ class MainWindow(Gtk.ApplicationWindow):
         volume_up_button.connect("clicked", self.on_volume_up_clicked)
         volume_controls.append(volume_up_button)
 
+    def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:
+        favorite_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        favorite_controls.set_hexpand(True)
+        side_panel.append(favorite_controls)
+
+        self.add_favorite_button = Gtk.Button(label="Add favorite")
+        self.add_favorite_button.connect("clicked", self.on_add_favorite_clicked)
+        favorite_controls.append(self.add_favorite_button)
+
+        self.show_favorites_button = Gtk.Button(label="Favorites")
+        self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
+        favorite_controls.append(self.show_favorites_button)
+
     def _build_status_bar(self, root: Gtk.Box) -> None:
         self.status_label = Gtk.Label(label="Ready")
         self.status_label.set_hexpand(True)
@@ -214,6 +230,21 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_label.set_xalign(0)
         self.status_label.set_wrap(True)
         root.append(self.status_label)
+
+    def _favorite_url_set(self) -> set[str]:
+        return {key for item in load_favorites() if (key := station_key(item))}
+
+    def _is_favorite_station(self, station: dict[str, Any]) -> bool:
+        key = station_key(station)
+        return bool(key and key in self.favorite_urls)
+
+    def _refresh_favorite_cache(self) -> None:
+        self.favorite_urls = self._favorite_url_set()
+
+    def _station_display_name(self, station: dict[str, Any]) -> str:
+        if self._is_favorite_station(station):
+            return favorite_display_name(station)
+        return str(station.get("name") or "Unknown station")
 
     def _append_cell(
         self,
@@ -277,9 +308,14 @@ class MainWindow(Gtk.ApplicationWindow):
             row_box.set_margin_start(6)
             row_box.set_margin_end(6)
 
-            marker = "▶" if self._is_current_station(station) else ""
+            marker_parts = []
+            if self._is_current_station(station):
+                marker_parts.append("▶")
+            if self._is_favorite_station(station):
+                marker_parts.append("★")
+            marker = "".join(marker_parts)
             self._append_cell(row_box, marker, 2)
-            self._append_cell(row_box, station.get("name") or "Unknown station", 32, expand=True)
+            self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
             self._append_cell(row_box, station.get("country") or "Unknown", 14)
             self._append_cell(row_box, station.get("tags") or "", 28, expand=True)
             self._append_cell(row_box, station.get("codec") or "", 8)
@@ -480,6 +516,27 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.update_player_state()
         self.status_label.set_text("Volume up")
+
+    def on_add_favorite_clicked(self, _button: Gtk.Button) -> None:
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            return
+
+        if add_favorite(self.selected_station):
+            self._refresh_favorite_cache()
+            self.status_label.set_text("Added to favorites.")
+            self._render_results()
+            return
+
+        self.status_label.set_text("Station is already in favorites or has no URL.")
+
+    def on_show_favorites_clicked(self, _button: Gtk.Button) -> None:
+        favorites = load_favorites()
+        self._refresh_favorite_cache()
+        self.stations = favorites
+        self.selected_station = None
+        self._render_results()
+        self.status_label.set_text(f"Loaded {len(favorites)} favorite station(s).")
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()

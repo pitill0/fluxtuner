@@ -44,78 +44,273 @@ Built with Python, powered by mpv, and designed for daily use.
 ![Themes](screenshots/themes.png)
 
 ---
-
-## 🚀 Installation
+## 🚀 Installation & Usage
 
 ### Requirements
 
-* Python 3.10+
-* mpv
+FluxTuner requires:
 
-#### Install mpv
+- Python 3.10+
+- mpv
+- A terminal emulator with good Unicode support
+
+The GTK desktop GUI is currently experimental and requires GTK4 + PyGObject.
+
+---
+
+### Install mpv
 
 ```bash
+# CRUX
+sudo prt-get depinst mpv
+
 # Debian / Ubuntu
 sudo apt install mpv
 
-# Arch
+# Arch Linux
 sudo pacman -S mpv
+
+# Fedora
+sudo dnf install mpv
 
 # macOS
 brew install mpv
 ```
-### macOS GTK development note
 
-When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
-
-If the GUI fails with `ModuleNotFoundError: No module named 'gi'`, run:
+Check that mpv is available:
 
 ```bash
-PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
-python -m fluxtuner --gui --player mpv
----
-
-### Install with pipx (recommended)
-
-```bash
-pipx install .
-fluxtuner
+mpv --version
 ```
 
 ---
 
-### Development install
+## ▶️ Running FluxTuner
+
+### Option 1 — Run directly from source
+
+This is the simplest option for testing or development:
 
 ```bash
 git clone https://github.com/pitill0/fluxtuner.git
 cd fluxtuner
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .
+python -m fluxtuner
+```
+
+This starts the default TUI interface.
+
+---
+
+### Option 2 — Run the installed command
+
+After installing with `pip install -e .`, you can run:
+
+```bash
+fluxtuner
+```
+
+Equivalent to:
+
+```bash
+python -m fluxtuner
+```
+
+---
+
+### Option 3 — Install with pipx from GitHub
+
+Recommended if you want to use FluxTuner as a standalone command:
+
+```bash
+pipx install git+https://github.com/pitill0/fluxtuner.git
+fluxtuner
+```
+
+To install a specific release:
+
+```bash
+pipx install git+https://github.com/pitill0/fluxtuner.git@v0.1.0
+```
+
+To upgrade:
+
+```bash
+pipx upgrade fluxtuner
+```
+
+To uninstall:
+
+```bash
+pipx uninstall fluxtuner
+```
+
+---
+
+## 🖥️ Run modes
+
+### TUI mode
+
+FluxTuner starts in TUI mode by default:
+
+```bash
+fluxtuner
+```
+
+or:
+
+```bash
+python -m fluxtuner
+```
+
+You can also make it explicit:
+
+```bash
+fluxtuner --tui
+```
+
+---
+
+### Experimental GTK GUI mode
+
+FluxTuner includes an early GTK desktop GUI scaffold:
+
+```bash
+fluxtuner --gui
+```
+
+or:
+
+```bash
+python -m fluxtuner --gui
+```
+
+The GUI is experimental and currently intended for development/testing.
+
+---
+
+### Select player backend
+
+FluxTuner currently supports `mpv`:
+
+```bash
+fluxtuner --player mpv
+```
+
+The player layer is modular and prepared for future backends such as `mplayer` or `gstreamer`.
+
+---
+
+### Themes
+
+List available themes:
+
+```bash
+fluxtuner --list-themes
+```
+
+Run with a theme:
+
+```bash
+fluxtuner --theme nord
+```
+
+Save a theme as default:
+
+```bash
+fluxtuner --theme nord --save-theme
+```
+
+or:
+
+```bash
+fluxtuner --save-theme nord
+```
+
+---
+
+### Useful commands
+
+```bash
+# Show help
+fluxtuner --help
+
+# Show version
+fluxtuner --version
+
+# Clear search cache
+fluxtuner --clear-cache
+
+# Export favorites
+fluxtuner --export-favs favorites.json
+
+# Import favorites
+fluxtuner --import-favs favorites.json
+
+# Export playlists
+fluxtuner --export-playlists playlists.json
+
+# Import playlists
+fluxtuner --import-playlists playlists.json
+```
+
+---
+
+## 🍎 macOS GTK development note
+
+When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
+
+Install GTK dependencies:
+
+```bash
+brew install pygobject3 gtk4
+```
+
+If the GUI fails with:
+
+```text
+ModuleNotFoundError: No module named 'gi'
+```
+
+run FluxTuner with Homebrew's PyGObject path:
+
+```bash
+PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
+python -m fluxtuner --gui --player mpv
+```
+
+Your Python version may differ. To find the correct path:
+
+```bash
+find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 ```
 
 ---
 
 ## ⌨️ Keybindings
 
-| Key     | Action                |
-| ------- | --------------------- |
-| `/`     | Focus search          |
+| Key | Action |
+|---|---|
+| `/` | Focus search |
 | `Enter` | Play selected station |
-| `x`     | Stop playback         |
-| `Space` | Pause / Resume        |
-| `+ / -` | Volume up / down      |
-| `m`     | Mute                  |
-| `a`     | Add to favorites      |
-| `f`     | Open favorites        |
-| `d`     | Remove favorite       |
-| `e`     | Edit favorite name    |
-| `g`     | Edit favorite tags    |
-| `p`     | Open playlists        |
-| `n`     | New playlist          |
-| `b`     | Add to playlist       |
-| `t`     | Filter by tag         |
-| `h`     | History               |
-| `l`     | Play last station     |
-| `q`     | Quit                  |
+| `x` | Stop playback |
+| `Space` | Pause / Resume |
+| `+ / -` | Volume up / down |
+| `m` | Mute |
+| `a` | Add to favorites |
+| `f` | Open favorites |
+| `d` | Remove favorite |
+| `e` | Edit favorite name |
+| `g` | Edit favorite tags |
+| `p` | Open playlists |
+| `n` | New playlist |
+| `b` | Add to playlist |
+| `t` | Filter by tag / open theme selector depending on context |
+| `h` | History |
+| `l` | Play last station |
+| `q` | Quit |
 
 ---
 

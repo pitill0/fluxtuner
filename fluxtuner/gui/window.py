@@ -356,6 +356,36 @@ class MainWindow(Gtk.ApplicationWindow):
             pass
         return False
 
-    def update_data_usage(self):
+    def _ensure_usage_timer(self) -> None:
+        """Refresh the data usage label while playback is active."""
+        if self._usage_timer_id is None:
+            self._usage_timer_id = GLib.timeout_add_seconds(1, self._refresh_data_usage)
+
+    def _stop_usage_timer(self) -> None:
+        """Stop the periodic data usage refresh."""
+        if self._usage_timer_id is not None:
+            GLib.source_remove(self._usage_timer_id)
+            self._usage_timer_id = None
+
+    def _refresh_data_usage(self) -> bool:
+        """GTK timeout callback used while a station is playing."""
+        if self.current_station is None:
+            self._usage_timer_id = None
+            return False
+
+        self.update_data_usage()
+        return True
+
+    def on_close_request(self, _window: Gtk.Window) -> bool:
+        """Persist usage and stop mpv when closing the GTK window."""
+        self._stop_usage_timer()
+        self.usage_tracker.stop()
+        try:
+            self.player.stop()
+        except Exception:
+            pass
+        return False
+
+    def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):
             self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()))

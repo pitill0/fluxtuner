@@ -519,17 +519,13 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.tags_detail_label.set_text("—")
             return
 
-        name = self.current_station.get("name") or "Unknown station"
-        country = self.current_station.get("country") or "Unknown"
-        codec = self.current_station.get("codec") or "?"
-        bitrate = self.current_station.get("bitrate") or 0
-        tags = self.current_station.get("tags") or "No tags"
+        station = self.current_station
 
-        self.now_playing_label.set_text(str(name))
-        self.country_detail_label.set_text(str(country))
-        self.codec_detail_label.set_text(str(codec))
-        self.bitrate_detail_label.set_text(f"{bitrate} kbps")
-        self.tags_detail_label.set_text(str(tags))
+        self.now_playing_label.set_text(station.get("name") or "Unknown station")
+        self.country_detail_label.set_text(station.get("country") or "Unknown")
+        self.codec_detail_label.set_text(station.get("codec") or "?")
+        self.bitrate_detail_label.set_text(f"{station.get('bitrate') or 0} kbps")
+        self.tags_detail_label.set_text(station.get("tags") or "No tags")
 
     def toggle_pause(self) -> None:
         try:

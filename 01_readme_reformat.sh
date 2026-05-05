@@ -1,3 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ ! -f "README.md" ]; then
+  echo "Run this script from the repository root."
+  exit 1
+fi
+
+cp README.md README.md.bak
+
+cat > README.md <<'MD'
 # FluxTuner
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
@@ -375,3 +386,6 @@ If you find FluxTuner useful:
 - Suggest improvements.
 
 Your support helps shape the future of the project.
+MD
+
+echo "README.md reformatted. Backup created at README.md.bak"

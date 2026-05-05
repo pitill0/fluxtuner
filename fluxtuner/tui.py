@@ -308,6 +308,18 @@ class FluxTunerTUI(App[None]):
         if self.pending_input_action:
             return
         self.schedule_live_search(event.value)
+    @on(Input.Submitted, "#country-filter")
+    async def search_from_country_filter(self, _event: Input.Submitted) -> None:
+        self.cancel_pending_search()
+        query = self.query_one("#query", Input).value
+        await self.search(query)
+
+    @on(Input.Submitted, "#bitrate-filter")
+    async def search_from_bitrate_filter(self, _event: Input.Submitted) -> None:
+        self.cancel_pending_search()
+        query = self.query_one("#query", Input).value
+        await self.search(query)
+
 
     @on(Button.Pressed, "#search")
     async def search_from_button(self) -> None:
@@ -453,8 +465,11 @@ class FluxTunerTUI(App[None]):
     async def search(self, query: str, live: bool = False) -> None:
         self.restore_active_theme_if_previewing()
         query = query.strip()
-        if not query:
-            self.set_status("Type a station name or genre/tag first.")
+        country = self.query_one("#country-filter", Input).value.strip()
+        min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
+
+        if not query and not country and not min_bitrate_raw:
+            self.set_status("Type a station name/genre, or use country/min kbps filters.")
             return
 
         self.view_mode = "search"
@@ -471,8 +486,6 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
         try:
-            country = self.query_one("#country-filter", Input).value.strip()
-            min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
             min_bitrate = None
             if min_bitrate_raw:
                 try:
@@ -490,8 +503,6 @@ class FluxTunerTUI(App[None]):
         if not live:
             self.query_one("#stations", DataTable).focus()
         filters = []
-        country = self.query_one("#country-filter", Input).value.strip()
-        min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
         if country:
             filters.append(f"country={country}")
         if min_bitrate_raw:

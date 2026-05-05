@@ -151,9 +151,28 @@ class MainWindow(Gtk.ApplicationWindow):
         title.add_css_class("heading")
         container.append(title)
 
+    def _make_value_label(self, text: str = "—", *, selectable: bool = False) -> Gtk.Label:
+        label = Gtk.Label(label=text)
+        label.set_xalign(0)
+        label.set_wrap(True)
+        label.set_selectable(selectable)
+        label.add_css_class("dim-label")
+        return label
+
+    def _append_detail_row(self, container: Gtk.Box, title: str) -> Gtk.Label:
+        title_label = Gtk.Label(label=title)
+        title_label.set_xalign(0)
+        title_label.add_css_class("caption-heading")
+        container.append(title_label)
+
+        value_label = self._make_value_label()
+        container.append(value_label)
+
+        return value_label
+
     def _build_side_panel(self, content: Gtk.Box) -> None:
-        side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        side_panel.set_size_request(260, -1)
+        side_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        side_panel.set_size_request(300, -1)
         side_panel.set_hexpand(False)
         side_panel.set_vexpand(True)
         content.append(side_panel)
@@ -164,46 +183,51 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing_label.set_xalign(0)
         self.now_playing_label.set_wrap(True)
         self.now_playing_label.set_selectable(True)
+        self.now_playing_label.add_css_class("title-3")
         side_panel.append(self.now_playing_label)
 
-        self.data_usage_label = Gtk.Label(label="Data: 0.0 MB session · 0.0 MB today · 0.0 MB/h est.")
-        self.data_usage_label.set_xalign(0)
-        self.data_usage_label.set_wrap(True)
-        self.data_usage_label.set_selectable(True)
+        self._append_section_title(side_panel, "Station details")
+
+        details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        details_box.set_hexpand(True)
+        side_panel.append(details_box)
+
+        self.country_detail_label = self._append_detail_row(details_box, "Country")
+        self.codec_detail_label = self._append_detail_row(details_box, "Codec")
+        self.bitrate_detail_label = self._append_detail_row(details_box, "Bitrate")
+        self.tags_detail_label = self._append_detail_row(details_box, "Tags")
+
+        self._append_section_title(side_panel, "Data usage")
+
+        self.data_usage_label = self._make_value_label(
+            "0.0 MB session · 0.0 MB today · 0.0 MB/h est.",
+            selectable=True,
+        )
         side_panel.append(self.data_usage_label)
 
-        self.player_state_label = Gtk.Label(label="Player: stopped")
-        self.player_state_label.set_xalign(0)
-        self.player_state_label.set_wrap(True)
-        self.player_state_label.set_selectable(True)
+        self.player_state_label = self._make_value_label("Player: stopped", selectable=True)
         side_panel.append(self.player_state_label)
 
         self._build_favorite_controls(side_panel)
 
-        hint = Gtk.Label(label="Tip: select a station and use ▶/⏸ below, or double-click it.")
+        hint = Gtk.Label(label="Tip: select a station and use ▶ Play below, or double-click it.")
         hint.set_xalign(0)
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
         side_panel.append(hint)
 
     def _build_bottom_playback_bar(self, root: Gtk.Box) -> None:
-        playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         playback_bar.set_hexpand(True)
         playback_bar.set_halign(Gtk.Align.CENTER)
+        playback_bar.set_valign(Gtk.Align.CENTER)
+        playback_bar.set_homogeneous(False)
         root.append(playback_bar)
 
-        self.stop_button = Gtk.Button(label="■")
-        self.stop_button.set_tooltip_text("Stop playback")
-        self.stop_button.connect("clicked", self.on_stop_clicked)
-        playback_bar.append(self.stop_button)
-
-        self.pause_button = Gtk.Button(label="⏯")
-        self.pause_button.set_tooltip_text("Pause / resume")
-        self.pause_button.connect("clicked", self.on_pause_clicked)
-        playback_bar.append(self.pause_button)
-
-        self.play_button = Gtk.Button(label="▶")
-        self.play_button.set_tooltip_text("Play selected station")
+        self.play_button = Gtk.Button(label="▶ Play")
+        self.play_button.set_size_request(112, -1)
+        self.play_button.set_hexpand(False)
+        self.play_button.set_tooltip_text("Play selected station / stop playback")
         self.play_button.connect("clicked", self.on_play_clicked)
         playback_bar.append(self.play_button)
 
@@ -214,7 +238,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
         self.volume_scale.set_value(50)
-        self.volume_scale.set_size_request(160, -1)
+        self.volume_scale.set_size_request(180, -1)
         self.volume_scale.set_hexpand(False)
         self.volume_scale.set_draw_value(False)
         self.volume_scale.set_tooltip_text("Volume")
@@ -320,6 +344,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         for station in self.stations:
             row = Gtk.ListBoxRow()
+            if self._is_current_station(station):
+                row.add_css_class("suggested-action")
             row.station = station  # type: ignore[attr-defined]
 
             row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -449,6 +475,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_selected_station()
 
     def on_play_clicked(self, _button: Gtk.Button) -> None:
+        if self._has_active_playback():
+            self.on_stop_clicked(_button)
+            return
         self.play_selected_station()
 
     def play_selected_station(self) -> None:
@@ -462,6 +491,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         try:
+            self.status_label.set_text("Buffering…")
             self.player.play(url)
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
             self.status_label.set_text(f"Playback failed: {exc}")
@@ -475,18 +505,31 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_play_pause_button()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
+        self._update_play_pause_button()
         self.status_label.set_text("Playing")
         self._render_results()
 
     def update_now_playing(self) -> None:
         if not self.current_station:
             self.now_playing_label.set_text("Nothing playing")
+            if hasattr(self, "country_detail_label"):
+                self.country_detail_label.set_text("—")
+                self.codec_detail_label.set_text("—")
+                self.bitrate_detail_label.set_text("—")
+                self.tags_detail_label.set_text("—")
             return
 
-        self.now_playing_label.set_text(
-            f"{self._station_label(self.current_station)}\n"
-            f"{self._station_detail(self.current_station)}"
-        )
+        name = self.current_station.get("name") or "Unknown station"
+        country = self.current_station.get("country") or "Unknown"
+        codec = self.current_station.get("codec") or "?"
+        bitrate = self.current_station.get("bitrate") or 0
+        tags = self.current_station.get("tags") or "No tags"
+
+        self.now_playing_label.set_text(str(name))
+        self.country_detail_label.set_text(str(country))
+        self.codec_detail_label.set_text(str(codec))
+        self.bitrate_detail_label.set_text(f"{bitrate} kbps")
+        self.tags_detail_label.set_text(str(tags))
 
     def toggle_pause(self) -> None:
         try:
@@ -683,23 +726,12 @@ class MainWindow(Gtk.ApplicationWindow):
     def _update_play_pause_button(self) -> None:
         if not hasattr(self, "play_button"):
             return
-
-        if not self._has_active_playback():
-            self.play_button.set_label("▶")
-            return
-
-        get_state = getattr(self.player, "get_state", None)
-        if not callable(get_state):
-            self.play_button.set_label("⏯")
-            return
-
-        try:
-            state = get_state() or {}
-        except Exception:
-            self.play_button.set_label("⏯")
-            return
-
-        self.play_button.set_label("▶" if state.get("paused") else "⏸")
+        if self._has_active_playback():
+            self.play_button.set_label("■ Stop")
+            self.play_button.set_tooltip_text("Stop playback")
+        else:
+            self.play_button.set_label("▶ Play")
+            self.play_button.set_tooltip_text("Play selected station")
 
     def _ensure_usage_timer(self) -> None:
         """Refresh the data usage label while playback is active."""
@@ -734,4 +766,4 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):
-            self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()))
+            self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()).replace("Data: ", ""))

@@ -1,0 +1,143 @@
+cat > patch_gtk_dynamic_mute_icon <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "== Add dynamic GTK mute icon =="
+
+TARGET_FILE="fluxtuner/gui/window.py"
+
+if [[ ! -f "$TARGET_FILE" ]]; then
+  echo "ERROR: $TARGET_FILE not found"
+  exit 1
+fi
+
+python3 - "$TARGET_FILE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+original = text
+
+# 1) Default mute button icon: sound on.
+text = text.replace(
+    '        self.mute_button = Gtk.Button(label="🔇")\n',
+    '        self.mute_button = Gtk.Button(label="🔊")\n',
+    1,
+)
+
+# 2) Add helper before update_player_state if missing.
+helper = '''    def _update_mute_button(self, muted: bool | None = None) -> None:
+        if not hasattr(self, "mute_button"):
+            return
+
+        if muted is None:
+            muted = False
+
+        self.mute_button.set_label("🔇" if muted else "🔊")
+
+'''
+
+if "def _update_mute_button(" not in text:
+    marker = "    def update_player_state(self) -> None:\n"
+    if marker not in text:
+        raise SystemExit("ERROR: could not find update_player_state marker")
+    text = text.replace(marker, helper + marker, 1)
+
+# 3) When player is stopped, reset mute icon to sound-on.
+text = text.replace(
+    '            self.player_state_label.set_text("Player: stopped")\n'
+    '            return\n',
+    '            self.player_state_label.set_text("Player: stopped")\n'
+    '            self._update_mute_button(False)\n'
+    '            return\n',
+    1,
+)
+
+# 4) When backend has no state, assume sound-on.
+text = text.replace(
+    '            self.player_state_label.set_text("Player: playing")\n'
+    '            return\n',
+    '            self.player_state_label.set_text("Player: playing")\n'
+    '            self._update_mute_button(False)\n'
+    '            return\n',
+    1,
+)
+
+# 5) When state is unavailable, do not leave stale muted icon.
+text = text.replace(
+    '            self.player_state_label.set_text(f"Player: state unavailable ({exc})")\n'
+    '            return\n',
+    '            self.player_state_label.set_text(f"Player: state unavailable ({exc})")\n'
+    '            self._update_mute_button(None)\n'
+    '            return\n',
+    1,
+)
+
+# 6) When state says stopped, reset icon.
+text = text.replace(
+    '            self.player_state_label.set_text("Player: stopped")\n'
+    '            return\n',
+    '            self.player_state_label.set_text("Player: stopped")\n'
+    '            self._update_mute_button(False)\n'
+    '            return\n',
+    1,
+)
+
+# 7) When state is available, drive the icon from muted.
+old = '''        playback = "paused" if state.get("paused") else "playing"
+        muted = "muted" if state.get("muted") else "sound on"
+        volume = state.get("volume")
+'''
+
+new = '''        is_muted = bool(state.get("muted"))
+        playback = "paused" if state.get("paused") else "playing"
+        muted = "muted" if is_muted else "sound on"
+        volume = state.get("volume")
+        self._update_mute_button(is_muted)
+'''
+
+if old in text:
+    text = text.replace(old, new, 1)
+else:
+    # Fallback: if the block was already partially changed, insert after muted assignment.
+    fallback = '        muted = "muted" if state.get("muted") else "sound on"\n'
+    if fallback in text and "self._update_mute_button(" not in text.split(fallback, 1)[1].split("\n", 3)[0]:
+        text = text.replace(
+            fallback,
+            '        is_muted = bool(state.get("muted"))\n'
+            '        muted = "muted" if is_muted else "sound on"\n'
+            '        self._update_mute_button(is_muted)\n',
+            1,
+        )
+
+# 8) After clicking mute, update_player_state already runs. Make status text less ambiguous.
+text = text.replace(
+    '        self.status_label.set_text("Toggled mute")\n',
+    '        self.status_label.set_text("Toggled mute")\n',
+    1,
+)
+
+if text == original:
+    raise SystemExit("ERROR: No changes were made")
+
+path.write_text(text)
+print(f"Written: {path}")
+PY
+
+python3 -m py_compile "$TARGET_FILE"
+
+echo
+echo "== Verification =="
+grep -n "_update_mute_button\\|mute_button = Gtk.Button\\|is_muted\\|muted =" "$TARGET_FILE"
+
+echo
+echo "== Diff =="
+git diff -- "$TARGET_FILE"
+
+echo
+echo "Done."
+EOF
+
+chmod +x patch_gtk_dynamic_mute_icon
+./patch_gtk_dynamic_mute_icon

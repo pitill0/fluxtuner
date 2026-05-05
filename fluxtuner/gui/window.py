@@ -195,6 +195,8 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(playback_bar)
 
         self.play_button = Gtk.Button(label="▶ Play")
+        self.play_button.set_size_request(112, -1)
+        self.play_button.set_hexpand(False)
         self.play_button.set_tooltip_text("Play selected station / stop playback")
         self.play_button.connect("clicked", self.on_play_clicked)
         playback_bar.append(self.play_button)
@@ -473,6 +475,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_play_pause_button()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
+        self._update_play_pause_button()
         self.status_label.set_text("Playing")
         self.play_button.set_label("■ Stop")
         self._render_results()

@@ -1,4 +1,4 @@
-# 🎧 FluxTuner
+# FluxTuner
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
@@ -15,36 +15,39 @@ Built with Python, powered by mpv, and designed for daily use.
 
 ---
 
-## ✨ Features
+## Features
 
-* 🔎 Search internet radio stations (name, genre, country)
-* ▶️ Play streams with mpv (fast & lightweight)
-* ⭐ Favorites with custom names and tags
-* 🧠 Smart Play (random by tag or playlist)
-* 📂 Persistent playlists + dynamic tag playlists
-* 🎨 Full theming system with live preview
-* 📊 Structured table view (clean and readable)
-* 🎛️ Volume, mute and playback control
-* 🧩 Clean modular architecture
+- Search internet radio stations by name, genre and country.
+- Play streams with mpv.
+- Favorites with custom names and tags.
+- Smart Play by tag or playlist.
+- Persistent playlists and dynamic tag playlists.
+- Full theming system with live preview.
+- Structured table view.
+- Volume, mute and playback control.
+- Estimated data usage tracking.
+- Experimental GTK desktop GUI.
+- Clean modular architecture.
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
-### 🔎 Search & Playback
+### Search & Playback
 
 ![Search](screenshots/search.png)
 
-### ⭐ Favorites & Playlists
+### Favorites & Playlists
 
 ![Favorites](screenshots/favorites.png)
 
-### 🎨 Theme Selector
+### Theme Selector
 
 ![Themes](screenshots/themes.png)
 
 ---
-## 🚀 Installation & Usage
+
+## Installation & Usage
 
 ### Requirements
 
@@ -85,7 +88,7 @@ mpv --version
 
 ---
 
-## ▶️ Running FluxTuner
+## Running FluxTuner
 
 ### Option 1 — Run directly from source
 
@@ -149,7 +152,7 @@ pipx uninstall fluxtuner
 
 ---
 
-## 🖥️ Run modes
+## Run modes
 
 ### TUI mode
 
@@ -175,7 +178,7 @@ fluxtuner --tui
 
 ### Experimental GTK GUI mode
 
-FluxTuner includes an early GTK desktop GUI scaffold:
+FluxTuner includes an early GTK desktop GUI:
 
 ```bash
 fluxtuner --gui
@@ -187,7 +190,7 @@ or:
 python -m fluxtuner --gui
 ```
 
-The GUI is experimental and currently intended for development/testing.
+The GUI is experimental and currently intended for development and testing.
 
 ---
 
@@ -258,7 +261,7 @@ fluxtuner --import-playlists playlists.json
 
 ---
 
-## 🍎 macOS GTK development note
+## macOS GTK development note
 
 When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
 
@@ -296,7 +299,7 @@ find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 
 ---
 
-## ⌨️ Keybindings
+## Keybindings
 
 | Key | Action |
 |---|---|
@@ -321,30 +324,31 @@ find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 
 ---
 
-## 🎨 Themes
+## Themes
 
-* Built-in themes: default, nord, dracula, amber, ptmtrx
-* Live preview in selector
-* Apply with `Enter`
-* Save with `y`
-
----
-
-## 📁 Data storage
-
-* Favorites: `~/.fluxtuner_favorites.json`
-* Playlists: `~/.fluxtuner_playlists.json`
-* Config: `~/.config/fluxtuner/config.json`
+- Built-in themes: default, nord, dracula, amber, ptmtrx.
+- Live preview in selector.
+- Apply with `Enter`.
+- Save with `y`.
 
 ---
 
-## 🤝 Contributing
+## Data storage
+
+- Favorites: `~/.fluxtuner_favorites.json`
+- Playlists: `~/.fluxtuner_playlists.json`
+- Config: `~/.config/fluxtuner/config.json`
+- Data usage: `~/.fluxtuner_usage.json`
+
+---
+
+## Contributing
 
 PRs are welcome.
 
 ---
 
-## 💼 Commercial Use
+## Commercial Use
 
 FluxTuner is open source and available under the MIT license.
 
@@ -356,18 +360,19 @@ Contributions, attribution, or collaboration are always appreciated.
 
 ---
 
-## 📄 License
+## License
 
 MIT
 
 ---
 
-## 🙌 Support the project
+## Support the project
 
 If you find FluxTuner useful:
-- ⭐ Star the repository
-- 🐛 Report issues
-- 💡 Suggest improvements
+
+- Star the repository.
+- Report issues.
+- Suggest improvements.
 
 Your support helps shape the future of the project.
 

@@ -41,6 +41,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
+        self.last_search_results: list[dict[str, Any]] = []
+        self.active_playlist_tag: str | None = None
         self.favorite_urls = self._favorite_url_set()
 
         root = self._build_root()
@@ -314,30 +316,43 @@ class MainWindow(Gtk.ApplicationWindow):
     def _build_playlist_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Playlists")
 
-        playlist_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        playlist_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         playlist_controls.set_hexpand(True)
         side_panel.append(playlist_controls)
 
+        self.playlist_status_label = self._make_value_label("No playlist filter", selectable=True)
+        playlist_controls.append(self.playlist_status_label)
+
         self.playlist_tag_entry = Gtk.Entry()
-        self.playlist_tag_entry.set_placeholder_text("Favorite tag")
+        self.playlist_tag_entry.set_placeholder_text("Tag")
         self.playlist_tag_entry.set_hexpand(True)
         self.playlist_tag_entry.connect("activate", self.on_show_tag_playlist_clicked)
         playlist_controls.append(self.playlist_tag_entry)
 
-        self.show_tag_playlist_button = Gtk.Button(label="🏷 Show tag playlist")
+        playlist_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        playlist_buttons.set_hexpand(True)
+        playlist_controls.append(playlist_buttons)
+
+        self.show_tag_playlist_button = Gtk.Button(label="Show")
         self.show_tag_playlist_button.set_tooltip_text("Show favorites matching the selected tag")
         self.show_tag_playlist_button.connect("clicked", self.on_show_tag_playlist_clicked)
-        playlist_controls.append(self.show_tag_playlist_button)
+        playlist_buttons.append(self.show_tag_playlist_button)
 
-        self.random_tag_button = Gtk.Button(label="🔀 Random by tag")
+        self.random_tag_button = Gtk.Button(label="Random")
         self.random_tag_button.set_tooltip_text("Play a random favorite from the selected tag")
         self.random_tag_button.connect("clicked", self.on_random_tag_clicked)
-        playlist_controls.append(self.random_tag_button)
+        playlist_buttons.append(self.random_tag_button)
 
-        self.show_tags_button = Gtk.Button(label="🏷 List tags")
-        self.show_tags_button.set_tooltip_text("Show available favorite tags in the status bar")
+        self.show_tags_button = Gtk.Button(label="Tags")
+        self.show_tags_button.set_tooltip_text("Show available favorite tags")
         self.show_tags_button.connect("clicked", self.on_show_tags_clicked)
-        playlist_controls.append(self.show_tags_button)
+        playlist_buttons.append(self.show_tags_button)
+
+        self.clear_playlist_button = Gtk.Button(label="Clear")
+        self.clear_playlist_button.set_tooltip_text("Clear playlist filter and restore last search results")
+        self.clear_playlist_button.connect("clicked", self.on_clear_playlist_filter_clicked)
+        playlist_buttons.append(self.clear_playlist_button)
+
     def _build_status_bar(self, root: Gtk.Box) -> None:
         self.status_label = Gtk.Label(label="Ready")
         self.status_label.set_hexpand(True)
@@ -490,8 +505,11 @@ class MainWindow(Gtk.ApplicationWindow):
         return False
 
     def _search_finished(self, stations: list[dict[str, Any]]) -> bool:
+        self.active_playlist_tag = None
+        self.last_search_results = stations
         self.stations = stations
         self._render_results()
+        self._update_playlist_status()
         count = len(stations)
         self.status_label.set_text(f"Found {count} station(s).")
         return False
@@ -738,12 +756,22 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_show_favorites_clicked(self, _button: Gtk.Button) -> None:
         favorites = load_favorites()
+        self.active_playlist_tag = None
         self._refresh_favorite_cache()
         self.stations = favorites
         self.selected_station = None
         self._render_results()
         self._update_favorite_buttons()
+        self._update_playlist_status()
         self.status_label.set_text(f"Loaded {len(favorites)} favorite station(s).")
+
+    def _update_playlist_status(self) -> None:
+        if not hasattr(self, "playlist_status_label"):
+            return
+        if self.active_playlist_tag:
+            self.playlist_status_label.set_text(f"Active tag: {self.active_playlist_tag}")
+        else:
+            self.playlist_status_label.set_text("No playlist filter")
 
     def _playlist_tag_value(self) -> str:
         if not hasattr(self, "playlist_tag_entry"):
@@ -768,10 +796,13 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         stations = self._favorites_matching_tag(tag)
+        self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations
         self.selected_station = None
         self._render_results()
+        self._update_favorite_buttons()
+        self._update_playlist_status()
         self.status_label.set_text(f"Loaded {len(stations)} favorite station(s) for tag: {tag}")
 
     def on_random_tag_clicked(self, _button: Gtk.Button) -> None:
@@ -791,10 +822,31 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text(f"No favorite stations found for tag: {tag}")
             return
 
+        self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations
         self.selected_station = random.choice(stations)
+        self._render_results()
+        self._update_playlist_status()
         self.play_selected_station()
+
+
+    def on_clear_playlist_filter_clicked(self, _button: Gtk.Button) -> None:
+        self.active_playlist_tag = None
+        if hasattr(self, "playlist_tag_entry"):
+            self.playlist_tag_entry.set_text("")
+
+        if self.last_search_results:
+            self.stations = self.last_search_results
+            self.status_label.set_text(f"Restored {len(self.stations)} search result(s).")
+        else:
+            self.stations = []
+            self.status_label.set_text("Playlist filter cleared.")
+
+        self.selected_station = None
+        self._render_results()
+        self._update_favorite_buttons()
+        self._update_playlist_status()
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()

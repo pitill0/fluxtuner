@@ -48,5 +48,15 @@ class PlayerAdapter(ABC):
         """Set mute to an absolute value."""
 
     @abstractmethod
-    def get_state(self) -> dict[str, Any]:
+    
+    def supports_pause(self) -> bool:
+        return False
+
+    def supports_volume(self) -> bool:
+        return False
+
+    def supports_mute(self) -> bool:
+        return False
+
+def get_state(self) -> dict[str, Any]:
         """Return a compact playback state snapshot."""

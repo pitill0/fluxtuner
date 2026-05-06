@@ -86,3 +86,13 @@ class FfplayController:
             "muted": self.muted,
             "volume": self.volume,
         }
+
+
+    def supports_pause(self) -> bool:
+        return False
+
+    def supports_volume(self) -> bool:
+        return True
+
+    def supports_mute(self) -> bool:
+        return False

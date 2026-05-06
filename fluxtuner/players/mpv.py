@@ -205,3 +205,13 @@ class MpvController(PlayerAdapter):
             except OSError:
                 pass
         self.ipc_path = None
+
+
+    def supports_pause(self) -> bool:
+        return True
+
+    def supports_volume(self) -> bool:
+        return True
+
+    def supports_mute(self) -> bool:
+        return True

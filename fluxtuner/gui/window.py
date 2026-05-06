@@ -249,6 +249,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.mute_button = Gtk.Button(label="🔊")
         self.mute_button.set_tooltip_text("Mute / unmute")
         self.mute_button.connect("clicked", self.on_mute_clicked)
+        self.mute_button.set_sensitive(self.player.supports_mute())
         playback_bar.append(self.mute_button)
 
         self.volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
@@ -258,6 +259,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.volume_scale.set_draw_value(False)
         self.volume_scale.set_tooltip_text("Volume")
         self.volume_scale.connect("value-changed", self.on_volume_scale_changed)
+        self.volume_scale.set_sensitive(self.player.supports_volume())
         playback_bar.append(self.volume_scale)
 
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:

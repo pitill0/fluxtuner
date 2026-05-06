@@ -118,6 +118,40 @@ brew install mpv
 
 ---
 
+# Install ffmpeg / ffplay
+
+## CRUX Linux
+
+```bash
+sudo prt-get depinst ffmpeg
+```
+
+## Debian / Ubuntu
+
+```bash
+sudo apt install ffmpeg
+```
+
+## Arch Linux
+
+```bash
+sudo pacman -S ffmpeg
+```
+
+## Fedora
+
+```bash
+sudo dnf install ffmpeg
+``` 
+
+## macOS
+
+```bash 
+brew install ffmpeg
+```
+
+---
+
 # Running FluxTuner
 
 FluxTuner currently provides two interfaces:
@@ -126,6 +160,16 @@ FluxTuner currently provides two interfaces:
 * **GTK Desktop GUI** → visual desktop experience with playlists, favorites and responsive layout
 
 Both interfaces share the same playback backend and favorites system.
+
+---
+
+## Playback architecture
+
+FluxTuner uses a modular playback backend architecture.
+
+The current recommended backend is `mpv`, while `ffplay` is available as a lightweight fallback backend.
+
+Additional backends may be added in future versions.
 
 ---
 
@@ -293,18 +337,31 @@ pipx uninstall fluxtuner
 
 FluxTuner currently supports:
 
-* `mpv`
+* `mpv` (recommended)
+* `ffplay` (lightweight fallback backend)
 
-Example:
+Examples:
 
 ```bash
 fluxtuner --player mpv
 ```
 
-The playback layer is modular and prepared for future backends such as:
+or
 
-* gstreamer
-* mplayer
+```bash
+fluxtuner --gui --player mpv
+```
+
+
+```bash
+fluxtuner --player ffplay
+```
+
+or
+
+```bash
+fluxtuner --gui --player ffplay
+```
 
 ---
 

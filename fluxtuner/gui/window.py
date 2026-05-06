@@ -12,6 +12,7 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.players import create_player
+from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
     add_favorite,
@@ -209,6 +210,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.codec_detail_label = self._append_detail_row(details_box, "Codec")
         self.bitrate_detail_label = self._append_detail_row(details_box, "Bitrate")
         self.tags_detail_label = self._append_detail_row(details_box, "Tags")
+
+        self.artist_detail_label = self._append_detail_row(details_box, "Artist")
+        self.track_detail_label = self._append_detail_row(details_box, "Track")
 
         self._append_section_title(side_panel, "Data usage")
 
@@ -606,11 +610,46 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         self.update_player_state()
         self._update_play_pause_button()
+
+        stream_url = self._station_url(self.current_station) if self.current_station else None
+
+        if stream_url:
+            threading.Thread(
+                target=self._metadata_worker,
+                args=(stream_url,),
+                daemon=True,
+            ).start()
+
+        stream_url = self._station_url(self.current_station) if self.current_station else None
+        if stream_url:
+            threading.Thread(
+                target=self._metadata_worker,
+                args=(stream_url,),
+                daemon=True,
+            ).start()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
         self._update_play_pause_button()
         self.status_label.set_text("Playing")
         self._render_results()
+
+    
+
+    def _metadata_worker(self, stream_url: str) -> None:
+        metadata = fetch_stream_metadata(stream_url)
+
+        if not metadata:
+            return
+
+        artist = metadata.get("artist") or "—"
+        title = metadata.get("title") or metadata.get("raw") or "—"
+
+        GLib.idle_add(self._update_metadata_labels, artist, title)
+
+    def _update_metadata_labels(self, artist: str, title: str) -> bool:
+        self.artist_detail_label.set_text(f"Artist: {artist}")
+        self.track_detail_label.set_text(f"Track: {title}")
+        return False
 
     def update_now_playing(self) -> None:
         if not self.current_station:

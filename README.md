@@ -195,12 +195,6 @@ fluxtuner --tui
 
 ---
 
-## TUI Screenshot
-
-![FluxTuner TUI](screenshots/tui-main.png)
-
----
-
 # GTK Desktop GUI
 
 FluxTuner also includes an experimental GTK4 desktop interface.
@@ -240,22 +234,6 @@ python -m fluxtuner --gui
 * Session data usage tracking
 * Playback status indicators
 * Volume and mute controls
-
----
-
-## GUI Screenshots
-
-### Search and playback
-
-![FluxTuner GUI Search](screenshots/gui-search-dark.png)
-
-### Favorites management
-
-![FluxTuner Favorites](screenshots/gui-favorites.png)
-
-### Tag playlists
-
-![FluxTuner Playlists](screenshots/gui-playlists.png)
 
 ---
 

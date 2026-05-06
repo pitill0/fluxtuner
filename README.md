@@ -9,107 +9,157 @@
 ![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
 ![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
 
-A modern terminal-based internet radio player with powerful search, playlists, theming, and a clean TUI.
+A modern internet radio player for the terminal and desktop.
 
-Built with Python, powered by mpv, and designed for daily use.
+FluxTuner combines:
 
----
+* a fast keyboard-oriented TUI,
+* an experimental GTK4 desktop GUI,
+* smart favorites and playlists,
+* theming support,
+* and MPV-powered playback
 
-## Features
+into a lightweight application designed for daily use.
 
-- Search internet radio stations by name, genre and country.
-- Play streams with mpv.
-- Favorites with custom names and tags.
-- Smart Play by tag or playlist.
-- Persistent playlists and dynamic tag playlists.
-- Full theming system with live preview.
-- Structured table view.
-- Volume, mute and playback control.
-- Estimated data usage tracking.
-- Experimental GTK desktop GUI.
-- Clean modular architecture.
+Built with Python, powered by mpv, and focused on speed, usability and modularity.
 
 ---
 
-## Screenshots
+# Features
 
-### Search & Playback
+## Core Features
 
-![Search](screenshots/search.png)
+* Search internet radio stations by name, genre and country.
+* Play streams with mpv.
+* Favorites with custom names and tags.
+* Smart Play by tag or playlist.
+* Persistent playlists and dynamic tag playlists.
+* Full theming system with live preview.
+* Structured table view.
+* Volume, mute and playback control.
+* Estimated data usage tracking.
+* Experimental GTK desktop GUI.
+* Clean modular architecture.
 
-### Favorites & Playlists
+---
 
-![Favorites](screenshots/favorites.png)
+# Screenshots
 
-### Theme Selector
+## GTK GUI — Search & Playback
+
+![GUI Search](screenshots/gui-search-dark.png)
+
+## GTK GUI — Favorites
+
+![GUI Favorites](screenshots/gui-favorites.png)
+
+## GTK GUI — Tag Playlists
+
+![GUI Playlists](screenshots/gui-playlists.png)
+
+## Terminal UI
+
+![TUI](screenshots/tui-main.png)
+
+## Theme Selector
 
 ![Themes](screenshots/themes.png)
 
 ---
 
-## Installation & Usage
+# Installation
 
-### Requirements
+## Requirements
 
 FluxTuner requires:
 
-- Python 3.10+
-- mpv
-- A terminal emulator with good Unicode support
+* Python 3.10+
+* mpv
+* A terminal emulator with good Unicode support
 
-The GTK desktop GUI is currently experimental and requires GTK4 + PyGObject.
+The GTK desktop GUI currently requires:
+
+* GTK4
+* PyGObject
 
 ---
 
-### Install mpv
+# Install mpv
+
+## CRUX Linux
 
 ```bash
-# CRUX
 sudo prt-get depinst mpv
+```
 
-# Debian / Ubuntu
+## Debian / Ubuntu
+
+```bash
 sudo apt install mpv
+```
 
-# Arch Linux
+## Arch Linux
+
+```bash
 sudo pacman -S mpv
+```
 
-# Fedora
+## Fedora
+
+```bash
 sudo dnf install mpv
+```
 
-# macOS
+## macOS
+
+```bash
 brew install mpv
 ```
 
-Check that mpv is available:
+---
 
-```bash
-mpv --version
-```
+# Running FluxTuner
+
+FluxTuner currently provides two interfaces:
+
+* **TUI (Terminal User Interface)** → fast, lightweight and keyboard-oriented
+* **GTK Desktop GUI** → visual desktop experience with playlists, favorites and responsive layout
+
+Both interfaces share the same playback backend and favorites system.
 
 ---
 
-## Running FluxTuner
+# Terminal UI (TUI)
 
-### Option 1 — Run directly from source
+The TUI is ideal for:
 
-This is the simplest option for testing or development:
+* SSH sessions
+* low-resource systems
+* keyboard-driven workflows
+* tiling window managers
+* fast station browsing
+
+---
+
+## Launch the TUI
+
+### Run directly from source
 
 ```bash
 git clone https://github.com/pitill0/fluxtuner.git
 cd fluxtuner
+
 python -m venv .venv
 source .venv/bin/activate
+
 pip install -e .
+
 python -m fluxtuner
 ```
 
-This starts the default TUI interface.
-
 ---
 
-### Option 2 — Run the installed command
-
-After installing with `pip install -e .`, you can run:
+### Run installed command
 
 ```bash
 fluxtuner
@@ -123,52 +173,7 @@ python -m fluxtuner
 
 ---
 
-### Option 3 — Install with pipx from GitHub
-
-Recommended if you want to use FluxTuner as a standalone command:
-
-```bash
-pipx install git+https://github.com/pitill0/fluxtuner.git
-fluxtuner
-```
-
-To install a specific release:
-
-```bash
-pipx install git+https://github.com/pitill0/fluxtuner.git@v0.1.0
-```
-
-To upgrade:
-
-```bash
-pipx upgrade fluxtuner
-```
-
-To uninstall:
-
-```bash
-pipx uninstall fluxtuner
-```
-
----
-
-## Run modes
-
-### TUI mode
-
-FluxTuner starts in TUI mode by default:
-
-```bash
-fluxtuner
-```
-
-or:
-
-```bash
-python -m fluxtuner
-```
-
-You can also make it explicit:
+### Explicit TUI mode
 
 ```bash
 fluxtuner --tui
@@ -176,9 +181,41 @@ fluxtuner --tui
 
 ---
 
-### Experimental GTK GUI mode
+## TUI Features
 
-FluxTuner includes an early GTK desktop GUI:
+* Fast search
+* Country filtering
+* Minimum bitrate filtering
+* Favorites support
+* Dynamic playlists
+* Random playback by tag
+* Theme support
+* Session data usage tracking
+* MPV backend support
+
+---
+
+## TUI Screenshot
+
+![FluxTuner TUI](screenshots/tui-main.png)
+
+---
+
+# GTK Desktop GUI
+
+FluxTuner also includes an experimental GTK4 desktop interface.
+
+The GUI focuses on:
+
+* responsive layout
+* playlist workflows
+* favorites management
+* visual station browsing
+* desktop-friendly playback controls
+
+---
+
+## Launch the GUI
 
 ```bash
 fluxtuner --gui
@@ -190,23 +227,92 @@ or:
 python -m fluxtuner --gui
 ```
 
-The GUI is experimental and currently intended for development and testing.
+---
+
+## GUI Features
+
+* GTK4 desktop interface
+* Responsive dark theme
+* Fast station search
+* Favorites management
+* Tag playlist filtering
+* Random playback by tag
+* Session data usage tracking
+* Playback status indicators
+* Volume and mute controls
 
 ---
 
-### Select player backend
+## GUI Screenshots
 
-FluxTuner currently supports `mpv`:
+### Search and playback
+
+![FluxTuner GUI Search](screenshots/gui-search-dark.png)
+
+### Favorites management
+
+![FluxTuner Favorites](screenshots/gui-favorites.png)
+
+### Tag playlists
+
+![FluxTuner Playlists](screenshots/gui-playlists.png)
+
+---
+
+# Install with pipx
+
+Recommended if you want FluxTuner available as a standalone command:
+
+```bash
+pipx install git+https://github.com/pitill0/fluxtuner.git
+```
+
+Run:
+
+```bash
+fluxtuner
+```
+
+Install a specific version:
+
+```bash
+pipx install git+https://github.com/pitill0/fluxtuner.git@v0.1.0
+```
+
+Upgrade:
+
+```bash
+pipx upgrade fluxtuner
+```
+
+Uninstall:
+
+```bash
+pipx uninstall fluxtuner
+```
+
+---
+
+# Select player backend
+
+FluxTuner currently supports:
+
+* `mpv`
+
+Example:
 
 ```bash
 fluxtuner --player mpv
 ```
 
-The player layer is modular and prepared for future backends such as `mplayer` or `gstreamer`.
+The playback layer is modular and prepared for future backends such as:
+
+* gstreamer
+* mplayer
 
 ---
 
-### Themes
+# Themes
 
 List available themes:
 
@@ -234,7 +340,7 @@ fluxtuner --save-theme nord
 
 ---
 
-### Useful commands
+# Useful Commands
 
 ```bash
 # Show help
@@ -261,11 +367,11 @@ fluxtuner --import-playlists playlists.json
 
 ---
 
-## macOS GTK development note
+# macOS GTK Development Note
 
 When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
 
-Install GTK dependencies:
+Install dependencies:
 
 ```bash
 brew install gtk4 pygobject3 mpv
@@ -284,14 +390,14 @@ PYGOBJECT_SITE_PACKAGES="$(dirname "$(find "$(brew --prefix)" -path "*/site-pack
 PYTHONPATH="$PYGOBJECT_SITE_PACKAGES" python -m fluxtuner --gui --player mpv
 ```
 
-On Apple Silicon this often resolves to a path similar to:
+On Apple Silicon this often resolves to:
 
 ```bash
 PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
 python -m fluxtuner --gui --player mpv
 ```
 
-Your Python version may differ. To find the correct path:
+Find the correct path with:
 
 ```bash
 find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
@@ -299,56 +405,89 @@ find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 
 ---
 
-## Keybindings
+# Keybindings
 
-| Key | Action |
-|---|---|
-| `/` | Focus search |
-| `Enter` | Play selected station |
-| `x` | Stop playback |
-| `Space` | Pause / Resume |
-| `+ / -` | Volume up / down |
-| `m` | Mute |
-| `a` | Add to favorites |
-| `f` | Open favorites |
-| `d` | Remove favorite |
-| `e` | Edit favorite name |
-| `g` | Edit favorite tags |
-| `p` | Open playlists |
-| `n` | New playlist |
-| `b` | Add to playlist |
-| `t` | Filter by tag / open theme selector depending on context |
-| `h` | History |
-| `l` | Play last station |
-| `q` | Quit |
-
----
-
-## Themes
-
-- Built-in themes: default, nord, dracula, amber, ptmtrx.
-- Live preview in selector.
-- Apply with `Enter`.
-- Save with `y`.
+| Key     | Action                                                   |
+| ------- | -------------------------------------------------------- |
+| `/`     | Focus search                                             |
+| `Enter` | Play selected station                                    |
+| `x`     | Stop playback                                            |
+| `Space` | Pause / Resume                                           |
+| `+ / -` | Volume up / down                                         |
+| `m`     | Mute                                                     |
+| `a`     | Add to favorites                                         |
+| `f`     | Open favorites                                           |
+| `d`     | Remove favorite                                          |
+| `e`     | Edit favorite name                                       |
+| `g`     | Edit favorite tags                                       |
+| `p`     | Open playlists                                           |
+| `n`     | New playlist                                             |
+| `b`     | Add to playlist                                          |
+| `t`     | Filter by tag / open theme selector depending on context |
+| `h`     | History                                                  |
+| `l`     | Play last station                                        |
+| `q`     | Quit                                                     |
 
 ---
 
-## Data storage
+# Themes
 
-- Favorites: `~/.fluxtuner_favorites.json`
-- Playlists: `~/.fluxtuner_playlists.json`
-- Config: `~/.config/fluxtuner/config.json`
-- Data usage: `~/.fluxtuner_usage.json`
+Built-in themes:
+
+* default
+* nord
+* dracula
+* amber
+* ptmtrx
+
+Features:
+
+* Live preview in selector
+* Apply with `Enter`
+* Save with `y`
 
 ---
 
-## Contributing
+# Data Storage
+
+* Favorites: `~/.fluxtuner_favorites.json`
+* Playlists: `~/.fluxtuner_playlists.json`
+* Config: `~/.config/fluxtuner/config.json`
+* Data usage: `~/.fluxtuner_usage.json`
+
+---
+
+# Roadmap
+
+## Current Development Focus
+
+* Improved GTK desktop experience
+* Better playlist workflows
+* Responsive layouts
+* Packaging and distribution
+* Persistent GUI settings
+
+## Planned
+
+* Native volume integration
+* MPRIS/media key support
+* Station history
+* Import/export improvements
+* Flatpak packaging
+* AppImage builds
+* Mobile-oriented interface experiments
+
+---
+
+# Contributing
 
 PRs are welcome.
 
+Issues, feature requests and feedback are always appreciated.
+
 ---
 
-## Commercial Use
+# Commercial Use
 
 FluxTuner is open source and available under the MIT license.
 
@@ -360,18 +499,20 @@ Contributions, attribution, or collaboration are always appreciated.
 
 ---
 
-## License
+# License
 
 MIT
 
 ---
 
-## Support the project
+# Support the Project
 
 If you find FluxTuner useful:
 
-- Star the repository.
-- Report issues.
-- Suggest improvements.
+* Star the repository.
+* Report issues.
+* Suggest improvements.
+* Share screenshots or workflows.
 
 Your support helps shape the future of the project.
+

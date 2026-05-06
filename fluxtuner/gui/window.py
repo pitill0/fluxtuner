@@ -52,6 +52,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_header(root)
         self._build_search_bar(root)
         self._build_content(root)
+        root.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
 
@@ -106,6 +107,7 @@ class MainWindow(Gtk.ApplicationWindow):
         search_bar.append(self.min_bitrate_entry)
 
         search_button = Gtk.Button(label="Search")
+        search_button.add_css_class("suggested-action")
         search_button.connect("clicked", self.on_search_clicked)
         search_bar.append(search_button)
 
@@ -136,12 +138,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self._append_cell(table_header, "Kbps", 6)
 
         scroller = Gtk.ScrolledWindow()
+        scroller.add_css_class("results-scroller")
         scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroller.set_vexpand(True)
         scroller.set_hexpand(True)
         table_box.append(scroller)
 
         self.results_list = Gtk.ListBox()
+        self.results_list.add_css_class("results-list")
         self.results_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.results_list.set_hexpand(True)
         self.results_list.set_vexpand(True)
@@ -157,6 +161,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _make_value_label(self, text: str = "—", *, selectable: bool = False) -> Gtk.Label:
         label = Gtk.Label(label=text)
         label.set_xalign(0)
+        label.add_css_class("result-cell")
         label.set_wrap(True)
         label.set_selectable(selectable)
         label.add_css_class("dim-label")
@@ -234,6 +239,7 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(playback_bar)
 
         self.play_button = Gtk.Button(label="▶ Play")
+        self.play_button.add_css_class("suggested-action")
         self.play_button.set_size_request(112, -1)
         self.play_button.set_hexpand(False)
         self.play_button.set_tooltip_text("Play selected station / stop playback")
@@ -267,11 +273,13 @@ class MainWindow(Gtk.ApplicationWindow):
         favorite_controls.append(self.favorite_tags_entry)
 
         self.add_favorite_button = Gtk.Button(label="★ Add favorite")
+        self.add_favorite_button.add_css_class("suggested-action")
         self.add_favorite_button.set_tooltip_text("Add selected station to favorites")
         self.add_favorite_button.connect("clicked", self.on_add_favorite_clicked)
         favorite_controls.append(self.add_favorite_button)
 
         self.remove_favorite_button = Gtk.Button(label="☆ Remove favorite")
+        self.remove_favorite_button.add_css_class("destructive-action")
         self.remove_favorite_button.set_tooltip_text("Remove selected station from favorites")
         self.remove_favorite_button.connect("clicked", self.on_remove_favorite_clicked)
         favorite_controls.append(self.remove_favorite_button)

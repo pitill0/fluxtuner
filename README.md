@@ -237,6 +237,24 @@ python -m fluxtuner --gui
 
 ---
 
+## Recommended development / source usage
+
+For testing or running FluxTuner without installing it globally:
+
+```bash
+git clone https://github.com/pitill0/fluxtuner.git
+cd fluxtuner
+
+python -m venv .venv
+source .venv/bin/activate
+
+pip install -e .
+
+python -m fluxtuner --player mpv
+python -m fluxtuner --gui --player mpv
+
+---
+
 # Install with pipx
 
 Recommended if you want FluxTuner available as a standalone command:

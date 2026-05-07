@@ -23,6 +23,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Player lifecycle cleanup when closing the GUI window.
 - Modular player backend foundation.
 - README screenshots for TUI and GUI workflows.
+- Added live ICY stream metadata polling in the GTK GUI.
 
 ### Changed
 

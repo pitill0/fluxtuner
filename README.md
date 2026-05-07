@@ -40,6 +40,7 @@ Built with Python, powered by mpv, and focused on speed, usability and modularit
 * Estimated data usage tracking.
 * Experimental GTK desktop GUI.
 * Clean modular architecture.
+* Live stream metadata display (artist and track when available)
 
 ---
 

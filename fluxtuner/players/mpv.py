@@ -11,9 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
-class PlayerError(RuntimeError):
-    """Raised when the external audio player cannot be used."""
+from fluxtuner.players.base import PlayerAdapter, PlayerError
 
 
 def is_mpv_available() -> bool:
@@ -41,7 +39,7 @@ def play_stream(url: str) -> None:
 
 
 @dataclass
-class MpvController:
+class MpvController(PlayerAdapter):
     """Non-blocking mpv controller using mpv's JSON IPC socket."""
 
     process: subprocess.Popen[bytes] | None = field(default=None, init=False)
@@ -207,3 +205,13 @@ class MpvController:
             except OSError:
                 pass
         self.ipc_path = None
+
+
+    def supports_pause(self) -> bool:
+        return True
+
+    def supports_volume(self) -> bool:
+        return True
+
+    def supports_mute(self) -> bool:
+        return True

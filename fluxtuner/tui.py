@@ -35,7 +35,8 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
-from fluxtuner.core.player import MpvController, PlayerError, ensure_mpv_available
+from fluxtuner.players import create_player
+from fluxtuner.players.mpv import PlayerError, ensure_mpv_available
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 
@@ -69,11 +70,11 @@ class FluxTunerTUI(App[None]):
         ("y", "save_theme", "Save theme"),
     ]
 
-    def __init__(self, theme: str | None = None) -> None:
+    def __init__(self, theme: str | None = None, player_name: str = "mpv") -> None:
         self.active_theme = theme or DEFAULT_THEME
         self.theme_path = get_theme_path(self.active_theme)
         super().__init__(css_path=str(self.theme_path))
-        self.player = MpvController()
+        self.player = create_player(player_name)
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.previewed_theme: str | None = None
@@ -307,6 +308,18 @@ class FluxTunerTUI(App[None]):
         if self.pending_input_action:
             return
         self.schedule_live_search(event.value)
+    @on(Input.Submitted, "#country-filter")
+    async def search_from_country_filter(self, _event: Input.Submitted) -> None:
+        self.cancel_pending_search()
+        query = self.query_one("#query", Input).value
+        await self.search(query)
+
+    @on(Input.Submitted, "#bitrate-filter")
+    async def search_from_bitrate_filter(self, _event: Input.Submitted) -> None:
+        self.cancel_pending_search()
+        query = self.query_one("#query", Input).value
+        await self.search(query)
+
 
     @on(Button.Pressed, "#search")
     async def search_from_button(self) -> None:
@@ -452,8 +465,11 @@ class FluxTunerTUI(App[None]):
     async def search(self, query: str, live: bool = False) -> None:
         self.restore_active_theme_if_previewing()
         query = query.strip()
-        if not query:
-            self.set_status("Type a station name or genre/tag first.")
+        country = self.query_one("#country-filter", Input).value.strip()
+        min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
+
+        if not query and not country and not min_bitrate_raw:
+            self.set_status("Type a station name/genre, or use country/min kbps filters.")
             return
 
         self.view_mode = "search"
@@ -470,8 +486,6 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
         try:
-            country = self.query_one("#country-filter", Input).value.strip()
-            min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
             min_bitrate = None
             if min_bitrate_raw:
                 try:
@@ -489,8 +503,6 @@ class FluxTunerTUI(App[None]):
         if not live:
             self.query_one("#stations", DataTable).focus()
         filters = []
-        country = self.query_one("#country-filter", Input).value.strip()
-        min_bitrate_raw = self.query_one("#bitrate-filter", Input).value.strip()
         if country:
             filters.append(f"country={country}")
         if min_bitrate_raw:
@@ -1343,5 +1355,5 @@ class FluxTunerTUI(App[None]):
         self.query_one("#status", Static).update(message)
 
 
-def run_tui(theme: str | None = None) -> None:
-    FluxTunerTUI(theme=theme).run()
+def run_tui(theme: str | None = None, player_name: str = "mpv") -> None:
+    FluxTunerTUI(theme=theme, player_name=player_name).run()

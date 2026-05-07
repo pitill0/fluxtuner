@@ -1,0 +1,271 @@
+/* FluxTuner GTK theme v1.1 */
+
+* {
+  color: #f3f4f6;
+}
+
+window,
+window.background {
+  background: #111318;
+  color: #f3f4f6;
+}
+
+box,
+viewport,
+scrolledwindow,
+stack,
+frame {
+  background: transparent;
+}
+
+label {
+  color: #f3f4f6;
+}
+
+.dim-label {
+  color: #a6adbb;
+}
+
+.heading {
+  color: #d9e2ff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 8px;
+}
+
+.caption-heading {
+  color: #8ea3d8;
+  font-weight: 700;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.title-1 {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.6rem;
+}
+
+.title-3 {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Inputs */
+
+entry {
+  background: #1a1e27;
+  color: #f3f4f6;
+  caret-color: #f3f4f6;
+  border: 1px solid #2d3444;
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
+entry text,
+entry selection {
+  color: #f3f4f6;
+}
+
+entry:focus {
+  border-color: #6d8dff;
+}
+
+entry placeholder {
+  color: #7e8798;
+}
+
+/* Buttons */
+
+button {
+  background: #202634;
+  color: #f3f4f6;
+  border: 1px solid #30384b;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-weight: 600;
+}
+
+button label {
+  color: #f3f4f6;
+}
+
+button:hover {
+  background: #2a3244;
+  border-color: #465477;
+}
+
+button:active {
+  background: #334061;
+}
+
+button:disabled {
+  color: #6f7787;
+  background: #171b23;
+  border-color: #252b37;
+}
+
+button:disabled label {
+  color: #6f7787;
+}
+
+button.suggested-action {
+  background: #28417a;
+  border-color: #6d8dff;
+}
+
+button.suggested-action:hover {
+  background: #34509a;
+}
+
+button.destructive-action {
+  background: #3a2028;
+  border-color: #7a3a4b;
+}
+
+button.destructive-action:hover {
+  background: #4a2933;
+}
+
+/* Volume */
+
+scale trough {
+  background: #252b37;
+  border-radius: 999px;
+  min-height: 6px;
+}
+
+scale highlight {
+  background: #6d8dff;
+  border-radius: 999px;
+}
+
+scale slider {
+  background: #d9e2ff;
+  border: 1px solid #6d8dff;
+}
+
+/* Results table */
+
+listbox {
+  background: #151922;
+  color: #f3f4f6;
+  border: 1px solid #252b37;
+  border-radius: 12px;
+}
+
+listbox row {
+  background: #151922;
+  color: #f3f4f6;
+  border-radius: 10px;
+  margin: 2px 4px;
+}
+
+listbox row box {
+  background: transparent;
+}
+
+listbox row label {
+  color: #eef2ff;
+}
+
+listbox row:hover {
+  background: #202634;
+}
+
+listbox row:hover label {
+  color: #ffffff;
+}
+
+listbox row:selected {
+  background: #2a3350;
+}
+
+listbox row:selected label {
+  color: #ffffff;
+}
+
+listbox row.suggested-action {
+  background: #22315a;
+  border-left: 4px solid #6d8dff;
+}
+
+listbox row.suggested-action label {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+listbox row.suggested-action:selected {
+  background: #2f4276;
+}
+
+/* Scrollbars / separators */
+
+scrollbar {
+  background: #111318;
+}
+
+scrollbar slider {
+  background: #30384b;
+  border-radius: 999px;
+}
+
+scrolledwindow {
+  background: #151922;
+  border-radius: 12px;
+}
+
+separator {
+  background: #252b37;
+  min-height: 1px;
+}
+
+/* Explicit results table contrast fix */
+
+.results-scroller,
+.results-scroller viewport,
+.results-list {
+  background: #151922;
+  color: #f3f4f6;
+}
+
+.results-list row {
+  background: #151922;
+  color: #f3f4f6;
+}
+
+.results-list row * {
+  background: transparent;
+  color: #f3f4f6;
+}
+
+.results-list row .result-cell {
+  color: #f3f4f6;
+}
+
+.results-list row:hover {
+  background: #202634;
+}
+
+.results-list row:hover .result-cell {
+  color: #ffffff;
+}
+
+.results-list row:selected {
+  background: #2a3350;
+}
+
+.results-list row:selected .result-cell {
+  color: #ffffff;
+}
+
+.results-list row.suggested-action {
+  background: #22315a;
+  border-left: 4px solid #6d8dff;
+}
+
+.results-list row.suggested-action .result-cell {
+  color: #ffffff;
+  font-weight: 700;
+}

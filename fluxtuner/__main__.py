@@ -13,7 +13,8 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
-from fluxtuner.core.player import PlayerError, ensure_mpv_available, play_stream
+from fluxtuner.players import selected_player_name, PLAYER_REGISTRY, available_players
+from fluxtuner.players.mpv import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner import __version__
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
@@ -156,6 +157,18 @@ def main() -> None:
         action="store_true",
         help="Run the legacy numbered CLI instead of the Textual TUI.",
     )
+    
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Run the experimental GTK GUI.",
+    )
+    parser.add_argument(
+        "--player",
+        default="mpv",
+        choices=available_players(),
+        help="Player backend to use.",
+    )
     parser.add_argument(
         "--theme",
         default=None,
@@ -202,7 +215,25 @@ def main() -> None:
         metavar="PATH",
         help="Import persistent playlists from a JSON file and exit.",
     )
+    parser.add_argument(
+        "--list-players",
+        action="store_true",
+        help="List supported and available player backends, then exit.",
+    )
+
     args = parser.parse_args()
+
+    if args.list_players:
+        available = available_players()
+        selected = selected_player_name(None) if available else None
+        console.print("Supported player backends:")
+        for backend in PLAYER_REGISTRY:
+            marker = "✓" if backend in available else "✗"
+            suffix = " (auto)" if backend == selected else ""
+            console.print(f"  {marker} {backend}{suffix}")
+        if not available:
+            console.print("No available backend found. Install mpv or ffmpeg/ffplay.")
+        return
 
     if args.list_themes:
         console.print("Available themes:")
@@ -300,8 +331,15 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    run_tui(theme=selected_theme)
+    from fluxtuner.gui.app import run_gui
 
 
+    if args.gui:
+
+        run_gui(player_name=getattr(args, 'player', 'mpv'))
+
+    else:
+
+        run_tui(theme=selected_theme, player_name=args.player)
 if __name__ == "__main__":
     main()

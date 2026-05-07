@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fluxtuner"
 version = "0.2.0"
-description = "A themeable terminal internet radio player powered by Textual and mpv."
+description = "Modern internet radio player for terminal and desktop, powered by Textual, GTK and mpv."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -15,23 +15,31 @@ authors = [
 keywords = [
     "radio",
     "internet-radio",
+    "streaming",
     "terminal",
     "tui",
     "textual",
+    "gtk",
+    "gtk4",
     "mpv",
     "music",
+    "desktop",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
-    "Environment :: Console :: Curses",
+    "Environment :: X11 Applications :: GTK",
     "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Multimedia :: Sound/Audio :: Players",
+    "Topic :: Utilities",
 ]
 dependencies = [
     "requests>=2.31.0",
@@ -39,20 +47,39 @@ dependencies = [
     "textual>=0.80.0",
 ]
 
+[project.optional-dependencies]
+gui = [
+    "PyGObject>=3.46",
+]
+dev = [
+    "build>=1.2.0",
+    "ruff>=0.5.0",
+    "pytest>=8.0.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/pitill0/fluxtuner"
 Repository = "https://github.com/pitill0/fluxtuner"
 Issues = "https://github.com/pitill0/fluxtuner/issues"
+Changelog = "https://github.com/pitill0/fluxtuner/blob/main/CHANGELOG.md"
 
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"
 
 [tool.setuptools]
-packages = ["fluxtuner", "fluxtuner.core"]
+packages = [
+    "fluxtuner",
+    "fluxtuner.core",
+    "fluxtuner.gui",
+    "fluxtuner.players",
+]
 include-package-data = true
 
 [tool.setuptools.package-data]
-fluxtuner = ["themes/*.tcss"]
+fluxtuner = [
+    "themes/*.tcss",
+    "gui/*.css",
+]
 
 [tool.ruff]
 line-length = 100

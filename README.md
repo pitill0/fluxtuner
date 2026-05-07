@@ -1,13 +1,4 @@
-# FluxTuner
-
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![TUI](https://img.shields.io/badge/TUI-Textual-purple)
-![Player](https://img.shields.io/badge/player-mpv-orange)
-![GitHub stars](https://img.shields.io/github/stars/pitill0/fluxtuner)
-![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
-![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
+FluxTuner
 
 A modern internet radio player for the terminal and desktop.
 
@@ -17,20 +8,21 @@ FluxTuner combines:
 * an experimental GTK4 desktop GUI,
 * smart favorites and playlists,
 * theming support,
-* and MPV-powered playback
+* modular playback backends,
+* and lightweight live metadata support
 
 into a lightweight application designed for daily use.
 
-Built with Python, powered by mpv, and focused on speed, usability and modularity.
+Built with Python and focused on speed, usability and modularity.
 
----
+⸻
 
-# Features
+Features
 
-## Core Features
+Core Features
 
 * Search internet radio stations by name, genre and country.
-* Play streams with mpv.
+* Modular playback backend support (mpv and ffplay)
 * Favorites with custom names and tags.
 * Smart Play by tag or playlist.
 * Persistent playlists and dynamic tag playlists.
@@ -42,40 +34,30 @@ Built with Python, powered by mpv, and focused on speed, usability and modularit
 * Clean modular architecture.
 * Live stream metadata display (artist and track when available)
 
----
+⸻
 
-# Screenshots
+Screenshots
 
-## GTK GUI — Search & Playback
+GTK GUI — Search & Playback
 
-![GUI Search](screenshots/gui-search-dark.png)
+GTK GUI — Favorites
 
-## GTK GUI — Favorites
+GTK GUI — Tag Playlists
 
-![GUI Favorites](screenshots/gui-favorites.png)
+Terminal UI
 
-## GTK GUI — Tag Playlists
+Theme Selector
 
-![GUI Playlists](screenshots/gui-playlists.png)
+⸻
 
-## Terminal UI
+Installation
 
-![TUI](screenshots/tui-main.png)
-
-## Theme Selector
-
-![Themes](screenshots/themes.png)
-
----
-
-# Installation
-
-## Requirements
+Requirements
 
 FluxTuner requires:
 
 * Python 3.10+
-* mpv
+* mpv or ffmpeg/ffplay
 * A terminal emulator with good Unicode support
 
 The GTK desktop GUI currently requires:
@@ -83,98 +65,87 @@ The GTK desktop GUI currently requires:
 * GTK4
 * PyGObject
 
----
+⸻
 
-# Install mpv
+Install mpv
 
-## CRUX Linux
+CRUX Linux
 
-```bash
 sudo prt-get depinst mpv
-```
 
-## Debian / Ubuntu
+Debian / Ubuntu
 
-```bash
 sudo apt install mpv
-```
 
-## Arch Linux
+Arch Linux
 
-```bash
 sudo pacman -S mpv
-```
 
-## Fedora
+Fedora
 
-```bash
 sudo dnf install mpv
-```
 
-## macOS
+macOS
 
-```bash
 brew install mpv
-```
 
----
+⸻
 
-# Install ffmpeg / ffplay
+Install ffmpeg / ffplay
 
-## CRUX Linux
+CRUX Linux
 
-```bash
 sudo prt-get depinst ffmpeg
-```
 
-## Debian / Ubuntu
+Debian / Ubuntu
 
-```bash
 sudo apt install ffmpeg
-```
 
-## Arch Linux
+Arch Linux
 
-```bash
 sudo pacman -S ffmpeg
-```
 
-## Fedora
+Fedora
 
-```bash
 sudo dnf install ffmpeg
-``` 
 
-## macOS
+macOS
 
-```bash 
 brew install ffmpeg
-```
 
----
+⸻
 
-# Running FluxTuner
+Running FluxTuner
 
 FluxTuner currently provides two interfaces:
 
-* **TUI (Terminal User Interface)** → fast, lightweight and keyboard-oriented
-* **GTK Desktop GUI** → visual desktop experience with playlists, favorites and responsive layout
+* TUI (Terminal User Interface) → fast, lightweight and keyboard-oriented
+* GTK Desktop GUI → visual desktop experience with playlists, favorites and responsive layout
 
 Both interfaces share the same playback backend and favorites system.
 
----
+⸻
 
-## Playback architecture
+Playback architecture
 
 FluxTuner uses a modular playback backend architecture.
 
-The current recommended backend is `mpv`, while `ffplay` is available as a lightweight fallback backend.
+FluxTuner automatically detects the best available playback backend.
+
+Current priority order:
+
+1. mpv (recommended)
+2. ffplay (lightweight fallback)
+
+Inspect detected playback backends with:
+
+fluxtuner --list-players
 
 Additional backends may be added in future versions.
 
----
+⸻
 
-# Terminal UI (TUI)
+Terminal UI (TUI)
 
 The TUI is ideal for:
 
@@ -184,49 +155,38 @@ The TUI is ideal for:
 * tiling window managers
 * fast station browsing
 
----
+⸻
 
-## Launch the TUI
+Launch the TUI
 
-### Run directly from source
+Run directly from source
 
-```bash
 git clone https://github.com/pitill0/fluxtuner.git
 cd fluxtuner
-
 python -m venv .venv
 source .venv/bin/activate
-
 pip install -e .
-
 python -m fluxtuner
-```
 
----
+⸻
 
-### Run installed command
+Run installed command
 
-```bash
 fluxtuner
-```
 
 Equivalent to:
 
-```bash
 python -m fluxtuner
-```
 
----
+⸻
 
-### Explicit TUI mode
+Explicit TUI mode
 
-```bash
 fluxtuner --tui
-```
 
----
+⸻
 
-## TUI Features
+TUI Features
 
 * Fast search
 * Country filtering
@@ -236,11 +196,11 @@ fluxtuner --tui
 * Random playback by tag
 * Theme support
 * Session data usage tracking
-* MPV backend support
+* Modular backend support
 
----
+⸻
 
-# GTK Desktop GUI
+GTK Desktop GUI
 
 FluxTuner also includes an experimental GTK4 desktop interface.
 
@@ -251,24 +211,21 @@ The GUI focuses on:
 * favorites management
 * visual station browsing
 * desktop-friendly playback controls
+* live metadata display
 
----
+⸻
 
-## Launch the GUI
+Launch the GUI
 
-```bash
 fluxtuner --gui
-```
 
 or:
 
-```bash
 python -m fluxtuner --gui
-```
 
----
+⸻
 
-## GUI Features
+GUI Features
 
 * GTK4 desktop interface
 * Responsive dark theme
@@ -279,212 +236,181 @@ python -m fluxtuner --gui
 * Session data usage tracking
 * Playback status indicators
 * Volume and mute controls
+* Live artist / track metadata
+* Active backend display
 
----
+⸻
 
-## Recommended development / source usage
+Recommended development / source usage
 
 For testing or running FluxTuner without installing it globally:
 
-```bash
 git clone https://github.com/pitill0/fluxtuner.git
 cd fluxtuner
-
 python -m venv .venv
 source .venv/bin/activate
-
 pip install -e .
-
 python -m fluxtuner --player mpv
 python -m fluxtuner --gui --player mpv
 
----
+⸻
 
-# Install with pipx
+Install with pipx
 
 Recommended if you want FluxTuner available as a standalone command:
 
-```bash
 pipx install git+https://github.com/pitill0/fluxtuner.git
-```
 
 Run:
 
-```bash
 fluxtuner
-```
 
 Install a specific version:
 
-```bash
 pipx install git+https://github.com/pitill0/fluxtuner.git@v0.1.0
-```
 
 Upgrade:
 
-```bash
 pipx upgrade fluxtuner
-```
 
 Uninstall:
 
-```bash
 pipx uninstall fluxtuner
-```
 
----
+⸻
 
-# Select player backend
+Select player backend
 
 FluxTuner currently supports:
 
-* `mpv` (recommended)
-* `ffplay` (lightweight fallback backend)
+* mpv (recommended)
+* ffplay (lightweight fallback backend)
+
+FluxTuner automatically selects the best available backend by default.
+
+Inspect detected playback backends with:
+
+fluxtuner --list-players
 
 Examples:
 
-```bash
 fluxtuner --player mpv
-```
 
 or
 
-```bash
 fluxtuner --gui --player mpv
-```
-
-
-```bash
 fluxtuner --player ffplay
-```
 
 or
 
-```bash
 fluxtuner --gui --player ffplay
-```
 
----
+⸻
 
-# Themes
+Themes
 
 List available themes:
 
-```bash
 fluxtuner --list-themes
-```
 
 Run with a theme:
 
-```bash
 fluxtuner --theme nord
-```
 
 Save a theme as default:
 
-```bash
 fluxtuner --theme nord --save-theme
-```
 
 or:
 
-```bash
 fluxtuner --save-theme nord
-```
 
----
+⸻
 
-# Useful Commands
+Useful Commands
 
-```bash
 # Show help
 fluxtuner --help
-
 # Show version
 fluxtuner --version
-
+# List available playback backends
+fluxtuner --list-players
 # Clear search cache
 fluxtuner --clear-cache
-
 # Export favorites
 fluxtuner --export-favs favorites.json
-
 # Import favorites
 fluxtuner --import-favs favorites.json
-
 # Export playlists
 fluxtuner --export-playlists playlists.json
-
 # Import playlists
 fluxtuner --import-playlists playlists.json
-```
 
----
+⸻
 
-# macOS GTK Development Note
+macOS GTK Development Note
 
 When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.
 
 Install dependencies:
 
-```bash
 brew install gtk4 pygobject3 mpv
-```
+
+If your shell aliases python to a system interpreter, the virtual environment may be bypassed.
+
+Check:
+
+which python
+
+If needed:
+
+unalias python
 
 If the GUI fails with:
 
-```text
 ModuleNotFoundError: No module named 'gi'
-```
 
-run FluxTuner with Homebrew's PyGObject path:
+run FluxTuner with Homebrew’s PyGObject path:
 
-```bash
 PYGOBJECT_SITE_PACKAGES="$(dirname "$(find "$(brew --prefix)" -path "*/site-packages/gi/__init__.py" 2>/dev/null | head -n 1)")"
 PYTHONPATH="$PYGOBJECT_SITE_PACKAGES" python -m fluxtuner --gui --player mpv
-```
 
 On Apple Silicon this often resolves to:
 
-```bash
 PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
 python -m fluxtuner --gui --player mpv
-```
 
 Find the correct path with:
 
-```bash
 find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
-```
 
----
+⸻
 
-# Keybindings
+Keybindings
 
-| Key     | Action                                                   |
-| ------- | -------------------------------------------------------- |
-| `/`     | Focus search                                             |
-| `Enter` | Play selected station                                    |
-| `x`     | Stop playback                                            |
-| `Space` | Pause / Resume                                           |
-| `+ / -` | Volume up / down                                         |
-| `m`     | Mute                                                     |
-| `a`     | Add to favorites                                         |
-| `f`     | Open favorites                                           |
-| `d`     | Remove favorite                                          |
-| `e`     | Edit favorite name                                       |
-| `g`     | Edit favorite tags                                       |
-| `p`     | Open playlists                                           |
-| `n`     | New playlist                                             |
-| `b`     | Add to playlist                                          |
-| `t`     | Filter by tag / open theme selector depending on context |
-| `h`     | History                                                  |
-| `l`     | Play last station                                        |
-| `q`     | Quit                                                     |
+Key	Action
+/	Focus search
+Enter	Play selected station
+x	Stop playback
+Space	Pause / Resume
++ / -	Volume up / down
+m	Mute
+a	Add to favorites
+f	Open favorites
+d	Remove favorite
+e	Edit favorite name
+g	Edit favorite tags
+p	Open playlists
+n	New playlist
+b	Add to playlist
+t	Filter by tag / open theme selector depending on context
+h	History
+l	Play last station
+q	Quit
 
----
+⸻
 
-# Themes
+Built-in Themes
 
 Built-in themes:
 
@@ -497,31 +423,32 @@ Built-in themes:
 Features:
 
 * Live preview in selector
-* Apply with `Enter`
-* Save with `y`
+* Apply with Enter
+* Save with y
 
----
+⸻
 
-# Data Storage
+Data Storage
 
-* Favorites: `~/.fluxtuner_favorites.json`
-* Playlists: `~/.fluxtuner_playlists.json`
-* Config: `~/.config/fluxtuner/config.json`
-* Data usage: `~/.fluxtuner_usage.json`
+* Favorites: ~/.fluxtuner_favorites.json
+* Playlists: ~/.fluxtuner_playlists.json
+* Config: ~/.config/fluxtuner/config.json
+* Data usage: ~/.fluxtuner_usage.json
 
----
+⸻
 
-# Roadmap
+Roadmap
 
-## Current Development Focus
+Current Development Focus
 
 * Improved GTK desktop experience
 * Better playlist workflows
 * Responsive layouts
 * Packaging and distribution
 * Persistent GUI settings
+* Live stream metadata improvements
 
-## Planned
+Planned
 
 * Native volume integration
 * MPRIS/media key support
@@ -531,17 +458,17 @@ Features:
 * AppImage builds
 * Mobile-oriented interface experiments
 
----
+⸻
 
-# Contributing
+Contributing
 
 PRs are welcome.
 
 Issues, feature requests and feedback are always appreciated.
 
----
+⸻
 
-# Commercial Use
+Commercial Use
 
 FluxTuner is open source and available under the MIT license.
 
@@ -551,15 +478,15 @@ That said, if you plan to integrate FluxTuner into a commercial product, service
 
 Contributions, attribution, or collaboration are always appreciated.
 
----
+⸻
 
-# License
+License
 
 MIT
 
----
+⸻
 
-# Support the Project
+Support the Project
 
 If you find FluxTuner useful:
 
@@ -569,4 +496,3 @@ If you find FluxTuner useful:
 * Share screenshots or workflows.
 
 Your support helps shape the future of the project.
-

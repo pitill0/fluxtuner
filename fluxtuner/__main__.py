@@ -13,7 +13,7 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
-from fluxtuner.players import available_players
+from fluxtuner.players import selected_player_name, PLAYER_REGISTRY, available_players
 from fluxtuner.players.mpv import PlayerError, ensure_mpv_available, play_stream
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner import __version__
@@ -215,7 +215,25 @@ def main() -> None:
         metavar="PATH",
         help="Import persistent playlists from a JSON file and exit.",
     )
+    parser.add_argument(
+        "--list-players",
+        action="store_true",
+        help="List supported and available player backends, then exit.",
+    )
+
     args = parser.parse_args()
+
+    if args.list_players:
+        available = available_players()
+        selected = selected_player_name(None) if available else None
+        console.print("Supported player backends:")
+        for backend in PLAYER_REGISTRY:
+            marker = "✓" if backend in available else "✗"
+            suffix = " (auto)" if backend == selected else ""
+            console.print(f"  {marker} {backend}{suffix}")
+        if not available:
+            console.print("No available backend found. Install mpv or ffmpeg/ffplay.")
+        return
 
     if args.list_themes:
         console.print("Available themes:")

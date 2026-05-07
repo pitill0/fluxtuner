@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+PLAYER_PRIORITY = ["mpv", "ffplay"]
+
 PLAYER_REGISTRY: dict[str, type[PlayerAdapter]] = {
     "mpv": MpvController,
     "ffplay": FfplayController,
@@ -26,16 +28,14 @@ def _backend_is_available(name: str, controller_class: type[PlayerAdapter]) -> b
 
 
 def available_players() -> list[str]:
-    """Return available player backend names for this system."""
     return [
         name
-        for name, controller_class in PLAYER_REGISTRY.items()
-        if _backend_is_available(name, controller_class)
+        for name in PLAYER_PRIORITY
+        if name in PLAYER_REGISTRY and _backend_is_available(name, PLAYER_REGISTRY[name])
     ]
 
 
-def create_player(name: str | None = None) -> PlayerAdapter:
-    """Create a playback backend by name, or auto-detect one if omitted."""
+def selected_player_name(name: str | None = None) -> str:
     available = available_players()
 
     if not available:
@@ -44,15 +44,19 @@ def create_player(name: str | None = None) -> PlayerAdapter:
 
     normalized = (name or available[0]).lower().strip()
 
-    controller_class = PLAYER_REGISTRY.get(normalized)
-    if controller_class is None:
+    if normalized not in PLAYER_REGISTRY:
         supported = ", ".join(sorted(PLAYER_REGISTRY))
         raise PlayerError(f"Unsupported player backend: {name}. Supported: {supported}")
 
-    if not _backend_is_available(normalized, controller_class):
+    if not _backend_is_available(normalized, PLAYER_REGISTRY[normalized]):
         raise PlayerError(
             f"Player backend '{normalized}' is not available. "
             f"Available backends: {', '.join(available)}"
         )
 
-    return controller_class()
+    return normalized
+
+def create_player(name: str | None = None) -> PlayerAdapter:
+    selected = selected_player_name(name)
+    return PLAYER_REGISTRY[selected]()
+

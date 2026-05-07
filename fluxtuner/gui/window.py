@@ -11,7 +11,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.players import create_player
+from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
@@ -35,7 +35,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_default_size(980, 620)
         self.set_size_request(520, 420)
 
-        self.player = create_player(player_name)
+        self.player_backend_name = selected_player_name(player_name)
+        self.player = create_player(self.player_backend_name)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
         self._player_state_timer_id: int | None = None
@@ -225,7 +226,7 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         side_panel.append(self.data_usage_label)
 
-        self.player_state_label = self._make_value_label("Player: stopped", selectable=True)
+        self.player_state_label = self._make_value_label(f"Player: {self.player_backend_name} · stopped", selectable=True)
         side_panel.append(self.player_state_label)
 
         self._build_favorite_controls(side_panel)
@@ -999,13 +1000,13 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         if not self._has_active_playback():
-            self.player_state_label.set_text("Player: stopped")
+            self.player_state_label.set_text(f"Player: {self.player_backend_name} · stopped")
             self._update_play_pause_button()
             return
 
         get_state = getattr(self.player, "get_state", None)
         if not callable(get_state):
-            self.player_state_label.set_text("Player: playing")
+            self.player_state_label.set_text(f"Player: {self.player_backend_name} · playing")
             self._update_play_pause_button()
             return
 
@@ -1017,7 +1018,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         if not state.get("playing"):
-            self.player_state_label.set_text("Player: stopped")
+            self.player_state_label.set_text(f"Player: {self.player_backend_name} · stopped")
             self._update_play_pause_button()
             return
 

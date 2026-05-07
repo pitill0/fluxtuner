@@ -42,6 +42,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stations: list[dict[str, Any]] = []
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
+        self._metadata_timer_id: int | None = None
+        self._metadata_fetch_in_progress = False
+        self._last_metadata_raw: str | None = None
         self.last_search_results: list[dict[str, Any]] = []
         self.active_playlist_tag: str | None = None
         self.favorite_urls = self._favorite_url_set()
@@ -611,14 +614,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
         self._update_play_pause_button()
 
-        stream_url = self._station_url(self.current_station) if self.current_station else None
-
-        if stream_url:
-            threading.Thread(
-                target=self._metadata_worker,
-                args=(stream_url,),
-                daemon=True,
-            ).start()
 
         stream_url = self._station_url(self.current_station) if self.current_station else None
         if stream_url:
@@ -636,20 +631,75 @@ class MainWindow(Gtk.ApplicationWindow):
     
 
     def _metadata_worker(self, stream_url: str) -> None:
-        metadata = fetch_stream_metadata(stream_url)
+        try:
+            metadata = fetch_stream_metadata(stream_url)
+        finally:
+            GLib.idle_add(self._metadata_fetch_finished)
 
         if not metadata:
             return
 
         artist = metadata.get("artist") or "—"
         title = metadata.get("title") or metadata.get("raw") or "—"
+        raw = metadata.get("raw") or f"{artist} - {title}"
 
-        GLib.idle_add(self._update_metadata_labels, artist, title)
+        GLib.idle_add(self._update_metadata_labels, artist, title, raw)
 
-    def _update_metadata_labels(self, artist: str, title: str) -> bool:
-        self.artist_detail_label.set_text(f"Artist: {artist}")
-        self.track_detail_label.set_text(f"Track: {title}")
+    def _update_metadata_labels(self, artist: str, title: str, raw: str) -> bool:
+        if raw == self._last_metadata_raw:
+            return False
+
+        self._last_metadata_raw = raw
+        self.artist_detail_label.set_text(artist)
+        self.track_detail_label.set_text(title)
         return False
+
+
+    def _metadata_fetch_finished(self) -> bool:
+        self._metadata_fetch_in_progress = False
+        return False
+
+    def _clear_metadata_labels(self) -> None:
+        if hasattr(self, "artist_detail_label"):
+            self.artist_detail_label.set_text("—")
+        if hasattr(self, "track_detail_label"):
+            self.track_detail_label.set_text("—")
+        self._last_metadata_raw = None
+
+    def _start_metadata_polling(self) -> None:
+        if self._metadata_timer_id is not None:
+            return
+
+        self._metadata_timer_id = GLib.timeout_add_seconds(15, self._tick_metadata)
+        self._tick_metadata()
+
+    def _stop_metadata_polling(self) -> None:
+        if self._metadata_timer_id is not None:
+            GLib.source_remove(self._metadata_timer_id)
+            self._metadata_timer_id = None
+        self._metadata_fetch_in_progress = False
+        self._clear_metadata_labels()
+
+    def _tick_metadata(self) -> bool:
+        if not self.current_station or not self._has_active_playback():
+            self._stop_metadata_polling()
+            return False
+
+        if self._metadata_fetch_in_progress:
+            return True
+
+        stream_url = self._station_url(self.current_station)
+        if not stream_url:
+            return True
+
+        self._metadata_fetch_in_progress = True
+        threading.Thread(
+            target=self._metadata_worker,
+            args=(stream_url,),
+            daemon=True,
+        ).start()
+
+        return True
 
     def update_now_playing(self) -> None:
         if not self.current_station:
@@ -659,6 +709,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.codec_detail_label.set_text("—")
                 self.bitrate_detail_label.set_text("—")
                 self.tags_detail_label.set_text("—")
+            self._stop_metadata_polling()
             return
 
         station = self.current_station
@@ -668,6 +719,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.codec_detail_label.set_text(station.get("codec") or "?")
         self.bitrate_detail_label.set_text(f"{station.get('bitrate') or 0} kbps")
         self.tags_detail_label.set_text(station.get("tags") or "No tags")
+
+        self._start_metadata_polling()
 
     def toggle_pause(self) -> None:
         try:
@@ -901,6 +954,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self.player.stop()
+        self._stop_metadata_polling()
         self.usage_tracker.stop()
         self.update_data_usage()
         self.current_station = None

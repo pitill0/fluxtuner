@@ -988,33 +988,73 @@ class FluxTunerTUI(App[None]):
             suffix = "saved" if save else "applied"
             self.set_status(f"Theme {suffix}: {theme_name}")
 
+
+    def _favorite_for_station(self, station: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not station:
+            return None
+        key = station_key(station)
+        if not key:
+            return None
+        for favorite in load_favorites():
+            if station_key(favorite) == key:
+                return favorite
+        return None
+
+    def _favorite_tags_text(self, station: dict[str, Any] | None) -> str:
+        favorite = self._favorite_for_station(station)
+        if not favorite:
+            return '-'
+        tags = favorite.get('favorite_tags') or []
+        if isinstance(tags, str):
+            return tags or '-'
+        return ', '.join(str(tag) for tag in tags) if tags else '-'
+
+    def _favorite_status_text(self, station: dict[str, Any] | None) -> str:
+        favorite = self._favorite_for_station(station)
+        if not favorite:
+            return 'No'
+        custom_name = favorite.get('favorite_name')
+        if custom_name:
+            return f'Yes · {custom_name}'
+        return 'Yes'
+
+    def _favorite_hint_text(self, station: dict[str, Any] | None) -> str:
+        if self._favorite_for_station(station):
+            return 'Favorite actions: e rename · g edit tags · d remove'
+        return 'Favorite actions: a add selected station'
+
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)
         if not station:
-            details.update("[b]Selected Station[/b]\nNo station selected.")
+            details.update(
+                "[b]Station details[/b]\\n"
+                "No station selected.\\n\\n"
+                "Use search/favorites/playlists to select a station."
+            )
             return
 
-        play_count = station.get("play_count")
-        play_count_line = f"\nPlay count: {play_count}" if play_count else ""
-        favorite_tags = station.get("favorite_tags") or []
-        favorite_tags_line = f"\nFavorite tags: {', '.join(favorite_tags)}" if favorite_tags else ""
-        original_name_line = ""
-        if station.get("custom_name"):
-            original_name_line = f"\nOriginal name: {station.get('name', 'Unknown station')}"
+        name = favorite_display_name(station)
+        country = station.get("country") or "Unknown"
+        codec = station.get("codec") or "?"
+        bitrate = station.get("bitrate") or "?"
+        genre_tags = station.get("tags") or "-"
+        if isinstance(genre_tags, list):
+            genre_tags = ", ".join(str(tag) for tag in genre_tags)
+
+        favorite_status = self._favorite_status_text(station)
+        favorite_tags = self._favorite_tags_text(station)
+        hint = self._favorite_hint_text(station)
+
         details.update(
-            "[b]Selected Station[/b]\n\n"
-            "[b]{}[/b]{}{}\n\nCountry: {}\nCodec: {}\nBitrate: {} kbps\nLanguage: {}{}\nRadio tags: {}\nHomepage: {}".format(
-                favorite_display_name(station),
-                original_name_line,
-                favorite_tags_line,
-                station.get("country", "Unknown"),
-                station.get("codec") or "?",
-                station.get("bitrate") or "?",
-                station.get("language") or "?",
-                play_count_line,
-                station.get("tags") or "?",
-                station.get("homepage") or "?",
-            )
+            "[b]Station details[/b]\\n"
+            f"{name}\\n\\n"
+            f"Country: {country}\\n"
+            f"Codec: {codec}\\n"
+            f"Bitrate: {bitrate} kbps\\n"
+            f"Genre/tags: {genre_tags}\\n\\n"
+            f"Favorite: {favorite_status}\\n"
+            f"Favorite tags: {favorite_tags}\\n\\n"
+            f"{hint}"
         )
 
     def update_theme_details(self, theme_name: str) -> None:
@@ -1299,21 +1339,15 @@ class FluxTunerTUI(App[None]):
 
 
     def _start_usage_tracking(self, station: dict[str, Any]) -> None:
-        bitrate = int(station.get("bitrate") or 0)
         with suppress(Exception):
             self.usage_tracker.stop()
-        if not bitrate:
-            return
+
         start = getattr(self.usage_tracker, "start", None)
         if not callable(start):
             return
-        try:
-            start(bitrate)
-        except TypeError:
-            try:
-                start(station)
-            except TypeError:
-                start()
+
+        with suppress(Exception):
+            start(station)
 
     def _update_usage_display(self) -> None:
         if not self.is_mounted:

@@ -112,7 +112,6 @@ class FluxTunerTUI(App[None]):
             yield Button("Random", id="random", classes="toolbar-button")
             yield Button("Playlists", id="playlists", classes="toolbar-button")
             yield Button("Themes", id="themes", classes="toolbar-button")
-            yield Button("Stop", id="stop", classes="toolbar-button danger-button")
         with Horizontal(id="filters"):
             yield Label("Country", classes="filter-label")
             yield Input(placeholder="optional", id="country-filter")
@@ -150,6 +149,7 @@ class FluxTunerTUI(App[None]):
         self.restore_playback_state()
         self.query_one("#stations", DataTable).focus()
         self.update_now_playing()
+        self.update_play_button()
         self.set_interval(1.5, self.update_now_playing)
         self.set_status(f"Ready. Player backend: {self.player_backend_name}.")
         if self.last_station:
@@ -374,6 +374,14 @@ class FluxTunerTUI(App[None]):
 
     @on(Button.Pressed, "#play")
     def play_from_button(self) -> None:
+        if (
+            self.selected_station
+            and self.current_station_url()
+            and self.station_url(self.selected_station) == self.current_station_url()
+        ):
+            self.stop_playback()
+            return
+
         self.play_selected_station()
 
     @on(Button.Pressed, "#add-favorite")
@@ -404,6 +412,7 @@ class FluxTunerTUI(App[None]):
             self.selected_tag = None
             self.selected_playlist = None if self.view_mode != "playlist_stations" else self.selected_playlist
             self.update_details(item_payload)
+            self.update_play_button()
         elif kind == "theme":
             self.selected_theme = item_payload
             self.selected_station = None
@@ -434,6 +443,7 @@ class FluxTunerTUI(App[None]):
             self.selected_station = item_payload
             self.selected_theme = None
             self.update_details(item_payload)
+            self.update_play_button()
             self.play_selected_station()
         elif kind == "theme":
             self.selected_theme = item_payload
@@ -781,8 +791,25 @@ class FluxTunerTUI(App[None]):
         self.persist_player_state(last_station=station)
         self.update_now_playing()
         self.refresh_active_station_marker()
+        self.update_play_button()
         self.set_status(f"Playing: {favorite_display_name(station)}")
         return True
+
+
+    def update_play_button(self) -> None:
+        button = self.query_one("#play", Button)
+
+        if not self.selected_station:
+            button.label = "▶ Play"
+            return
+
+        selected_url = self.station_url(self.selected_station)
+        current_url = self.current_station_url()
+
+        if current_url and selected_url == current_url:
+            button.label = "■ Stop"
+        else:
+            button.label = "▶ Play"
 
     def stop_playback(self) -> None:
         self.player.stop()
@@ -791,6 +818,7 @@ class FluxTunerTUI(App[None]):
         self.playing_station = None
         self.update_now_playing()
         self.refresh_active_station_marker()
+        self.update_play_button()
         self.set_status("Playback stopped.")
 
     def add_selected_to_favorites(self) -> None:

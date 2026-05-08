@@ -89,30 +89,40 @@ def remove_favorite(url: str) -> bool:
     return len(favorites) != original_len
 
 
-def update_favorite(url: str, *, custom_name: str | None | object = ..., favorite_tags: list[str] | None | object = ...) -> bool:
+def update_favorite(
+    key: str,
+    favorite_name: str | None = None,
+    favorite_tags: list[str] | None = None,
+) -> bool:
+    """Update favorite metadata by station key/url."""
     favorites = load_favorites()
     changed = False
 
-    for item in favorites:
-        if station_key(item) != url and item.get("url") != url:
+    normalized_tags = favorite_tags if favorite_tags is not None else None
+
+    for favorite in favorites:
+        if station_key(favorite) != key:
             continue
 
-        if custom_name is not ...:
-            clean_name = str(custom_name or "").strip()
-            item["custom_name"] = clean_name or None
+        if favorite_name is not None:
+            cleaned_name = favorite_name.strip()
+            if cleaned_name:
+                favorite["favorite_name"] = cleaned_name
+            else:
+                favorite.pop("favorite_name", None)
             changed = True
 
-        if favorite_tags is not ...:
-            tags = favorite_tags or []
-            item["favorite_tags"] = sorted({str(tag).strip() for tag in tags if str(tag).strip()})
+        if normalized_tags is not None:
+            favorite["favorite_tags"] = sorted({tag.strip() for tag in normalized_tags if tag.strip()})
             changed = True
 
         break
 
-    if changed:
-        save_favorites(favorites)
-    return changed
+    if not changed:
+        return False
 
+    save_favorites(favorites)
+    return True
 
 def filter_favorites_by_tag(tag: str) -> list[dict[str, Any]]:
     clean_tag = tag.strip().lower()

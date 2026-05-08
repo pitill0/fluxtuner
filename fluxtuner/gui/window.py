@@ -24,7 +24,7 @@ from fluxtuner.core.favorites import (
     update_favorite,
 )
 
-DEFAULT_SEARCH = "fip"
+DEFAULT_SEARCH = ""
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -93,7 +93,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.search_entry = Gtk.Entry()
         self.search_entry.set_placeholder_text("Search station, genre or tag…")
-        self.search_entry.set_text(DEFAULT_SEARCH)
         self.search_entry.set_hexpand(True)
         self.search_entry.connect("activate", self.on_search_clicked)
         search_bar.append(self.search_entry)
@@ -113,7 +112,6 @@ class MainWindow(Gtk.ApplicationWindow):
         search_bar.append(self.min_bitrate_entry)
 
         search_button = Gtk.Button(label="Search")
-        search_button.add_css_class("suggested-action")
         search_button.connect("clicked", self.on_search_clicked)
         search_bar.append(search_button)
 

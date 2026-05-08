@@ -757,6 +757,44 @@ class FluxTunerTUI(App[None]):
         except Exception:  # noqa: BLE001
             return
 
+    def _refresh_current_station_view_after_marker_change(self) -> None:
+        if self.view_mode not in {"search", "favorites", "history", "playlist_stations"}:
+            return
+
+        async def refresh_view() -> None:
+            selected_url = self.station_url(self.selected_station) if self.selected_station else None
+
+            if self.view_mode == "favorites":
+                await self.show_favorites(tag_filter=self.favorite_tag_filter)
+            elif self.view_mode == "playlist_stations" and self.active_playlist_name:
+                await self.show_persistent_playlist_stations(self.active_playlist_name)
+            elif self.view_mode in {"search", "history"}:
+                stations = [
+                    payload
+                    for kind, payload in self.table_items.values()
+                    if kind == "station"
+                ]
+                await self.populate_station_list(stations)
+
+            if selected_url:
+                self._select_station_by_url(selected_url)
+
+        self.call_later(lambda: asyncio.create_task(refresh_view()))
+
+    def _select_station_by_url(self, station_url: str) -> None:
+        table = self.query_one("#stations", DataTable)
+        for row_index, (key, (kind, payload)) in enumerate(self.table_items.items()):
+            if kind != "station":
+                continue
+            if self.station_url(payload) != station_url:
+                continue
+            self.selected_station = payload
+            self.update_details(payload)
+            self.update_play_button()
+            with suppress(Exception):
+                table.move_cursor(row=row_index)
+            return
+
     def play_selected_station(self) -> None:
         if self.view_mode == "themes":
             self.apply_selected_theme()
@@ -794,6 +832,7 @@ class FluxTunerTUI(App[None]):
         self.persist_player_state(last_station=station)
         self.update_now_playing()
         self.refresh_active_station_marker()
+        self._refresh_current_station_view_after_marker_change()
         self.update_play_button()
         self.set_status(f"Playing: {favorite_display_name(station)}")
         return True
@@ -821,6 +860,7 @@ class FluxTunerTUI(App[None]):
         self.playing_station = None
         self.update_now_playing()
         self.refresh_active_station_marker()
+        self._refresh_current_station_view_after_marker_change()
         self.update_play_button()
         self.set_status("Playback stopped.")
 
@@ -833,6 +873,9 @@ class FluxTunerTUI(App[None]):
             return
         saved = add_favorite(self.selected_station)
         name = favorite_display_name(self.selected_station)
+        self.refresh_active_station_marker()
+        self.update_details(self.selected_station)
+        self.update_play_button()
         self.set_status(f"Saved favorite: {name}" if saved else f"Already in favorites: {name}")
 
     async def remove_selected_from_favorites(self) -> None:
@@ -850,6 +893,9 @@ class FluxTunerTUI(App[None]):
 
         removed = remove_favorite(key)
         name = favorite_display_name(self.selected_station)
+        self.refresh_active_station_marker()
+        self.update_details(self.selected_station)
+        self.update_play_button()
         self.set_status(f"Removed favorite: {name}" if removed else f"Favorite not found: {name}")
 
         if self.view_mode == "favorites":

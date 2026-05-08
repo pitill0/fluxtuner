@@ -717,38 +717,41 @@ class FluxTunerTUI(App[None]):
             value = ", ".join(str(tag) for tag in tags)
         return self._ellipsize(value if value else "-", max_length)
 
+
+    def station_marker(self, station: dict[str, Any]) -> str:
+        marker_parts: list[str] = []
+        if self.station_url(station) == self.current_station_url():
+            marker_parts.append('▶')
+        if self._favorite_for_station(station):
+            marker_parts.append('★')
+        return ''.join(marker_parts)
+
     def add_station_table_row(self, table: DataTable, station: dict[str, Any]) -> None:
-        key = self.next_table_key("station")
-        self.add_table_payload(key, "station", station)
-        marker = "▶" if self.station_url(station) == self.current_station_url() else ""
+        key = self.next_table_key('station')
+        self.add_table_payload(key, 'station', station)
+        marker = self.station_marker(station)
         name = self._ellipsize(favorite_display_name(station), 52)
         table.add_row(
             marker,
             name,
             self.station_short_id(station),
-            self._ellipsize(station.get("country") or "-", 18),
+            self._ellipsize(station.get('country') or '-', 18),
             self.station_genre_tags(station),
-            str(station.get("codec") or "-"),
-            str(station.get("bitrate") or "-"),
+            str(station.get('codec') or '-'),
+            str(station.get('bitrate') or '-'),
             self.station_custom_tags(station),
             key=key,
         )
 
     def refresh_active_station_marker(self) -> None:
-        """Refresh the active marker without rebuilding the whole view.
-
-        DataTable cells are intentionally updated best-effort because older
-        Textual versions differ slightly in their cell update API.
-        """
         try:
-            table = self.query_one("#stations", DataTable)
-            current_url = self.current_station_url()
+            table = self.query_one('#stations', DataTable)
             for key, (kind, payload) in self.table_items.items():
-                if kind != "station":
+                if kind != 'station':
                     continue
-                marker = "▶" if self.station_url(payload) == current_url else ""
+                marker = self.station_marker(payload)
                 try:
-                    table.update_cell(key, "", marker)
+                    table.update_cell(key, '', marker)
                 except Exception:  # noqa: BLE001
                     return
         except Exception:  # noqa: BLE001
@@ -1370,7 +1373,15 @@ class FluxTunerTUI(App[None]):
         with suppress(Exception):
             self.usage_tracker.stop()
 
-        start = getattr(self.usage_tracker, "start", None)
+        bitrate = int(station.get('bitrate') or 0)
+        if bitrate <= 0:
+            if self.is_mounted:
+                self.query_one('#data-usage', Static).update(
+                    '[b]Data usage[/b]\nUnavailable · missing bitrate'
+                )
+            return
+
+        start = getattr(self.usage_tracker, 'start', None)
         if not callable(start):
             return
 

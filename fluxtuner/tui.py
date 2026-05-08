@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import random
+from contextlib import suppress
 import textwrap
+import time
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,8 @@ from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Sta
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core.api import search_stations_filtered
+from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
+from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.core.favorites import (
     add_favorite,
     all_favorite_tags,
@@ -35,8 +39,7 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
-from fluxtuner.players import create_player
-from fluxtuner.players.mpv import PlayerError, ensure_mpv_available
+from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 
@@ -74,7 +77,14 @@ class FluxTunerTUI(App[None]):
         self.active_theme = theme or DEFAULT_THEME
         self.theme_path = get_theme_path(self.active_theme)
         super().__init__(css_path=str(self.theme_path))
-        self.player = create_player(player_name)
+        self.player_backend_name = selected_player_name(player_name)
+        self.player = create_player(self.player_backend_name)
+        self.usage_tracker = DataUsageTracker()
+        self.current_artist = "—"
+        self.current_track = "—"
+        self._metadata_task: asyncio.Task[None] | None = None
+        self._last_metadata_raw: str | None = None
+        self._last_metadata_fetch_at = 0.0
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.previewed_theme: str | None = None
@@ -114,6 +124,9 @@ class FluxTunerTUI(App[None]):
             with Vertical(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
+                yield Static("[b]Metadata[/b]\nArtist: —\nTrack: —", id="metadata")
+                yield Static("[b]Data usage[/b]\n0.0 MB session · 0.0 MB today · 0.0 MB/h est.", id="data-usage")
+                yield Static("[b]Player[/b]\nBackend: auto\nState: stopped", id="player-state")
                 yield Static("No station selected.", id="details")
                 yield Button("Play", id="play", classes="side-button success-button")
                 yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
@@ -127,13 +140,6 @@ class FluxTunerTUI(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        try:
-            ensure_mpv_available()
-        except PlayerError as exc:
-            self.notify(str(exc), severity="error", timeout=8)
-            self.exit(return_code=1)
-            return
-
         # Apply the selected theme programmatically so runtime preview works reliably.
         try:
             apply_theme_runtime(self, self.active_theme)
@@ -145,6 +151,7 @@ class FluxTunerTUI(App[None]):
         self.query_one("#stations", DataTable).focus()
         self.update_now_playing()
         self.set_interval(1.5, self.update_now_playing)
+        self.set_status(f"Ready. Player backend: {self.player_backend_name}.")
         if self.last_station:
             self.update_details(self.last_station)
             self.set_status(f"Restored last station: {favorite_display_name(self.last_station)}. Press l to play it.")
@@ -153,6 +160,10 @@ class FluxTunerTUI(App[None]):
 
     def on_unmount(self) -> None:
         self.cancel_pending_search()
+        if self._metadata_task and not self._metadata_task.done():
+            self._metadata_task.cancel()
+        with suppress(Exception):
+            self.usage_tracker.stop()
         self.player.stop()
 
     def action_focus_search(self) -> None:
@@ -762,6 +773,9 @@ class FluxTunerTUI(App[None]):
 
         self.playing_station = station
         self.last_station = station
+        self._clear_metadata()
+        self._last_metadata_fetch_at = 0.0
+        self._start_usage_tracking(station)
         add_history(station)
         self.apply_restored_playback_preferences()
         self.persist_player_state(last_station=station)
@@ -772,6 +786,8 @@ class FluxTunerTUI(App[None]):
 
     def stop_playback(self) -> None:
         self.player.stop()
+        with suppress(Exception):
+            self.usage_tracker.stop()
         self.playing_station = None
         self.update_now_playing()
         self.refresh_active_station_marker()
@@ -1281,72 +1297,109 @@ class FluxTunerTUI(App[None]):
         except Exception:
             pass
 
+
+    def _start_usage_tracking(self, station: dict[str, Any]) -> None:
+        bitrate = int(station.get("bitrate") or 0)
+        with suppress(Exception):
+            self.usage_tracker.stop()
+        if not bitrate:
+            return
+        start = getattr(self.usage_tracker, "start", None)
+        if not callable(start):
+            return
+        try:
+            start(bitrate)
+        except TypeError:
+            try:
+                start(station)
+            except TypeError:
+                start()
+
+    def _update_usage_display(self) -> None:
+        if not self.is_mounted:
+            return
+        with suppress(Exception):
+            usage_line = format_usage_line(self.usage_tracker.snapshot())
+            self.query_one("#data-usage", Static).update(f"[b]Data usage[/b]\n{usage_line}")
+
+    def _player_state_text(self) -> str:
+        get_state = getattr(self.player, "get_state", None)
+        if callable(get_state):
+            with suppress(Exception):
+                state = get_state()
+                if isinstance(state, dict):
+                    if state.get("paused"):
+                        return "paused"
+                    if state.get("playing"):
+                        return "playing"
+        is_playing = getattr(self.player, "is_playing", None)
+        if callable(is_playing):
+            with suppress(Exception):
+                return "playing" if is_playing() else "stopped"
+        return "playing" if self.playing_station else "stopped"
+
+    def _update_player_state_display(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#player-state", Static).update(
+            f"[b]Player[/b]\nBackend: {self.player_backend_name}\nState: {self._player_state_text()}"
+        )
+
+    def _clear_metadata(self) -> None:
+        self.current_artist = "—"
+        self.current_track = "—"
+        self._last_metadata_raw = None
+        if self.is_mounted:
+            self.query_one("#metadata", Static).update("[b]Metadata[/b]\nArtist: —\nTrack: —")
+
+    def _maybe_fetch_metadata(self) -> None:
+        if not self.playing_station:
+            return
+        now = time.monotonic()
+        if now - self._last_metadata_fetch_at < 15:
+            return
+        if self._metadata_task and not self._metadata_task.done():
+            return
+        url = self.station_url(self.playing_station)
+        if not url:
+            return
+        self._last_metadata_fetch_at = now
+        self._metadata_task = asyncio.create_task(self._fetch_metadata(url))
+
+    async def _fetch_metadata(self, stream_url: str) -> None:
+        metadata = await asyncio.to_thread(fetch_stream_metadata, stream_url)
+        if not metadata:
+            return
+        raw = metadata.get("raw") or ""
+        if raw and raw == self._last_metadata_raw:
+            return
+        self._last_metadata_raw = raw
+        self.current_artist = metadata.get("artist") or "—"
+        self.current_track = metadata.get("title") or metadata.get("raw") or "—"
+        if self.is_mounted:
+            self.query_one("#metadata", Static).update(
+                f"[b]Metadata[/b]\nArtist: {self.current_artist}\nTrack: {self.current_track}"
+            )
+
     def update_now_playing(self) -> None:
         now_playing = self.query_one("#now-playing", Static)
-        self.ensure_now_playing_layout()
         if not self.playing_station:
-            if self.last_station:
-                width = self._side_panel_text_width()
-                name = self._wrap_short(favorite_display_name(self.last_station), width=width, max_lines=2)
-                country = self._ellipsize(self.last_station.get("country") or "Unknown country", max(18, width // 2))
-                bitrate = self.last_station.get("bitrate") or "?"
-                codec = self.last_station.get("codec") or "?"
-                now_playing.update(
-                    "[b]Now Playing[/b]\n"
-                    "Nothing playing.\n"
-                    "[b]Last Station[/b]\n"
-                    f"{name}\n"
-                    f"{country} • {bitrate} kbps • {codec}\n"
-                    "Press [b]l[/b] to play last station."
-                )
-            else:
-                now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
+            now_playing.update("[b]Now Playing[/b]\nNothing playing yet.")
+            self._clear_metadata()
+            self._update_usage_display()
+            self._update_player_state_display()
             return
 
-        station = self.playing_station
-        try:
-            state = self.player.get_state()
-        except Exception:  # noqa: BLE001
-            state = {"playing": self.player.is_playing()}
-
-        is_running = bool(state.get("playing"))
-        paused = bool(state.get("paused"))
-        muted = bool(state.get("muted"))
-        volume = state.get("volume")
-
-        if not is_running:
-            status_icon = "■"
-            status_label = "Stopped"
-        elif paused:
-            status_icon = "⏸"
-            status_label = "Paused"
-        else:
-            status_icon = "▶"
-            status_label = "Playing"
-
-        mute_label = "muted" if muted else "sound on"
-        volume_value = int(round(volume)) if isinstance(volume, (int, float)) else None
-        volume_label = f"{volume_value}%" if volume_value is not None else "?"
-        volume_bar = self.volume_bar(volume_value, width=10)
-        tags = station.get("tags") or "no tags"
-
-        width = self._side_panel_text_width()
-        name = self._wrap_short(favorite_display_name(station), width=width, max_lines=2)
-        country = self._ellipsize(station.get("country") or "Unknown country", max(18, width // 2))
-        bitrate = station.get("bitrate") or "?"
-        codec = station.get("codec") or "?"
-        tags_line = self._ellipsize(tags, max(32, width + 10))
-
+        station_name = favorite_display_name(self.playing_station)
+        bitrate = self.playing_station.get("bitrate") or 0
+        codec = self.playing_station.get("codec") or "?"
+        country = self.playing_station.get("country") or "Unknown"
         now_playing.update(
-            "[b]Now Playing[/b]\n"
-            f"{status_icon} {status_label} • {mute_label}\n"
-            f"Volume {volume_bar} {volume_label}\n"
-            "[b]Station[/b]\n"
-            f"{name}\n"
-            "[b]Info[/b]\n"
-            f"{country} • {bitrate} kbps • {codec}\n"
-            f"[b]Tags[/b] {tags_line}"
+            f"[b]Now Playing[/b]\n{station_name}\n{country} · {codec} · {bitrate} kbps"
         )
+        self._maybe_fetch_metadata()
+        self._update_usage_display()
+        self._update_player_state_display()
 
     def update_mode_title(self, title: str) -> None:
         self.query_one("#mode-title", Static).update(title)

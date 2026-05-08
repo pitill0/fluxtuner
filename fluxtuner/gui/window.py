@@ -278,9 +278,29 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(favorite_controls)
 
         self.favorite_tags_entry = Gtk.Entry()
-        self.favorite_tags_entry.set_placeholder_text("Favorite tags, comma separated")
+        self.favorite_tags_entry.set_placeholder_text("Tags when adding a new favorite")
         self.favorite_tags_entry.set_hexpand(True)
         favorite_controls.append(self.favorite_tags_entry)
+
+        edit_title = Gtk.Label(label="Edit selected favorite")
+        edit_title.set_xalign(0)
+        edit_title.add_css_class("caption-heading")
+        favorite_controls.append(edit_title)
+
+        self.favorite_name_entry = Gtk.Entry()
+        self.favorite_name_entry.set_placeholder_text("Edit favorite name")
+        self.favorite_name_entry.set_hexpand(True)
+        favorite_controls.append(self.favorite_name_entry)
+
+        self.edit_favorite_tags_entry = Gtk.Entry()
+        self.edit_favorite_tags_entry.set_placeholder_text("Edit favorite tags")
+        self.edit_favorite_tags_entry.set_hexpand(True)
+        favorite_controls.append(self.edit_favorite_tags_entry)
+
+        self.save_favorite_button = Gtk.Button(label="💾 Save edited favorite")
+        self.save_favorite_button.set_tooltip_text("Update selected favorite name and tags")
+        self.save_favorite_button.connect("clicked", self.on_save_favorite_clicked)
+        favorite_controls.append(self.save_favorite_button)
 
         self.add_favorite_button = Gtk.Button(label="★ Add favorite")
         self.add_favorite_button.add_css_class("suggested-action")
@@ -790,6 +810,46 @@ class MainWindow(Gtk.ApplicationWindow):
             return []
         return sorted({tag.strip() for tag in raw_value.split(',') if tag.strip()})
 
+
+    def _favorite_edit_tags_from_entry(self) -> list[str]:
+        if not hasattr(self, "edit_favorite_tags_entry"):
+            return []
+        raw_value = self.edit_favorite_tags_entry.get_text().strip()
+        if not raw_value:
+            return []
+        return sorted({tag.strip() for tag in raw_value.split(",") if tag.strip()})
+
+    def _selected_favorite_record(self) -> dict[str, Any] | None:
+        if not self.selected_station:
+            return None
+        selected_key = station_key(self.selected_station)
+        if not selected_key:
+            return None
+        for favorite in load_favorites():
+            if station_key(favorite) == selected_key:
+                return favorite
+        return None
+
+    def _populate_favorite_edit_fields(self) -> None:
+        if not hasattr(self, "favorite_name_entry"):
+            return
+
+        favorite = self._selected_favorite_record()
+        if not favorite:
+            self.favorite_name_entry.set_text("")
+            self.edit_favorite_tags_entry.set_text("")
+            return
+
+        display_name = favorite.get("favorite_name") or favorite.get("name") or ""
+        favorite_tags = favorite.get("favorite_tags") or []
+
+        if isinstance(favorite_tags, list):
+            tags_text = ", ".join(str(tag) for tag in favorite_tags)
+        else:
+            tags_text = str(favorite_tags)
+
+        self.favorite_name_entry.set_text(display_name)
+        self.edit_favorite_tags_entry.set_text(tags_text)
     def _update_favorite_buttons(self) -> None:
         if not hasattr(self, "add_favorite_button"):
             return
@@ -802,6 +862,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
         if hasattr(self, "favorite_tags_entry"):
             self.favorite_tags_entry.set_sensitive(has_selection and not is_favorite)
+
+        if hasattr(self, "favorite_name_entry"):
+            self.favorite_name_entry.set_sensitive(is_favorite)
+            self.edit_favorite_tags_entry.set_sensitive(is_favorite)
+            self.save_favorite_button.set_sensitive(is_favorite)
+
+        self._populate_favorite_edit_fields()
 
     def on_add_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:
@@ -832,6 +899,52 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_label.set_text("Station is already in favorites or has no URL.")
         self._update_favorite_buttons()
 
+
+    def on_save_favorite_clicked(self, _button: Gtk.Button) -> None:
+        favorite = self._selected_favorite_record()
+        if not favorite:
+            self.status_label.set_text("Select a favorite first.")
+            self._update_favorite_buttons()
+            return
+
+        key = station_key(favorite)
+        if not key:
+            self.status_label.set_text("Selected favorite has no URL.")
+            self._update_favorite_buttons()
+            return
+
+        favorite_name = self.favorite_name_entry.get_text().strip()
+        favorite_tags = self._favorite_edit_tags_from_entry()
+
+        updates: dict[str, Any] = {
+            "favorite_name": favorite_name or None,
+            "favorite_tags": favorite_tags,
+        }
+
+        if update_favorite(key, **updates):
+            self._refresh_favorite_cache()
+
+            selected_url = self._station_url(self.selected_station) if self.selected_station else None
+            for station in self.stations:
+                if selected_url and self._station_url(station) == selected_url:
+                    station.update(updates)
+                    if favorite_name:
+                        station["name"] = favorite_name
+                    break
+
+            if self.current_station and self._station_url(self.current_station) == selected_url:
+                self.current_station.update(updates)
+                if favorite_name:
+                    self.current_station["name"] = favorite_name
+
+            self._render_results()
+            self.update_now_playing()
+            self._update_favorite_buttons()
+            self.status_label.set_text("Favorite updated.")
+            return
+
+        self.status_label.set_text("Could not update favorite.")
+        self._update_favorite_buttons()
     def on_remove_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:
             self.status_label.set_text("Select a station first.")

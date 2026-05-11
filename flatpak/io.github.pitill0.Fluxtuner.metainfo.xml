@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.pitill0.Fluxtuner</id>
+
+  <name>FluxTuner</name>
+  <summary>Internet radio player with TUI and GTK interfaces</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <developer_name>Victor Martinez</developer_name>
+
+  <url type="homepage">https://github.com/pitill0/fluxtuner</url>
+  <url type="bugtracker">https://github.com/pitill0/fluxtuner/issues</url>
+
+  <description>
+    <p>
+      FluxTuner is a modern internet radio player featuring both a Textual TUI
+      and a GTK4 desktop GUI.
+    </p>
+
+    <p>
+      Features include favorites, playlists, live metadata, theme support,
+      playback backend abstraction and estimated data usage tracking.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">
+    io.github.pitill0.Fluxtuner.desktop
+  </launchable>
+</component>

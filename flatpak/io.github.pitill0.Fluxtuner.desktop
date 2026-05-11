@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=FluxTuner
+Comment=Internet radio player with GTK interface
+Exec=fluxtuner --gui --player ffplay
+Icon=io.github.pitill0.Fluxtuner
+Terminal=false
+Type=Application
+Categories=AudioVideo;Player;
+Keywords=radio;music;streaming;
+StartupNotify=true

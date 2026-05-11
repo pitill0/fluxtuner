@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=FluxTuner Terminal
+Comment=Internet radio player with terminal interface
+Exec=fluxtuner --player ffplay
+Icon=io.github.pitill0.Fluxtuner
+Terminal=true
+Type=Application
+Categories=AudioVideo;Player;ConsoleOnly;
+Keywords=radio;music;streaming;terminal;tui;
+StartupNotify=false

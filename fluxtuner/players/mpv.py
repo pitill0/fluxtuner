@@ -47,6 +47,14 @@ class MpvController(PlayerAdapter):
     volume_step: int = 5
     _request_id: int = field(default=0, init=False)
 
+    @classmethod
+    def is_available(cls) -> bool:
+        try:
+            ensure_mpv_available()
+            return True
+        except Exception:
+            return False
+
     def play(self, url: str) -> None:
         """Play a stream URL.
 

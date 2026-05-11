@@ -13,8 +13,12 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.cache import clear_search_cache
-from fluxtuner.players import selected_player_name, PLAYER_REGISTRY, available_players
-from fluxtuner.players.mpv import PlayerError, ensure_mpv_available, play_stream
+from fluxtuner.players import (
+    PLAYER_BACKENDS,
+    available_players,
+    create_player,
+    selected_player_name,
+)
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner import __version__
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
@@ -63,16 +67,21 @@ def choose_station(stations: list[dict[str, Any]]) -> dict[str, Any] | None:
     return stations[index]
 
 
-def play_station(station: dict[str, Any]) -> None:
+def play_station(station: dict[str, Any], player_name: str | None = None) -> None:
     if not station.get("url"):
         console.print("[red]This station has no playable URL.[/red]")
         return
 
+    try:
+        player = create_player(player_name)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Player error:[/red] {exc}")
+        return
+
     console.print(f"\n[bold green]Playing:[/bold green] {station['name']}")
-    play_stream(station["url"])
+    player.play(station["url"])
 
-
-def search_flow() -> None:
+def search_flow(player_name: str | None = None) -> None:
     query = input("Search station by name: ").strip()
     if not query:
         return
@@ -87,7 +96,7 @@ def search_flow() -> None:
     if not station:
         return
 
-    play_station(station)
+    play_station(station, player_name)
 
     save = input("Save to favorites? [y/N]: ").strip().lower()
     if save == "y":
@@ -134,7 +143,7 @@ def run_cli() -> None:
         choice = input("> ").strip()
 
         if choice == "1":
-            search_flow()
+            search_flow(args.player)
         elif choice == "2":
             favorites_flow()
         elif choice == "3":
@@ -165,7 +174,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--player",
-        default="mpv",
+        default="auto",
         choices=available_players(),
         help="Player backend to use.",
     )
@@ -224,15 +233,16 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.list_players:
+        console.print("[bold]Supported player backends:[/bold]")
+    
         available = available_players()
         selected = selected_player_name(None) if available else None
-        console.print("Supported player backends:")
-        for backend in PLAYER_REGISTRY:
-            marker = "✓" if backend in available else "✗"
-            suffix = " (auto)" if backend == selected else ""
-            console.print(f"  {marker} {backend}{suffix}")
-        if not available:
-            console.print("No available backend found. Install mpv or ffmpeg/ffplay.")
+    
+        for backend in PLAYER_BACKENDS:
+            status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
+            default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
+            console.print(f" - {backend}: {status}{default}")
+    
         return
 
     if args.list_themes:
@@ -311,11 +321,6 @@ def main() -> None:
         selected_theme = theme_to_save
         console.print(f"[green]Saved default theme:[/green] {theme_to_save}")
 
-    try:
-        ensure_mpv_available()
-    except PlayerError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise SystemExit(1) from exc
 
     if args.cli:
         run_cli()

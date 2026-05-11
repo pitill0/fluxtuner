@@ -1,0 +1,32 @@
+name: Flatpak
+
+on:
+  push:
+    branches:
+      - main
+      - feature/flatpak
+  pull_request:
+
+jobs:
+  flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate AppStream metadata
+        run: appstreamcli validate flatpak/io.github.pitill0.Fluxtuner.metainfo.xml
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: fluxtuner.flatpak
+          manifest-path: flatpak/io.github.pitill0.Fluxtuner.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          upload-artifact: true

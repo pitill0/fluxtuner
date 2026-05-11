@@ -3,29 +3,93 @@
   <id>io.github.pitill0.Fluxtuner</id>
 
   <name>FluxTuner</name>
-  <summary>Internet radio player with TUI and GTK interfaces</summary>
+  <summary>Modern internet radio player with GTK and terminal interfaces</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
 
-  <developer_name>Victor Martinez</developer_name>
+  <developer id="io.github.pitill0">
+    <name>Victor Martinez</name>
+  </developer>
 
   <url type="homepage">https://github.com/pitill0/fluxtuner</url>
   <url type="bugtracker">https://github.com/pitill0/fluxtuner/issues</url>
+  <url type="vcs-browser">https://github.com/pitill0/fluxtuner</url>
 
   <description>
     <p>
-      FluxTuner is a modern internet radio player featuring both a Textual TUI
-      and a GTK4 desktop GUI.
+      FluxTuner is a lightweight internet radio player featuring both a modern
+      GTK4 graphical interface and a fast Textual terminal interface.
     </p>
 
     <p>
-      Features include favorites, playlists, live metadata, theme support,
-      playback backend abstraction and estimated data usage tracking.
+      Browse and play thousands of internet radio stations with support for:
+    </p>
+
+    <ul>
+      <li>Favorites and custom tags</li>
+      <li>Dynamic playlists</li>
+      <li>Live stream metadata</li>
+      <li>Theme support</li>
+      <li>Estimated data usage tracking</li>
+      <li>Multiple playback backends (mpv and ffplay)</li>
+    </ul>
+
+    <p>
+      FluxTuner is designed to work well both on modern desktop environments
+      and lightweight Linux systems.
     </p>
   </description>
 
   <launchable type="desktop-id">
     io.github.pitill0.Fluxtuner.desktop
   </launchable>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+
+  <keywords>
+    <keyword>radio</keyword>
+    <keyword>internet radio</keyword>
+    <keyword>streaming</keyword>
+    <keyword>music</keyword>
+    <keyword>tui</keyword>
+    <keyword>gtk</keyword>
+  </keywords>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/pitill0/fluxtuner/main/screenshots/gui-search-dark.png</image>
+      <caption>Search and play internet radio stations</caption>
+    </screenshot>
+
+    <screenshot>
+      <image>https://raw.githubusercontent.com/pitill0/fluxtuner/main/screenshots/gui-favorites.png</image>
+      <caption>Manage favorites, tags and playlists</caption>
+    </screenshot>
+
+    <screenshot>
+      <image>https://raw.githubusercontent.com/pitill0/fluxtuner/main/screenshots/tui-main.png</image>
+      <caption>Fast terminal interface powered by Textual</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.2.1" date="2026-05-11">
+      <description>
+        <ul>
+          <li>Added Flatpak support with GUI and TUI launchers</li>
+          <li>Improved GTK and Textual feature parity</li>
+          <li>Added automatic playback backend detection</li>
+          <li>Improved favorites, tags and playlist management</li>
+          <li>Improved metadata and data usage tracking</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
 </component>

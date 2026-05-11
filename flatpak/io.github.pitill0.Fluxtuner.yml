@@ -18,13 +18,12 @@ finish-args:
   - --env=GTK_IM_MODULE=gtk-im-context-simple
 
 modules:
+  - python3-requirements.json
+
   - name: fluxtuner
     buildsystem: simple
-    build-options:
-      build-args:
-        - --share=network
     build-commands:
-      - pip3 install --prefix=/app .
+      - pip3 install --no-deps --no-build-isolation --prefix=/app .
       - install -Dm644 flatpak/io.github.pitill0.Fluxtuner.desktop /app/share/applications/io.github.pitill0.Fluxtuner.desktop
       - install -Dm644 flatpak/io.github.pitill0.Fluxtuner.TUI.desktop /app/share/applications/io.github.pitill0.Fluxtuner.TUI.desktop
       - install -Dm644 flatpak/io.github.pitill0.Fluxtuner.metainfo.xml /app/share/metainfo/io.github.pitill0.Fluxtuner.metainfo.xml

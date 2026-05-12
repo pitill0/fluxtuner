@@ -22,6 +22,13 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ---
 
+
+## [0.2.2] - 2026-05-12
+
+### Changed
+
+- Add Flatpak support
+
 ## [0.2.1] - 2026-05-08
 
 ### Changed

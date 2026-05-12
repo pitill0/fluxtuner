@@ -67,21 +67,26 @@ def choose_station(stations: list[dict[str, Any]]) -> dict[str, Any] | None:
     return stations[index]
 
 
-def play_station(station: dict[str, Any], player_name: str | None = None) -> None:
+def play_station(
+    station: dict[str, Any],
+    player_name: str | None = None,
+    player: Any | None = None,
+) -> Any | None:
     if not station.get("url"):
         console.print("[red]This station has no playable URL.[/red]")
-        return
+        return player
 
     try:
-        player = create_player(player_name)
+        active_player = player or create_player(player_name)
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Player error:[/red] {exc}")
-        return
+        return player
 
     console.print(f"\n[bold green]Playing:[/bold green] {station['name']}")
-    player.play(station["url"])
+    active_player.play(station["url"])
+    return active_player
 
-def search_flow(player_name: str | None = None) -> None:
+def search_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
     query = input("Search station by name: ").strip()
     if not query:
         return
@@ -96,15 +101,16 @@ def search_flow(player_name: str | None = None) -> None:
     if not station:
         return
 
-    play_station(station, player_name)
+    player = play_station(station, player_name, player)
 
     save = input("Save to favorites? [y/N]: ").strip().lower()
     if save == "y":
         add_favorite(station)
         console.print("[green]Saved to favorites.[/green]")
+    return player
 
 
-def favorites_flow() -> None:
+def favorites_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
     favorites = load_favorites()
     station = choose_station(favorites)
     if not station:
@@ -115,13 +121,14 @@ def favorites_flow() -> None:
     choice = input("> ").strip()
 
     if choice == "1":
-        play_station(station)
+        return play_station(station, player_name, player)
     elif choice == "2":
         remove_favorite(station["url"])
         console.print("[green]Removed from favorites.[/green]")
+    return player
 
 
-def random_favorite_flow() -> None:
+def random_favorite_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
     favorites = load_favorites()
     if not favorites:
         console.print("[yellow]No favorites yet.[/yellow]")
@@ -129,29 +136,35 @@ def random_favorite_flow() -> None:
 
     station = random.choice(favorites)
     console.print(f"[cyan]Random favorite:[/cyan] {station['name']}")
-    play_station(station)
+    return play_station(station, player_name, player)
 
 
 def run_cli(player_name: str | None = None) -> None:
-    while True:
-        console.print("\n[bold cyan]FluxTuner CLI[/bold cyan]")
-        console.print("1. Search stations")
-        console.print("2. Favorites")
-        console.print("3. Random favorite")
-        console.print("4. Exit")
+    player: Any | None = None
 
-        choice = input("> ").strip()
+    try:
+        while True:
+            console.print("\n[bold cyan]FluxTuner CLI[/bold cyan]")
+            console.print("1. Search stations")
+            console.print("2. Favorites")
+            console.print("3. Random favorite")
+            console.print("4. Exit")
 
-        if choice == "1":
-            search_flow(player_name)
-        elif choice == "2":
-            favorites_flow()
-        elif choice == "3":
-            random_favorite_flow()
-        elif choice == "4":
-            break
-        else:
-            console.print("[yellow]Unknown option.[/yellow]")
+            choice = input("> ").strip()
+
+            if choice == "1":
+                player = search_flow(player_name, player)
+            elif choice == "2":
+                player = favorites_flow(player_name, player)
+            elif choice == "3":
+                player = random_favorite_flow(player_name, player)
+            elif choice == "4":
+                break
+            else:
+                console.print("[yellow]Unknown option.[/yellow]")
+    finally:
+        if player is not None:
+            player.stop()
 
 
 def main() -> None:

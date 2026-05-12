@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import os
+import signal
 from typing import Any
 
 
@@ -39,6 +41,7 @@ class FfplayController:
             command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
 
     def stop(self) -> None:
@@ -46,11 +49,14 @@ class FfplayController:
             return
 
         if self.process.poll() is None:
-            self.process.terminate()
             try:
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
                 self.process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
+            except Exception:
+                try:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                except Exception:
+                    self.process.kill()
                 self.process.wait(timeout=3)
 
         self.process = None
@@ -87,12 +93,11 @@ class FfplayController:
             "volume": self.volume,
         }
 
-
     def supports_pause(self) -> bool:
         return False
 
     def supports_volume(self) -> bool:
-        return True
+        return False
 
     def supports_mute(self) -> bool:
         return False

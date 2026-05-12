@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from fluxtuner.paths import config_file, migrate_legacy_file
 from typing import Any
 
 APP_NAME = "fluxtuner"
-CONFIG_DIR = Path.home() / ".config" / APP_NAME
-CONFIG_FILE = CONFIG_DIR / "config.json"
+LEGACY_CONFIG_FILE = Path.home() / ".config" / APP_NAME / "config.json"
+CONFIG_FILE = config_file("config.json")
+migrate_legacy_file(LEGACY_CONFIG_FILE, CONFIG_FILE)
 DEFAULT_CONFIG: dict[str, Any] = {
     "theme": "default",
     "playback": {
@@ -35,7 +37,7 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     """Persist user configuration."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
 
 

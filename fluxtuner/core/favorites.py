@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from fluxtuner.paths import data_file, migrate_legacy_file
 from typing import Any
 
-FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
+LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
+FAVORITES_FILE = data_file("favorites.json")
+migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
 
 def station_key(station: dict[str, Any]) -> str | None:

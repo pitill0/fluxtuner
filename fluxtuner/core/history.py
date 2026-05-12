@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from fluxtuner.paths import data_file, migrate_legacy_file
 from typing import Any
 
-HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
+LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
+HISTORY_FILE = data_file("history.json")
+migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
 MAX_HISTORY_ITEMS = 100
 
 

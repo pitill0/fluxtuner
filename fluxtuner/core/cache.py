@@ -4,6 +4,7 @@ import json
 import os
 import time
 from pathlib import Path
+from fluxtuner.paths import CACHE_DIR
 from typing import Any
 
 APP_NAME = "fluxtuner"
@@ -14,7 +15,7 @@ def cache_dir() -> Path:
     base = os.environ.get("XDG_CACHE_HOME")
     if base:
         return Path(base) / APP_NAME
-    return Path.home() / ".cache" / APP_NAME
+    return CACHE_DIR
 
 
 CACHE_FILE = cache_dir() / "search_cache.json"

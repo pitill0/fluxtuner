@@ -132,7 +132,7 @@ def random_favorite_flow() -> None:
     play_station(station)
 
 
-def run_cli() -> None:
+def run_cli(player_name: str | None = None) -> None:
     while True:
         console.print("\n[bold cyan]FluxTuner CLI[/bold cyan]")
         console.print("1. Search stations")
@@ -143,7 +143,7 @@ def run_cli() -> None:
         choice = input("> ").strip()
 
         if choice == "1":
-            search_flow(args.player)
+            search_flow(player_name)
         elif choice == "2":
             favorites_flow()
         elif choice == "3":
@@ -323,7 +323,7 @@ def main() -> None:
 
 
     if args.cli:
-        run_cli()
+        run_cli(args.player)
         return
 
     try:

@@ -4,10 +4,13 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
+from fluxtuner.paths import data_file, migrate_legacy_file
 from typing import Any
 
 
-USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
+LEGACY_USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
+USAGE_FILE = data_file("usage.json")
+migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
 
 
 def _today_key() -> str:

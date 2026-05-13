@@ -10,7 +10,7 @@ from typing import Any
 
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
@@ -120,7 +120,7 @@ class FluxTunerTUI(App[None]):
             yield Button("Clear filters", id="clear-filters", classes="toolbar-button secondary-button")
         with Horizontal(id="content"):
             yield DataTable(id="stations", cursor_type="row", zebra_stripes=True)
-            with Vertical(id="side-panel"):
+            with VerticalScroll(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
                 yield Static("[b]Metadata[/b]\nArtist: —\nTrack: —", id="metadata")

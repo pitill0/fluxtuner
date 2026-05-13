@@ -103,7 +103,8 @@ DataTable > .datatable--hover {
 
 #side-panel {
     width: 1fr;
-    min-width: 44;
+    min-width: 30;
+    max-width: 48;
     border: solid #38bdf8;
     padding: 1;
     background: #111827;
@@ -117,8 +118,8 @@ DataTable > .datatable--hover {
 }
 
 #now-playing {
-    height: 12;
-    min-height: 12;
+    min-height: 6;
+    max-height: 12;
     width: 100%;
     border: round #22c55e;
     padding: 1;

@@ -63,7 +63,7 @@ class FluxTunerTUI(App[None]):
         ("b", "add_to_playlist", "Add playlist"),
         ("n", "new_playlist", "New playlist"),
         ("r", "play_random_favorite", "Random"),
-        ("space", "toggle_pause", "Pause"),
+        ("space", "toggle_pause", "Pause/Stop"),
         ("plus", "volume_up", "Vol+"),
         ("minus", "volume_down", "Vol-"),
         ("m", "toggle_mute", "Mute"),
@@ -261,13 +261,40 @@ class FluxTunerTUI(App[None]):
     def action_stop(self) -> None:
         self.stop_playback()
 
+    def player_supports_pause(self) -> bool:
+        supports_pause = getattr(self.player, "supports_pause", None)
+        if not callable(supports_pause):
+            return True
+        try:
+            return bool(supports_pause())
+        except Exception:  # noqa: BLE001
+            return True
+
     def action_toggle_pause(self) -> None:
+        if not self.player_supports_pause():
+            if self.player.is_playing():
+                self.stop_playback()
+                self.set_status(
+                    f"{self.player_backend_name} does not support pause/resume. "
+                    "Playback stopped. Press Enter or Play to start again."
+                )
+            else:
+                self.set_status(
+                    f"{self.player_backend_name} does not support pause/resume. "
+                    "Select a station and press Enter or Play."
+                )
+            self.update_now_playing()
+            self.update_play_button()
+            return
+
         try:
             self.player.toggle_pause()
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Pause/resume failed: {exc}")
             return
+
         self.update_now_playing()
+        self.update_play_button()
         self.set_status("Toggled pause/resume.")
 
     def action_toggle_mute(self) -> None:
@@ -840,6 +867,9 @@ class FluxTunerTUI(App[None]):
 
     def update_play_button(self) -> None:
         button = self.query_one("#play", Button)
+
+        if self.player.is_playing() and not self.player_supports_pause():
+            button.label = "■ Stop"
 
         if not self.selected_station:
             button.label = "▶ Play"

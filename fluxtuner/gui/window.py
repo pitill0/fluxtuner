@@ -348,6 +348,7 @@ class MainWindow(Gtk.ApplicationWindow):
         for station in load_favorites():
             values.update(self._station_tag_values(station))
         return sorted(values)
+
     def _build_playlist_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Playlists")
 
@@ -595,12 +596,45 @@ class MainWindow(Gtk.ApplicationWindow):
         player_command(command)
         return True
 
+    def _player_supports_pause(self) -> bool:
+        supports_pause = getattr(self.player, "supports_pause", None)
+        if not callable(supports_pause):
+            return True
+
+        try:
+            return bool(supports_pause())
+        except Exception:  # noqa: BLE001
+            return True
+
     def on_play_pause_clicked(self, _button: Gtk.Button) -> None:
         if self._has_active_playback():
-            self.toggle_pause()
+            self._toggle_pause_or_stop()
             return
 
         self.play_selected_station()
+
+    def _toggle_pause_or_stop(self) -> None:
+        if not self._has_active_playback():
+            self.status_label.set_text("Nothing is playing.")
+            return
+
+        if not self._player_supports_pause():
+            self.on_stop_clicked(self.play_button)
+            self.status_label.set_text(
+                f"{self.player_backend_name} does not support pause/resume. Playback stopped."
+            )
+            return
+
+        try:
+            if not self._send_player_command(["cycle", "pause"]):
+                self.player.toggle_pause()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            self._playback_command_failed("Pause", exc)
+            return
+
+        self.update_player_state()
+        self._update_play_pause_button()
+        self.status_label.set_text("Toggled pause/resume")
 
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         if self._has_active_playback():
@@ -741,30 +775,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._start_metadata_polling()
 
     def toggle_pause(self) -> None:
-        try:
-            if not self._send_player_command(["cycle", "pause"]):
-                self.player.toggle_pause()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self._playback_command_failed("Pause", exc)
-            return
-
-        self.update_player_state()
-        self.status_label.set_text("Toggled pause/resume")
+        self._toggle_pause_or_stop()
 
     def on_pause_clicked(self, _button: Gtk.Button) -> None:
-        if not self._has_active_playback():
-            self.status_label.set_text("Nothing is playing.")
-            return
-
-        try:
-            if not self._send_player_command(["cycle", "pause"]):
-                self.player.toggle_pause()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self._playback_command_failed("Pause", exc)
-            return
-
-        self.update_player_state()
-        self.status_label.set_text("Toggled pause/resume")
+        self._toggle_pause_or_stop()
 
     def on_mute_clicked(self, _button: Gtk.Button) -> None:
         if not self._has_active_playback():
@@ -1160,12 +1174,14 @@ class MainWindow(Gtk.ApplicationWindow):
     def _update_play_pause_button(self) -> None:
         if not hasattr(self, "play_button"):
             return
+
         if self._has_active_playback():
             self.play_button.set_label("■ Stop")
             self.play_button.set_tooltip_text("Stop playback")
-        else:
-            self.play_button.set_label("▶ Play")
-            self.play_button.set_tooltip_text("Play selected station")
+            return
+
+        self.play_button.set_label("▶ Play")
+        self.play_button.set_tooltip_text("Play selected station")
 
     def _ensure_usage_timer(self) -> None:
         """Refresh the data usage label while playback is active."""

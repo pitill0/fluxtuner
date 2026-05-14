@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 import os
-
 from pathlib import Path
 
 os.environ.setdefault("GSK_RENDERER", "cairo")
 
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Gdk", "4.0")
-
-from gi.repository import Gdk, Gtk
-
-from fluxtuner.gui.window import MainWindow
-
 def load_stylesheet() -> None:
+    import gi
+
+    gi.require_version("Gdk", "4.0")
+    gi.require_version("Gtk", "4.0")
+
+    from gi.repository import Gdk, Gtk
+
     css_path = Path(__file__).with_name("style.css")
     if not css_path.exists():
         return
@@ -38,7 +35,9 @@ def run_gui(player_name: str = "mpv") -> None:
     try:
         import gi
 
+        gi.require_version("Gdk", "4.0")
         gi.require_version("Gtk", "4.0")
+
         from gi.repository import Gio, Gtk, Gdk
     except Exception as exc:  # pragma: no cover - depends on system GTK
         raise RuntimeError(

@@ -379,7 +379,7 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_buttons.append(self.show_tags_button)
 
         self.clear_playlist_button = Gtk.Button(label="Clear")
-        self.clear_playlist_button.set_tooltip_text("Clear playlist filter and restore last search results")
+        self.clear_playlist_button.set_tooltip_text("Clear playlist filter and show all favorites")
         self.clear_playlist_button.connect("clicked", self.on_clear_playlist_filter_clicked)
         playlist_buttons.append(self.clear_playlist_button)
 
@@ -976,23 +976,24 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_playlist_status()
         self.play_selected_station()
 
-
     def on_clear_playlist_filter_clicked(self, _button: Gtk.Button) -> None:
         self.active_playlist_tag = None
         if hasattr(self, "playlist_tag_entry"):
             self.playlist_tag_entry.set_text("")
 
-        if self.last_search_results:
-            self.stations = self.last_search_results
-            self.status_label.set_text(f"Restored {len(self.stations)} search result(s).")
-        else:
-            self.stations = []
-            self.status_label.set_text("Playlist filter cleared.")
-
+        self._refresh_favorite_cache()
+        self.stations = load_favorites()
         self.selected_station = None
+
         self._render_results()
         self._update_favorite_buttons()
         self._update_playlist_status()
+
+        count = len(self.stations)
+        if count:
+            self.status_label.set_text(f"Showing {count} favorite station(s).")
+        else:
+            self.status_label.set_text("No favorite stations yet.")
 
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()

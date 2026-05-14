@@ -5,7 +5,8 @@ import random
 from pathlib import Path
 from typing import Any
 
-from fluxtuner.core.favorites import favorite_display_name, load_favorites, station_key
+from fluxtuner.core.favorites import favorite_display_name, load_favorites
+from fluxtuner.core.stations import station_key
 from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_PLAYLISTS_FILE = Path.home() / ".fluxtuner_playlists.json"

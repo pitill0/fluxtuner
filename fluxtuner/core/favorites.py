@@ -3,16 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from fluxtuner.paths import data_file, migrate_legacy_file
+from fluxtuner.core.stations import station_key, station_name
 from typing import Any
 
 LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
 FAVORITES_FILE = data_file("favorites.json")
 migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
-
-
-def station_key(station: dict[str, Any]) -> str | None:
-    """Return the stable favorite key for a station."""
-    return station.get("url_resolved") or station.get("url")
 
 
 def load_favorites() -> list[dict[str, Any]]:
@@ -65,7 +61,7 @@ def favorite_display_name(station: dict[str, Any]) -> str:
     custom_name = station.get("custom_name")
     if isinstance(custom_name, str) and custom_name.strip():
         return custom_name.strip()
-    return str(station.get("name") or "Unknown station")
+    return station_name(station)
 
 
 def add_favorite(station: dict[str, Any]) -> bool:

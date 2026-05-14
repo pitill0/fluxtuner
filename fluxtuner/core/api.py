@@ -129,6 +129,7 @@ def search_stations_filtered(
     Bitrate is applied locally after fetching a larger candidate set so that a
     high minimum bitrate does not accidentally hide valid results.
     """
+    from fluxtuner.core.stations import station_key
     query = (query or "").strip()
     country = country.strip() if country else None
 
@@ -194,7 +195,7 @@ def search_stations_filtered(
     for items in raw_batches:
         for item in items:
             station = normalize_station(item)
-            url = station.get("url_resolved") or station.get("url")
+            url = station_key(station)
             if not url or url in seen_urls:
                 continue
             if not _matches_country(station, country):

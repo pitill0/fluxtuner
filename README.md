@@ -1,7 +1,7 @@
 # FluxTuner
 
 ![Version](https://img.shields.io/badge/version-0.2.0-blue)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
 ![Player](https://img.shields.io/badge/player-mpv-orange)
@@ -75,7 +75,7 @@ Built with Python and focused on speed, usability and modularity.
 
 FluxTuner requires:
 
-- Python 3.10+
+- Python 3.11+
 - `mpv` or `ffmpeg` / `ffplay`
 - A terminal emulator with good Unicode support
 

@@ -9,27 +9,30 @@ APP_NAME = "fluxtuner"
 LEGACY_CONFIG_FILE = Path.home() / ".config" / APP_NAME / "config.json"
 CONFIG_FILE = config_file("config.json")
 migrate_legacy_file(LEGACY_CONFIG_FILE, CONFIG_FILE)
-DEFAULT_CONFIG: dict[str, Any] = {
-    "theme": "default",
-    "playback": {
-        "last_station": None,
-        "volume": None,
-        "muted": False,
-    },
-}
+
+
+def default_config() -> dict[str, Any]:
+    return {
+        "theme": "default",
+        "playback": {
+            "last_station": None,
+            "volume": None,
+            "muted": False,
+        },
+    }
 
 
 def load_config() -> dict[str, Any]:
     """Load user configuration from ~/.config/fluxtuner/config.json."""
     if not CONFIG_FILE.exists():
-        return DEFAULT_CONFIG.copy()
+        return return_config()
 
     try:
         data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return DEFAULT_CONFIG.copy()
+        return default_config()
 
-    config = DEFAULT_CONFIG.copy()
+    config = default_config()
     if isinstance(data, dict):
         config.update(data)
     return config

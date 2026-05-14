@@ -22,6 +22,28 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ---
 
+## [0.2.5] - 2026-05-14
+
+### Changed
+
+- Centralized station helper logic shared by TUI and GTK GUI.
+- Improved player backend interface consistency.
+- Made GTK imports lazy so TUI usage does not require GUI imports.
+- Made legacy user data migration safer by preserving old files.
+- Improved configuration defaults handling.
+
+### Fixed
+
+- Preserved resolved station URLs during station normalization.
+- Fixed project version metadata consistency.
+- Fixed remaining Ruff findings across the package.
+- Fixed CI quality checks for push and pull request workflows.
+
+### Added
+
+- GitHub Actions CI for Ruff and Python compile checks.
+
+---
 
 ## [0.2.2] - 2026-05-12
 

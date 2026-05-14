@@ -15,13 +15,14 @@ from fluxtuner.core.api import search_stations_filtered  # noqa: E402
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
+    all_favorite_tags,
     favorite_display_name,
+    filter_favorites_by_tag,
     load_favorites,
     remove_favorite,
     update_favorite,
 )
 from fluxtuner.core.stations import (  # noqa: E402
-    all_station_tags,
     same_station,
     station_key,
     station_tags,
@@ -324,24 +325,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show_favorites_button.connect('clicked', self.on_show_favorites_clicked)
         favorite_controls.append(self.show_favorites_button)
 
-    def _station_tag_values(self, station: dict[str, Any]) -> set[str]:
-        return all_station_tags(station)
-
     def _favorites_matching_tag(self, tag: str) -> list[dict[str, Any]]:
-        clean_tag = tag.strip().lower()
-        if not clean_tag:
-            return load_favorites()
-        return [
-            station
-            for station in load_favorites()
-            if clean_tag in self._station_tag_values(station)
-        ]
+        return filter_favorites_by_tag(tag)
 
     def _all_gui_tags(self) -> list[str]:
-        values: set[str] = set()
-        for station in load_favorites():
-            values.update(self._station_tag_values(station))
-        return sorted(values)
+        return all_favorite_tags()
 
     def _build_playlist_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Playlists")
@@ -354,7 +342,7 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_controls.append(self.playlist_status_label)
 
         self.playlist_tag_entry = Gtk.Entry()
-        self.playlist_tag_entry.set_placeholder_text("Tag")
+        self.playlist_tag_entry.set_placeholder_text("Favorite tag")
         self.playlist_tag_entry.set_hexpand(True)
         self.playlist_tag_entry.connect("activate", self.on_show_tag_playlist_clicked)
         playlist_controls.append(self.playlist_tag_entry)
@@ -364,7 +352,7 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_controls.append(playlist_buttons)
 
         self.show_tag_playlist_button = Gtk.Button(label="Show")
-        self.show_tag_playlist_button.set_tooltip_text("Show favorites matching the selected tag")
+        self.show_tag_playlist_button.set_tooltip_text("Show favorites matching the selected favorite tag")
         self.show_tag_playlist_button.connect("clicked", self.on_show_tag_playlist_clicked)
         playlist_buttons.append(self.show_tag_playlist_button)
 
@@ -374,7 +362,7 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_buttons.append(self.random_tag_button)
 
         self.show_tags_button = Gtk.Button(label="Tags")
-        self.show_tags_button.set_tooltip_text("Show available favorite tags")
+        self.show_tags_button.set_tooltip_text("Show available custom favorite tags")
         self.show_tags_button.connect("clicked", self.on_show_tags_clicked)
         playlist_buttons.append(self.show_tags_button)
 
@@ -927,9 +915,9 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_show_tags_clicked(self, _button: Gtk.Button) -> None:
         tags = self._all_gui_tags()
         if not tags:
-            self.status_label.set_text("No tags found in favorites yet.")
+            self.status_label.set_text("No custom favorite tags found yet.")
             return
-        self.status_label.set_text("Tags: " + ", ".join(tags))
+        self.status_label.set_text("Favorite tags: " + ", ".join(tags))
 
     def on_show_tag_playlist_clicked(self, _widget: Gtk.Widget) -> None:
         tag = self._playlist_tag_value()
@@ -938,7 +926,7 @@ class MainWindow(Gtk.ApplicationWindow):
             if tags:
                 self.status_label.set_text("Type a tag. Available: " + ", ".join(tags))
             else:
-                self.status_label.set_text("No tags found in favorites yet.")
+                self.status_label.set_text("No custom favorite tags found yet.")
             return
 
         stations = self._favorites_matching_tag(tag)
@@ -949,7 +937,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._render_results()
         self._update_favorite_buttons()
         self._update_playlist_status()
-        self.status_label.set_text(f"Loaded {len(stations)} favorite station(s) for tag: {tag}")
+        self.status_label.set_text(f"Loaded {len(stations)} favorite station(s) for favorite tag: {tag}")
 
     def on_random_tag_clicked(self, _button: Gtk.Button) -> None:
         import random
@@ -965,7 +953,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         stations = self._favorites_matching_tag(tag)
         if not stations:
-            self.status_label.set_text(f"No favorite stations found for tag: {tag}")
+            self.status_label.set_text(f"No favorite stations found for favorite tag: {tag}")
             return
 
         self.active_playlist_tag = tag

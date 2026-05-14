@@ -4,11 +4,13 @@ from typing import Any
 
 import requests
 
+from fluxtuner import __version__
 from fluxtuner.core.cache import get_cached_search, make_search_key, set_cached_search
 
 BASE_URL = "https://de1.api.radio-browser.info/json"
+
 DEFAULT_HEADERS = {
-    "User-Agent": "FluxTuner/0.1 (+https://github.com/pitill0/fluxtuner)"
+    "User-Agent": f"FluxTuner/{__version__} (+https://github.com/pitill0/fluxtuner)"
 }
 
 

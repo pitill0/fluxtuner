@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from contextlib import suppress
 from typing import Any
 
 import gi
@@ -10,9 +11,9 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
-from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
-from fluxtuner.core.favorites import (
+from fluxtuner.core.api import search_stations_filtered  # noqa: E402
+from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
+from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
     favorite_display_name,
     load_favorites,
@@ -20,15 +21,15 @@ from fluxtuner.core.favorites import (
     save_favorites,
     update_favorite,
 )
-from fluxtuner.core.stations import (
+from fluxtuner.core.stations import (  # noqa: E402
     all_station_tags,
     same_station,
     station_key,
     station_tags,
     station_url,
 )
-from fluxtuner.core.stream_metadata import fetch_stream_metadata
-from fluxtuner.players import create_player, selected_player_name
+from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
+from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 DEFAULT_SEARCH = ""
 
@@ -1200,11 +1201,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self.usage_tracker.stop()
-        try:
+        with suppress(Exception):
             self.player.stop()
-        except Exception:
-            pass
-        return False
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):

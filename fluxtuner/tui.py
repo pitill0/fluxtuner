@@ -744,10 +744,7 @@ class FluxTunerTUI(App[None]):
 
     def station_custom_tags(self, station: dict[str, Any], max_length: int = 28) -> str:
         tags = station.get("favorite_tags") or station.get("tags_custom") or []
-        if isinstance(tags, str):
-            value = tags
-        else:
-            value = ", ".join(str(tag) for tag in tags)
+        value = tags if isinstance(tags, str) else ", ".join(str(tag) for tag in tags)
         return self._ellipsize(value if value else "-", max_length)
 
     def station_marker(self, station: dict[str, Any]) -> str:
@@ -815,7 +812,7 @@ class FluxTunerTUI(App[None]):
 
     def _select_station_by_url(self, station_url: str) -> None:
         table = self.query_one("#stations", DataTable)
-        for row_index, (key, (kind, payload)) in enumerate(self.table_items.items()):
+        for row_index, (_unused_key, (kind, payload)) in enumerate(self.table_items.items()):
             if kind != "station":
                 continue
             if self.station_url(payload) != station_url:
@@ -1344,15 +1341,11 @@ class FluxTunerTUI(App[None]):
     def apply_restored_playback_preferences(self) -> None:
         """Apply saved volume and mute values to a newly started mpv session."""
         if self.restored_volume is not None:
-            try:
+            with suppress(Exception):
                 self.player.set_volume(self.restored_volume)
-            except Exception:
-                pass
         if self.restored_muted is not None:
-            try:
+            with suppress(Exception):
                 self.player.set_mute(self.restored_muted)
-            except Exception:
-                pass
 
     def persist_player_state(self, last_station: dict[str, Any] | None = None) -> None:
         """Persist last station, volume and mute state when available."""
@@ -1436,10 +1429,8 @@ class FluxTunerTUI(App[None]):
             now_playing.styles.overflow = "hidden"
             now_playing.styles.text_overflow = "ellipsis"
             # Textual versions differ here; ignore unsupported style names.
-            try:
+            with suppress(Exception):
                 now_playing.styles.white_space = "normal"
-            except Exception:
-                pass
         except Exception:
             pass
 

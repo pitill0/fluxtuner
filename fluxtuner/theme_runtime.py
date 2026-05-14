@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -95,11 +96,9 @@ def _parse_border(value: str) -> tuple[str, str] | None:
 
 
 def _set_if_supported(styles: Any, attr: str, value: Any) -> None:
-    try:
+    # Different Textual versions may support a slightly different style set.
+    with suppress(Exception):
         setattr(styles, attr, value)
-    except Exception:
-        # Different Textual versions may support a slightly different style set.
-        pass
 
 
 def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:

@@ -26,7 +26,7 @@ def default_config() -> dict[str, Any]:
 def load_config() -> dict[str, Any]:
     """Load user configuration from ~/.config/fluxtuner/config.json."""
     if not CONFIG_FILE.exists():
-        return return_config()
+        return default_config()
 
     try:
         data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))

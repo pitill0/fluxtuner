@@ -7,6 +7,7 @@ import socket
 import subprocess
 import tempfile
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,10 +33,8 @@ def play_stream(url: str) -> None:
     """Play a stream URL using mpv and block until mpv exits."""
     ensure_mpv_available()
 
-    try:
+    with suppress(KeyboardInterrupt):
         subprocess.run(["mpv", "--no-video", url], check=False)  # noqa: S603
-    except KeyboardInterrupt:
-        pass
 
 
 @dataclass
@@ -208,10 +207,8 @@ class MpvController(PlayerAdapter):
 
     def _cleanup_ipc_socket(self) -> None:
         if self.ipc_path and self.ipc_path.exists():
-            try:
+            with suppress(OSError):
                 self.ipc_path.unlink()
-            except OSError:
-                pass
         self.ipc_path = None
 
 

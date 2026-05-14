@@ -31,3 +31,9 @@ Thumbs.db
 
 # Local app data
 .fluxtuner_favorites.json
+
+# Flatpak build artifacts
+.flatpak-builder/
+flatpak/.flatpak-builder/
+flatpak/build-dir/
+build-dir/

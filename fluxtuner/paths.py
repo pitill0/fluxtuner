@@ -40,13 +40,18 @@ def cache_file(name: str) -> Path:
 
 
 def migrate_legacy_file(legacy_path: Path, new_path: Path) -> None:
+    """Copy a legacy user file into the current XDG location if needed.
+
+    The legacy file is intentionally kept in place. User data migrations should
+    be conservative: copying avoids data loss if the new location later turns
+    out to be wrong, sandboxed or incomplete.
+    """
     if new_path.exists() or not legacy_path.exists():
         return
 
     new_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        legacy_path.replace(new_path)
-    except OSError:
         new_path.write_bytes(legacy_path.read_bytes())
-        legacy_path.unlink()
+    except OSError:
+        return

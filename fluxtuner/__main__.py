@@ -334,9 +334,21 @@ def main() -> None:
         selected_theme = theme_to_save
         console.print(f"[green]Saved default theme:[/green] {theme_to_save}")
 
-
     if args.cli:
         run_cli(args.player)
+        return
+
+    if args.gui:
+        try:
+            from fluxtuner.gui.app import run_gui
+        except ImportError as exc:
+            console.print(
+                "[red]GTK GUI dependencies are not available.[/red]\n"
+                "Install FluxTuner with GUI support or run the TUI without --gui."
+            )
+            raise SystemExit(1) from exc
+
+        run_gui(player_name=args.player)
         return
 
     try:
@@ -349,15 +361,7 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    from fluxtuner.gui.app import run_gui
+    run_tui(theme=selected_theme, player_name=args.player)
 
-
-    if args.gui:
-
-        run_gui(player_name=getattr(args, 'player', 'mpv'))
-
-    else:
-
-        run_tui(theme=selected_theme, player_name=args.player)
 if __name__ == "__main__":
     main()

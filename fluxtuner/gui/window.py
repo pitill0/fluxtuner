@@ -426,17 +426,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _station_url(self, station: dict[str, Any] | None) -> str | None:
         return station_url(station)
 
-    def _station_label(self, station: dict[str, Any]) -> str:
-        name = station.get("name") or "Unknown station"
-        country = station.get("country") or "Unknown"
-        return f"{name}\n{country}"
-
-    def _station_detail(self, station: dict[str, Any]) -> str:
-        codec = station.get("codec") or "?"
-        bitrate = station.get("bitrate") or 0
-        tags = station.get("tags") or "No tags"
-        return f"{codec} | {bitrate} kbps\n{tags}"
-
     def _clear_results(self) -> None:
         child = self.results_list.get_first_child()
         while child is not None:
@@ -598,36 +587,6 @@ class MainWindow(Gtk.ApplicationWindow):
         except Exception:  # noqa: BLE001
             return True
 
-    def on_play_pause_clicked(self, _button: Gtk.Button) -> None:
-        if self._has_active_playback():
-            self._toggle_pause_or_stop()
-            return
-
-        self.play_selected_station()
-
-    def _toggle_pause_or_stop(self) -> None:
-        if not self._has_active_playback():
-            self.status_label.set_text("Nothing is playing.")
-            return
-
-        if not self._player_supports_pause():
-            self.on_stop_clicked(self.play_button)
-            self.status_label.set_text(
-                f"{self.player_backend_name} does not support pause/resume. Playback stopped."
-            )
-            return
-
-        try:
-            if not self._send_player_command(["cycle", "pause"]):
-                self.player.toggle_pause()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self._playback_command_failed("Pause", exc)
-            return
-
-        self.update_player_state()
-        self._update_play_pause_button()
-        self.status_label.set_text("Toggled pause/resume")
-
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         if self._has_active_playback():
             self.on_stop_clicked(_button)
@@ -765,12 +724,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.tags_detail_label.set_text(station.get("tags") or "No tags")
 
         self._start_metadata_polling()
-
-    def toggle_pause(self) -> None:
-        self._toggle_pause_or_stop()
-
-    def on_pause_clicked(self, _button: Gtk.Button) -> None:
-        self._toggle_pause_or_stop()
 
     def on_mute_clicked(self, _button: Gtk.Button) -> None:
         if not self._has_active_playback():

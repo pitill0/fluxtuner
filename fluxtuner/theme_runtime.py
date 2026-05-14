@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from textual.app import App
-from textual.widgets import Button, DataTable, Footer, Header, Input, Static
+from textual.widgets import Button, Footer, Header
 
 from fluxtuner.themes import get_theme_path
 

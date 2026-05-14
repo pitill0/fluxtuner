@@ -4,8 +4,9 @@ import json
 import os
 import time
 from pathlib import Path
-from fluxtuner.paths import CACHE_DIR
 from typing import Any
+
+from fluxtuner.paths import CACHE_DIR
 
 APP_NAME = "fluxtuner"
 CACHE_TTL_SECONDS = 6 * 60 * 60

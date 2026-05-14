@@ -10,6 +10,7 @@ from typing import Any
 
 from fluxtuner.players.base import PlayerAdapter
 
+
 class FfplayController(PlayerAdapter):
     name = "ffplay"
 

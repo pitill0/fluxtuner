@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from fluxtuner.paths import config_file, migrate_legacy_file
 from typing import Any
+
+from fluxtuner.paths import config_file, migrate_legacy_file
 
 APP_NAME = "fluxtuner"
 LEGACY_CONFIG_FILE = Path.home() / ".config" / APP_NAME / "config.json"

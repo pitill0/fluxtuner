@@ -4,9 +4,9 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from fluxtuner.paths import data_file, migrate_legacy_file
 from typing import Any
 
+from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
 USAGE_FILE = data_file("usage.json")

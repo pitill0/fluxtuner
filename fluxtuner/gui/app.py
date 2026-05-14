@@ -38,7 +38,7 @@ def run_gui(player_name: str = "mpv") -> None:
         gi.require_version("Gdk", "4.0")
         gi.require_version("Gtk", "4.0")
 
-        from gi.repository import Gio, Gtk, Gdk
+        from gi.repository import Gio, Gtk
     except Exception as exc:  # pragma: no cover - depends on system GTK
         raise RuntimeError(
             "GTK GUI dependencies are not available. "

@@ -11,8 +11,6 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.players import create_player, selected_player_name
-from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
     add_favorite,
@@ -29,6 +27,8 @@ from fluxtuner.core.stations import (
     station_tags,
     station_url,
 )
+from fluxtuner.core.stream_metadata import fetch_stream_metadata
+from fluxtuner.players import create_player, selected_player_name
 
 DEFAULT_SEARCH = ""
 

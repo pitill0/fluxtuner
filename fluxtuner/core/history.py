@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from fluxtuner.paths import data_file, migrate_legacy_file
 from typing import Any
+
+from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
 HISTORY_FILE = data_file("history.json")
@@ -42,7 +43,7 @@ def add_history(station: dict[str, Any]) -> None:
     if not station.get("url"):
         return
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     key = _station_key(station)
     history = load_history()
 

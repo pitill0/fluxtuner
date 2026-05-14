@@ -9,18 +9,18 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
+from fluxtuner import __version__
+from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner.core.api import normalize_station, search_stations
+from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
-from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
     create_player,
     selected_player_name,
 )
-from fluxtuner.config import get_config_value, set_config_value
-from fluxtuner import __version__
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
 
 console = Console()

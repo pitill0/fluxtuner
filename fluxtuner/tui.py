@@ -2,21 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import random
-from contextlib import suppress
 import textwrap
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
-from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.core.favorites import (
     add_favorite,
     all_favorite_tags,
@@ -25,13 +24,6 @@ from fluxtuner.core.favorites import (
     load_favorites,
     remove_favorite,
     update_favorite,
-)
-from fluxtuner.core.stations import (
-    station_bitrate,
-    station_key,
-    station_short_id as core_station_short_id,
-    station_tags,
-    station_url as core_station_url,
 )
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.manual_playlists import (
@@ -45,6 +37,18 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
+from fluxtuner.core.stations import (
+    station_bitrate,
+    station_key,
+    station_tags,
+)
+from fluxtuner.core.stations import (
+    station_short_id as core_station_short_id,
+)
+from fluxtuner.core.stations import (
+    station_url as core_station_url,
+)
+from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists

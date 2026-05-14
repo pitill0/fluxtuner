@@ -5,7 +5,6 @@ from typing import Any
 
 import requests
 
-
 ICY_HEADER = {"Icy-MetaData": "1"}
 
 

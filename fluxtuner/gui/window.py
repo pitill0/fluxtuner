@@ -577,16 +577,6 @@ class MainWindow(Gtk.ApplicationWindow):
         player_command(command)
         return True
 
-    def _player_supports_pause(self) -> bool:
-        supports_pause = getattr(self.player, "supports_pause", None)
-        if not callable(supports_pause):
-            return True
-
-        try:
-            return bool(supports_pause())
-        except Exception:  # noqa: BLE001
-            return True
-
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         if self._has_active_playback():
             self.on_stop_clicked(_button)
@@ -615,7 +605,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
-        self._update_play_pause_button()
+        self._update_play_stop_button()
 
 
         stream_url = self._station_url(self.current_station) if self.current_station else None
@@ -627,7 +617,7 @@ class MainWindow(Gtk.ApplicationWindow):
             ).start()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
-        self._update_play_pause_button()
+        self._update_play_stop_button()
         self.status_label.set_text("Playing")
         self._render_results()
 
@@ -1014,7 +1004,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_station = None
         self.update_now_playing()
         self.update_player_state()
-        self._update_play_pause_button()
+        self._update_play_stop_button()
         self.status_label.set_text("Stopped")
         self._render_results()
 
@@ -1052,49 +1042,44 @@ class MainWindow(Gtk.ApplicationWindow):
         if not hasattr(self, "player_state_label"):
             return
 
-        if not self._has_active_playback():
-            self.player_state_label.set_text(f"Player: {self.player_backend_name} · stopped")
-            self._update_play_pause_button()
-            return
-
         get_state = getattr(self.player, "get_state", None)
         if not callable(get_state):
-            self.player_state_label.set_text(f"Player: {self.player_backend_name} · playing")
-            self._update_play_pause_button()
+            playing = self._has_active_playback()
+            playback = "playing" if playing else "stopped"
+            self.player_state_label.set_text(f"Player: {self.player_backend_name} · {playback}")
+            self._update_mute_button(None)
+            self._update_play_stop_button()
             return
-
+    
         try:
-            state = get_state() or {}
+            state = get_state()
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
-            self.player_state_label.set_text(f"Player: state unavailable ({exc})")
-            self._update_play_pause_button()
+            self.player_state_label.set_text(
+                f"Player: {self.player_backend_name} · state unavailable"
+            )
+            self._playback_command_failed("Player state", exc)
+            self._update_mute_button(None)
+            self._update_play_stop_button()
             return
-
+    
         if not state.get("playing"):
             self.player_state_label.set_text(f"Player: {self.player_backend_name} · stopped")
-            self._update_play_pause_button()
+            self._update_mute_button(None)
+            self._update_play_stop_button()
             return
-
+    
         is_muted = bool(state.get("muted"))
-        playback = "paused" if state.get("paused") else "playing"
         muted = "muted" if is_muted else "sound on"
         volume = state.get("volume")
+        volume_text = f" · volume {int(volume)}%" if isinstance(volume, int | float) else ""
+    
+        self.player_state_label.set_text(
+            f"Player: {self.player_backend_name} · playing · {muted}{volume_text}"
+        )
         self._update_mute_button(is_muted)
+        self._update_play_stop_button()
 
-        if isinstance(volume, (int, float)):
-            volume_value = int(round(volume))
-            volume_text = f"{volume_value}%"
-            if hasattr(self, "volume_scale") and int(round(self.volume_scale.get_value())) != volume_value:
-                self.volume_scale.handler_block_by_func(self.on_volume_scale_changed)
-                self.volume_scale.set_value(volume_value)
-                self.volume_scale.handler_unblock_by_func(self.on_volume_scale_changed)
-        else:
-            volume_text = "unknown volume"
-
-        self.player_state_label.set_text(f"Player: {playback} · {muted} · {volume_text}")
-        self._update_play_pause_button()
-
-    def _update_play_pause_button(self) -> None:
+    def _update_play_stop_button(self) -> None:
         if not hasattr(self, "play_button"):
             return
 

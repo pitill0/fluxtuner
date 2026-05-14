@@ -20,8 +20,14 @@ from fluxtuner.core.favorites import (
     load_favorites,
     remove_favorite,
     save_favorites,
-    station_key,
     update_favorite,
+)
+from fluxtuner.core.stations import (
+    all_station_tags,
+    same_station,
+    station_key,
+    station_tags,
+    station_url,
 )
 
 DEFAULT_SEARCH = ""
@@ -319,19 +325,7 @@ class MainWindow(Gtk.ApplicationWindow):
         favorite_controls.append(self.show_favorites_button)
 
     def _station_tag_values(self, station: dict[str, Any]) -> set[str]:
-        values: set[str] = set()
-
-        raw_favorite_tags = station.get("favorite_tags", [])
-        if isinstance(raw_favorite_tags, list):
-            values.update(str(tag).strip().lower() for tag in raw_favorite_tags if str(tag).strip())
-
-        raw_stream_tags = station.get("tags", "")
-        if isinstance(raw_stream_tags, str):
-            values.update(tag.strip().lower() for tag in raw_stream_tags.split(',') if tag.strip())
-        elif isinstance(raw_stream_tags, list):
-            values.update(str(tag).strip().lower() for tag in raw_stream_tags if str(tag).strip())
-
-        return values
+        return all_station_tags(station)
 
     def _favorites_matching_tag(self, tag: str) -> list[dict[str, Any]]:
         clean_tag = tag.strip().lower()
@@ -429,8 +423,8 @@ class MainWindow(Gtk.ApplicationWindow):
         container.append(label)
         return label
 
-    def _station_url(self, station: dict[str, Any]) -> str | None:
-        return station.get("url_resolved") or station.get("url")
+    def _station_url(self, station: dict[str, Any] | None) -> str | None:
+        return station_url(station)
 
     def _station_label(self, station: dict[str, Any]) -> str:
         name = station.get("name") or "Unknown station"
@@ -451,9 +445,7 @@ class MainWindow(Gtk.ApplicationWindow):
             child = next_child
 
     def _is_current_station(self, station: dict[str, Any]) -> bool:
-        if not self.current_station:
-            return False
-        return self._station_url(station) == self._station_url(self.current_station)
+        return same_station(station, self.current_station)
 
     def _render_results(self) -> None:
         selected_url = self._station_url(self.selected_station) if self.selected_station else None
@@ -485,7 +477,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._append_cell(row_box, marker, 6)
             self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
             self._append_cell(row_box, station.get("country") or "Unknown", 14)
-            self._append_cell(row_box, station.get("tags") or "", 28, expand=True)
+            self._append_cell(row_box, ", ".join(station_tags(station)), 28, expand=True)
             self._append_cell(row_box, station.get("codec") or "", 8)
             self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
 

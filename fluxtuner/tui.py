@@ -24,8 +24,14 @@ from fluxtuner.core.favorites import (
     filter_favorites_by_tag,
     load_favorites,
     remove_favorite,
-    station_key,
     update_favorite,
+)
+from fluxtuner.core.stations import (
+    station_bitrate,
+    station_key,
+    station_short_id as core_station_short_id,
+    station_tags,
+    station_url as core_station_url,
 )
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.manual_playlists import (
@@ -692,7 +698,6 @@ class FluxTunerTUI(App[None]):
                 self.selected_station = payload
                 self.update_details(payload)
 
-
     def reset_station_table(self) -> DataTable:
         """Reset the main table for station-like rows."""
         table = self.query_one("#stations", DataTable)
@@ -727,14 +732,11 @@ class FluxTunerTUI(App[None]):
         return self.table_items.get(key)
 
     def station_short_id(self, station: dict[str, Any]) -> str:
-        raw = station.get("stationuuid") or station.get("changeuuid") or self.station_url(station) or ""
-        return str(raw)[:8] if raw else "-"
+        return core_station_short_id(station)
 
     def station_genre_tags(self, station: dict[str, Any], max_length: int = 42) -> str:
-        tags = station.get("tags") or ""
-        if isinstance(tags, list):
-            tags = ", ".join(str(tag) for tag in tags)
-        return self._ellipsize(str(tags) if tags else "-", max_length)
+        tags = ", ".join(station_tags(station))
+        return self._ellipsize(tags if tags else "-", max_length)
 
     def station_custom_tags(self, station: dict[str, Any], max_length: int = 28) -> str:
         tags = station.get("favorite_tags") or station.get("tags_custom") or []
@@ -743,7 +745,6 @@ class FluxTunerTUI(App[None]):
         else:
             value = ", ".join(str(tag) for tag in tags)
         return self._ellipsize(value if value else "-", max_length)
-
 
     def station_marker(self, station: dict[str, Any]) -> str:
         marker_parts: list[str] = []
@@ -765,7 +766,7 @@ class FluxTunerTUI(App[None]):
             self._ellipsize(station.get('country') or '-', 18),
             self.station_genre_tags(station),
             str(station.get('codec') or '-'),
-            str(station.get('bitrate') or '-'),
+            str(station_bitrate(station) or "-"),
             self.station_custom_tags(station),
             key=key,
         )
@@ -1181,7 +1182,6 @@ class FluxTunerTUI(App[None]):
             "Leaving the theme selector restores the last applied theme if you only previewed."
         )
 
-
     def update_playlist_details(self, tag: str, count: int) -> None:
         stations = get_by_tag(tag)
         names = [favorite_display_name(item) for item in stations[:6]]
@@ -1196,7 +1196,6 @@ class FluxTunerTUI(App[None]):
             f"{preview}{extra}"
         )
 
-
     def update_persistent_playlist_details(self, playlist_name: str, count: int) -> None:
         preview = summarize_playlist(playlist_name)
         self.query_one("#details", Static).update(
@@ -1209,7 +1208,6 @@ class FluxTunerTUI(App[None]):
             "b: add selected station to a playlist from other views\n\n"
             f"{preview}"
         )
-
 
     def ensure_favorite_selected(self) -> bool:
         if self.view_mode != "favorites":
@@ -1328,7 +1326,6 @@ class FluxTunerTUI(App[None]):
 
         self.set_status("Unknown input action.")
 
-
     def restore_playback_state(self) -> None:
         """Load persisted playback metadata and preferences."""
         state = get_playback_state()
@@ -1370,9 +1367,7 @@ class FluxTunerTUI(App[None]):
         save_playback_state(last_station=last_station, volume=volume, muted=muted)
 
     def station_url(self, station: dict[str, Any] | None) -> str | None:
-        if not station:
-            return None
-        return station_key(station)
+        return core_station_url(station)
 
     def current_station_url(self) -> str | None:
         return self.station_url(self.playing_station)
@@ -1443,7 +1438,6 @@ class FluxTunerTUI(App[None]):
                 pass
         except Exception:
             pass
-
 
     def _start_usage_tracking(self, station: dict[str, Any]) -> None:
         with suppress(Exception):

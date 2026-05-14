@@ -18,7 +18,6 @@ from fluxtuner.core.favorites import (  # noqa: E402
     favorite_display_name,
     load_favorites,
     remove_favorite,
-    save_favorites,
     update_favorite,
 )
 from fluxtuner.core.stations import (  # noqa: E402
@@ -806,9 +805,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
 
 
-    def _favorite_tags_from_entry(self) -> list[str]:
-        return []
-
     def _favorite_edit_tags_from_entry(self) -> list[str]:
         if not hasattr(self, 'edit_favorite_tags_entry'):
             return []
@@ -836,7 +832,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.favorite_name_entry.set_text('')
             self.edit_favorite_tags_entry.set_text('')
             return
-        display_name = favorite.get('favorite_name') or favorite.get('name') or ''
+        display_name = favorite.get("custom_name") or favorite.get("favorite_name") or favorite.get("name") or ""
         tags = favorite.get('favorite_tags') or []
         tags_text = tags if isinstance(tags, str) else ', '.join(str(tag) for tag in tags)
         self.favorite_name_entry.set_text(display_name)
@@ -864,30 +860,22 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Select a station first.")
             self._update_favorite_buttons()
             return
-
+    
         key = station_key(self.selected_station)
         if not key:
             self.status_label.set_text("Selected station has no favorite URL.")
             self._update_favorite_buttons()
             return
-
-        tags = self._favorite_tags_from_entry()
-
+    
         if add_favorite(self.selected_station):
-            if tags:
-                update_favorite(key, favorite_tags=tags)
             self._refresh_favorite_cache()
-            if hasattr(self, "favorite_tags_entry"):
-                self.favorite_tags_entry.set_text("")
             self._render_results()
             self._update_favorite_buttons()
-            tag_suffix = f" with tags: {', '.join(tags)}" if tags else ""
-            self.status_label.set_text(f"Added to favorites{tag_suffix}.")
+            self.status_label.set_text("Added to favorites.")
             return
-
+    
         self.status_label.set_text("Station is already in favorites or has no URL.")
         self._update_favorite_buttons()
-
 
     def on_save_favorite_clicked(self, _button: Gtk.Button) -> None:
         favorite = self._selected_favorite_record()
@@ -905,55 +893,44 @@ class MainWindow(Gtk.ApplicationWindow):
         favorite_name = self.favorite_name_entry.get_text().strip()
         favorite_tags = self._favorite_edit_tags_from_entry()
 
-        favorites = load_favorites()
-        updated_favorite: dict[str, Any] | None = None
-        for item in favorites:
-            if station_key(item) != key:
-                continue
-            if favorite_name:
-                item['favorite_name'] = favorite_name
-            else:
-                item.pop('favorite_name', None)
-            item['favorite_tags'] = favorite_tags
-            updated_favorite = item
-            break
-
-        if updated_favorite is None:
-            self.status_label.set_text('Could not update favorite.')
+        if not update_favorite(key, custom_name=favorite_name, favorite_tags=favorite_tags):
+            self.status_label.set_text("Could not update favorite.")
             self._update_favorite_buttons()
             return
-
-        save_favorites(favorites)
+        
         self._refresh_favorite_cache()
-
+        
         selected_url = self._station_url(self.selected_station) if self.selected_station else None
         for station in self.stations:
             if selected_url and self._station_url(station) == selected_url:
                 if favorite_name:
-                    station['favorite_name'] = favorite_name
+                    station["custom_name"] = favorite_name
                 else:
-                    station.pop('favorite_name', None)
-                station['favorite_tags'] = favorite_tags
+                    station.pop("custom_name", None)
+                station.pop("favorite_name", None)
+                station["favorite_tags"] = favorite_tags
                 break
-
+        
         if self.selected_station:
             if favorite_name:
-                self.selected_station['favorite_name'] = favorite_name
+                self.selected_station["custom_name"] = favorite_name
             else:
-                self.selected_station.pop('favorite_name', None)
-            self.selected_station['favorite_tags'] = favorite_tags
-
+                self.selected_station.pop("custom_name", None)
+            self.selected_station.pop("favorite_name", None)
+            self.selected_station["favorite_tags"] = favorite_tags
+        
         if self.current_station and selected_url and self._station_url(self.current_station) == selected_url:
             if favorite_name:
-                self.current_station['favorite_name'] = favorite_name
+                self.current_station["custom_name"] = favorite_name
             else:
-                self.current_station.pop('favorite_name', None)
-            self.current_station['favorite_tags'] = favorite_tags
-
+                self.current_station.pop("custom_name", None)
+            self.current_station.pop("favorite_name", None)
+            self.current_station["favorite_tags"] = favorite_tags
+        
         self._render_results()
         self.update_now_playing()
         self._update_favorite_buttons()
-        self.status_label.set_text('Favorite updated.')
+        self.status_label.set_text("Favorite updated.")
 
     def on_remove_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:

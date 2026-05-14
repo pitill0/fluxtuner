@@ -170,7 +170,11 @@ def search_stations_filtered(
 
         # If the API country filter was too strict, fallback to a broad search
         # and apply the country filter locally.
-        if country and not any(raw_batches):
+
+        # Avoid list of lists
+        has_results = any(raw_batches)
+
+        if country and not has_results:
             raw_batches.extend(
                 [
                     search_stations(name=query, limit=api_limit),
@@ -186,7 +190,10 @@ def search_stations_filtered(
             )
         )
 
-        if country and not any(raw_batches):
+        # Avoid list of lists
+        has_results = any(raw_batches)
+
+        if country and not has_results:
             raw_batches.append(search_stations(limit=api_limit))
 
     results: list[dict[str, Any]] = []

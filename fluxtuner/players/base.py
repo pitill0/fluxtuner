@@ -12,15 +12,15 @@ class PlayerAdapter(ABC):
     """Common interface implemented by all playback backends."""
 
     @abstractmethod
-    def play(self, url: str) -> None: ...
+    def play(self, url: str) -> None:
         """Start playback for a stream URL."""
 
     @abstractmethod
-    def stop(self) -> None: ...
+    def stop(self) -> None:
         """Stop playback."""
 
     @abstractmethod
-    def is_playing(self) -> bool: ...
+    def is_playing(self) -> bool:
         """Return True when the backend has an active playback."""
 
     def toggle_pause(self) -> None:

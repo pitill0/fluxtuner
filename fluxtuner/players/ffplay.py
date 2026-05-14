@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import os
+import shutil
 import signal
+import subprocess
 from typing import Any
 
+from fluxtuner.players.base import PlayerAdapter
 
-class FfplayController:
+class FfplayController(PlayerAdapter):
     name = "ffplay"
 
     def __init__(self) -> None:

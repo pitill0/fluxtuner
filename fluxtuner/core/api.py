@@ -16,9 +16,12 @@ DEFAULT_HEADERS = {
 
 def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
     """Return a compact station dictionary used by CLI, TUI and GUI."""
+    raw_url = station.get("url") or ""
+    resolved_url = station.get("url_resolved") or raw_url
     return {
         "name": station.get("name") or "Unknown station",
-        "url": station.get("url_resolved") or station.get("url") or "",
+        "url": raw_url or resolved_url,
+        "url_resolved": resolved_url,
         "country": station.get("country") or "Unknown",
         "countrycode": station.get("countrycode") or "",
         "tags": station.get("tags") or "",
@@ -191,7 +194,7 @@ def search_stations_filtered(
     for items in raw_batches:
         for item in items:
             station = normalize_station(item)
-            url = station.get("url")
+            url = station.get("url_resolved") or station.get("url")
             if not url or url in seen_urls:
                 continue
             if not _matches_country(station, country):

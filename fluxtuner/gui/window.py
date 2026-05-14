@@ -31,8 +31,6 @@ from fluxtuner.core.stations import (  # noqa: E402
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
-DEFAULT_SEARCH = ""
-
 
 class MainWindow(Gtk.ApplicationWindow):
     """Small GTK GUI MVP: search stations, list results and play selection."""
@@ -277,58 +275,58 @@ class MainWindow(Gtk.ApplicationWindow):
         playback_bar.append(self.volume_scale)
 
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:
-        self._append_section_title(side_panel, 'Favorites')
+        self._append_section_title(side_panel, "Favorites")
 
         favorite_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         favorite_controls.set_hexpand(True)
         side_panel.append(favorite_controls)
 
-        add_title = Gtk.Label(label='Add selected station')
+        add_title = Gtk.Label(label="Add selected station")
         add_title.set_xalign(0)
         add_title.add_css_class('caption-heading')
         favorite_controls.append(add_title)
 
-        self.add_favorite_button = Gtk.Button(label='★ Add favorite')
+        self.add_favorite_button = Gtk.Button(label="★ Add favorite")
         self.add_favorite_button.add_css_class('suggested-action')
-        self.add_favorite_button.set_tooltip_text('Add selected station to favorites')
+        self.add_favorite_button.set_tooltip_text("Add selected station to favorites")
         self.add_favorite_button.connect('clicked', self.on_add_favorite_clicked)
         favorite_controls.append(self.add_favorite_button)
 
-        self.remove_favorite_button = Gtk.Button(label='☆ Remove favorite')
+        self.remove_favorite_button = Gtk.Button(label="☆ Remove favorite")
         self.remove_favorite_button.add_css_class('destructive-action')
-        self.remove_favorite_button.set_tooltip_text('Remove selected station from favorites')
+        self.remove_favorite_button.set_tooltip_text("Remove selected station from favorites")
         self.remove_favorite_button.connect('clicked', self.on_remove_favorite_clicked)
         favorite_controls.append(self.remove_favorite_button)
 
-        edit_title = Gtk.Label(label='Edit selected favorite')
+        edit_title = Gtk.Label(label="Edit selected favorite")
         edit_title.set_xalign(0)
         edit_title.add_css_class('caption-heading')
         favorite_controls.append(edit_title)
 
         self.favorite_name_entry = Gtk.Entry()
-        self.favorite_name_entry.set_placeholder_text('Edit favorite name')
+        self.favorite_name_entry.set_placeholder_text("Edit favorite name")
         self.favorite_name_entry.set_hexpand(True)
         favorite_controls.append(self.favorite_name_entry)
 
         self.edit_favorite_tags_entry = Gtk.Entry()
-        self.edit_favorite_tags_entry.set_placeholder_text('Edit favorite tags, comma separated')
+        self.edit_favorite_tags_entry.set_placeholder_text("Edit favorite tags, comma separated")
         self.edit_favorite_tags_entry.set_hexpand(True)
         favorite_controls.append(self.edit_favorite_tags_entry)
 
-        self.save_favorite_button = Gtk.Button(label='Save edited favorite')
-        self.save_favorite_button.set_tooltip_text('Update selected favorite name and tags')
+        self.save_favorite_button = Gtk.Button(label="Save edited favorite")
+        self.save_favorite_button.set_tooltip_text("Update selected favorite name and tags")
         self.save_favorite_button.connect('clicked', self.on_save_favorite_clicked)
         favorite_controls.append(self.save_favorite_button)
 
-        self.show_favorites_button = Gtk.Button(label='★ Show favorites')
-        self.show_favorites_button.set_tooltip_text('Show favorite stations')
+        self.show_favorites_button = Gtk.Button(label="★ Show favorites")
+        self.show_favorites_button.set_tooltip_text("Show favorite stations")
         self.show_favorites_button.connect('clicked', self.on_show_favorites_clicked)
         favorite_controls.append(self.show_favorites_button)
 
-    def _favorites_matching_tag(self, tag: str) -> list[dict[str, Any]]:
+    def _favorites_matching_favorite_tag(self, tag: str) -> list[dict[str, Any]]:
         return filter_favorites_by_tag(tag)
 
-    def _all_gui_tags(self) -> list[str]:
+    def _all_favorite_playlist_tags(self) -> list[str]:
         return all_favorite_tags()
 
     def _build_playlist_controls(self, side_panel: Gtk.Box) -> None:
@@ -357,7 +355,7 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_buttons.append(self.show_tag_playlist_button)
 
         self.random_tag_button = Gtk.Button(label="Random")
-        self.random_tag_button.set_tooltip_text("Play a random favorite from the selected tag")
+        self.random_tag_button.set_tooltip_text("Play a random favorite from the selected favorite tag")
         self.random_tag_button.connect("clicked", self.on_random_tag_clicked)
         playlist_buttons.append(self.random_tag_button)
 
@@ -595,7 +593,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
         self._update_play_stop_button()
 
-
         stream_url = self._station_url(self.current_station) if self.current_station else None
         if stream_url:
             threading.Thread(
@@ -608,8 +605,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_play_stop_button()
         self.status_label.set_text("Playing")
         self._render_results()
-
-    
 
     def _metadata_worker(self, stream_url: str) -> None:
         try:
@@ -791,20 +786,20 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Select a station first.")
             self._update_favorite_buttons()
             return
-    
+
         key = station_key(self.selected_station)
         if not key:
             self.status_label.set_text("Selected station has no favorite URL.")
             self._update_favorite_buttons()
             return
-    
+
         if add_favorite(self.selected_station):
             self._refresh_favorite_cache()
             self._render_results()
             self._update_favorite_buttons()
             self.status_label.set_text("Added to favorites.")
             return
-    
+
         self.status_label.set_text("Station is already in favorites or has no URL.")
         self._update_favorite_buttons()
 
@@ -828,9 +823,9 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Could not update favorite.")
             self._update_favorite_buttons()
             return
-        
+
         self._refresh_favorite_cache()
-        
+
         selected_url = self._station_url(self.selected_station) if self.selected_station else None
         for station in self.stations:
             if selected_url and self._station_url(station) == selected_url:
@@ -841,7 +836,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 station.pop("favorite_name", None)
                 station["favorite_tags"] = favorite_tags
                 break
-        
+
         if self.selected_station:
             if favorite_name:
                 self.selected_station["custom_name"] = favorite_name
@@ -849,7 +844,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.selected_station.pop("custom_name", None)
             self.selected_station.pop("favorite_name", None)
             self.selected_station["favorite_tags"] = favorite_tags
-        
+
         if self.current_station and selected_url and self._station_url(self.current_station) == selected_url:
             if favorite_name:
                 self.current_station["custom_name"] = favorite_name
@@ -857,7 +852,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.current_station.pop("custom_name", None)
             self.current_station.pop("favorite_name", None)
             self.current_station["favorite_tags"] = favorite_tags
-        
+
         self._render_results()
         self.update_now_playing()
         self._update_favorite_buttons()
@@ -913,7 +908,7 @@ class MainWindow(Gtk.ApplicationWindow):
         return self.playlist_tag_entry.get_text().strip()
 
     def on_show_tags_clicked(self, _button: Gtk.Button) -> None:
-        tags = self._all_gui_tags()
+        tags = self._all_favorite_playlist_tags()
         if not tags:
             self.status_label.set_text("No custom favorite tags found yet.")
             return
@@ -922,14 +917,14 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_show_tag_playlist_clicked(self, _widget: Gtk.Widget) -> None:
         tag = self._playlist_tag_value()
         if not tag:
-            tags = self._all_gui_tags()
+            tags = self._all_favorite_playlist_tags()
             if tags:
                 self.status_label.set_text("Type a tag. Available: " + ", ".join(tags))
             else:
                 self.status_label.set_text("No custom favorite tags found yet.")
             return
 
-        stations = self._favorites_matching_tag(tag)
+        stations = self._favorites_matching_favorite_tag(tag)
         self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations
@@ -944,14 +939,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
         tag = self._playlist_tag_value()
         if not tag:
-            tags = self._all_gui_tags()
+            tags = self._all_favorite_playlist_tags()
             if tags:
                 self.status_label.set_text("Type a tag first. Available: " + ", ".join(tags))
             else:
                 self.status_label.set_text("No tags found in favorites yet.")
             return
 
-        stations = self._favorites_matching_tag(tag)
+        stations = self._favorites_matching_favorite_tag(tag)
         if not stations:
             self.status_label.set_text(f"No favorite stations found for favorite tag: {tag}")
             return
@@ -1039,7 +1034,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_mute_button(None)
             self._update_play_stop_button()
             return
-    
+
         try:
             state = get_state()
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
@@ -1050,18 +1045,18 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_mute_button(None)
             self._update_play_stop_button()
             return
-    
+
         if not state.get("playing"):
             self.player_state_label.set_text(f"Player: {self.player_backend_name} · stopped")
             self._update_mute_button(None)
             self._update_play_stop_button()
             return
-    
+
         is_muted = bool(state.get("muted"))
         muted = "muted" if is_muted else "sound on"
         volume = state.get("volume")
         volume_text = f" · volume {int(volume)}%" if isinstance(volume, int | float) else ""
-    
+
         self.player_state_label.set_text(
             f"Player: {self.player_backend_name} · playing · {muted}{volume_text}"
         )

@@ -6,6 +6,7 @@ import requests
 
 from fluxtuner import __version__
 from fluxtuner.core.cache import get_cached_search, make_search_key, set_cached_search
+from fluxtuner.core.stations import station_key
 
 BASE_URL = "https://de1.api.radio-browser.info/json"
 
@@ -127,8 +128,6 @@ def search_stations_filtered(
     Bitrate is applied locally after fetching a larger candidate set so that a
     high minimum bitrate does not accidentally hide valid results.
     """
-    from fluxtuner.core.stations import station_key
-
     query = (query or "").strip()
     country = country.strip() if country else None
 
@@ -169,11 +168,7 @@ def search_stations_filtered(
 
         # If the API country filter was too strict, fallback to a broad search
         # and apply the country filter locally.
-
-        # Avoid list of lists
-        has_results = any(raw_batches)
-
-        if country and not has_results:
+        if country and not any(raw_batches):
             raw_batches.extend(
                 [
                     search_stations(name=query, limit=api_limit),
@@ -189,10 +184,7 @@ def search_stations_filtered(
             )
         )
 
-        # Avoid list of lists
-        has_results = any(raw_batches)
-
-        if country and not has_results:
+        if country and not any(raw_batches):
             raw_batches.append(search_stations(limit=api_limit))
 
     results: list[dict[str, Any]] = []

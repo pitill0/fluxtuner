@@ -12,7 +12,8 @@ def station_url(station: dict[str, Any] | None) -> str | None:
     if not url:
         return None
 
-    return str(url)
+    clean_url = str(url).strip()
+    return clean_url or None
 
 
 def station_key(station: dict[str, Any] | None) -> str | None:

@@ -28,6 +28,31 @@ def test_normalize_favorite_normalizes_favorite_tags() -> None:
     assert result["favorite_tags"] == ["jazz", "rock"]
 
 
+def test_all_favorite_tags_normalizes_and_deduplicates_tags(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    test_file = tmp_path / "favorites.json"
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+
+    favorites.save_favorites(
+        [
+            {
+                "name": "Rock Radio",
+                "url": "https://example.com/rock",
+                "favorite_tags": [" rock ", "jazz", ""],
+            },
+            {
+                "name": "News Radio",
+                "url": "https://example.com/news",
+                "favorite_tags": ["rock", " news "],
+            },
+        ]
+    )
+
+    assert favorites.all_favorite_tags() == ["jazz", "news", "rock"]
+
+
 def test_favorite_display_name_prefers_custom_name() -> None:
     station = {
         "name": "Original Name",

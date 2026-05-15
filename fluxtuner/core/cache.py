@@ -1,25 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
 import time
-from pathlib import Path
 from typing import Any
 
-from fluxtuner.paths import CACHE_DIR
+from fluxtuner.paths import cache_file
 
-APP_NAME = "fluxtuner"
 CACHE_TTL_SECONDS = 6 * 60 * 60
 
-
-def cache_dir() -> Path:
-    base = os.environ.get("XDG_CACHE_HOME")
-    if base:
-        return Path(base) / APP_NAME
-    return CACHE_DIR
-
-
-CACHE_FILE = cache_dir() / "search_cache.json"
+CACHE_FILE = cache_file("search_cache.json")
 
 
 def _load_cache() -> dict[str, Any]:

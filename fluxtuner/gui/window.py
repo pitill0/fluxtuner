@@ -415,6 +415,55 @@ class MainWindow(Gtk.ApplicationWindow):
         container.append(label)
         return label
 
+    def _build_station_row(self, station: dict[str, Any]) -> Gtk.ListBoxRow:
+        row = Gtk.ListBoxRow()
+
+        if self._is_current_station(station):
+            row.add_css_class("suggested-action")
+
+        row.station = station  # type: ignore[attr-defined]
+
+        row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row_box.set_margin_top(6)
+        row_box.set_margin_bottom(6)
+        row_box.set_margin_start(6)
+        row_box.set_margin_end(6)
+
+        self._append_cell(row_box, self._station_marker(station), 6)
+        self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
+        self._append_cell(row_box, station.get("country") or "Unknown", 14)
+        self._append_cell(row_box, ", ".join(station_tags(station)), 28, expand=True)
+        self._append_cell(row_box, station.get("codec") or "", 8)
+        self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
+
+        double_click = Gtk.GestureClick()
+        double_click.set_button(0)
+        double_click.connect("pressed", self.on_row_double_click, row)
+        row.add_controller(double_click)
+
+        row.set_child(row_box)
+        return row
+
+    def _select_rendered_row(self, row_to_select: Gtk.ListBoxRow | None) -> None:
+        if row_to_select is not None:
+            self.results_list.select_row(row_to_select)
+            self.selected_station = getattr(row_to_select, "station", None)
+        elif self.stations and self.selected_station is None:
+            first_row = self.results_list.get_row_at_index(0)
+            self.results_list.select_row(first_row)
+            self.selected_station = getattr(first_row, "station", None) if first_row else None
+        elif not self.stations:
+            self.selected_station = None
+
+    def _preferred_station_url(self) -> str | None:
+        if self.selected_station:
+            selected_url = self._station_url(self.selected_station)
+            if selected_url:
+                return selected_url
+        if self.current_station:
+            return self._station_url(self.current_station)
+        return None
+
     def _station_url(self, station: dict[str, Any] | None) -> str | None:
         return station_url(station)
 
@@ -428,61 +477,26 @@ class MainWindow(Gtk.ApplicationWindow):
     def _is_current_station(self, station: dict[str, Any]) -> bool:
         return same_station(station, self.current_station)
 
+    def _station_marker(self, station: dict[str, Any]) -> str:
+        marker_parts = []
+        if self._is_current_station(station):
+            marker_parts.append("▶")
+        if self._is_favorite_station(station):
+            marker_parts.append("★")
+        return "".join(marker_parts)
+
     def _render_results(self) -> None:
-        selected_url = self._station_url(self.selected_station) if self.selected_station else None
-        current_url = self._station_url(self.current_station) if self.current_station else None
-        preferred_url = selected_url or current_url
-
+        preferred_url = self._preferred_station_url()
         self._clear_results()
-
         row_to_select: Gtk.ListBoxRow | None = None
 
         for station in self.stations:
-            row = Gtk.ListBoxRow()
-            if self._is_current_station(station):
-                row.add_css_class("suggested-action")
-            row.station = station  # type: ignore[attr-defined]
-
-            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            row_box.set_margin_top(6)
-            row_box.set_margin_bottom(6)
-            row_box.set_margin_start(6)
-            row_box.set_margin_end(6)
-
-            marker_parts = []
-            if self._is_current_station(station):
-                marker_parts.append("▶")
-            if self._is_favorite_station(station):
-                marker_parts.append("★")
-            marker = "".join(marker_parts)
-            self._append_cell(row_box, marker, 6)
-            self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
-            self._append_cell(row_box, station.get("country") or "Unknown", 14)
-            self._append_cell(row_box, ", ".join(station_tags(station)), 28, expand=True)
-            self._append_cell(row_box, station.get("codec") or "", 8)
-            self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
-
+            row = self._build_station_row(station)
             if preferred_url and self._station_url(station) == preferred_url:
                 row_to_select = row
-
-            double_click = Gtk.GestureClick()
-            double_click.set_button(0)
-            double_click.connect("pressed", self.on_row_double_click, row)
-            row.add_controller(double_click)
-
-            row.set_child(row_box)
             self.results_list.append(row)
 
-        if row_to_select is not None:
-            self.results_list.select_row(row_to_select)
-            self.selected_station = getattr(row_to_select, "station", None)
-        elif self.stations and self.selected_station is None:
-            first_row = self.results_list.get_row_at_index(0)
-            self.results_list.select_row(first_row)
-            self.selected_station = getattr(first_row, "station", None) if first_row else None
-        elif not self.stations:
-            self.selected_station = None
-
+        self._select_rendered_row(row_to_select)
         self._update_favorite_buttons()
 
     def on_search_clicked(self, _widget: Gtk.Widget) -> None:
@@ -903,7 +917,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stations = load_favorites()
         self.selected_station = None
         self._render_results()
-        self._update_favorite_buttons()
         self._update_playlist_status()
         return len(self.stations)
 

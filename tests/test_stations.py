@@ -6,6 +6,7 @@ from fluxtuner.core.stations import (
     station_key,
     station_name,
     station_tags,
+    station_url,
 )
 
 
@@ -67,3 +68,8 @@ def test_same_station_compares_station_keys() -> None:
     second = {"url": "https://example.com/stream"}
 
     assert same_station(first, second)
+
+
+def test_station_url_strips_whitespace_and_rejects_empty_values() -> None:
+    assert station_url({"url": "  https://example.com/stream  "}) == "https://example.com/stream"
+    assert station_url({"url": "   "}) is None

@@ -614,15 +614,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
-        self._update_play_stop_button()
-
-        stream_url = self._station_url(self.current_station) if self.current_station else None
-        if stream_url:
-            threading.Thread(
-                target=self._metadata_worker,
-                args=(stream_url,),
-                daemon=True,
-            ).start()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
         self._update_play_stop_button()
@@ -643,6 +634,17 @@ class MainWindow(Gtk.ApplicationWindow):
         raw = metadata.get("raw") or f"{artist} - {title}"
 
         GLib.idle_add(self._update_metadata_labels, artist, title, raw)
+
+    def _fetch_current_metadata_once(self) -> None:
+        stream_url = self._station_url(self.current_station)
+        if not stream_url:
+            return
+
+        threading.Thread(
+            target=self._metadata_worker,
+            args=(stream_url,),
+            daemon=True,
+        ).start()
 
     def _update_metadata_labels(self, artist: str, title: str, raw: str) -> bool:
         if raw == self._last_metadata_raw:

@@ -31,7 +31,7 @@ jobs:
 
       - name: Ruff check formatting
         run: |
-          ruff --format check .
+          ruff format --check .
 
       - name: Compile Python files
         run: |

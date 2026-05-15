@@ -35,6 +35,20 @@ def test_normalize_playlist_removes_duplicate_station_keys() -> None:
     }
 
 
+def test_normalize_playlist_ignores_invalid_station_keys_value() -> None:
+    playlist = {
+        "name": "Broken Playlist",
+        "station_keys": "https://example.com/a",
+    }
+
+    result = manual_playlists.normalize_playlist(playlist)
+
+    assert result == {
+        "name": "Broken Playlist",
+        "station_keys": [],
+    }
+
+
 def test_create_playlist(
     tmp_path: Path,
     monkeypatch,

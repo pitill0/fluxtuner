@@ -13,6 +13,22 @@ LEGACY_PLAYLISTS_FILE = Path.home() / ".fluxtuner_playlists.json"
 PLAYLISTS_FILE = data_file("playlists.json")
 
 
+def _normalize_station_keys(keys: Any) -> list[str]:
+    if not isinstance(keys, list):
+        return []
+
+    unique_keys: list[str] = []
+    seen: set[str] = set()
+
+    for key in keys:
+        clean_key = str(key).strip()
+        if clean_key and clean_key not in seen:
+            unique_keys.append(clean_key)
+            seen.add(clean_key)
+
+    return unique_keys
+
+
 def load_playlists() -> list[dict[str, Any]]:
     migrate_legacy_file(LEGACY_PLAYLISTS_FILE, PLAYLISTS_FILE)
 
@@ -41,17 +57,8 @@ def save_playlists(playlists: list[dict[str, Any]]) -> None:
 
 def normalize_playlist(playlist: dict[str, Any]) -> dict[str, Any]:
     name = str(playlist.get("name") or "").strip()
-    station_keys = playlist.get("station_keys", [])
-    if not isinstance(station_keys, list):
-        station_keys = []
-    unique_keys = []
-    seen = set()
-    for key in station_keys:
-        clean_key = str(key).strip()
-        if clean_key and clean_key not in seen:
-            unique_keys.append(clean_key)
-            seen.add(clean_key)
-    return {"name": name, "station_keys": unique_keys}
+    station_keys = _normalize_station_keys(playlist.get("station_keys", []))
+    return {"name": name, "station_keys": station_keys}
 
 
 def get_playlist(name: str) -> dict[str, Any] | None:

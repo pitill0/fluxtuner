@@ -27,7 +27,9 @@ def load_playlists() -> list[dict[str, Any]]:
 
 
 def save_playlists(playlists: list[dict[str, Any]]) -> None:
-    normalized = [normalize_playlist(item) for item in playlists if str(item.get("name", "")).strip()]
+    normalized = [
+        normalize_playlist(item) for item in playlists if str(item.get("name", "")).strip()
+    ]
     PLAYLISTS_FILE.write_text(
         json.dumps(normalized, indent=2, ensure_ascii=False),
         encoding="utf-8",

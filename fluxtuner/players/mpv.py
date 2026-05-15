@@ -24,8 +24,7 @@ def ensure_mpv_available() -> None:
     """Fail early if mpv is not installed or not available in PATH."""
     if not is_mpv_available():
         raise PlayerError(
-            "mpv is required but was not found in PATH. "
-            "Please install mpv and try again."
+            "mpv is required but was not found in PATH. Please install mpv and try again."
         )
 
 
@@ -210,7 +209,6 @@ class MpvController(PlayerAdapter):
             with suppress(OSError):
                 self.ipc_path.unlink()
         self.ipc_path = None
-
 
     def supports_pause(self) -> bool:
         return True

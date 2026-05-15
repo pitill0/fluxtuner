@@ -84,10 +84,7 @@ def station_short_id(station: dict[str, Any] | None, length: int = 8) -> str:
         return "-"
 
     raw_value = (
-        station.get("stationuuid")
-        or station.get("changeuuid")
-        or station_key(station)
-        or ""
+        station.get("stationuuid") or station.get("changeuuid") or station_key(station) or ""
     )
 
     return str(raw_value)[:length] if raw_value else "-"

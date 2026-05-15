@@ -40,8 +40,7 @@ def selected_player_name(name: str | None = None) -> str:
         available = available_players()
         available_text = ", ".join(available) if available else "none"
         raise PlayerError(
-            f"Player backend '{normalized}' is not available. "
-            f"Available backends: {available_text}"
+            f"Player backend '{normalized}' is not available. Available backends: {available_text}"
         )
 
     return normalized

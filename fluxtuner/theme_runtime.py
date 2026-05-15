@@ -126,7 +126,9 @@ def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
             current = getattr(styles, "margin", None)
             if current is not None:
                 try:
-                    _set_if_supported(styles, "margin", (current.top, current.right, current.bottom, left))
+                    _set_if_supported(
+                        styles, "margin", (current.top, current.right, current.bottom, left)
+                    )
                 except Exception:
                     _set_if_supported(styles, "margin", (0, 0, 0, left))
         elif prop == "text-style":

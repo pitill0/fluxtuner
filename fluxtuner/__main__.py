@@ -86,6 +86,7 @@ def play_station(
     active_player.play(station["url"])
     return active_player
 
+
 def search_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
     query = input("Search station by name: ").strip()
     if not query:
@@ -179,7 +180,7 @@ def main() -> None:
         action="store_true",
         help="Run the legacy numbered CLI instead of the Textual TUI.",
     )
-    
+
     parser.add_argument(
         "--gui",
         action="store_true",
@@ -247,15 +248,15 @@ def main() -> None:
 
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
-    
+
         available = available_players()
         selected = selected_player_name(None) if available else None
-    
+
         for backend in PLAYER_BACKENDS:
             status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
             default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
             console.print(f" - {backend}: {status}{default}")
-    
+
         return
 
     if args.list_themes:
@@ -271,7 +272,9 @@ def main() -> None:
 
     if args.export_favs:
         export_path = Path(args.export_favs).expanduser()
-        export_path.write_text(json.dumps(load_favorites(), indent=2, ensure_ascii=False), encoding="utf-8")
+        export_path.write_text(
+            json.dumps(load_favorites(), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         console.print(f"[green]Favorites exported to:[/green] {export_path}")
         return
 
@@ -294,7 +297,9 @@ def main() -> None:
 
     if args.export_playlists:
         export_path = Path(args.export_playlists).expanduser()
-        export_path.write_text(json.dumps(load_playlists(), indent=2, ensure_ascii=False), encoding="utf-8")
+        export_path.write_text(
+            json.dumps(load_playlists(), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         console.print(f"[green]Persistent playlists exported to:[/green] {export_path}")
         return
 
@@ -319,7 +324,9 @@ def main() -> None:
     selected_theme = args.theme or configured_theme
 
     if args.theme and not theme_exists(args.theme):
-        console.print(f"[yellow]Theme '{args.theme}' was not found. Falling back to 'default'.[/yellow]")
+        console.print(
+            f"[yellow]Theme '{args.theme}' was not found. Falling back to 'default'.[/yellow]"
+        )
         selected_theme = DEFAULT_THEME
 
     if args.save_theme:
@@ -362,6 +369,7 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     run_tui(theme=selected_theme, player_name=args.player)
+
 
 if __name__ == "__main__":
     main()

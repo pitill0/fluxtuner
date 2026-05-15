@@ -9,9 +9,7 @@ from fluxtuner.core.cache import get_cached_search, make_search_key, set_cached_
 
 BASE_URL = "https://de1.api.radio-browser.info/json"
 
-DEFAULT_HEADERS = {
-    "User-Agent": f"FluxTuner/{__version__} (+https://github.com/pitill0/fluxtuner)"
-}
+DEFAULT_HEADERS = {"User-Agent": f"FluxTuner/{__version__} (+https://github.com/pitill0/fluxtuner)"}
 
 
 def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
@@ -130,6 +128,7 @@ def search_stations_filtered(
     high minimum bitrate does not accidentally hide valid results.
     """
     from fluxtuner.core.stations import station_key
+
     query = (query or "").strip()
     country = country.strip() if country else None
 

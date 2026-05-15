@@ -46,10 +46,14 @@ def make_search_key(
     normalized_country = (country or "").strip().lower()
     normalized_query = query.strip().lower()
     bitrate = "" if min_bitrate is None else str(int(min_bitrate))
-    return f"query={normalized_query}|country={normalized_country}|min_bitrate={bitrate}|limit={limit}"
+    return (
+        f"query={normalized_query}|country={normalized_country}|min_bitrate={bitrate}|limit={limit}"
+    )
 
 
-def get_cached_search(key: str, ttl_seconds: int = CACHE_TTL_SECONDS) -> list[dict[str, Any]] | None:
+def get_cached_search(
+    key: str, ttl_seconds: int = CACHE_TTL_SECONDS
+) -> list[dict[str, Any]] | None:
     cache = _load_cache()
     entry = cache.get(key)
     if not isinstance(entry, dict):

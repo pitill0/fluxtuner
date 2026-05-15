@@ -50,7 +50,9 @@ def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:
     raw_user_tags = favorite.get("favorite_tags")
     if not isinstance(raw_user_tags, list):
         raw_user_tags = []
-    favorite["favorite_tags"] = sorted({str(tag).strip() for tag in raw_user_tags if str(tag).strip()})
+    favorite["favorite_tags"] = sorted(
+        {str(tag).strip() for tag in raw_user_tags if str(tag).strip()}
+    )
 
     if not favorite.get("url_resolved"):
         favorite["url_resolved"] = favorite.get("url")
@@ -89,7 +91,12 @@ def remove_favorite(url: str) -> bool:
     return len(favorites) != original_len
 
 
-def update_favorite(url: str, *, custom_name: str | None | object = ..., favorite_tags: list[str] | None | object = ...) -> bool:
+def update_favorite(
+    url: str,
+    *,
+    custom_name: str | None | object = ...,
+    favorite_tags: list[str] | None | object = ...,
+) -> bool:
     favorites = load_favorites()
     changed = False
 
@@ -128,5 +135,7 @@ def filter_favorites_by_tag(tag: str) -> list[dict[str, Any]]:
 def all_favorite_tags() -> list[str]:
     tags: set[str] = set()
     for favorite in load_favorites():
-        tags.update(str(tag).strip() for tag in favorite.get("favorite_tags", []) if str(tag).strip())
+        tags.update(
+            str(tag).strip() for tag in favorite.get("favorite_tags", []) if str(tag).strip()
+        )
     return sorted(tags, key=str.lower)

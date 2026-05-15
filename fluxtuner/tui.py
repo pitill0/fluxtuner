@@ -127,20 +127,29 @@ class FluxTunerTUI(App[None]):
             yield Input(placeholder="optional", id="country-filter")
             yield Label("Min kbps", classes="filter-label")
             yield Input(placeholder="0", id="bitrate-filter")
-            yield Button("Clear filters", id="clear-filters", classes="toolbar-button secondary-button")
+            yield Button(
+                "Clear filters", id="clear-filters", classes="toolbar-button secondary-button"
+            )
         with Horizontal(id="content"):
             yield DataTable(id="stations", cursor_type="row", zebra_stripes=True)
             with VerticalScroll(id="side-panel"):
                 yield Static("Search", id="mode-title")
                 yield Static("[b]Now Playing[/b]\nNothing playing yet.", id="now-playing")
                 yield Static("[b]Metadata[/b]\nArtist: —\nTrack: —", id="metadata")
-                yield Static("[b]Data usage[/b]\n0.0 MB session · 0.0 MB today · 0.0 MB/h est.", id="data-usage")
+                yield Static(
+                    "[b]Data usage[/b]\n0.0 MB session · 0.0 MB today · 0.0 MB/h est.",
+                    id="data-usage",
+                )
                 yield Static("[b]Player[/b]\nBackend: auto\nState: stopped", id="player-state")
                 yield Static("No station selected.", id="details")
                 yield Button("Play", id="play", classes="side-button success-button")
                 yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
-                yield Button("Remove fav", id="remove-favorite", classes="side-button warning-button")
-                yield Button("Rename fav", id="rename-favorite", classes="side-button secondary-button")
+                yield Button(
+                    "Remove fav", id="remove-favorite", classes="side-button warning-button"
+                )
+                yield Button(
+                    "Rename fav", id="rename-favorite", classes="side-button secondary-button"
+                )
                 yield Button("Edit tags", id="edit-tags", classes="side-button secondary-button")
         yield Static(
             "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 'b' add to playlist, 't' themes, Space pause, +/- volume.",
@@ -164,7 +173,9 @@ class FluxTunerTUI(App[None]):
         self.set_status(f"Ready. Player backend: {self.player_backend_name}.")
         if self.last_station:
             self.update_details(self.last_station)
-            self.set_status(f"Restored last station: {favorite_display_name(self.last_station)}. Press l to play it.")
+            self.set_status(
+                f"Restored last station: {favorite_display_name(self.last_station)}. Press l to play it."
+            )
         else:
             self.update_details(None)
 
@@ -178,20 +189,30 @@ class FluxTunerTUI(App[None]):
 
     def action_focus_search(self) -> None:
         self.query_one("#query", Input).focus()
-        self.set_status("Search focused. Type a query and press Enter. Press Escape to return to the main list.")
+        self.set_status(
+            "Search focused. Type a query and press Enter. Press Escape to return to the main list."
+        )
 
     def action_focus_station_list(self) -> None:
         self.query_one("#stations", DataTable).focus()
         if self.view_mode == "themes":
             self.set_status("Theme list focused. Use ↑/↓ to preview, Enter to apply, y to save.")
         elif self.view_mode == "history":
-            self.set_status("History focused. Use Enter to play, a to add again to favorites, f for favorites.")
+            self.set_status(
+                "History focused. Use Enter to play, a to add again to favorites, f for favorites."
+            )
         elif self.view_mode == "playlists":
-            self.set_status("Playlists focused. Enter/r smart plays, f opens playlist stations, n creates, d deletes persistent playlists.")
+            self.set_status(
+                "Playlists focused. Enter/r smart plays, f opens playlist stations, n creates, d deletes persistent playlists."
+            )
         elif self.view_mode == "playlist_stations":
-            self.set_status("Playlist stations focused. Enter plays, d removes from this persistent playlist, b adds selected to another playlist.")
+            self.set_status(
+                "Playlist stations focused. Enter plays, d removes from this persistent playlist, b adds selected to another playlist."
+            )
         else:
-            self.set_status("Station list focused. Use Enter to play, f favorites, h history, p playlists, a add, r random.")
+            self.set_status(
+                "Station list focused. Use Enter to play, f favorites, h history, p playlists, a add, r random."
+            )
 
     async def action_show_favorites(self) -> None:
         if self.view_mode == "playlists" and self.selected_playlist:
@@ -222,16 +243,22 @@ class FluxTunerTUI(App[None]):
 
     def action_add_selected(self) -> None:
         if self.view_mode == "themes":
-            self.set_status("Use ↑/↓ to preview temporarily, Enter to apply, or y to save the active theme as default.")
+            self.set_status(
+                "Use ↑/↓ to preview temporarily, Enter to apply, or y to save the active theme as default."
+            )
             return
         if self.view_mode == "playlists":
-            self.set_status("Playlist mode: press Enter/r to smart play, f to view stations, n to create a playlist.")
+            self.set_status(
+                "Playlist mode: press Enter/r to smart play, f to view stations, n to create a playlist."
+            )
             return
         self.add_selected_to_favorites()
 
     async def action_remove_selected(self) -> None:
         if self.view_mode == "themes":
-            self.set_status("Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed.")
+            self.set_status(
+                "Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed."
+            )
             return
         if self.view_mode == "playlists":
             await self.delete_selected_persistent_playlist()
@@ -261,7 +288,9 @@ class FluxTunerTUI(App[None]):
 
     def action_play_random_favorite(self) -> None:
         if self.view_mode == "themes":
-            self.set_status("Random favorite playback is disabled while browsing themes. Press f, h or search first.")
+            self.set_status(
+                "Random favorite playback is disabled while browsing themes. Press f, h or search first."
+            )
             return
         if self.view_mode == "playlists":
             self.smart_play_selected_playlist_or_tag()
@@ -356,6 +385,7 @@ class FluxTunerTUI(App[None]):
         if self.pending_input_action:
             return
         self.schedule_live_search(event.value)
+
     @on(Input.Submitted, "#country-filter")
     async def search_from_country_filter(self, _event: Input.Submitted) -> None:
         self.cancel_pending_search()
@@ -367,7 +397,6 @@ class FluxTunerTUI(App[None]):
         self.cancel_pending_search()
         query = self.query_one("#query", Input).value
         await self.search(query)
-
 
     @on(Button.Pressed, "#search")
     async def search_from_button(self) -> None:
@@ -447,7 +476,9 @@ class FluxTunerTUI(App[None]):
             self.selected_station = item_payload
             self.selected_theme = None
             self.selected_tag = None
-            self.selected_playlist = None if self.view_mode != "playlist_stations" else self.selected_playlist
+            self.selected_playlist = (
+                None if self.view_mode != "playlist_stations" else self.selected_playlist
+            )
             self.update_details(item_payload)
             self.update_play_button()
         elif kind == "theme":
@@ -502,7 +533,9 @@ class FluxTunerTUI(App[None]):
         self.cancel_pending_search()
 
         if not query:
-            self.set_status("Type at least 3 characters to search, or press Enter for an exact short search.")
+            self.set_status(
+                "Type at least 3 characters to search, or press Enter for an exact short search."
+            )
             return
 
         if len(query) < 3:
@@ -551,7 +584,9 @@ class FluxTunerTUI(App[None]):
                 except ValueError:
                     self.set_status("Min kbps must be a number.")
                     return
-            stations = await asyncio.to_thread(search_stations_filtered, query, country or None, min_bitrate, 50)
+            stations = await asyncio.to_thread(
+                search_stations_filtered, query, country or None, min_bitrate, 50
+            )
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Search failed: {exc}")
             self.notify(f"Search failed: {exc}", severity="error")
@@ -625,7 +660,13 @@ class FluxTunerTUI(App[None]):
         self.selected_playlist = None
 
         if not manual_counts and not tag_counts:
-            table.add_row("Info", "No playlists yet", "0", "Create persistent playlists with n, or add tags to favorites with g.", key="empty-playlists")
+            table.add_row(
+                "Info",
+                "No playlists yet",
+                "0",
+                "Create persistent playlists with n, or add tags to favorites with g.",
+                key="empty-playlists",
+            )
             self.query_one("#details", Static).update(
                 "[b]Playlists[/b]\n\n"
                 "Create persistent playlists with [b]n[/b], or add tags to favorites with [b]g[/b] to get dynamic playlists."
@@ -638,13 +679,21 @@ class FluxTunerTUI(App[None]):
         for name, count in manual_counts:
             key = self.next_table_key("playlist")
             self.add_table_payload(key, "playlist", {"name": name, "count": count})
-            table.add_row("Persistent", name, str(count), "Manual playlist saved in your library", key=key)
+            table.add_row(
+                "Persistent", name, str(count), "Manual playlist saved in your library", key=key
+            )
             first_actionable_key = first_actionable_key or key
 
         for tag, count in tag_counts:
             key = self.next_table_key("tag")
             self.add_table_payload(key, "tag", {"tag": tag, "count": count})
-            table.add_row("Dynamic", f"#{tag}", str(count), "Generated automatically from favorite tags", key=key)
+            table.add_row(
+                "Dynamic",
+                f"#{tag}",
+                str(count),
+                "Generated automatically from favorite tags",
+                key=key,
+            )
             first_actionable_key = first_actionable_key or key
 
         if first_actionable_key:
@@ -658,7 +707,9 @@ class FluxTunerTUI(App[None]):
                 self.update_playlist_details(payload["tag"], payload["count"])
 
         table.focus()
-        self.set_status("Playlists loaded. Enter/r smart plays, f opens stations, n creates, d deletes persistent playlists.")
+        self.set_status(
+            "Playlists loaded. Enter/r smart plays, f opens stations, n creates, d deletes persistent playlists."
+        )
 
     async def show_themes(self) -> None:
         self.view_mode = "themes"
@@ -672,7 +723,9 @@ class FluxTunerTUI(App[None]):
             key = self.next_table_key("theme")
             self.add_table_payload(key, "theme", theme_name)
             status = "active" if theme_name == self.active_theme else "available"
-            table.add_row("Theme", theme_name, status, f"{Path(get_theme_path(theme_name)).name}", key=key)
+            table.add_row(
+                "Theme", theme_name, status, f"{Path(get_theme_path(theme_name)).name}", key=key
+            )
 
         if themes:
             table.move_cursor(row=0)
@@ -683,7 +736,9 @@ class FluxTunerTUI(App[None]):
             self.query_one("#details", Static).update("[b]Themes[/b]\nNo themes found.")
 
         table.focus()
-        self.set_status("Theme selector. Highlight previews temporarily. Press Enter to apply, y to save active theme.")
+        self.set_status(
+            "Theme selector. Highlight previews temporarily. Press Enter to apply, y to save active theme."
+        )
 
     async def populate_station_list(self, stations: list[dict[str, Any]]) -> None:
         table = self.reset_station_table()
@@ -708,7 +763,9 @@ class FluxTunerTUI(App[None]):
         table.clear(columns=True)
         self.table_items.clear()
         self.table_key_counter = 0
-        table.add_columns("", "Name", "ID", "Country", "Genre / tags", "Codec", "kbps", "Custom tags")
+        table.add_columns(
+            "", "Name", "ID", "Country", "Genre / tags", "Codec", "kbps", "Custom tags"
+        )
         return table
 
     def reset_playlist_table(self) -> DataTable:
@@ -750,23 +807,23 @@ class FluxTunerTUI(App[None]):
     def station_marker(self, station: dict[str, Any]) -> str:
         marker_parts: list[str] = []
         if self.station_url(station) == self.current_station_url():
-            marker_parts.append('▶')
+            marker_parts.append("▶")
         if self._favorite_for_station(station):
-            marker_parts.append('★')
-        return ''.join(marker_parts)
+            marker_parts.append("★")
+        return "".join(marker_parts)
 
     def add_station_table_row(self, table: DataTable, station: dict[str, Any]) -> None:
-        key = self.next_table_key('station')
-        self.add_table_payload(key, 'station', station)
+        key = self.next_table_key("station")
+        self.add_table_payload(key, "station", station)
         marker = self.station_marker(station)
         name = self._ellipsize(favorite_display_name(station), 52)
         table.add_row(
             marker,
             name,
             self.station_short_id(station),
-            self._ellipsize(station.get('country') or '-', 18),
+            self._ellipsize(station.get("country") or "-", 18),
             self.station_genre_tags(station),
-            str(station.get('codec') or '-'),
+            str(station.get("codec") or "-"),
             str(station_bitrate(station) or "-"),
             self.station_custom_tags(station),
             key=key,
@@ -774,13 +831,13 @@ class FluxTunerTUI(App[None]):
 
     def refresh_active_station_marker(self) -> None:
         try:
-            table = self.query_one('#stations', DataTable)
+            table = self.query_one("#stations", DataTable)
             for key, (kind, payload) in self.table_items.items():
-                if kind != 'station':
+                if kind != "station":
                     continue
                 marker = self.station_marker(payload)
                 try:
-                    table.update_cell(key, '', marker)
+                    table.update_cell(key, "", marker)
                 except Exception:  # noqa: BLE001
                     return
         except Exception:  # noqa: BLE001
@@ -791,7 +848,9 @@ class FluxTunerTUI(App[None]):
             return
 
         async def refresh_view() -> None:
-            selected_url = self.station_url(self.selected_station) if self.selected_station else None
+            selected_url = (
+                self.station_url(self.selected_station) if self.selected_station else None
+            )
 
             if self.view_mode == "favorites":
                 await self.show_favorites(tag_filter=self.favorite_tag_filter)
@@ -799,9 +858,7 @@ class FluxTunerTUI(App[None]):
                 await self.show_persistent_playlist_stations(self.active_playlist_name)
             elif self.view_mode in {"search", "history"}:
                 stations = [
-                    payload
-                    for kind, payload in self.table_items.values()
-                    if kind == "station"
+                    payload for kind, payload in self.table_items.values() if kind == "station"
                 ]
                 await self.populate_station_list(stations)
 
@@ -865,7 +922,6 @@ class FluxTunerTUI(App[None]):
         self.update_play_button()
         self.set_status(f"Playing: {favorite_display_name(station)}")
         return True
-
 
     def update_play_button(self) -> None:
         button = self.query_one("#play", Button)
@@ -935,7 +991,9 @@ class FluxTunerTUI(App[None]):
 
     async def delete_selected_persistent_playlist(self) -> None:
         if not self.selected_playlist:
-            self.set_status("Select a persistent playlist to delete. Dynamic tag playlists are managed by favorite tags.")
+            self.set_status(
+                "Select a persistent playlist to delete. Dynamic tag playlists are managed by favorite tags."
+            )
             return
         name = self.selected_playlist
         deleted = delete_playlist(name)
@@ -953,7 +1011,11 @@ class FluxTunerTUI(App[None]):
         name = favorite_display_name(self.selected_station)
         playlist = self.active_playlist_name
         await self.show_persistent_playlist_stations(playlist)
-        self.set_status(f"Removed {name} from playlist: {playlist}" if removed else f"Station not found in playlist: {playlist}")
+        self.set_status(
+            f"Removed {name} from playlist: {playlist}"
+            if removed
+            else f"Station not found in playlist: {playlist}"
+        )
 
     def play_last_station(self) -> None:
         if not self.last_station:
@@ -979,13 +1041,17 @@ class FluxTunerTUI(App[None]):
         if self.selected_playlist:
             station = random_from_playlist(self.selected_playlist)
             if not station:
-                self.set_status(f"Persistent playlist '{self.selected_playlist}' has no available favorite stations.")
+                self.set_status(
+                    f"Persistent playlist '{self.selected_playlist}' has no available favorite stations."
+                )
                 return
             self.selected_station = station
             self.selected_theme = None
             self.update_details(station)
             if self.play_station(station):
-                self.set_status(f"Smart Play {self.selected_playlist}: {favorite_display_name(station)}")
+                self.set_status(
+                    f"Smart Play {self.selected_playlist}: {favorite_display_name(station)}"
+                )
             return
 
         if self.selected_tag:
@@ -997,7 +1063,9 @@ class FluxTunerTUI(App[None]):
             self.selected_theme = None
             self.update_details(station)
             if self.play_station(station):
-                self.set_status(f"Smart Play #{self.selected_tag}: {favorite_display_name(station)}")
+                self.set_status(
+                    f"Smart Play #{self.selected_tag}: {favorite_display_name(station)}"
+                )
             return
 
         self.set_status("No playlist selected.")
@@ -1023,7 +1091,9 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
         await self.populate_station_list(stations)
         self.query_one("#stations", DataTable).focus()
-        self.set_status(f"Loaded {len(stations)} station(s) in playlist '{playlist_name}'. Press d to remove selected from this playlist.")
+        self.set_status(
+            f"Loaded {len(stations)} station(s) in playlist '{playlist_name}'. Press d to remove selected from this playlist."
+        )
 
     def preview_selected_theme(self) -> None:
         if not self.selected_theme:
@@ -1058,7 +1128,9 @@ class FluxTunerTUI(App[None]):
 
         self.previewed_theme = theme_name
         if announce:
-            self.set_status(f"Theme preview: {theme_name}. Press Enter to apply or y to save the active theme.")
+            self.set_status(
+                f"Theme preview: {theme_name}. Press Enter to apply or y to save the active theme."
+            )
 
     def restore_active_theme_if_previewing(self) -> None:
         if not self.previewed_theme or self.previewed_theme == self.active_theme:
@@ -1097,7 +1169,6 @@ class FluxTunerTUI(App[None]):
             suffix = "saved" if save else "applied"
             self.set_status(f"Theme {suffix}: {theme_name}")
 
-
     def _favorite_for_station(self, station: dict[str, Any] | None) -> dict[str, Any] | None:
         if not station:
             return None
@@ -1112,25 +1183,25 @@ class FluxTunerTUI(App[None]):
     def _favorite_tags_text(self, station: dict[str, Any] | None) -> str:
         favorite = self._favorite_for_station(station)
         if not favorite:
-            return '-'
-        tags = favorite.get('favorite_tags') or []
+            return "-"
+        tags = favorite.get("favorite_tags") or []
         if isinstance(tags, str):
-            return tags or '-'
-        return ', '.join(str(tag) for tag in tags) if tags else '-'
+            return tags or "-"
+        return ", ".join(str(tag) for tag in tags) if tags else "-"
 
     def _favorite_status_text(self, station: dict[str, Any] | None) -> str:
         favorite = self._favorite_for_station(station)
         if not favorite:
-            return 'No'
-        custom_name = favorite.get('favorite_name')
+            return "No"
+        custom_name = favorite.get("favorite_name")
         if custom_name:
-            return f'Yes · {custom_name}'
-        return 'Yes'
+            return f"Yes · {custom_name}"
+        return "Yes"
 
     def _favorite_hint_text(self, station: dict[str, Any] | None) -> str:
         if self._favorite_for_station(station):
-            return 'Favorite actions: e rename · g edit tags · d remove'
-        return 'Favorite actions: a add selected station'
+            return "Favorite actions: e rename · g edit tags · d remove"
+        return "Favorite actions: a add selected station"
 
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)
@@ -1229,7 +1300,9 @@ class FluxTunerTUI(App[None]):
         query.value = favorite_display_name(self.selected_station or {})
         query.focus()
         self.pending_input_action = "rename_favorite"
-        self.set_status("Rename favorite: edit the search field and press Enter. Leave empty to clear custom name.")
+        self.set_status(
+            "Rename favorite: edit the search field and press Enter. Leave empty to clear custom name."
+        )
 
     def prepare_favorite_tags_edit(self) -> None:
         if not self.ensure_favorite_selected():
@@ -1239,7 +1312,9 @@ class FluxTunerTUI(App[None]):
         query.value = ", ".join(tags)
         query.focus()
         self.pending_input_action = "edit_favorite_tags"
-        self.set_status("Edit favorite tags: comma-separated values, then press Enter. Leave empty to clear tags.")
+        self.set_status(
+            "Edit favorite tags: comma-separated values, then press Enter. Leave empty to clear tags."
+        )
 
     def prepare_favorites_tag_filter(self) -> None:
         self.view_mode = "favorites"
@@ -1249,7 +1324,9 @@ class FluxTunerTUI(App[None]):
         self.pending_input_action = "filter_favorites_by_tag"
         tags = all_favorite_tags()
         suffix = f" Existing tags: {', '.join(tags)}" if tags else " No favorite tags yet."
-        self.set_status(f"Filter favorites by tag: type a tag and press Enter. Empty clears filter.{suffix}")
+        self.set_status(
+            f"Filter favorites by tag: type a tag and press Enter. Empty clears filter.{suffix}"
+        )
 
     def prepare_new_playlist(self) -> None:
         query = self.query_one("#query", Input)
@@ -1270,8 +1347,12 @@ class FluxTunerTUI(App[None]):
         query.focus()
         self.pending_input_action = "add_to_playlist"
         names = [name for name, _count in playlist_counts()]
-        suffix = f" Existing: {', '.join(names[:8])}" if names else " Type a new name to create one."
-        self.set_status(f"Add selected station to playlist: type playlist name and press Enter.{suffix}")
+        suffix = (
+            f" Existing: {', '.join(names[:8])}" if names else " Type a new name to create one."
+        )
+        self.set_status(
+            f"Add selected station to playlist: type playlist name and press Enter.{suffix}"
+        )
 
     async def handle_pending_input(self, value: str) -> None:
         action = self.pending_input_action
@@ -1288,7 +1369,9 @@ class FluxTunerTUI(App[None]):
                 return
             created = create_playlist(value)
             await self.show_playlists()
-            self.set_status(f"Created playlist: {value}" if created else f"Playlist already exists: {value}")
+            self.set_status(
+                f"Created playlist: {value}" if created else f"Playlist already exists: {value}"
+            )
             return
 
         if action == "add_to_playlist":
@@ -1300,7 +1383,11 @@ class FluxTunerTUI(App[None]):
                 return
             added = add_station_to_playlist(value, self.selected_station)
             name = favorite_display_name(self.selected_station)
-            self.set_status(f"Added {name} to playlist: {value}" if added else f"{name} is already in playlist: {value}")
+            self.set_status(
+                f"Added {name} to playlist: {value}"
+                if added
+                else f"{name} is already in playlist: {value}"
+            )
             return
 
         if not self.selected_station:
@@ -1322,7 +1409,9 @@ class FluxTunerTUI(App[None]):
             tags = [tag.strip() for tag in value.split(",") if tag.strip()]
             update_favorite(key, favorite_tags=tags)
             await self.show_favorites(tag_filter=self.favorite_tag_filter)
-            self.set_status(f"Favorite tags updated: {', '.join(tags)}" if tags else "Favorite tags cleared.")
+            self.set_status(
+                f"Favorite tags updated: {', '.join(tags)}" if tags else "Favorite tags cleared."
+            )
             return
 
         self.set_status("Unknown input action.")
@@ -1408,7 +1497,9 @@ class FluxTunerTUI(App[None]):
         if not value:
             return "?"
 
-        lines = textwrap.wrap(value, width=max(12, width), break_long_words=False, replace_whitespace=True)
+        lines = textwrap.wrap(
+            value, width=max(12, width), break_long_words=False, replace_whitespace=True
+        )
         if not lines:
             return "?"
         if len(lines) > max_lines:
@@ -1438,15 +1529,15 @@ class FluxTunerTUI(App[None]):
         with suppress(Exception):
             self.usage_tracker.stop()
 
-        bitrate = int(station.get('bitrate') or 0)
+        bitrate = int(station.get("bitrate") or 0)
         if bitrate <= 0:
             if self.is_mounted:
-                self.query_one('#data-usage', Static).update(
-                    '[b]Data usage[/b]\nUnavailable · missing bitrate'
+                self.query_one("#data-usage", Static).update(
+                    "[b]Data usage[/b]\nUnavailable · missing bitrate"
                 )
             return
 
-        start = getattr(self.usage_tracker, 'start', None)
+        start = getattr(self.usage_tracker, "start", None)
         if not callable(start):
             return
 

@@ -46,7 +46,7 @@ class PlayerAdapter(ABC):
     def set_mute(self, muted: bool) -> None:
         raise PlayerError("Mute is not supported by this backend.")
         """Set mute to an absolute value."""
-    
+
     def supports_pause(self) -> bool:
         return False
 

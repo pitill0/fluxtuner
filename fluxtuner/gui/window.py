@@ -230,7 +230,9 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         side_panel.append(self.data_usage_label)
 
-        self.player_state_label = self._make_value_label(f"Player: {self.player_backend_name} · stopped", selectable=True)
+        self.player_state_label = self._make_value_label(
+            f"Player: {self.player_backend_name} · stopped", selectable=True
+        )
         side_panel.append(self.player_state_label)
 
         self._build_favorite_controls(side_panel)
@@ -350,12 +352,16 @@ class MainWindow(Gtk.ApplicationWindow):
         playlist_controls.append(playlist_buttons)
 
         self.show_tag_playlist_button = Gtk.Button(label="Show")
-        self.show_tag_playlist_button.set_tooltip_text("Show favorites matching the selected favorite tag")
+        self.show_tag_playlist_button.set_tooltip_text(
+            "Show favorites matching the selected favorite tag"
+        )
         self.show_tag_playlist_button.connect("clicked", self.on_show_tag_playlist_clicked)
         playlist_buttons.append(self.show_tag_playlist_button)
 
         self.random_tag_button = Gtk.Button(label="Random")
-        self.random_tag_button.set_tooltip_text("Play a random favorite from the selected favorite tag")
+        self.random_tag_button.set_tooltip_text(
+            "Play a random favorite from the selected favorite tag"
+        )
         self.random_tag_button.connect("clicked", self.on_random_tag_clicked)
         playlist_buttons.append(self.random_tag_button)
 
@@ -630,7 +636,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_detail_label.set_text(title)
         return False
 
-
     def _metadata_fetch_finished(self) -> bool:
         self._metadata_fetch_in_progress = False
         return False
@@ -731,12 +736,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_player_state()
 
     def _favorite_edit_tags_from_entry(self) -> list[str]:
-        if not hasattr(self, 'edit_favorite_tags_entry'):
+        if not hasattr(self, "edit_favorite_tags_entry"):
             return []
         raw_value = self.edit_favorite_tags_entry.get_text().strip()
         if not raw_value:
             return []
-        return sorted({tag.strip() for tag in raw_value.split(',') if tag.strip()})
+        return sorted({tag.strip() for tag in raw_value.split(",") if tag.strip()})
 
     def _selected_favorite_record(self) -> dict[str, Any] | None:
         if not self.selected_station:
@@ -750,21 +755,26 @@ class MainWindow(Gtk.ApplicationWindow):
         return None
 
     def _populate_favorite_edit_fields(self) -> None:
-        if not hasattr(self, 'favorite_name_entry'):
+        if not hasattr(self, "favorite_name_entry"):
             return
         favorite = self._selected_favorite_record()
         if not favorite:
-            self.favorite_name_entry.set_text('')
-            self.edit_favorite_tags_entry.set_text('')
+            self.favorite_name_entry.set_text("")
+            self.edit_favorite_tags_entry.set_text("")
             return
-        display_name = favorite.get("custom_name") or favorite.get("favorite_name") or favorite.get("name") or ""
-        tags = favorite.get('favorite_tags') or []
-        tags_text = tags if isinstance(tags, str) else ', '.join(str(tag) for tag in tags)
+        display_name = (
+            favorite.get("custom_name")
+            or favorite.get("favorite_name")
+            or favorite.get("name")
+            or ""
+        )
+        tags = favorite.get("favorite_tags") or []
+        tags_text = tags if isinstance(tags, str) else ", ".join(str(tag) for tag in tags)
         self.favorite_name_entry.set_text(display_name)
         self.edit_favorite_tags_entry.set_text(tags_text)
 
     def _update_favorite_buttons(self) -> None:
-        if not hasattr(self, 'add_favorite_button'):
+        if not hasattr(self, "add_favorite_button"):
             return
 
         has_selection = self.selected_station is not None
@@ -773,7 +783,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.add_favorite_button.set_sensitive(has_selection and not is_favorite)
         self.remove_favorite_button.set_sensitive(has_selection and is_favorite)
 
-        if hasattr(self, 'favorite_name_entry'):
+        if hasattr(self, "favorite_name_entry"):
             self.favorite_name_entry.set_sensitive(is_favorite)
             self.edit_favorite_tags_entry.set_sensitive(is_favorite)
             self.save_favorite_button.set_sensitive(is_favorite)
@@ -805,13 +815,13 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_save_favorite_clicked(self, _button: Gtk.Button) -> None:
         favorite = self._selected_favorite_record()
         if not favorite:
-            self.status_label.set_text('Select a favorite first.')
+            self.status_label.set_text("Select a favorite first.")
             self._update_favorite_buttons()
             return
 
         key = station_key(favorite)
         if not key:
-            self.status_label.set_text('Selected favorite has no URL.')
+            self.status_label.set_text("Selected favorite has no URL.")
             self._update_favorite_buttons()
             return
 
@@ -844,7 +854,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self.selected_station.pop("favorite_name", None)
             self.selected_station["favorite_tags"] = favorite_tags
 
-        if self.current_station and selected_url and self._station_url(self.current_station) == selected_url:
+        if (
+            self.current_station
+            and selected_url
+            and self._station_url(self.current_station) == selected_url
+        ):
             if favorite_name:
                 self.current_station["custom_name"] = favorite_name
             else:
@@ -940,7 +954,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._render_results()
         self._update_favorite_buttons()
         self._update_playlist_status()
-        self.status_label.set_text(f"Loaded {len(stations)} favorite station(s) for favorite tag: {tag}")
+        self.status_label.set_text(
+            f"Loaded {len(stations)} favorite station(s) for favorite tag: {tag}"
+        )
 
     def on_random_tag_clicked(self, _button: Gtk.Button) -> None:
         import random
@@ -1101,4 +1117,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):
-            self.data_usage_label.set_text(format_usage_line(self.usage_tracker.snapshot()).replace("Data: ", ""))
+            self.data_usage_label.set_text(
+                format_usage_line(self.usage_tracker.snapshot()).replace("Data: ", "")
+            )

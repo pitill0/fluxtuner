@@ -9,10 +9,11 @@ from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
 FAVORITES_FILE = data_file("favorites.json")
-migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
 
 def load_favorites() -> list[dict[str, Any]]:
+    migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
+
     if not FAVORITES_FILE.exists():
         return []
 
@@ -28,6 +29,8 @@ def load_favorites() -> list[dict[str, Any]]:
 
 
 def save_favorites(favorites: list[dict[str, Any]]) -> None:
+    migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
+
     normalized = [normalize_favorite(item) for item in favorites if station_key(item)]
     FAVORITES_FILE.write_text(
         json.dumps(normalized, indent=2, ensure_ascii=False),

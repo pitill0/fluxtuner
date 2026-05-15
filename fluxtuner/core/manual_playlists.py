@@ -11,10 +11,11 @@ from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_PLAYLISTS_FILE = Path.home() / ".fluxtuner_playlists.json"
 PLAYLISTS_FILE = data_file("playlists.json")
-migrate_legacy_file(LEGACY_PLAYLISTS_FILE, PLAYLISTS_FILE)
 
 
 def load_playlists() -> list[dict[str, Any]]:
+    migrate_legacy_file(LEGACY_PLAYLISTS_FILE, PLAYLISTS_FILE)
+
     if not PLAYLISTS_FILE.exists():
         return []
     try:
@@ -27,6 +28,8 @@ def load_playlists() -> list[dict[str, Any]]:
 
 
 def save_playlists(playlists: list[dict[str, Any]]) -> None:
+    migrate_legacy_file(LEGACY_PLAYLISTS_FILE, PLAYLISTS_FILE)
+
     normalized = [
         normalize_playlist(item) for item in playlists if str(item.get("name", "")).strip()
     ]

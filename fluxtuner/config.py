@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
-from fluxtuner.paths import config_file, migrate_legacy_file
+from fluxtuner.paths import config_file
 
-APP_NAME = "fluxtuner"
-LEGACY_CONFIG_FILE = Path.home() / ".config" / APP_NAME / "config.json"
 CONFIG_FILE = config_file("config.json")
-migrate_legacy_file(LEGACY_CONFIG_FILE, CONFIG_FILE)
 
 
 def default_config() -> dict[str, Any]:

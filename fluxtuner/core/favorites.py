@@ -11,6 +11,12 @@ LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
 FAVORITES_FILE = data_file("favorites.json")
 
 
+def _normalize_favorite_tags(tags: Any) -> list[str]:
+    if not isinstance(tags, list):
+        return []
+    return sorted({str(tag).strip() for tag in tags if str(tag).strip()})
+
+
 def load_favorites() -> list[dict[str, Any]]:
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
@@ -51,11 +57,7 @@ def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:
     # Backward compatibility: early v13 experiments used a generic "tags" list for
     # user tags, while Radio Browser uses "tags" as a comma-separated string.
     raw_user_tags = favorite.get("favorite_tags")
-    if not isinstance(raw_user_tags, list):
-        raw_user_tags = []
-    favorite["favorite_tags"] = sorted(
-        {str(tag).strip() for tag in raw_user_tags if str(tag).strip()}
-    )
+    favorite["favorite_tags"] = _normalize_favorite_tags(raw_user_tags)
 
     if not favorite.get("url_resolved"):
         favorite["url_resolved"] = favorite.get("url")
@@ -113,8 +115,7 @@ def update_favorite(
             changed = True
 
         if favorite_tags is not ...:
-            tags = favorite_tags or []
-            item["favorite_tags"] = sorted({str(tag).strip() for tag in tags if str(tag).strip()})
+            item["favorite_tags"] = _normalize_favorite_tags(favorite_tags or [])
             changed = True
 
         break
@@ -138,7 +139,5 @@ def filter_favorites_by_tag(tag: str) -> list[dict[str, Any]]:
 def all_favorite_tags() -> list[str]:
     tags: set[str] = set()
     for favorite in load_favorites():
-        tags.update(
-            str(tag).strip() for tag in favorite.get("favorite_tags", []) if str(tag).strip()
-        )
+        tags.update(_normalize_favorite_tags(favorite.get("favorite_tags")))
     return sorted(tags, key=str.lower)

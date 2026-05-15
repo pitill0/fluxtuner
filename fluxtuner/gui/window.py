@@ -635,17 +635,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         GLib.idle_add(self._update_metadata_labels, artist, title, raw)
 
-    def _fetch_current_metadata_once(self) -> None:
-        stream_url = self._station_url(self.current_station)
-        if not stream_url:
-            return
-
-        threading.Thread(
-            target=self._metadata_worker,
-            args=(stream_url,),
-            daemon=True,
-        ).start()
-
     def _update_metadata_labels(self, artist: str, title: str, raw: str) -> bool:
         if raw == self._last_metadata_raw:
             return False

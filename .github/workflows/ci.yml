@@ -27,8 +27,16 @@ jobs:
 
       - name: Run Ruff
         run: |
-          ruff check fluxtuner
+          ruff check .
+
+      - name: Ruff check formatting
+        run: |
+          ruff --format check .
 
       - name: Compile Python files
         run: |
-          python -m compileall fluxtuner
+          python -m compileall fluxtuner tests
+
+      - name: Run tests
+        run: |
+          python -m pytest

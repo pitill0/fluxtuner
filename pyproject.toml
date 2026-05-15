@@ -85,5 +85,5 @@ fluxtuner = [
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["E501"]

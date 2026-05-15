@@ -725,8 +725,8 @@ class MainWindow(Gtk.ApplicationWindow):
         state = get_playback_state()
 
         volume = state.get("volume")
-        if isinstance(volume, (int, float)):
-            self.restored_volume = max(0, min(100, int(round(volume))))
+        if isinstance(volume, int):
+            self.restored_volume = volume
 
         self.restored_muted = bool(state.get("muted", False))
 

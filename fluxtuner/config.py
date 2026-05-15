@@ -53,10 +53,31 @@ def set_config_value(key: str, value: Any) -> None:
     save_config(config)
 
 
+def _normalize_volume(value: Any) -> int | None:
+    if value is None:
+        return None
+
+    try:
+        return max(0, min(100, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_muted(value: Any) -> bool:
+    return bool(value)
+
+
 def get_playback_state() -> dict[str, Any]:
-    """Return persisted playback preferences and last station metadata."""
+    """Return normalized persisted playback preferences and last station metadata."""
     state = load_config().get("playback", {})
-    return state if isinstance(state, dict) else {}
+    if not isinstance(state, dict):
+        return {}
+
+    return {
+        "last_station": state.get("last_station"),
+        "volume": _normalize_volume(state.get("volume")),
+        "muted": _normalize_muted(state.get("muted", False)),
+    }
 
 
 def save_playback_state(
@@ -74,9 +95,11 @@ def save_playback_state(
     if last_station is not None:
         playback["last_station"] = last_station
     if volume is not None:
-        playback["volume"] = int(round(volume))
+        clean_volume = _normalize_volume(volume)
+        if clean_volume is not None:
+            playback["volume"] = clean_volume
     if muted is not None:
-        playback["muted"] = bool(muted)
+        playback["muted"] = _normalize_muted(muted)
 
     config["playback"] = playback
     save_config(config)

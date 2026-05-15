@@ -11,6 +11,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
+from fluxtuner.config import get_playback_state, save_playback_state  # noqa: E402
 from fluxtuner.core.api import search_stations_filtered  # noqa: E402
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
@@ -55,6 +56,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.last_search_results: list[dict[str, Any]] = []
         self.active_playlist_tag: str | None = None
         self.favorite_urls = self._favorite_url_set()
+        self.restored_volume: int | None = None
+        self.restored_muted: bool = False
+        self._restore_playback_preferences()
 
         root = self._build_root()
         self.set_child(root)
@@ -267,7 +271,9 @@ class MainWindow(Gtk.ApplicationWindow):
         playback_bar.append(self.mute_button)
 
         self.volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-        self.volume_scale.set_value(50)
+        self.volume_scale.set_value(
+            self.restored_volume if self.restored_volume is not None else 50
+        )
         self.volume_scale.set_size_request(180, -1)
         self.volume_scale.set_hexpand(False)
         self.volume_scale.set_draw_value(False)
@@ -605,6 +611,10 @@ class MainWindow(Gtk.ApplicationWindow):
         try:
             self.status_label.set_text("Buffering…")
             self.player.play(url)
+            self._set_player_volume_from_scale()
+            if self.restored_muted and self.player.supports_mute():
+                self.player.set_mute(True)
+
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
             self.status_label.set_text(f"Playback failed: {exc}")
             return
@@ -711,6 +721,38 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._start_metadata_polling()
 
+    def _restore_playback_preferences(self) -> None:
+        state = get_playback_state()
+
+        volume = state.get("volume")
+        if isinstance(volume, (int, float)):
+            self.restored_volume = max(0, min(100, int(round(volume))))
+
+        self.restored_muted = bool(state.get("muted", False))
+
+    def _current_volume_value(self) -> int:
+        return int(round(self.volume_scale.get_value()))
+
+    def _set_player_volume_from_scale(self) -> None:
+        volume = self._current_volume_value()
+        if self.player.supports_volume():
+            self.player.set_volume(volume)
+        else:
+            self._send_player_command(["set_property", "volume", volume])
+
+    def _persist_playback_preferences(self) -> None:
+        save_playback_state(
+            volume=self.restored_volume,
+            muted=self._player_muted_state(),
+        )
+
+    def _player_muted_state(self) -> bool:
+        try:
+            state = self.player.get_state()
+        except Exception:  # noqa: BLE001
+            return self.restored_muted
+        return bool(state.get("muted", self.restored_muted))
+
     def on_mute_clicked(self, _button: Gtk.Button) -> None:
         if not self._has_active_playback():
             self.status_label.set_text("Nothing is playing.")
@@ -723,25 +765,25 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self.update_player_state()
+        self.restored_muted = self._player_muted_state()
+        self._persist_playback_preferences()
         self.status_label.set_text("Toggled mute")
 
-    def on_volume_scale_changed(self, scale: Gtk.Scale) -> None:
+    def on_volume_scale_changed(self, _scale: Gtk.Scale) -> None:
+        self.restored_volume = self._current_volume_value()
+
         if not self._has_active_playback():
+            save_playback_state(volume=self.restored_volume)
             return
 
-        volume = int(round(scale.get_value()))
-
         try:
-            set_volume = getattr(self.player, "set_volume", None)
-            if callable(set_volume):
-                set_volume(volume)
-            else:
-                self._send_player_command(["set_property", "volume", volume])
+            self._set_player_volume_from_scale()
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
             self._playback_command_failed("Volume", exc)
             return
 
         self.update_player_state()
+        self._persist_playback_preferences()
 
     def _favorite_edit_name_from_entry(self) -> str:
         if not hasattr(self, "favorite_name_entry"):

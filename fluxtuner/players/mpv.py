@@ -152,6 +152,17 @@ class MpvController(PlayerAdapter):
             "volume": self.get_property("volume"),
         }
 
+    def _next_request_payload(self, command: list[Any]) -> tuple[int, bytes]:
+        self._request_id += 1
+        request_id = self._request_id
+        payload = (
+            json.dumps(
+                {"command": command, "request_id": request_id},
+            ).encode("utf-8")
+            + b"\n"
+        )
+        return request_id, payload
+
     def command(self, command: list[Any]) -> dict[str, Any] | None:
         """Send a JSON IPC command to mpv and return the matching response.
 
@@ -161,9 +172,7 @@ class MpvController(PlayerAdapter):
         if not self.is_playing() or not self.ipc_path:
             raise PlayerError("No active mpv playback session.")
 
-        self._request_id += 1
-        request_id = self._request_id
-        payload = json.dumps({"command": command, "request_id": request_id}).encode("utf-8") + b"\n"
+        request_id, payload = self._next_request_payload(command)
 
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(1.5)

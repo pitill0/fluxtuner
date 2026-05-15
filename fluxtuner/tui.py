@@ -103,8 +103,8 @@ class FluxTunerTUI(App[None]):
         self.active_playlist_name: str | None = None
         self.playing_station: dict[str, Any] | None = None
         self.last_station: dict[str, Any] | None = None
-        self.restored_volume: int | float | None = None
-        self.restored_muted: bool | None = None
+        self.restored_volume: int | None = None
+        self.restored_muted: bool = False
         self.view_mode = "search"
         self._search_task = None
         self.pending_input_action: str | None = None
@@ -1417,24 +1417,25 @@ class FluxTunerTUI(App[None]):
         self.set_status("Unknown input action.")
 
     def restore_playback_state(self) -> None:
-        """Load persisted playback metadata and preferences."""
+        """Load normalized persisted playback metadata and preferences."""
         state = get_playback_state()
+
         last_station = state.get("last_station")
         self.last_station = last_station if isinstance(last_station, dict) else None
         self.selected_station = self.last_station
+
         volume = state.get("volume")
-        self.restored_volume = volume if isinstance(volume, (int, float)) else None
-        muted = state.get("muted")
-        self.restored_muted = bool(muted) if isinstance(muted, bool) else None
+        self.restored_volume = volume if isinstance(volume, int) else None
+        self.restored_muted = bool(state.get("muted", False))
 
     def apply_restored_playback_preferences(self) -> None:
-        """Apply saved volume and mute values to a newly started mpv session."""
+        """Apply saved volume and mute values to a newly started player session."""
         if self.restored_volume is not None:
             with suppress(Exception):
                 self.player.set_volume(self.restored_volume)
-        if self.restored_muted is not None:
-            with suppress(Exception):
-                self.player.set_mute(self.restored_muted)
+
+        with suppress(Exception):
+            self.player.set_mute(self.restored_muted)
 
     def persist_player_state(self, last_station: dict[str, Any] | None = None) -> None:
         """Persist last station, volume and mute state when available."""
@@ -1444,13 +1445,25 @@ class FluxTunerTUI(App[None]):
             state = self.player.get_state()
             if isinstance(state.get("volume"), (int, float)):
                 volume = state.get("volume")
-                self.restored_volume = volume
+                self.restored_volume = int(round(volume))
             if isinstance(state.get("muted"), bool):
                 muted = state.get("muted")
                 self.restored_muted = muted
         except Exception:
             pass
         save_playback_state(last_station=last_station, volume=volume, muted=muted)
+
+    def _player_state_snapshot(self) -> dict[str, Any]:
+        get_state = getattr(self.player, "get_state", None)
+        if not callable(get_state):
+            return {}
+
+        with suppress(Exception):
+            state = get_state()
+            if isinstance(state, dict):
+                return state
+
+        return {}
 
     def station_url(self, station: dict[str, Any] | None) -> str | None:
         return core_station_url(station)
@@ -1552,26 +1565,40 @@ class FluxTunerTUI(App[None]):
             self.query_one("#data-usage", Static).update(f"[b]Data usage[/b]\n{usage_line}")
 
     def _player_state_text(self) -> str:
-        get_state = getattr(self.player, "get_state", None)
-        if callable(get_state):
-            with suppress(Exception):
-                state = get_state()
-                if isinstance(state, dict):
-                    if state.get("paused"):
-                        return "paused"
-                    if state.get("playing"):
-                        return "playing"
+        state = self._player_state_snapshot()
+        if state.get("paused"):
+            return "paused"
+        if state.get("playing"):
+            return "playing"
+
         is_playing = getattr(self.player, "is_playing", None)
         if callable(is_playing):
             with suppress(Exception):
                 return "playing" if is_playing() else "stopped"
+
         return "playing" if self.playing_station else "stopped"
 
     def _update_player_state_display(self) -> None:
         if not self.is_mounted:
             return
+
+        state = self._player_state_snapshot()
+        volume = state.get("volume", self.restored_volume)
+        muted = bool(state.get("muted", self.restored_muted))
+
+        volume_text = (
+            f"{self.volume_bar(volume)} {int(round(volume))}%"
+            if isinstance(volume, (int, float))
+            else f"{self.volume_bar(None)} ?%"
+        )
+        mute_text = "yes" if muted else "no"
+
         self.query_one("#player-state", Static).update(
-            f"[b]Player[/b]\nBackend: {self.player_backend_name}\nState: {self._player_state_text()}"
+            "[b]Player[/b]\n"
+            f"Backend: {self.player_backend_name}\n"
+            f"State: {self._player_state_text()}\n"
+            f"Volume: {volume_text}\n"
+            f"Muted: {mute_text}"
         )
 
     def _clear_metadata(self) -> None:

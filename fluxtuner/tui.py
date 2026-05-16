@@ -73,7 +73,7 @@ class FluxTunerTUI(App[None]):
         ("b", "add_to_playlist", "Add playlist"),
         ("n", "new_playlist", "New playlist"),
         ("r", "play_random_favorite", "Random"),
-        ("space", "toggle_pause", "Pause/Stop"),
+        ("space", "play_stop", "Play/Stop"),
         ("plus", "volume_up", "Vol+"),
         ("minus", "volume_down", "Vol-"),
         ("m", "toggle_mute", "Mute"),
@@ -152,7 +152,7 @@ class FluxTunerTUI(App[None]):
                 )
                 yield Button("Edit tags", id="edit-tags", classes="side-button secondary-button")
         yield Static(
-            "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 'b' add to playlist, 't' themes, Space pause, +/- volume.",
+            "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 'b' add to playlist, 't' themes, Space play/stop, +/- volume.",
             id="status",
         )
         yield Footer()
@@ -297,44 +297,14 @@ class FluxTunerTUI(App[None]):
             return
         self.play_random_favorite()
 
+    def action_play_stop(self) -> None:
+        if self.player.is_playing():
+            self.stop_playback()
+            return
+        self.play_selected_station()
+
     def action_stop(self) -> None:
         self.stop_playback()
-
-    def player_supports_pause(self) -> bool:
-        supports_pause = getattr(self.player, "supports_pause", None)
-        if not callable(supports_pause):
-            return True
-        try:
-            return bool(supports_pause())
-        except Exception:  # noqa: BLE001
-            return True
-
-    def action_toggle_pause(self) -> None:
-        if not self.player_supports_pause():
-            if self.player.is_playing():
-                self.stop_playback()
-                self.set_status(
-                    f"{self.player_backend_name} does not support pause/resume. "
-                    "Playback stopped. Press Enter or Play to start again."
-                )
-            else:
-                self.set_status(
-                    f"{self.player_backend_name} does not support pause/resume. "
-                    "Select a station and press Enter or Play."
-                )
-            self.update_now_playing()
-            self.update_play_button()
-            return
-
-        try:
-            self.player.toggle_pause()
-        except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Pause/resume failed: {exc}")
-            return
-
-        self.update_now_playing()
-        self.update_play_button()
-        self.set_status("Toggled pause/resume.")
 
     def action_toggle_mute(self) -> None:
         try:
@@ -440,15 +410,7 @@ class FluxTunerTUI(App[None]):
 
     @on(Button.Pressed, "#play")
     def play_from_button(self) -> None:
-        if (
-            self.selected_station
-            and self.current_station_url()
-            and self.station_url(self.selected_station) == self.current_station_url()
-        ):
-            self.stop_playback()
-            return
-
-        self.play_selected_station()
+        self.action_play_stop()
 
     @on(Button.Pressed, "#add-favorite")
     def add_favorite_from_button(self) -> None:
@@ -925,21 +887,7 @@ class FluxTunerTUI(App[None]):
 
     def update_play_button(self) -> None:
         button = self.query_one("#play", Button)
-
-        if self.player.is_playing() and not self.player_supports_pause():
-            button.label = "■ Stop"
-
-        if not self.selected_station:
-            button.label = "▶ Play"
-            return
-
-        selected_url = self.station_url(self.selected_station)
-        current_url = self.current_station_url()
-
-        if current_url and selected_url == current_url:
-            button.label = "■ Stop"
-        else:
-            button.label = "▶ Play"
+        button.label = "■ Stop" if self.player.is_playing() else "▶ Play"
 
     def stop_playback(self) -> None:
         self.player.stop()

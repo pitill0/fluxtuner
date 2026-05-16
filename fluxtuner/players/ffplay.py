@@ -63,15 +63,6 @@ class FfplayController(PlayerAdapter):
 
         self.process = None
 
-    def pause(self) -> None:
-        return
-
-    def resume(self) -> None:
-        return
-
-    def toggle_pause(self) -> None:
-        return
-
     def set_volume(self, volume: int) -> None:
         self.volume = max(0, min(100, int(volume)))
 

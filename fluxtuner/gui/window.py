@@ -766,6 +766,10 @@ class MainWindow(Gtk.ApplicationWindow):
         return bool(state.get("muted", self.restored_muted))
 
     def on_mute_clicked(self, _button: Gtk.Button) -> None:
+        if not self.player.supports_mute():
+            self.status_label.set_text(f"{self.player_backend_name} does not support live mute.")
+            return
+
         if not self._has_active_playback():
             self.status_label.set_text("Nothing is playing.")
             return

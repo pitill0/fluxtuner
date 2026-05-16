@@ -4,7 +4,9 @@ from fluxtuner.core.stations import (
     same_station,
     station_bitrate,
     station_key,
+    station_matches_tag,
     station_name,
+    station_short_id,
     station_tags,
     station_url,
 )
@@ -73,3 +75,41 @@ def test_same_station_compares_station_keys() -> None:
 def test_station_url_strips_whitespace_and_rejects_empty_values() -> None:
     assert station_url({"url": "  https://example.com/stream  "}) == "https://example.com/stream"
     assert station_url({"url": "   "}) is None
+
+
+def test_station_matches_tag_matches_stream_and_favorite_tags() -> None:
+    station = {
+        "tags": "Rock, Indie",
+        "favorite_tags": ["Morning"],
+    }
+
+    assert station_matches_tag(station, "rock") is True
+    assert station_matches_tag(station, " MORNING ") is True
+    assert station_matches_tag(station, "news") is False
+
+
+def test_station_matches_tag_empty_tag_matches_all() -> None:
+    station = {"tags": "Rock"}
+
+    assert station_matches_tag(station, "") is True
+    assert station_matches_tag(station, "   ") is True
+
+
+def test_station_short_id_prefers_stationuuid() -> None:
+    station = {
+        "stationuuid": "abcdef123456",
+        "changeuuid": "change-id",
+        "url": "https://example.com/stream",
+    }
+
+    assert station_short_id(station) == "abcdef12"
+
+
+def test_station_short_id_falls_back_to_changeuuid_and_url() -> None:
+    assert station_short_id({"changeuuid": "change-id-123"}) == "change-i"
+    assert station_short_id({"url": "https://example.com/stream"}, length=12) == "https://exam"
+
+
+def test_station_short_id_returns_dash_for_missing_station() -> None:
+    assert station_short_id(None) == "-"
+    assert station_short_id({}) == "-"

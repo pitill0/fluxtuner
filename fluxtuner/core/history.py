@@ -9,7 +9,6 @@ from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
 HISTORY_FILE = data_file("history.json")
-migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
 MAX_HISTORY_ITEMS = 100
 
 
@@ -18,6 +17,8 @@ def _station_key(station: dict[str, Any]) -> str:
 
 
 def load_history() -> list[dict[str, Any]]:
+    migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
+
     if not HISTORY_FILE.exists():
         return []
 
@@ -33,6 +34,8 @@ def load_history() -> list[dict[str, Any]]:
 
 
 def save_history(history: list[dict[str, Any]]) -> None:
+    migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
+
     HISTORY_FILE.write_text(
         json.dumps(history[:MAX_HISTORY_ITEMS], indent=2, ensure_ascii=False),
         encoding="utf-8",

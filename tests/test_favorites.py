@@ -3,6 +3,16 @@ from pathlib import Path
 from fluxtuner.core import favorites
 
 
+def patch_favorites_file(tmp_path: Path, monkeypatch) -> Path:
+    test_file = tmp_path / "favorites.json"
+    legacy_file = tmp_path / "legacy_favorites.json"
+
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    monkeypatch.setattr(favorites, "LEGACY_FAVORITES_FILE", legacy_file)
+
+    return test_file
+
+
 def test_normalize_favorite_adds_expected_fields() -> None:
     station = {
         "name": "Test Radio",
@@ -32,8 +42,7 @@ def test_all_favorite_tags_normalizes_and_deduplicates_tags(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [
@@ -75,8 +84,7 @@ def test_load_favorites_returns_empty_list_for_missing_file(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     assert favorites.load_favorites() == []
 
@@ -85,8 +93,7 @@ def test_load_favorites_ignores_invalid_json(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    test_file.write_text("{broken json", encoding="utf-8")
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
     monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
 
     assert favorites.load_favorites() == []
@@ -96,8 +103,7 @@ def test_save_and_load_favorites_roundtrip(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [
@@ -120,8 +126,7 @@ def test_add_favorite_avoids_duplicates(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     station = {
         "name": "Test Radio",
@@ -137,8 +142,7 @@ def test_update_favorite_changes_name_and_tags(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     station = {
         "name": "Test Radio",
@@ -164,8 +168,7 @@ def test_filter_favorites_by_tag_uses_user_favorite_tags_only(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = tmp_path / "favorites.json"
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    test_file = patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [

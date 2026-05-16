@@ -71,10 +71,6 @@ class FfplayController(PlayerAdapter):
         """Store mute preference for the next ffplay process start."""
         self.muted = bool(muted)
 
-    def toggle_mute(self) -> None:
-        """Toggle mute preference for the next ffplay process start."""
-        self.set_mute(not self.muted)
-
     def is_playing(self) -> bool:
         return self.process is not None and self.process.poll() is None
 

@@ -307,6 +307,9 @@ class FluxTunerTUI(App[None]):
         self.stop_playback()
 
     def action_toggle_mute(self) -> None:
+        if not self.player.supports_mute():
+            self.set_status(f"{self.player_backend_name} does not support live mute.")
+            return
         try:
             self.player.toggle_mute()
         except Exception as exc:  # noqa: BLE001

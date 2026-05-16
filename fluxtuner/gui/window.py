@@ -277,9 +277,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.volume_scale.set_size_request(180, -1)
         self.volume_scale.set_hexpand(False)
         self.volume_scale.set_draw_value(False)
-        self.volume_scale.set_tooltip_text("Volume")
+        supports_volume = self.player.supports_volume()
+        self.volume_scale.set_tooltip_text(
+            "Volume"
+            if supports_volume
+            else f"{self.player_backend_name} does not support live volume control."
+        )
         self.volume_scale.connect("value-changed", self.on_volume_scale_changed)
-        self.volume_scale.set_sensitive(self.player.supports_volume())
+        self.volume_scale.set_sensitive(supports_volume)
         playback_bar.append(self.volume_scale)
 
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:

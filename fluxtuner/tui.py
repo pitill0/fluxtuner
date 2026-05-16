@@ -1382,8 +1382,9 @@ class FluxTunerTUI(App[None]):
             with suppress(Exception):
                 self.player.set_volume(self.restored_volume)
 
-        with suppress(Exception):
-            self.player.set_mute(self.restored_muted)
+        if self.player.supports_mute():
+            with suppress(Exception):
+                self.player.set_mute(self.restored_muted)
 
     def persist_player_state(self, last_station: dict[str, Any] | None = None) -> None:
         """Persist last station, volume and mute state when available."""

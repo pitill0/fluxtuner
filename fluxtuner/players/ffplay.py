@@ -63,17 +63,17 @@ class FfplayController(PlayerAdapter):
 
         self.process = None
 
-    def set_volume(self, volume: int) -> None:
-        self.volume = max(0, min(100, int(volume)))
+    def set_volume(self, volume: int | float) -> None:
+        """Store volume for the next ffplay process start."""
+        self.volume = max(0, min(100, int(round(volume))))
 
-    def mute(self) -> None:
-        self.muted = True
-
-    def unmute(self) -> None:
-        self.muted = False
+    def set_mute(self, muted: bool) -> None:
+        """Store mute preference for the next ffplay process start."""
+        self.muted = bool(muted)
 
     def toggle_mute(self) -> None:
-        self.muted = not self.muted
+        """Toggle mute preference for the next ffplay process start."""
+        self.set_mute(not self.muted)
 
     def is_playing(self) -> bool:
         return self.process is not None and self.process.poll() is None

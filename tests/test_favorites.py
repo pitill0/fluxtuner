@@ -42,7 +42,7 @@ def test_all_favorite_tags_normalizes_and_deduplicates_tags(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [
@@ -84,7 +84,7 @@ def test_load_favorites_returns_empty_list_for_missing_file(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     assert favorites.load_favorites() == []
 
@@ -93,8 +93,7 @@ def test_load_favorites_ignores_invalid_json(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
-    monkeypatch.setattr(favorites, "FAVORITES_FILE", test_file)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     assert favorites.load_favorites() == []
 
@@ -103,7 +102,7 @@ def test_save_and_load_favorites_roundtrip(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [
@@ -126,7 +125,7 @@ def test_add_favorite_avoids_duplicates(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     station = {
         "name": "Test Radio",
@@ -142,7 +141,7 @@ def test_update_favorite_changes_name_and_tags(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     station = {
         "name": "Test Radio",
@@ -168,7 +167,7 @@ def test_filter_favorites_by_tag_uses_user_favorite_tags_only(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    test_file = patch_favorites_file(tmp_path, monkeypatch)
+    patch_favorites_file(tmp_path, monkeypatch)
 
     favorites.save_favorites(
         [

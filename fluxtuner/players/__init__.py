@@ -19,6 +19,10 @@ def available_players() -> list[str]:
     ]
 
 
+def _supported_backends_text() -> str:
+    return ", ".join(PLAYER_BACKENDS)
+
+
 def selected_player_name(name: str | None = None) -> str:
     """Resolve the requested player name into an available backend."""
     normalized = (name or "auto").lower().strip()
@@ -28,12 +32,13 @@ def selected_player_name(name: str | None = None) -> str:
             if controller_class.is_available():
                 return backend_name
 
-        supported = ", ".join(PLAYER_BACKENDS)
-        raise PlayerError(f"No supported player backend available. Install one of: {supported}")
-
+    raise PlayerError(
+        f"No supported player backend available. Install one of: {_supported_backends_text()}"
+    )
     if normalized not in PLAYER_BACKENDS:
-        supported = ", ".join(PLAYER_BACKENDS)
-        raise PlayerError(f"Unsupported player backend: {name}. Supported: auto, {supported}")
+        raise PlayerError(
+            f"No supported player backend available. Install one of: {_supported_backends_text()}"
+        )
 
     controller_class = PLAYER_BACKENDS[normalized]
     if not controller_class.is_available():

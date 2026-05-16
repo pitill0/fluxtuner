@@ -610,10 +610,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             self.status_label.set_text("Buffering…")
+            self._apply_player_preferences_before_start()
             self.player.play(url)
             self._set_player_volume_from_scale()
-            if self.restored_muted and self.player.supports_mute():
-                self.player.set_mute(True)
+            self._set_player_mute(self.restored_muted)
 
         except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
             self.status_label.set_text(f"Playback failed: {exc}")
@@ -721,6 +721,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._start_metadata_polling()
 
+    def _apply_player_preferences_before_start(self) -> None:
+        if not self.player.supports_volume():
+            set_volume = getattr(self.player, "set_volume", None)
+            if callable(set_volume):
+                set_volume(self._current_volume_value())
+
+        if not self.player.supports_mute():
+            self._set_player_mute(self.restored_muted)
+
     def _restore_playback_preferences(self) -> None:
         state = get_playback_state()
 
@@ -739,6 +748,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self.player.set_volume(volume)
         else:
             self._send_player_command(["set_property", "volume", volume])
+
+    def _set_player_mute(self, muted: bool) -> None:
+        set_mute = getattr(self.player, "set_mute", None)
+        if callable(set_mute):
+            set_mute(muted)
 
     def _persist_playback_preferences(self) -> None:
         save_playback_state(

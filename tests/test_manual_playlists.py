@@ -5,10 +5,18 @@ from fluxtuner.core import favorites, manual_playlists
 
 def patch_data_files(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     favorites_file = tmp_path / "favorites.json"
+    legacy_favorites_file = tmp_path / "legacy_favorites.json"
     playlists_file = tmp_path / "playlists.json"
+    legacy_playlists_file = tmp_path / "legacy_playlists.json"
 
     monkeypatch.setattr(favorites, "FAVORITES_FILE", favorites_file)
+    monkeypatch.setattr(favorites, "LEGACY_FAVORITES_FILE", legacy_favorites_file)
     monkeypatch.setattr(manual_playlists, "PLAYLISTS_FILE", playlists_file)
+    monkeypatch.setattr(
+        manual_playlists,
+        "LEGACY_PLAYLISTS_FILE",
+        legacy_playlists_file,
+    )
 
     return favorites_file, playlists_file
 

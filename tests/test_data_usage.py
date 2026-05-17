@@ -26,6 +26,67 @@ def test_estimate_mb_calculates_megabytes() -> None:
     assert data_usage.estimate_mb_per_hour(128) == 57.6
 
 
+def test_load_raw_migrates_legacy_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    usage_file = patch_usage_file(tmp_path, monkeypatch)
+    legacy_usage_file = data_usage.LEGACY_USAGE_FILE
+
+    legacy_usage_file.write_text(
+        json.dumps(
+            {
+                "days": {"2026-01-01": {"mb": 1.0, "seconds": 10.0}},
+                "months": {"2026-01": {"mb": 1.0, "seconds": 10.0}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = data_usage._load_raw()
+
+    assert loaded == {
+        "days": {"2026-01-01": {"mb": 1.0, "seconds": 10.0}},
+        "months": {"2026-01": {"mb": 1.0, "seconds": 10.0}},
+    }
+    assert usage_file.exists()
+    assert legacy_usage_file.exists()
+
+
+def test_load_raw_does_not_overwrite_existing_file_with_legacy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    usage_file = patch_usage_file(tmp_path, monkeypatch)
+    legacy_usage_file = data_usage.LEGACY_USAGE_FILE
+
+    legacy_usage_file.write_text(
+        json.dumps(
+            {
+                "days": {"2026-01-01": {"mb": 1.0, "seconds": 10.0}},
+                "months": {"2026-01": {"mb": 1.0, "seconds": 10.0}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    usage_file.write_text(
+        json.dumps(
+            {
+                "days": {"2026-02-01": {"mb": 2.0, "seconds": 20.0}},
+                "months": {"2026-02": {"mb": 2.0, "seconds": 20.0}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = data_usage._load_raw()
+
+    assert loaded == {
+        "days": {"2026-02-01": {"mb": 2.0, "seconds": 20.0}},
+        "months": {"2026-02": {"mb": 2.0, "seconds": 20.0}},
+    }
+
+
 def test_load_raw_returns_empty_structure_for_missing_file(
     tmp_path: Path,
     monkeypatch,

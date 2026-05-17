@@ -14,6 +14,77 @@ def patch_history_file(tmp_path: Path, monkeypatch) -> Path:
     return history_file
 
 
+def test_load_history_migrates_legacy_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    history_file = patch_history_file(tmp_path, monkeypatch)
+    legacy_history_file = history.LEGACY_HISTORY_FILE
+
+    legacy_history_file.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Legacy Radio",
+                    "url": "https://example.com/legacy",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = history.load_history()
+
+    assert loaded == [
+        {
+            "name": "Legacy Radio",
+            "url": "https://example.com/legacy",
+        }
+    ]
+    assert history_file.exists()
+    assert legacy_history_file.exists()
+
+
+def test_load_history_does_not_overwrite_existing_file_with_legacy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    history_file = patch_history_file(tmp_path, monkeypatch)
+    legacy_history_file = history.LEGACY_HISTORY_FILE
+
+    legacy_history_file.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Legacy Radio",
+                    "url": "https://example.com/legacy",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    history_file.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Current Radio",
+                    "url": "https://example.com/current",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = history.load_history()
+
+    assert loaded == [
+        {
+            "name": "Current Radio",
+            "url": "https://example.com/current",
+        }
+    ]
+
+
 def test_load_history_returns_empty_list_for_missing_file(
     tmp_path: Path,
     monkeypatch,

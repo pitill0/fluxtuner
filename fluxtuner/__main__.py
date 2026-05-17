@@ -140,6 +140,41 @@ def random_favorite_flow(player_name: str | None = None, player: Any | None = No
     return play_station(station, player_name, player)
 
 
+def export_json_list(
+    path_value: str,
+    items: list[dict[str, Any]],
+    label: str,
+) -> None:
+    export_path = Path(path_value).expanduser()
+    export_path.write_text(
+        json.dumps(items, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    console.print(f"[green]{label} exported to:[/green] {export_path}")
+
+
+def import_json_list(
+    path_value: str,
+    label: str,
+) -> list[dict[str, Any]]:
+    import_path = Path(path_value).expanduser()
+
+    try:
+        data = json.loads(import_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        console.print(f"[red]Could not read {label} file:[/red] {exc}")
+        raise SystemExit(1) from exc
+    except json.JSONDecodeError as exc:
+        console.print(f"[red]Invalid {label} JSON:[/red] {exc}")
+        raise SystemExit(1) from exc
+
+    if not isinstance(data, list):
+        console.print(f"[red]{label.capitalize()} import must be a JSON list.[/red]")
+        raise SystemExit(1)
+
+    return data
+
+
 def run_cli(player_name: str | None = None) -> None:
     player: Any | None = None
 
@@ -271,51 +306,21 @@ def main() -> None:
         return
 
     if args.export_favs:
-        export_path = Path(args.export_favs).expanduser()
-        export_path.write_text(
-            json.dumps(load_favorites(), indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        console.print(f"[green]Favorites exported to:[/green] {export_path}")
+        export_json_list(args.export_favs, load_favorites(), "Favorites")
         return
 
     if args.import_favs:
-        import_path = Path(args.import_favs).expanduser()
-        try:
-            data = json.loads(import_path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            console.print(f"[red]Could not read favorites file:[/red] {exc}")
-            raise SystemExit(1) from exc
-        except json.JSONDecodeError as exc:
-            console.print(f"[red]Invalid favorites JSON:[/red] {exc}")
-            raise SystemExit(1) from exc
-        if not isinstance(data, list):
-            console.print("[red]Favorites import must be a JSON list.[/red]")
-            raise SystemExit(1)
+        data = import_json_list(args.import_favs, "favorites")
         save_favorites(data)
         console.print(f"[green]Imported {len(data)} favorite(s).[/green]")
         return
 
     if args.export_playlists:
-        export_path = Path(args.export_playlists).expanduser()
-        export_path.write_text(
-            json.dumps(load_playlists(), indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        console.print(f"[green]Persistent playlists exported to:[/green] {export_path}")
+        export_json_list(args.export_playlists, load_playlists(), "Persistent playlists")
         return
 
     if args.import_playlists:
-        import_path = Path(args.import_playlists).expanduser()
-        try:
-            data = json.loads(import_path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            console.print(f"[red]Could not read playlists file:[/red] {exc}")
-            raise SystemExit(1) from exc
-        except json.JSONDecodeError as exc:
-            console.print(f"[red]Invalid playlists JSON:[/red] {exc}")
-            raise SystemExit(1) from exc
-        if not isinstance(data, list):
-            console.print("[red]Playlists import must be a JSON list.[/red]")
-            raise SystemExit(1)
+        data = import_json_list(args.import_playlists, "playlists")
         save_playlists(data)
         console.print(f"[green]Imported {len(data)} persistent playlist(s).[/green]")
         return

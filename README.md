@@ -406,6 +406,11 @@ fluxtuner --list-players
 
 Examples:
 
+
+```bash
+fluxtuner --player auto
+```
+
 ```bash
 fluxtuner --player mpv
 ```
@@ -472,6 +477,9 @@ fluxtuner --version
 
 # List available playback backends
 fluxtuner --list-players
+
+# Run the legacy numbered CLI
+fluxtuner --cli
 
 # Clear search cache
 fluxtuner --clear-cache

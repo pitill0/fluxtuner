@@ -10,7 +10,6 @@ from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
 USAGE_FILE = data_file("usage.json")
-migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
 
 
 def _today_key() -> str:
@@ -22,17 +21,21 @@ def _month_key() -> str:
 
 
 def _load_raw() -> dict[str, Any]:
+    migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
+
     if not USAGE_FILE.exists():
         return {"days": {}, "months": {}}
 
     try:
-        return json.loads(USAGE_FILE.read_text())
+        return json.loads(USAGE_FILE.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {"days": {}, "months": {}}
 
 
 def _save_raw(data: dict[str, Any]) -> None:
-    USAGE_FILE.write_text(json.dumps(data, indent=2, sort_keys=True))
+    migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
+    USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    USAGE_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def estimate_mb(bitrate_kbps: int | float | None, seconds: int | float) -> float:

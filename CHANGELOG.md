@@ -10,15 +10,29 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added pytest coverage for player backends, backend selection, cache, paths, history, data usage, stream metadata, API filtering and station helper edge cases.
+- Added explicit legacy migration tests for favorites, playlists, history and data usage.
+- Expanded automated test coverage across persistence, playback backends and API helpers.
 
 ### Changed
 
-- Nothing yet.
+- Updated TUI playback semantics so `Space` is Play/Stop instead of Pause/Resume.
+- Clarified player backend capabilities: `mpv` supports live volume and mute controls, while `ffplay` is treated as a lightweight Play/Stop fallback.
+- Improved `ffplay` backend behavior so unsupported pause/mute controls do not silently pretend to work.
+- Improved GUI handling for backends without live volume or mute controls.
+- Moved legacy data migrations out of import-time paths and into load/save flows.
+- Updated README backend capability notes, keybindings and XDG data storage documentation.
+- Improved player backend selection tests and error handling for unavailable or unknown backends.
 
 ### Fixed
 
-- Nothing yet.
+- Fixed TUI table marker updates to avoid rebuilding the station table and causing visual header glitches.
+- Fixed TUI station markers after Play/Stop transitions.
+- Fixed restored playback volume handling in TUI and GUI.
+- Fixed mute restoration so it only applies to backends with live mute support.
+- Fixed `mpv` IPC cleanup when the mpv process exits unexpectedly.
+- Fixed favorites, playlists, history and usage tests so they cannot read real user legacy files.
+- Fixed player adapter docstrings that were previously placed after `raise`/`return` statements.
 
 ---
 

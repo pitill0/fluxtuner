@@ -189,8 +189,8 @@ def main() -> None:
     parser.add_argument(
         "--player",
         default="auto",
-        choices=available_players(),
-        help="Player backend to use.",
+        metavar="BACKEND",
+        help="Player backend to use: auto, mpv or ffplay.",
     )
     parser.add_argument(
         "--theme",

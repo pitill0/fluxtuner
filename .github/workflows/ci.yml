@@ -8,7 +8,7 @@ on:
 
 jobs:
   quality:
-    name: Ruff and compile
+    name: Ruff, compile and tests
     runs-on: ubuntu-latest
 
     steps:

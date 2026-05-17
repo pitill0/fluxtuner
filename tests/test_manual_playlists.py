@@ -177,3 +177,74 @@ def test_playlist_counts(
     )
 
     assert manual_playlists.playlist_counts() == [("Morning", 1)]
+
+
+def test_load_playlists_migrates_legacy_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _favorites_file, playlists_file = patch_data_files(tmp_path, monkeypatch)
+    legacy_playlists_file = manual_playlists.LEGACY_PLAYLISTS_FILE
+
+    legacy_playlists_file.write_text(
+        """
+        [
+          {
+            "name": "Legacy Playlist",
+            "station_keys": ["https://example.com/legacy"]
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+
+    loaded = manual_playlists.load_playlists()
+
+    assert loaded == [
+        {
+            "name": "Legacy Playlist",
+            "station_keys": ["https://example.com/legacy"],
+        }
+    ]
+    assert playlists_file.exists()
+    assert legacy_playlists_file.exists()
+
+
+def test_load_playlists_does_not_overwrite_existing_file_with_legacy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _favorites_file, playlists_file = patch_data_files(tmp_path, monkeypatch)
+    legacy_playlists_file = manual_playlists.LEGACY_PLAYLISTS_FILE
+
+    legacy_playlists_file.write_text(
+        """
+        [
+          {
+            "name": "Legacy Playlist",
+            "station_keys": ["https://example.com/legacy"]
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+    playlists_file.write_text(
+        """
+        [
+          {
+            "name": "Current Playlist",
+            "station_keys": ["https://example.com/current"]
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+
+    loaded = manual_playlists.load_playlists()
+
+    assert loaded == [
+        {
+            "name": "Current Playlist",
+            "station_keys": ["https://example.com/current"],
+        }
+    ]

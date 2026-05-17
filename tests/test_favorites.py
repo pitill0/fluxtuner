@@ -98,6 +98,67 @@ def test_load_favorites_ignores_invalid_json(
     assert favorites.load_favorites() == []
 
 
+def test_load_favorites_migrates_legacy_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    favorites_file = patch_favorites_file(tmp_path, monkeypatch)
+    legacy_file = favorites.LEGACY_FAVORITES_FILE
+
+    legacy_file.write_text(
+        """
+        [
+          {
+            "name": "Legacy Radio",
+            "url": "https://example.com/legacy"
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+
+    loaded = favorites.load_favorites()
+
+    assert loaded[0]["name"] == "Legacy Radio"
+    assert favorites_file.exists()
+    assert legacy_file.exists()
+
+
+def test_load_favorites_does_not_overwrite_existing_file_with_legacy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    favorites_file = patch_favorites_file(tmp_path, monkeypatch)
+    legacy_file = favorites.LEGACY_FAVORITES_FILE
+
+    legacy_file.write_text(
+        """
+        [
+          {
+            "name": "Legacy Radio",
+            "url": "https://example.com/legacy"
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+    favorites_file.write_text(
+        """
+        [
+          {
+            "name": "Current Radio",
+            "url": "https://example.com/current"
+          }
+        ]
+        """,
+        encoding="utf-8",
+    )
+
+    loaded = favorites.load_favorites()
+
+    assert loaded[0]["name"] == "Current Radio"
+
+
 def test_save_and_load_favorites_roundtrip(
     tmp_path: Path,
     monkeypatch,

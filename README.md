@@ -247,16 +247,18 @@ Equivalent to:
 python -m fluxtuner
 ```
 
-### Explicit TUI mode
+### TUI mode
+
+The TUI is the default interface:
 
 ```bash
-fluxtuner --tui
+fluxtuner
 ```
 
 or:
 
 ```bash
-python -m fluxtuner --tui
+python -m fluxtuner
 ```
 
 ---

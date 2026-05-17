@@ -178,13 +178,13 @@ def main() -> None:
     parser.add_argument(
         "--cli",
         action="store_true",
-        help="Run the legacy numbered CLI instead of the Textual TUI.",
+        help="Run the legacy numbered CLI instead of the default Textual TUI.",
     )
 
     parser.add_argument(
         "--gui",
         action="store_true",
-        help="Run the experimental GTK GUI.",
+        help="Run the experimental GTK GUI instead of the default Textual TUI.",
     )
     parser.add_argument(
         "--player",

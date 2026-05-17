@@ -1,10 +1,10 @@
 # FluxTuner
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/github/v/release/pitill0/fluxtuner?include_prereleases)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
-![Player](https://img.shields.io/badge/player-mpv-orange)
+![Player](https://img.shields.io/badge/player-mpv%20%7C%20ffplay-orange)
 ![GitHub stars](https://img.shields.io/github/stars/pitill0/fluxtuner)
 ![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
 ![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
@@ -37,7 +37,7 @@ Built with Python and focused on speed, usability and modularity.
 - Persistent playlists and dynamic tag playlists
 - Full theming system with live preview
 - Structured table view
-- Volume, mute and playback control
+- Playback control, with live volume and mute support when the selected backend supports it
 - Estimated data usage tracking
 - Experimental GTK desktop GUI
 - Clean modular architecture
@@ -184,6 +184,11 @@ Current priority order:
 1. `mpv` (recommended)
 2. `ffplay` (lightweight fallback)
 
+Backend capability notes:
+
+- `mpv` supports play/stop, live volume and live mute controls.
+- `ffplay` is a lightweight fallback focused on play/stop. It does not provide live volume or live mute control in FluxTuner.
+
 Inspect detected playback backends with:
 
 ```bash
@@ -309,7 +314,7 @@ python -m fluxtuner --gui
 - Random playback by tag
 - Session data usage tracking
 - Playback status indicators
-- Volume and mute controls
+- Volume and mute controls when supported by the active backend
 - Live artist / track metadata
 - Active backend display
 
@@ -385,6 +390,11 @@ FluxTuner currently supports:
 - `ffplay` (lightweight fallback backend)
 
 FluxTuner automatically selects the best available backend by default.
+
+Backend capability notes:
+
+- `mpv` supports play/stop, live volume and live mute controls.
+- `ffplay` is focused on play/stop and does not provide live volume or live mute control in FluxTuner.
 
 Inspect detected playback backends with:
 
@@ -544,9 +554,9 @@ find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 | `/`     | Focus search                                             |
 | `Enter` | Play selected station                                    |
 | `x`     | Stop playback                                            |
-| `Space` | Pause / Resume                                           |
-| `+ / -` | Volume up / down                                         |
-| `m`     | Mute                                                     |
+| `Space` | Play / Stop selected station                             |
+| `+ / -` | Volume up / down when supported by the active backend    |
+| `m`     | Mute / unmute when supported by the active backend       |
 | `a`     | Add to favorites                                         |
 | `f`     | Open favorites                                           |
 | `d`     | Remove favorite                                          |
@@ -582,10 +592,16 @@ Features:
 
 # Data Storage
 
-- Favorites: `~/.fluxtuner_favorites.json`
-- Playlists: `~/.fluxtuner_playlists.json`
+FluxTuner stores new user data in XDG-style locations:
+
 - Config: `~/.config/fluxtuner/config.json`
-- Data usage: `~/.fluxtuner_usage.json`
+- Favorites: `~/.local/share/fluxtuner/favorites.json`
+- Playlists: `~/.local/share/fluxtuner/playlists.json`
+- History: `~/.local/share/fluxtuner/history.json`
+- Data usage: `~/.local/share/fluxtuner/usage.json`
+- Search cache: `~/.cache/fluxtuner/search_cache.json`
+
+Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json`, `~/.fluxtuner_history.json` and `~/.fluxtuner_usage.json` are copied into the new location when needed and kept in place as a conservative migration.
 
 ---
 
@@ -602,9 +618,9 @@ Features:
 
 ## Planned
 
-- Native volume integration
 - MPRIS/media key support
-- Station history
+- Improved backend capability reporting
+- More advanced station history views
 - Import/export improvements
 - Flatpak packaging
 - AppImage builds

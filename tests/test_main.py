@@ -459,3 +459,74 @@ def test_search_flow_returns_none_when_no_station_is_selected(monkeypatch) -> No
     monkeypatch.setattr(main_module, "choose_station", lambda _stations: None)
 
     assert main_module.search_flow("mpv") is None
+
+
+def test_favorites_flow_returns_none_when_no_station_is_selected(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "load_favorites",
+        lambda: [{"name": "Test Radio", "url": "https://example.com/stream"}],
+    )
+    monkeypatch.setattr(main_module, "choose_station", lambda _stations: None)
+
+    assert main_module.favorites_flow("mpv") is None
+
+
+def test_favorites_flow_plays_selected_favorite(monkeypatch) -> None:
+    station = {"name": "Test Radio", "url": "https://example.com/stream"}
+
+    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
+    monkeypatch.setattr("builtins.input", lambda _prompt: "1")
+
+    played = {}
+
+    def fake_play_station(selected_station, player_name=None, player=None):
+        played["station"] = selected_station
+        played["player_name"] = player_name
+        played["player"] = player
+        return "player-instance"
+
+    monkeypatch.setattr(main_module, "play_station", fake_play_station)
+
+    result = main_module.favorites_flow("mpv", player="existing-player")
+
+    assert result == "player-instance"
+    assert played == {
+        "station": station,
+        "player_name": "mpv",
+        "player": "existing-player",
+    }
+
+
+def test_favorites_flow_removes_selected_favorite(monkeypatch) -> None:
+    station = {"name": "Test Radio", "url": "https://example.com/stream"}
+
+    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
+    monkeypatch.setattr("builtins.input", lambda _prompt: "2")
+
+    removed = []
+
+    def fake_remove_favorite(url: str) -> bool:
+        removed.append(url)
+        return True
+
+    monkeypatch.setattr(main_module, "remove_favorite", fake_remove_favorite)
+
+    result = main_module.favorites_flow("mpv", player="existing-player")
+
+    assert result == "existing-player"
+    assert removed == ["https://example.com/stream"]
+
+
+def test_favorites_flow_unknown_choice_returns_existing_player(monkeypatch) -> None:
+    station = {"name": "Test Radio", "url": "https://example.com/stream"}
+
+    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
+    monkeypatch.setattr("builtins.input", lambda _prompt: "unknown")
+
+    result = main_module.favorites_flow("mpv", player="existing-player")
+
+    assert result == "existing-player"

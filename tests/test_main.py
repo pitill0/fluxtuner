@@ -336,3 +336,126 @@ def test_choose_station_returns_none_for_out_of_range_index(monkeypatch) -> None
 
 def test_choose_station_returns_none_for_empty_station_list() -> None:
     assert main_module.choose_station([]) is None
+
+
+def test_search_flow_returns_none_for_empty_query(monkeypatch) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: "")
+
+    assert main_module.search_flow("mpv") is None
+
+
+def test_search_flow_plays_selected_station_without_saving(monkeypatch) -> None:
+    inputs = iter(["rock", "n"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(inputs))
+    monkeypatch.setattr(
+        main_module,
+        "search_stations",
+        lambda **_kwargs: [
+            {
+                "name": "Raw Radio",
+                "url": "https://example.com/raw",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        main_module,
+        "choose_station",
+        lambda stations: stations[0],
+    )
+
+    played = {}
+
+    def fake_play_station(station, player_name=None, player=None):
+        played["station"] = station
+        played["player_name"] = player_name
+        played["player"] = player
+        return "player-instance"
+
+    monkeypatch.setattr(main_module, "play_station", fake_play_station)
+
+    saved = []
+
+    def fake_add_favorite(station):
+        saved.append(station)
+        return True
+
+    monkeypatch.setattr(main_module, "add_favorite", fake_add_favorite)
+
+    result = main_module.search_flow("mpv")
+
+    assert result == "player-instance"
+    assert played["station"]["name"] == "Raw Radio"
+    assert played["player_name"] == "mpv"
+    assert saved == []
+
+
+def test_search_flow_saves_selected_station_when_requested(monkeypatch) -> None:
+    inputs = iter(["rock", "y"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(inputs))
+    monkeypatch.setattr(
+        main_module,
+        "search_stations",
+        lambda **_kwargs: [
+            {
+                "name": "Raw Radio",
+                "url": "https://example.com/raw",
+            }
+        ],
+    )
+    monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
+    monkeypatch.setattr(
+        main_module,
+        "play_station",
+        lambda station, player_name=None, player=None: "player-instance",
+    )
+
+    saved = []
+
+    def fake_add_favorite(station):
+        saved.append(station)
+        return True
+
+    monkeypatch.setattr(main_module, "add_favorite", fake_add_favorite)
+
+    result = main_module.search_flow("mpv")
+
+    assert result == "player-instance"
+    assert saved == [
+        {
+            "name": "Raw Radio",
+            "url": "https://example.com/raw",
+            "url_resolved": "https://example.com/raw",
+            "country": "Unknown",
+            "countrycode": "",
+            "tags": "",
+            "codec": "",
+            "bitrate": 0,
+            "homepage": "",
+            "language": "",
+        }
+    ]
+
+
+def test_search_flow_returns_none_when_search_fails(monkeypatch) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: "rock")
+
+    def fake_search_stations(**_kwargs):
+        raise RuntimeError("network failed")
+
+    monkeypatch.setattr(main_module, "search_stations", fake_search_stations)
+
+    assert main_module.search_flow("mpv") is None
+
+
+def test_search_flow_returns_none_when_no_station_is_selected(monkeypatch) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: "rock")
+    monkeypatch.setattr(
+        main_module,
+        "search_stations",
+        lambda **_kwargs: [{"name": "Raw Radio", "url": "https://example.com/raw"}],
+    )
+    monkeypatch.setattr(main_module, "choose_station", lambda _stations: None)
+
+    assert main_module.search_flow("mpv") is None

@@ -61,3 +61,18 @@ def test_create_player_uses_selected_backend(monkeypatch) -> None:
     player = create_player("auto")
 
     assert player.name == "ffplay"
+
+
+def test_create_player_uses_explicit_available_backend(monkeypatch) -> None:
+    set_availability(monkeypatch, mpv=False, ffplay=True)
+
+    player = create_player("ffplay")
+
+    assert player.name == "ffplay"
+
+
+def test_create_player_rejects_unavailable_backend(monkeypatch) -> None:
+    set_availability(monkeypatch, mpv=False, ffplay=True)
+
+    with pytest.raises(PlayerError, match="Player backend 'mpv' is not available"):
+        create_player("mpv")

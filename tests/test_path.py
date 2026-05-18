@@ -80,3 +80,43 @@ def test_migrate_legacy_file_ignores_missing_legacy_file(tmp_path: Path) -> None
     paths.migrate_legacy_file(legacy_file, new_file)
 
     assert not new_file.exists()
+
+
+def test_xdg_dir_uses_environment_value(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    custom_dir = tmp_path / "custom-config"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(custom_dir))
+
+    assert paths._xdg_dir("XDG_CONFIG_HOME", tmp_path / "fallback") == custom_dir
+
+
+def test_xdg_dir_expands_user_value(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", "~/custom-config")
+
+    assert (
+        paths._xdg_dir("XDG_CONFIG_HOME", Path("/fallback")) == Path("~/custom-config").expanduser()
+    )
+
+
+def test_xdg_dir_uses_fallback_when_environment_is_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fallback = tmp_path / "fallback"
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+    assert paths._xdg_dir("XDG_CONFIG_HOME", fallback) == fallback
+
+
+def test_xdg_dir_uses_fallback_when_environment_is_empty(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fallback = tmp_path / "fallback"
+    monkeypatch.setenv("XDG_CONFIG_HOME", "")
+
+    assert paths._xdg_dir("XDG_CONFIG_HOME", fallback) == fallback

@@ -4,17 +4,24 @@ from fluxtuner.players.base import PlayerAdapter, PlayerError
 
 
 class DummyPlayer(PlayerAdapter):
+    def __init__(self) -> None:
+        self.played_url = None
+        self.stopped = False
+        self.playing = False
+
     def play(self, url: str) -> None:
-        pass
+        self.played_url = url
+        self.playing = True
 
     def stop(self) -> None:
-        pass
+        self.stopped = True
+        self.playing = False
 
     def is_playing(self) -> bool:
-        return False
+        return self.playing
 
 
-def test_player_adapter_default_capabilities_are_disabled() -> None:
+def test_player_adapter_default_capabilities_are_false() -> None:
     player = DummyPlayer()
 
     assert player.supports_pause() is False
@@ -22,7 +29,7 @@ def test_player_adapter_default_capabilities_are_disabled() -> None:
     assert player.supports_mute() is False
 
 
-def test_player_adapter_default_optional_controls_raise_player_error() -> None:
+def test_player_adapter_default_controls_raise_player_error() -> None:
     player = DummyPlayer()
 
     with pytest.raises(PlayerError, match="Pause is not supported"):
@@ -48,3 +55,7 @@ def test_player_adapter_default_state_uses_is_playing() -> None:
     player = DummyPlayer()
 
     assert player.get_state() == {"playing": False}
+
+    player.play("https://example.com/stream")
+
+    assert player.get_state() == {"playing": True}

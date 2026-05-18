@@ -29,6 +29,7 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_codec,
     station_country,
     station_key,
+    station_name,
     station_tags_text,
     station_url,
 )
@@ -410,7 +411,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _station_display_name(self, station: dict[str, Any]) -> str:
         if self._is_favorite_station(station):
             return favorite_display_name(station)
-        return str(station.get("name") or "Unknown station")
+        return station_name(station)
 
     def _append_cell(
         self,

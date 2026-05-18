@@ -40,3 +40,49 @@ def test_ffplay_does_not_support_live_mute_toggle() -> None:
 
     with pytest.raises(PlayerError, match="Mute is not supported"):
         player.toggle_mute()
+
+
+class AlreadyFinishedProcess:
+    pid = 123
+
+    def poll(self):
+        return 0
+
+
+def test_ffplay_stop_clears_finished_process() -> None:
+    controller = FfplayController()
+    controller.process = AlreadyFinishedProcess()  # type: ignore[assignment]
+
+    controller.stop()
+
+    assert controller.process is None
+
+
+class WaitFailingProcess:
+    pid = 123
+
+    def __init__(self) -> None:
+        self.killed = False
+
+    def poll(self):
+        return None
+
+    def wait(self, timeout=None):
+        raise RuntimeError("wait failed")
+
+    def kill(self):
+        self.killed = True
+
+
+def test_ffplay_stop_clears_process_when_wait_fails(monkeypatch) -> None:
+    controller = FfplayController()
+    process = WaitFailingProcess()
+    controller.process = process  # type: ignore[assignment]
+
+    monkeypatch.setattr("os.getpgid", lambda _pid: 123)
+    monkeypatch.setattr("os.killpg", lambda _pgid, _signal: None)
+
+    with pytest.raises(RuntimeError):
+        controller.stop()
+
+    assert controller.process is None

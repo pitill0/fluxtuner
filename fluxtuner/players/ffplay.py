@@ -50,18 +50,21 @@ class FfplayController(PlayerAdapter):
         if self.process is None:
             return
 
-        if self.process.poll() is None:
-            try:
-                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-                self.process.wait(timeout=3)
-            except Exception:
-                try:
-                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
-                except Exception:
-                    self.process.kill()
-                self.process.wait(timeout=3)
+        process = self.process
 
-        self.process = None
+        try:
+            if process.poll() is None:
+                try:
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                    process.wait(timeout=3)
+                except Exception:
+                    try:
+                        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                    except Exception:
+                        process.kill()
+                    process.wait(timeout=3)
+        finally:
+            self.process = None
 
     def set_volume(self, volume: int | float) -> None:
         """Store volume for the next ffplay process start."""

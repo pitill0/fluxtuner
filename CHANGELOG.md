@@ -10,6 +10,22 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+---
+
+## [0.2.6] - 2026-05-18
+
+### Added
+
 - Added pytest coverage for player backends, backend selection, cache, paths, history, data usage, stream metadata, API filtering and station helper edge cases.
 - Added explicit legacy migration tests for favorites, playlists, history and data usage.
 - Expanded automated test coverage across persistence, playback backends and API helpers.

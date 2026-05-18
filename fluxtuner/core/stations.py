@@ -102,6 +102,36 @@ def station_bitrate(station: dict[str, Any] | None) -> int:
         return 0
 
 
+def station_country(station: dict[str, Any] | None) -> str:
+    """Return station country with a safe fallback."""
+    if not station:
+        return "Unknown"
+
+    country = station.get("country")
+    if isinstance(country, str) and country.strip():
+        return country.strip()
+
+    return "Unknown"
+
+
+def station_codec(station: dict[str, Any] | None) -> str:
+    """Return station codec with a safe fallback."""
+    if not station:
+        return "?"
+
+    codec = station.get("codec")
+    if isinstance(codec, str) and codec.strip():
+        return codec.strip()
+
+    return "?"
+
+
+def station_tags_text(station: dict[str, Any] | None, fallback: str = "No tags") -> str:
+    """Return normalized stream tags as display text."""
+    tags = station_tags(station)
+    return ", ".join(tags) if tags else fallback
+
+
 def same_station(
     first: dict[str, Any] | None,
     second: dict[str, Any] | None,

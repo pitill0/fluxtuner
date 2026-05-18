@@ -3,11 +3,14 @@ from fluxtuner.core.stations import (
     favorite_tags,
     same_station,
     station_bitrate,
+    station_codec,
+    station_country,
     station_key,
     station_matches_tag,
     station_name,
     station_short_id,
     station_tags,
+    station_tags_text,
     station_url,
 )
 
@@ -113,3 +116,23 @@ def test_station_short_id_falls_back_to_changeuuid_and_url() -> None:
 def test_station_short_id_returns_dash_for_missing_station() -> None:
     assert station_short_id(None) == "-"
     assert station_short_id({}) == "-"
+
+
+def test_station_country_returns_safe_fallback() -> None:
+    assert station_country({"country": " Spain "}) == "Spain"
+    assert station_country({"country": ""}) == "Unknown"
+    assert station_country({}) == "Unknown"
+    assert station_country(None) == "Unknown"
+
+
+def test_station_codec_returns_safe_fallback() -> None:
+    assert station_codec({"codec": " MP3 "}) == "MP3"
+    assert station_codec({"codec": ""}) == "?"
+    assert station_codec({}) == "?"
+    assert station_codec(None) == "?"
+
+
+def test_station_tags_text_joins_normalized_tags() -> None:
+    assert station_tags_text({"tags": " rock, pop "}) == "rock, pop"
+    assert station_tags_text({"tags": []}) == "No tags"
+    assert station_tags_text({"tags": []}, fallback="-") == "-"

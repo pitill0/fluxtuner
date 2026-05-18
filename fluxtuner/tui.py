@@ -39,8 +39,11 @@ from fluxtuner.core.manual_playlists import (
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
 from fluxtuner.core.stations import (
     station_bitrate,
+    station_codec,
+    station_country,
     station_key,
     station_tags,
+    station_tags_text,
 )
 from fluxtuner.core.stations import (
     station_short_id as core_station_short_id,
@@ -1171,12 +1174,10 @@ class FluxTunerTUI(App[None]):
             return
 
         name = favorite_display_name(station)
-        country = station.get("country") or "Unknown"
-        codec = station.get("codec") or "?"
+        country = station_country(station)
+        codec = station_codec(station)
         bitrate = station_bitrate(station) or "?"
-        genre_tags = ", ".join(station_tags(station)) or "-"
-        if isinstance(genre_tags, list):
-            genre_tags = ", ".join(str(tag) for tag in genre_tags)
+        genre_tags = station_tags_text(station, fallback="-")
 
         favorite_status = self._favorite_status_text(station)
         favorite_tags = self._favorite_tags_text(station)

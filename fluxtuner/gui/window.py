@@ -25,8 +25,11 @@ from fluxtuner.core.favorites import (  # noqa: E402
 )
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
+    station_bitrate,
+    station_codec,
+    station_country,
     station_key,
-    station_tags,
+    station_tags_text,
     station_url,
 )
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
@@ -442,10 +445,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._append_cell(row_box, self._station_marker(station), 6)
         self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
-        self._append_cell(row_box, station.get("country") or "Unknown", 14)
-        self._append_cell(row_box, ", ".join(station_tags(station)), 28, expand=True)
-        self._append_cell(row_box, station.get("codec") or "", 8)
-        self._append_cell(row_box, str(station.get("bitrate") or 0), 6)
+        self._append_cell(row_box, station_country(station), 14)
+        self._append_cell(row_box, station_tags_text(station, fallback=""), 28, expand=True)
+        self._append_cell(row_box, station_codec(station), 8)
+        self._append_cell(row_box, str(station_bitrate(station)), 6)
 
         double_click = Gtk.GestureClick()
         double_click.set_button(0)
@@ -720,10 +723,10 @@ class MainWindow(Gtk.ApplicationWindow):
         station = self.current_station
 
         self.now_playing_label.set_text(self._station_display_name(station))
-        self.country_detail_label.set_text(station.get("country") or "Unknown")
-        self.codec_detail_label.set_text(station.get("codec") or "?")
-        self.bitrate_detail_label.set_text(f"{station.get('bitrate') or 0} kbps")
-        self.tags_detail_label.set_text(station.get("tags") or "No tags")
+        self.country_detail_label.set_text(station_country(station))
+        self.codec_detail_label.set_text(station_codec(station))
+        self.bitrate_detail_label.set_text(f"{station_bitrate(station)} kbps")
+        self.tags_detail_label.set_text(station_tags_text(station))
 
         self._start_metadata_polling()
 

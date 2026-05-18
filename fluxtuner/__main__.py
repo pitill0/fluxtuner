@@ -346,8 +346,14 @@ def main() -> None:
         selected_theme = theme_to_save
         console.print(f"[green]Saved default theme:[/green] {theme_to_save}")
 
+    try:
+        selected_player = selected_player_name(args.player)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Player error:[/red] {exc}")
+        raise SystemExit(2) from exc
+
     if args.cli:
-        run_cli(args.player)
+        run_cli(selected_player)
         return
 
     if args.gui:
@@ -360,7 +366,7 @@ def main() -> None:
             )
             raise SystemExit(1) from exc
 
-        run_gui(player_name=args.player)
+        run_gui(player_name=selected_player)
         return
 
     try:
@@ -373,7 +379,7 @@ def main() -> None:
         )
         raise SystemExit(1) from exc
 
-    run_tui(theme=selected_theme, player_name=args.player)
+    run_tui(theme=selected_theme, player_name=selected_player)
 
 
 if __name__ == "__main__":

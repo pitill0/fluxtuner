@@ -8,6 +8,14 @@ import pytest
 from fluxtuner import __main__ as main_module
 
 
+def patch_default_config(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "get_config_value", lambda _key, default: default)
+
+
+def patch_selected_player(monkeypatch, player_name: str = "mpv") -> None:
+    monkeypatch.setattr(main_module, "selected_player_name", lambda _name: player_name)
+
+
 def run_main(monkeypatch, *args: str) -> None:
     monkeypatch.setattr("sys.argv", ["fluxtuner", *args])
     main_module.main()
@@ -174,6 +182,8 @@ def patch_run_tui(monkeypatch) -> dict[str, str]:
 def test_main_save_theme_persists_known_theme(monkeypatch) -> None:
     saved = {}
     captured = patch_run_tui(monkeypatch)
+    patch_default_config(monkeypatch)
+    patch_selected_player(monkeypatch)
 
     def fake_set_config_value(key: str, value: str) -> None:
         saved[key] = value
@@ -184,18 +194,19 @@ def test_main_save_theme_persists_known_theme(monkeypatch) -> None:
     run_main(monkeypatch, "--save-theme", "nord")
 
     assert saved == {"theme": "nord"}
-    assert captured == {"theme": "nord", "player_name": "auto"}
+    assert captured == {"theme": "nord", "player_name": "mpv"}
 
 
 def test_main_unknown_theme_falls_back_to_default(monkeypatch) -> None:
     captured = patch_run_tui(monkeypatch)
+    patch_default_config(monkeypatch)
+    patch_selected_player(monkeypatch)
 
-    monkeypatch.setattr(main_module, "get_config_value", lambda _key, default: default)
     monkeypatch.setattr(main_module, "theme_exists", lambda _theme: False)
 
     run_main(monkeypatch, "--theme", "missing")
 
-    assert captured == {"theme": main_module.DEFAULT_THEME, "player_name": "auto"}
+    assert captured == {"theme": main_module.DEFAULT_THEME, "player_name": "mpv"}
 
 
 def test_main_save_theme_rejects_unknown_theme(monkeypatch) -> None:
@@ -210,6 +221,8 @@ def test_main_save_theme_rejects_unknown_theme(monkeypatch) -> None:
 def test_main_save_theme_uses_theme_argument_when_no_value_is_passed(monkeypatch) -> None:
     saved = {}
     captured = patch_run_tui(monkeypatch)
+    patch_default_config(monkeypatch)
+    patch_selected_player(monkeypatch)
 
     def fake_set_config_value(key: str, value: str) -> None:
         saved[key] = value
@@ -220,4 +233,25 @@ def test_main_save_theme_uses_theme_argument_when_no_value_is_passed(monkeypatch
     run_main(monkeypatch, "--theme", "nord", "--save-theme")
 
     assert saved == {"theme": "nord"}
-    assert captured == {"theme": "nord", "player_name": "auto"}
+    assert captured == {"theme": "nord", "player_name": "mpv"}
+
+
+def test_main_rejects_unknown_player_before_launching_tui(monkeypatch) -> None:
+    patch_run_tui(monkeypatch)
+    patch_default_config(monkeypatch)
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_main(monkeypatch, "--player", "unknown")
+
+    assert exc_info.value.code == 2
+
+
+def test_main_resolves_player_before_launching_tui(monkeypatch) -> None:
+    captured = patch_run_tui(monkeypatch)
+    patch_default_config(monkeypatch)
+
+    monkeypatch.setattr(main_module, "selected_player_name", lambda _name: "mpv")
+
+    run_main(monkeypatch, "--player", "auto")
+
+    assert captured == {"theme": main_module.DEFAULT_THEME, "player_name": "mpv"}

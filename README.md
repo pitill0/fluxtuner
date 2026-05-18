@@ -602,7 +602,9 @@ Features:
 
 # Data Storage
 
-FluxTuner stores new user data in XDG-style locations:
+FluxTuner stores new user data in XDG-style locations.
+
+These base directories respect `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when they are set, which also makes the same layout suitable for sandboxed environments such as Flatpak.
 
 - Config: `~/.config/fluxtuner/config.json`
 - Favorites: `~/.local/share/fluxtuner/favorites.json`

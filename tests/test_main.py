@@ -305,3 +305,34 @@ def test_print_station_table_handles_list_tags() -> None:
             }
         ]
     )
+
+
+def test_choose_station_returns_selected_station(monkeypatch) -> None:
+    stations = [
+        {"name": "First Radio", "url": "https://example.com/first"},
+        {"name": "Second Radio", "url": "https://example.com/second"},
+    ]
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "1")
+
+    assert main_module.choose_station(stations) == stations[1]
+
+
+def test_choose_station_returns_none_for_non_numeric_input(monkeypatch) -> None:
+    stations = [{"name": "Test Radio", "url": "https://example.com/stream"}]
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "abc")
+
+    assert main_module.choose_station(stations) is None
+
+
+def test_choose_station_returns_none_for_out_of_range_index(monkeypatch) -> None:
+    stations = [{"name": "Test Radio", "url": "https://example.com/stream"}]
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "9")
+
+    assert main_module.choose_station(stations) is None
+
+
+def test_choose_station_returns_none_for_empty_station_list() -> None:
+    assert main_module.choose_station([]) is None

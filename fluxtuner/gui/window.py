@@ -750,11 +750,8 @@ class MainWindow(Gtk.ApplicationWindow):
         return int(round(self.volume_scale.get_value()))
 
     def _set_player_volume_from_scale(self) -> None:
-        volume = self._current_volume_value()
-        if self.player.supports_volume():
-            self.player.set_volume(volume)
-        else:
-            self._send_player_command(["set_property", "volume", volume])
+        if not self.player.supports_volume():
+            return
 
     def _set_player_mute(self, muted: bool) -> None:
         set_mute = getattr(self.player, "set_mute", None)

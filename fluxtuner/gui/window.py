@@ -592,15 +592,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _playback_command_failed(self, action: str, exc: Exception) -> None:
         self.status_label.set_text(f"{action} failed: {exc}")
 
-    def _send_player_command(self, command: list[Any]) -> bool:
-        """Send a low-level command when the player backend supports it."""
-        player_command = getattr(self.player, "command", None)
-        if not callable(player_command):
-            return False
-
-        player_command(command)
-        return True
-
     def on_play_clicked(self, _button: Gtk.Button) -> None:
         if self._has_active_playback():
             self.on_stop_clicked(_button)
@@ -752,6 +743,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _set_player_volume_from_scale(self) -> None:
         if not self.player.supports_volume():
             return
+        self.player.set_volume(self._current_volume_value())
 
     def _set_player_mute(self, muted: bool) -> None:
         set_mute = getattr(self.player, "set_mute", None)

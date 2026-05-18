@@ -107,7 +107,6 @@ class MpvController(PlayerAdapter):
 
     def is_playing(self) -> bool:
         """Return True if mpv is currently running."""
-        return self.process is not None and self.process.poll() is None
         if self.process is None:
             self._cleanup_ipc_socket()
             return False

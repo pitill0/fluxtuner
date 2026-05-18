@@ -1,4 +1,6 @@
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -153,3 +155,69 @@ def test_main_import_playlists_rejects_non_list_json(
         run_main(monkeypatch, "--import-playlists", str(import_path))
 
     assert exc_info.value.code == 1
+
+
+def patch_run_tui(monkeypatch) -> dict[str, str]:
+    captured = {}
+
+    fake_tui_module = types.SimpleNamespace(
+        run_tui=lambda *, theme, player_name: captured.update(
+            {"theme": theme, "player_name": player_name}
+        )
+    )
+
+    monkeypatch.setitem(sys.modules, "fluxtuner.tui", fake_tui_module)
+
+    return captured
+
+
+def test_main_save_theme_persists_known_theme(monkeypatch) -> None:
+    saved = {}
+    captured = patch_run_tui(monkeypatch)
+
+    def fake_set_config_value(key: str, value: str) -> None:
+        saved[key] = value
+
+    monkeypatch.setattr(main_module, "theme_exists", lambda theme: theme == "nord")
+    monkeypatch.setattr(main_module, "set_config_value", fake_set_config_value)
+
+    run_main(monkeypatch, "--save-theme", "nord")
+
+    assert saved == {"theme": "nord"}
+    assert captured == {"theme": "nord", "player_name": "auto"}
+
+
+def test_main_unknown_theme_falls_back_to_default(monkeypatch) -> None:
+    captured = patch_run_tui(monkeypatch)
+
+    monkeypatch.setattr(main_module, "get_config_value", lambda _key, default: default)
+    monkeypatch.setattr(main_module, "theme_exists", lambda _theme: False)
+
+    run_main(monkeypatch, "--theme", "missing")
+
+    assert captured == {"theme": main_module.DEFAULT_THEME, "player_name": "auto"}
+
+
+def test_main_save_theme_rejects_unknown_theme(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "theme_exists", lambda _theme: False)
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_main(monkeypatch, "--save-theme", "missing")
+
+    assert exc_info.value.code == 2
+
+
+def test_main_save_theme_uses_theme_argument_when_no_value_is_passed(monkeypatch) -> None:
+    saved = {}
+    captured = patch_run_tui(monkeypatch)
+
+    def fake_set_config_value(key: str, value: str) -> None:
+        saved[key] = value
+
+    monkeypatch.setattr(main_module, "theme_exists", lambda theme: theme == "nord")
+    monkeypatch.setattr(main_module, "set_config_value", fake_set_config_value)
+
+    run_main(monkeypatch, "--theme", "nord", "--save-theme")
+
+    assert saved == {"theme": "nord"}
+    assert captured == {"theme": "nord", "player_name": "auto"}

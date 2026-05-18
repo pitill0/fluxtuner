@@ -15,6 +15,7 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
+from fluxtuner.core.stations import station_url
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
@@ -72,7 +73,8 @@ def play_station(
     player_name: str | None = None,
     player: Any | None = None,
 ) -> Any | None:
-    if not station.get("url"):
+    stream_url = station_url(station)
+    if not stream_url:
         console.print("[red]This station has no playable URL.[/red]")
         return player
 
@@ -83,7 +85,7 @@ def play_station(
         return player
 
     console.print(f"\n[bold green]Playing:[/bold green] {station['name']}")
-    active_player.play(station["url"])
+    active_player.play(stream_url)
     return active_player
 
 

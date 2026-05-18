@@ -255,3 +255,29 @@ def test_main_resolves_player_before_launching_tui(monkeypatch) -> None:
     run_main(monkeypatch, "--player", "auto")
 
     assert captured == {"theme": main_module.DEFAULT_THEME, "player_name": "mpv"}
+
+
+def test_play_station_prefers_resolved_url() -> None:
+    played = {}
+
+    class FakePlayer:
+        def play(self, url: str) -> None:
+            played["url"] = url
+
+    fake_player = FakePlayer()
+
+    result = main_module.play_station(
+        {
+            "name": "Test Radio",
+            "url": "https://example.com/raw",
+            "url_resolved": "https://example.com/resolved",
+        },
+        player=fake_player,
+    )
+
+    assert result is fake_player
+    assert played == {"url": "https://example.com/resolved"}
+
+
+def test_play_station_rejects_station_without_playable_url() -> None:
+    assert main_module.play_station({"name": "Broken Radio", "url": "   "}) is None

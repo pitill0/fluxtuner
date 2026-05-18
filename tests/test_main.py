@@ -530,3 +530,39 @@ def test_favorites_flow_unknown_choice_returns_existing_player(monkeypatch) -> N
     result = main_module.favorites_flow("mpv", player="existing-player")
 
     assert result == "existing-player"
+
+
+def test_random_favorite_flow_returns_none_without_favorites(monkeypatch) -> None:
+    monkeypatch.setattr(main_module, "load_favorites", lambda: [])
+
+    assert main_module.random_favorite_flow("mpv") is None
+
+
+def test_random_favorite_flow_plays_random_favorite(monkeypatch) -> None:
+    favorites = [
+        {"name": "First Radio", "url": "https://example.com/first"},
+        {"name": "Second Radio", "url": "https://example.com/second"},
+    ]
+
+    selected = favorites[1]
+    played = {}
+
+    monkeypatch.setattr(main_module, "load_favorites", lambda: favorites)
+    monkeypatch.setattr(main_module.random, "choice", lambda items: selected)
+
+    def fake_play_station(station, player_name=None, player=None):
+        played["station"] = station
+        played["player_name"] = player_name
+        played["player"] = player
+        return "player-instance"
+
+    monkeypatch.setattr(main_module, "play_station", fake_play_station)
+
+    result = main_module.random_favorite_flow("mpv", player="existing-player")
+
+    assert result == "player-instance"
+    assert played == {
+        "station": selected,
+        "player_name": "mpv",
+        "player": "existing-player",
+    }

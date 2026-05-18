@@ -281,3 +281,27 @@ def test_play_station_prefers_resolved_url() -> None:
 
 def test_play_station_rejects_station_without_playable_url() -> None:
     assert main_module.play_station({"name": "Broken Radio", "url": "   "}) is None
+
+
+def test_print_station_table_handles_minimal_station_data() -> None:
+    main_module.print_station_table(
+        [
+            {
+                "name": "Minimal Radio",
+                "url": "https://example.com/stream",
+            }
+        ]
+    )
+
+
+def test_print_station_table_handles_list_tags() -> None:
+    main_module.print_station_table(
+        [
+            {
+                "name": "Tagged Radio",
+                "url": "https://example.com/stream",
+                "tags": [" rock ", "pop"],
+                "bitrate": "128",
+            }
+        ]
+    )

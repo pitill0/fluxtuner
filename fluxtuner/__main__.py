@@ -15,7 +15,7 @@ from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
-from fluxtuner.core.stations import station_url
+from fluxtuner.core.stations import station_bitrate, station_name, station_tags, station_url
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
@@ -37,13 +37,15 @@ def print_station_table(stations: list[dict[str, Any]]) -> None:
     table.add_column("Tags", overflow="fold")
 
     for idx, station in enumerate(stations):
+        tags = ", ".join(station_tags(station))
+
         table.add_row(
             str(idx),
-            station["name"],
-            station["country"],
-            station["codec"],
-            str(station["bitrate"]),
-            station["tags"][:80],
+            station_name(station),
+            str(station.get("country") or "Unknown"),
+            str(station.get("codec") or ""),
+            str(station_bitrate(station)),
+            tags[:80],
         )
 
     console.print(table)

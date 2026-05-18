@@ -79,7 +79,7 @@ def play_station(
     try:
         active_player = player or create_player(player_name)
     except Exception as exc:  # noqa: BLE001
-        console.print(f"[red]Player error:[/red] {exc}")
+        console.print(f"[red]Could not start player:[/red] {exc}")
         return player
 
     console.print(f"\n[bold green]Playing:[/bold green] {station['name']}")
@@ -176,6 +176,7 @@ def import_json_list(
 
 
 def run_cli(player_name: str | None = None) -> None:
+    """Run the legacy numbered CLI with an already resolved player backend."""
     player: Any | None = None
 
     try:

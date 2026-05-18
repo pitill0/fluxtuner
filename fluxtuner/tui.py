@@ -728,14 +728,15 @@ class FluxTunerTUI(App[None]):
         table.clear(columns=True)
         self.table_items.clear()
         self.table_key_counter = 0
-        table.add_column("", key="marker")
-        table.add_column("Name", key="name")
-        table.add_column("ID", key="id")
-        table.add_column("Country", key="country")
-        table.add_column("Genre / tags", key="tags")
-        table.add_column("Codec", key="codec")
-        table.add_column("kbps", key="bitrate")
-        table.add_column("Custom tags", key="custom_tags")
+
+        table.add_column("", key="marker", width=2)
+        table.add_column("Name", key="name", width=42)
+        table.add_column("ID", key="id", width=10)
+        table.add_column("Country", key="country", width=16)
+        table.add_column("Genre / tags", key="tags", width=34)
+        table.add_column("Codec", key="codec", width=8)
+        table.add_column("kbps", key="bitrate", width=6)
+        table.add_column("Custom tags", key="custom_tags", width=24)
         return table
 
     def reset_playlist_table(self) -> DataTable:
@@ -786,16 +787,16 @@ class FluxTunerTUI(App[None]):
         key = self.next_table_key("station")
         self.add_table_payload(key, "station", station)
         marker = self.station_marker(station)
-        name = self._ellipsize(favorite_display_name(station), 52)
+        name = self._ellipsize(favorite_display_name(station), 40)
         table.add_row(
             marker,
             name,
             self.station_short_id(station),
-            self._ellipsize(station.get("country") or "-", 18),
-            self.station_genre_tags(station),
+            self._ellipsize(station.get("country") or "-", 14),
+            self.station_genre_tags(station, max_length=32),
             str(station.get("codec") or "-"),
             str(station_bitrate(station) or "-"),
-            self.station_custom_tags(station),
+            self.station_custom_tags(station, max_length=22),
             key=key,
         )
 

@@ -42,7 +42,6 @@ from fluxtuner.core.stations import (
     station_codec,
     station_country,
     station_key,
-    station_tags,
     station_tags_text,
 )
 from fluxtuner.core.stations import (
@@ -770,8 +769,7 @@ class FluxTunerTUI(App[None]):
         return core_station_short_id(station)
 
     def station_genre_tags(self, station: dict[str, Any], max_length: int = 42) -> str:
-        tags = ", ".join(station_tags(station))
-        return self._ellipsize(tags if tags else "-", max_length)
+        return self._ellipsize(station_tags_text(station, fallback="-"), max_length)
 
     def station_custom_tags(self, station: dict[str, Any], max_length: int = 28) -> str:
         tags = station.get("favorite_tags") or station.get("tags_custom") or []
@@ -795,9 +793,9 @@ class FluxTunerTUI(App[None]):
             marker,
             name,
             self.station_short_id(station),
-            self._ellipsize(station.get("country") or "-", 14),
+            self._ellipsize(station_country(station), 14),
             self.station_genre_tags(station, max_length=32),
-            str(station.get("codec") or "-"),
+            station_codec(station),
             str(station_bitrate(station) or "-"),
             self.station_custom_tags(station, max_length=22),
             key=key,

@@ -13,6 +13,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Added pytest coverage for player backends, backend selection, cache, paths, history, data usage, stream metadata, API filtering and station helper edge cases.
 - Added explicit legacy migration tests for favorites, playlists, history and data usage.
 - Expanded automated test coverage across persistence, playback backends and API helpers.
+- Added tests for legacy CLI flows, CLI import/export, theme handling, XDG path helpers and base player adapter defaults.
 
 ### Changed
 
@@ -23,6 +24,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Moved legacy data migrations out of import-time paths and into load/save flows.
 - Updated README backend capability notes, keybindings and XDG data storage documentation.
 - Improved player backend selection tests and error handling for unavailable or unknown backends.
+- Centralized station display helpers for safe name, country, codec, bitrate and tag rendering across CLI, TUI and GUI.
+- Hardened the legacy numbered CLI to use resolved station URLs and tolerate older or minimal station records.
+- Documented XDG environment variable support for config, data and cache directories.
 
 ### Fixed
 
@@ -33,6 +37,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Fixed `mpv` IPC cleanup when the mpv process exits unexpectedly.
 - Fixed favorites, playlists, history and usage tests so they cannot read real user legacy files.
 - Fixed player adapter docstrings that were previously placed after `raise`/`return` statements.
+- Fixed TUI station table column reflow/glitches by using stable column keys and fixed column widths.
+- Fixed `ffplay` stop/replacement handling so stale process state is cleared reliably and stream replacement can recover from stop failures.
+- Removed unused GUI low-level player command handling and clarified live volume behavior.
 
 ---
 

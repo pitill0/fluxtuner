@@ -728,9 +728,14 @@ class FluxTunerTUI(App[None]):
         table.clear(columns=True)
         self.table_items.clear()
         self.table_key_counter = 0
-        table.add_columns(
-            "", "Name", "ID", "Country", "Genre / tags", "Codec", "kbps", "Custom tags"
-        )
+        table.add_column("", key="marker")
+        table.add_column("Name", key="name")
+        table.add_column("ID", key="id")
+        table.add_column("Country", key="country")
+        table.add_column("Genre / tags", key="tags")
+        table.add_column("Codec", key="codec")
+        table.add_column("kbps", key="bitrate")
+        table.add_column("Custom tags", key="custom_tags")
         return table
 
     def reset_playlist_table(self) -> DataTable:
@@ -802,7 +807,7 @@ class FluxTunerTUI(App[None]):
                     continue
                 marker = self.station_marker(payload)
                 try:
-                    table.update_cell(key, "", marker)
+                    table.update_cell(key, "marker", marker)
                 except Exception:  # noqa: BLE001
                     return
         except Exception:  # noqa: BLE001
@@ -1167,8 +1172,8 @@ class FluxTunerTUI(App[None]):
         name = favorite_display_name(station)
         country = station.get("country") or "Unknown"
         codec = station.get("codec") or "?"
-        bitrate = station.get("bitrate") or "?"
-        genre_tags = station.get("tags") or "-"
+        bitrate = station_bitrate(station) or "?"
+        genre_tags = ", ".join(station_tags(station)) or "-"
         if isinstance(genre_tags, list):
             genre_tags = ", ".join(str(tag) for tag in genre_tags)
 

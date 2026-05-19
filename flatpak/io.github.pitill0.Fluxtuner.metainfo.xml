@@ -79,14 +79,38 @@
 
   <content_rating type="oars-1.1" />
 
-  <release version="0.2.6" date="2026-05-19">
-    <description>
-      <ul>
-        <li>Stabilized player backend handling for mpv and ffplay</li>
-        <li>Improved TUI playback, favorites, playlists and history behavior</li>
-        <li>Improved GUI backend capability handling</li>
-        <li>Updated Flatpak packaging metadata</li>
-      </ul>
-    </description>
-  </release>
+  <releases>
+    <release version="0.2.7" date="2026-05-19">
+      <description>
+        <ul>
+          <li>Added a History view to the GTK GUI, matching the existing TUI history flow.</li>
+          <li>Fixed GTK GUI playback history persistence so played stations are available from the shared history.</li>
+        </ul>
+      </description>
+    </release>
+
+    <release version="0.2.6" date="2026-05-18">
+      <description>
+        <ul>
+          <li>Stabilized player backend handling for mpv and ffplay.</li>
+          <li>Improved TUI playback, favorites, playlists and history behavior.</li>
+          <li>Improved GUI backend capability handling.</li>
+          <li>Updated Flatpak packaging metadata.</li>
+        </ul>
+      </description>
+    </release>
+
+    <release version="0.2.1" date="2026-05-11">
+      <description>
+        <ul>
+          <li>Added Flatpak support with GUI and TUI launchers.</li>
+          <li>Improved GTK and Textual feature parity.</li>
+          <li>Added automatic playback backend detection.</li>
+          <li>Improved favorites, tags and playlist management.</li>
+          <li>Improved metadata and data usage tracking.</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
 </component>

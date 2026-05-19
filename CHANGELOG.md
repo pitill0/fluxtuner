@@ -10,7 +10,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added a History view to the GTK GUI, matching the existing TUI history flow.
 
 ### Changed
 
@@ -18,7 +18,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
-- Nothing yet.
+- Fixed GTK GUI playback history persistence so played stations are available from the shared history.
 
 ---
 

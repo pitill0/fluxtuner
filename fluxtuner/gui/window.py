@@ -23,6 +23,7 @@ from fluxtuner.core.favorites import (  # noqa: E402
     remove_favorite,
     update_favorite,
 )
+from fluxtuner.core.history import add_history, load_history  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
     station_bitrate,
@@ -58,6 +59,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._metadata_fetch_in_progress = False
         self._last_metadata_raw: str | None = None
         self.last_search_results: list[dict[str, Any]] = []
+        self.current_view = "search"
         self.active_playlist_tag: str | None = None
         self.favorite_urls = self._favorite_url_set()
         self.restored_volume: int | None = None
@@ -339,6 +341,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show_favorites_button.set_tooltip_text("Show favorite stations")
         self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
         favorite_controls.append(self.show_favorites_button)
+
+        self.show_history_button = Gtk.Button(label="History")
+        self.show_history_button.set_tooltip_text("Show recently played stations")
+        self.show_history_button.connect("clicked", self.on_show_history_clicked)
+        favorite_controls.append(self.show_history_button)
 
     def _favorites_matching_favorite_tag(self, tag: str) -> list[dict[str, Any]]:
         return filter_favorites_by_tag(tag)
@@ -622,6 +629,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.current_station = self.selected_station
         self.usage_tracker.start(self.current_station)
+        add_history(self.current_station)
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
@@ -965,7 +973,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if remove_favorite(key):
             self._refresh_favorite_cache()
             self.status_label.set_text("Removed from favorites.")
-            if all(self._is_favorite_station(station) for station in self.stations):
+            if self.current_view == "favorites":
                 self.stations = load_favorites()
                 self.selected_station = None
             self._render_results()
@@ -977,6 +985,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _show_all_favorites(self) -> int:
         """Show all saved favorites and reset playlist filtering state."""
+        self.current_view = "favorites"
         self.active_playlist_tag = None
         self._refresh_favorite_cache()
         self.stations = load_favorites()
@@ -993,6 +1002,25 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_show_favorites_clicked(self, _button: Gtk.Button) -> None:
         self._set_favorites_status(self._show_all_favorites())
+
+    def _show_history(self) -> int:
+        """Show recently played stations in the main results list."""
+        self.current_view = "history"
+        self.active_playlist_tag = None
+        self._refresh_favorite_cache()
+        self.stations = load_history()
+        self.selected_station = None
+        self._render_results()
+        self._update_playlist_status()
+        return len(self.stations)
+
+    def on_show_history_clicked(self, _button: Gtk.Button) -> None:
+        count = self._show_history()
+        self.status_label.set_text(
+            f"Showing {count} recently played station(s)."
+            if count
+            else "No recently played stations yet."
+        )
 
     def _update_playlist_status(self) -> None:
         if not hasattr(self, "playlist_status_label"):
@@ -1025,6 +1053,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         stations = self._favorites_matching_favorite_tag(tag)
+        self.current_view = "tag_playlist"
         self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations

@@ -14,7 +14,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
-- Nothing yet.
+- Improved GTK GUI side-panel navigation by grouping Favorites and History under a Library section.
 
 ### Fixed
 

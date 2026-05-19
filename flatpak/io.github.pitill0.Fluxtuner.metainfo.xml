@@ -79,6 +79,17 @@
 
   <content_rating type="oars-1.1" />
 
+  <release version="0.2.6" date="2026-05-19">
+    <description>
+      <ul>
+        <li>Stabilized player backend handling for mpv and ffplay</li>
+        <li>Improved TUI playback, favorites, playlists and history behavior</li>
+        <li>Improved GUI backend capability handling</li>
+        <li>Updated Flatpak packaging metadata</li>
+      </ul>
+    </description>
+  </release>
+
   <releases>
     <release version="0.2.1" date="2026-05-11">
       <description>

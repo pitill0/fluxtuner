@@ -532,6 +532,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self._select_rendered_row(row_to_select)
         self._update_favorite_buttons()
 
+    def _set_view_status(
+        self,
+        view_name: str,
+        count: int,
+        *,
+        detail: str | None = None,
+        empty_message: str | None = None,
+    ) -> None:
+        """Set a consistent status message for list-like GUI views."""
+        if count == 0 and empty_message:
+            self.status_label.set_text(empty_message)
+            return
+
+        suffix = f" · {detail}" if detail else ""
+        station_word = "station" if count == 1 else "stations"
+        self.status_label.set_text(f"{view_name}{suffix} · {count} {station_word}")
+
     def on_search_clicked(self, _widget: Gtk.Widget) -> None:
         query = self.search_entry.get_text().strip()
         country = self.country_entry.get_text().strip() or None
@@ -566,8 +583,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stations = stations
         self._render_results()
         self._update_playlist_status()
-        count = len(stations)
-        self.status_label.set_text(f"Found {count} station(s).")
+        self._set_view_status("Search results", len(stations))
         return False
 
     def on_row_double_click(
@@ -1003,10 +1019,11 @@ class MainWindow(Gtk.ApplicationWindow):
         return len(self.stations)
 
     def _set_favorites_status(self, count: int) -> None:
-        if count:
-            self.status_label.set_text(f"Showing {count} favorite station(s).")
-        else:
-            self.status_label.set_text("No favorite stations yet.")
+        self._set_view_status(
+            "Favorites",
+            count,
+            empty_message="No favorite stations yet.",
+        )
 
     def on_show_favorites_clicked(self, _button: Gtk.Button) -> None:
         self._set_favorites_status(self._show_all_favorites())
@@ -1024,10 +1041,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_show_history_clicked(self, _button: Gtk.Button) -> None:
         count = self._show_history()
-        self.status_label.set_text(
-            f"Showing {count} recently played station(s)."
-            if count
-            else "No recently played stations yet."
+        self._set_view_status(
+            "History",
+            count,
+            empty_message="No recently played stations yet.",
         )
 
     def _update_playlist_status(self) -> None:
@@ -1068,9 +1085,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.selected_station = None
         self._render_results()
         self._update_playlist_status()
-        self.status_label.set_text(
-            f"Loaded {len(stations)} favorite station(s) for favorite tag: {tag}"
-        )
+        self._set_view_status("Tag playlist", len(stations), detail=tag)
 
     def on_random_tag_clicked(self, _button: Gtk.Button) -> None:
         import random

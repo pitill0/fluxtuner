@@ -89,18 +89,4 @@
       </ul>
     </description>
   </release>
-
-  <releases>
-    <release version="0.2.1" date="2026-05-11">
-      <description>
-        <ul>
-          <li>Added Flatpak support with GUI and TUI launchers</li>
-          <li>Improved GTK and Textual feature parity</li>
-          <li>Added automatic playback backend detection</li>
-          <li>Improved favorites, tags and playlist management</li>
-          <li>Improved metadata and data usage tracking</li>
-        </ul>
-      </description>
-    </release>
-  </releases>
 </component>

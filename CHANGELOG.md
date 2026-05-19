@@ -10,11 +10,23 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Added a History view to the GTK GUI, matching the existing TUI history flow.
+- Nothing yet.
 
 ### Changed
 
 - Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+---
+
+## [0.2.7] - 2026-05-19
+
+### Added
+
+- Added a History view to the GTK GUI, matching the existing TUI history flow.
 
 ### Fixed
 

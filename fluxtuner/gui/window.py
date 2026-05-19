@@ -245,6 +245,7 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         side_panel.append(self.player_state_label)
 
+        self._build_library_controls(side_panel)
         self._build_favorite_controls(side_panel)
         self._build_playlist_controls(side_panel)
 
@@ -293,6 +294,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self.volume_scale.set_sensitive(supports_volume)
         playback_bar.append(self.volume_scale)
 
+    def _build_library_controls(self, side_panel: Gtk.Box) -> None:
+        self._append_section_title(side_panel, "Library")
+
+        library_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        library_controls.set_hexpand(True)
+        side_panel.append(library_controls)
+
+        self.show_favorites_button = Gtk.Button(label="★ Show favorites")
+        self.show_favorites_button.set_tooltip_text("Show favorite stations")
+        self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
+        library_controls.append(self.show_favorites_button)
+
+        self.show_history_button = Gtk.Button(label="History")
+        self.show_history_button.set_tooltip_text("Show recently played stations")
+        self.show_history_button.connect("clicked", self.on_show_history_clicked)
+        library_controls.append(self.show_history_button)
+
     def _build_favorite_controls(self, side_panel: Gtk.Box) -> None:
         self._append_section_title(side_panel, "Favorites")
 
@@ -336,16 +354,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.save_favorite_button.set_tooltip_text("Update selected favorite name and tags")
         self.save_favorite_button.connect("clicked", self.on_save_favorite_clicked)
         favorite_controls.append(self.save_favorite_button)
-
-        self.show_favorites_button = Gtk.Button(label="★ Show favorites")
-        self.show_favorites_button.set_tooltip_text("Show favorite stations")
-        self.show_favorites_button.connect("clicked", self.on_show_favorites_clicked)
-        favorite_controls.append(self.show_favorites_button)
-
-        self.show_history_button = Gtk.Button(label="History")
-        self.show_history_button.set_tooltip_text("Show recently played stations")
-        self.show_history_button.connect("clicked", self.on_show_history_clicked)
-        favorite_controls.append(self.show_history_button)
 
     def _favorites_matching_favorite_tag(self, tag: str) -> list[dict[str, Any]]:
         return filter_favorites_by_tag(tag)

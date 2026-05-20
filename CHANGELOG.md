@@ -14,7 +14,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
+- Improved GTK GUI status messages for search, favorites, history and tag playlist views.
 - Improved GTK GUI side-panel navigation by grouping Favorites and History under a Library section.
+- Improved GTK GUI status messages for search, favorites, history and tag playlist views.
 
 ### Fixed
 

@@ -80,6 +80,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+
+    <release version="0.2.8" date="2026-05-20">
+      <description>
+        <ul>
+          <li>Improved GTK GUI side-panel navigation by grouping Favorites and History under a Library section.</li>
+          <li>Improved GTK GUI status messages for search, favorites, history and tag playlist views.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.2.7" date="2026-05-19">
       <description>
         <ul>

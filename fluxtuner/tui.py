@@ -1165,8 +1165,8 @@ class FluxTunerTUI(App[None]):
         details = self.query_one("#details", Static)
         if not station:
             details.update(
-                "[b]Station details[/b]\\n"
-                "No station selected.\\n\\n"
+                "[b]Station details[/b]\n"
+                "No station selected.\n\n"
                 "Use search/favorites/playlists to select a station."
             )
             return
@@ -1182,14 +1182,14 @@ class FluxTunerTUI(App[None]):
         hint = self._favorite_hint_text(station)
 
         details.update(
-            "[b]Station details[/b]\\n"
-            f"{name}\\n\\n"
-            f"Country: {country}\\n"
-            f"Codec: {codec}\\n"
-            f"Bitrate: {bitrate} kbps\\n"
-            f"Genre/tags: {genre_tags}\\n\\n"
-            f"Favorite: {favorite_status}\\n"
-            f"Favorite tags: {favorite_tags}\\n\\n"
+            "[b]Station details[/b]\n"
+            f"{name}\n\n"
+            f"Country: {country}\n"
+            f"Codec: {codec}\n"
+            f"Bitrate: {bitrate} kbps\n"
+            f"Genre/tags: {genre_tags}\n\n"
+            f"Favorite: {favorite_status}\n"
+            f"Favorite tags: {favorite_tags}\n\n"
             f"{hint}"
         )
 

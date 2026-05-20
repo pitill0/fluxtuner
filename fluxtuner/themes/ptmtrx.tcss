@@ -129,7 +129,6 @@ DataTable > .datatable--hover {
 }
 
 #details {
-    height: 1fr;
     margin-bottom: 1;
     color: #F8F8F2;
 }

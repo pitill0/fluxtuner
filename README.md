@@ -617,40 +617,40 @@ Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json
 
 ---
 
-## FluxTuner architecture
+## Architecture
 
 ```mermaid
 flowchart TB
 
-    User[Usuario]
+    User["User"]
 
-    User --> CLI[CLI]
-    User --> TUI[TUI]
-    User --> GUI[GUI GTK4]
+    User --> CLI["CLI"]
+    User --> TUI["TUI"]
+    User --> GUI["GTK GUI"]
 
-    CLI --> Core[FluxTuner Core]
+    CLI --> Core["FluxTuner Core"]
     TUI --> Core
     GUI --> Core
 
-    Core --> Radio[Gestión de emisoras]
-    Core --> Search[Búsqueda]
-    Core --> Favorites[Favoritos]
-    Core --> Themes[Temas]
-    Core --> Config[Configuración]
-    Core --> PlaybackState[Estado reproducción]
+    Core --> Radio["Station management"]
+    Core --> Search["Search"]
+    Core --> Favorites["Favorites"]
+    Core --> Themes["Themes"]
+    Core --> Config["Configuration"]
+    Core --> PlaybackState["Playback state"]
 
-    Favorites --> FavFile[(~/.fluxtuner_favorites.json)]
-    Themes --> ThemeFiles[(themes/)]
-    Config --> ConfigFiles[(config local)]
+    Favorites --> FavFile[("~/.fluxtuner_favorites.json")]
+    Themes --> ThemeFiles[("themes/")]
+    Config --> ConfigFiles[("local config")]
 
-    Core --> PlayerLayer[Capa de reproductor]
+    Core --> PlayerLayer["Player layer"]
 
-    PlayerLayer --> Factory[create_player()]
-    Factory --> MPV[MpvController]
-    Factory --> FuturePlayers[Backends futuros]
+    PlayerLayer --> Factory["Player factory"]
+    Factory --> MPV["MpvController"]
+    Factory --> FuturePlayers["Future backends"]
 
-    MPV --> MPVProcess[mpv]
-    MPVProcess --> Streams[Streams de radio]
+    MPV --> MPVProcess["mpv process"]
+    MPVProcess --> Streams["Online radio streams"]
 
     subgraph Frontends
         CLI
@@ -658,7 +658,7 @@ flowchart TB
         GUI
     end
 
-    subgraph CoreServices
+    subgraph CoreServices["Core services"]
         Core
         Radio
         Search

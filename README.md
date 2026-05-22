@@ -644,13 +644,17 @@ flowchart TB
     Config --> ConfigFiles[("local config")]
 
     Core --> PlayerLayer["Player layer"]
-
     PlayerLayer --> Factory["Player factory"]
-    Factory --> MPV["MpvController"]
+
+    Factory --> MPV["MPV backend"]
+    Factory --> FFplay["FFplay backend"]
     Factory --> FuturePlayers["Future backends"]
 
     MPV --> MPVProcess["mpv process"]
+    FFplay --> FFplayProcess["ffplay process"]
+
     MPVProcess --> Streams["Online radio streams"]
+    FFplayProcess --> Streams
 
     subgraph Frontends
         CLI
@@ -678,10 +682,11 @@ flowchart TB
         PlayerLayer
         Factory
         MPV
+        FFplay
         MPVProcess
+        FFplayProcess
         Streams
     end
-```
 
 ---
 

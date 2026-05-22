@@ -617,6 +617,74 @@ Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json
 
 ---
 
+## FluxTuner architecture
+
+```mermaid
+flowchart TB
+
+    User[Usuario]
+
+    User --> CLI[CLI]
+    User --> TUI[TUI]
+    User --> GUI[GUI GTK4]
+
+    CLI --> Core[FluxTuner Core]
+    TUI --> Core
+    GUI --> Core
+
+    Core --> Radio[Gestión de emisoras]
+    Core --> Search[Búsqueda]
+    Core --> Favorites[Favoritos]
+    Core --> Themes[Temas]
+    Core --> Config[Configuración]
+    Core --> PlaybackState[Estado reproducción]
+
+    Favorites --> FavFile[(~/.fluxtuner_favorites.json)]
+    Themes --> ThemeFiles[(themes/)]
+    Config --> ConfigFiles[(config local)]
+
+    Core --> PlayerLayer[Capa de reproductor]
+
+    PlayerLayer --> Factory[create_player()]
+    Factory --> MPV[MpvController]
+    Factory --> FuturePlayers[Backends futuros]
+
+    MPV --> MPVProcess[mpv]
+    MPVProcess --> Streams[Streams de radio]
+
+    subgraph Frontends
+        CLI
+        TUI
+        GUI
+    end
+
+    subgraph CoreServices
+        Core
+        Radio
+        Search
+        Favorites
+        Themes
+        Config
+        PlaybackState
+    end
+
+    subgraph Storage
+        FavFile
+        ThemeFiles
+        ConfigFiles
+    end
+
+    subgraph Playback
+        PlayerLayer
+        Factory
+        MPV
+        MPVProcess
+        Streams
+    end
+```
+
+---
+
 # Roadmap
 
 ## Current Development Focus

@@ -18,6 +18,12 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
+- Nothing yet.
+
+---
+
+## [0.2.9] - 2026-05-25
+
 - Fixed TUI station details rendering and side-panel layout after line breaks.
 
 ---

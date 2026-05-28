@@ -86,3 +86,40 @@ def test_ffplay_stop_clears_process_when_wait_fails(monkeypatch) -> None:
         controller.stop()
 
     assert controller.process is None
+
+
+def test_ffplay_play_continues_when_previous_stop_fails(monkeypatch) -> None:
+    controller = FfplayController()
+
+    class StopFailingProcess:
+        pid = 123
+
+        def poll(self):
+            return None
+
+        def wait(self, timeout=None):
+            raise RuntimeError("wait failed")
+
+        def kill(self):
+            pass
+
+    created_commands = []
+
+    class FakePopen:
+        def __init__(self, command, **_kwargs):
+            created_commands.append(command)
+
+        def poll(self):
+            return None
+
+    controller.process = StopFailingProcess()  # type: ignore[assignment]
+
+    monkeypatch.setattr("os.getpgid", lambda _pid: 123)
+    monkeypatch.setattr("os.killpg", lambda _pgid, _signal: None)
+    monkeypatch.setattr("subprocess.Popen", FakePopen)
+
+    controller.play("https://example.com/stream")
+
+    assert created_commands
+    assert created_commands[0][-1] == "https://example.com/stream"
+    assert isinstance(controller.process, FakePopen)

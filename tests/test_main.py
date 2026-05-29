@@ -95,7 +95,65 @@ def test_main_import_favorites_reads_json_file(
 
     run_main(monkeypatch, "--import-favs", str(import_path))
 
-    assert saved == [{"name": "Imported Radio", "url": "https://example.com/imported"}]
+    assert saved == [
+        {
+            "name": "Imported Radio",
+            "url": "https://example.com/imported",
+            "url_resolved": "https://example.com/imported",
+            "country": "",
+            "codec": "",
+            "tags": "",
+            "bitrate": 0,
+            "custom_name": None,
+            "favorite_tags": [],
+        }
+    ]
+
+
+def test_main_import_favorites_skips_invalid_items(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "favorites.json"
+    import_path.write_text(
+        json.dumps(
+            [
+                {"name": "Valid Radio", "url": "https://example.com/valid"},
+                {"name": "Invalid Local", "url": "file:///tmp/test.mp3"},
+                "not a dict",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    saved = []
+
+    def fake_save_favorites(items: list[dict[str, object]]) -> None:
+        saved.extend(items)
+
+    monkeypatch.setattr(main_module, "save_favorites", fake_save_favorites)
+
+    run_main(monkeypatch, "--import-favs", str(import_path))
+
+    assert len(saved) == 1
+    assert saved[0]["name"] == "Valid Radio"
+    assert saved[0]["url"] == "https://example.com/valid"
+
+
+def test_main_import_favorites_rejects_when_no_valid_items(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "favorites.json"
+    import_path.write_text(
+        json.dumps([{"name": "Invalid", "url": "file:///tmp/test.mp3"}]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_main(monkeypatch, "--import-favs", str(import_path))
+
+    assert exc_info.value.code == 1
 
 
 def test_main_import_favorites_rejects_non_list_json(
@@ -150,6 +208,50 @@ def test_main_import_playlists_reads_json_file(
     run_main(monkeypatch, "--import-playlists", str(import_path))
 
     assert saved == [{"name": "Imported", "station_keys": ["https://example.com/imported"]}]
+
+
+def test_main_import_playlists_skips_invalid_items(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "playlists.json"
+    import_path.write_text(
+        json.dumps(
+            [
+                {"name": "Valid", "station_keys": ["https://example.com/valid"]},
+                {"name": "Invalid", "station_keys": ["file:///tmp/test.mp3"]},
+                "not a dict",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    saved = []
+
+    def fake_save_playlists(items: list[dict[str, object]]) -> None:
+        saved.extend(items)
+
+    monkeypatch.setattr(main_module, "save_playlists", fake_save_playlists)
+
+    run_main(monkeypatch, "--import-playlists", str(import_path))
+
+    assert saved == [{"name": "Valid", "station_keys": ["https://example.com/valid"]}]
+
+
+def test_main_import_playlists_rejects_when_no_valid_items(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "playlists.json"
+    import_path.write_text(
+        json.dumps([{"name": "Invalid", "station_keys": ["file:///tmp/test.mp3"]}]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_main(monkeypatch, "--import-playlists", str(import_path))
+
+    assert exc_info.value.code == 1
 
 
 def test_main_import_playlists_rejects_non_list_json(

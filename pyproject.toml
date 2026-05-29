@@ -54,7 +54,7 @@ gui = [
 dev = [
     "build>=1.2.0,<2",
     "ruff>=0.5.0,<1",
-    "pytest>=8.0.0,<9",
+    "pytest>=9.0.3,<10",
 ]
 
 [project.urls]

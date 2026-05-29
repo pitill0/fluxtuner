@@ -7,6 +7,9 @@ import requests
 
 ICY_HEADER = {"Icy-MetaData": "1"}
 
+MAX_METAINT = 512_000
+MAX_METADATA_SIZE = 2048
+
 
 def _parse_stream_title(raw_title: str) -> dict[str, str]:
     cleaned = raw_title.strip()
@@ -40,18 +43,21 @@ def fetch_stream_metadata(
     except Exception:
         return None
 
-    metaint_header = response.headers.get("icy-metaint")
-    if not metaint_header:
-        return None
-
     try:
-        metaint = int(metaint_header)
-    except ValueError:
-        return None
+        metaint_header = response.headers.get("icy-metaint")
+        if not metaint_header:
+            return None
 
-    stream = response.raw
+        try:
+            metaint = int(metaint_header)
+        except ValueError:
+            return None
 
-    try:
+        if metaint <= 0 or metaint > MAX_METAINT:
+            return None
+
+        stream = response.raw
+
         stream.read(metaint)
 
         metadata_length = stream.read(1)
@@ -59,7 +65,7 @@ def fetch_stream_metadata(
             return None
 
         metadata_size = metadata_length[0] * 16
-        if metadata_size <= 0:
+        if metadata_size <= 0 or metadata_size > MAX_METADATA_SIZE:
             return None
 
         metadata = stream.read(metadata_size)

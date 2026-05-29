@@ -67,6 +67,7 @@ def test_fetch_stream_metadata_returns_none_without_metaint(monkeypatch) -> None
     monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
 
     assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
 
 
 def test_fetch_stream_metadata_returns_none_for_invalid_metaint(monkeypatch) -> None:
@@ -78,6 +79,46 @@ def test_fetch_stream_metadata_returns_none_for_invalid_metaint(monkeypatch) -> 
     monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
 
     assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
+
+
+def test_fetch_stream_metadata_returns_none_for_zero_metaint(monkeypatch) -> None:
+    response = FakeResponse(headers={"icy-metaint": "0"}, raw=BytesIO(b""))
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
+
+
+def test_fetch_stream_metadata_returns_none_for_negative_metaint(monkeypatch) -> None:
+    response = FakeResponse(headers={"icy-metaint": "-1"}, raw=BytesIO(b""))
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
+
+
+def test_fetch_stream_metadata_returns_none_for_excessive_metaint(monkeypatch) -> None:
+    response = FakeResponse(
+        headers={"icy-metaint": str(stream_metadata.MAX_METAINT + 1)},
+        raw=BytesIO(b""),
+    )
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
 
 
 def test_fetch_stream_metadata_returns_none_for_empty_metadata(monkeypatch) -> None:
@@ -92,6 +133,23 @@ def test_fetch_stream_metadata_returns_none_for_empty_metadata(monkeypatch) -> N
     monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
 
     assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
+
+
+def test_fetch_stream_metadata_returns_none_for_excessive_metadata_size(monkeypatch) -> None:
+    blocks = (stream_metadata.MAX_METADATA_SIZE // 16) + 1
+    response = FakeResponse(
+        headers={"icy-metaint": "4"},
+        raw=BytesIO(b"a" * 4 + bytes([blocks])),
+    )
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+    assert response.closed is True
 
 
 def test_fetch_stream_metadata_returns_none_on_request_error(monkeypatch) -> None:

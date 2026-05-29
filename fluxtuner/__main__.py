@@ -14,6 +14,7 @@ from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
+from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
 from fluxtuner.core.stations import (
     station_bitrate,
@@ -321,8 +322,18 @@ def main() -> None:
 
     if args.import_favs:
         data = import_json_list(args.import_favs, "favorites")
-        save_favorites(data)
-        console.print(f"[green]Imported {len(data)} favorite(s).[/green]")
+        result = validate_imported_favorites(data)
+
+        if not result.items:
+            console.print("[red]No valid favorites found in import file.[/red]")
+            raise SystemExit(1)
+
+        save_favorites(result.items)
+
+        message = f"[green]Imported {len(result.items)} favorite(s).[/green]"
+        if result.skipped:
+            message += f" [yellow]Skipped {result.skipped} invalid item(s).[/yellow]"
+        console.print(message)
         return
 
     if args.export_playlists:
@@ -331,8 +342,18 @@ def main() -> None:
 
     if args.import_playlists:
         data = import_json_list(args.import_playlists, "playlists")
-        save_playlists(data)
-        console.print(f"[green]Imported {len(data)} persistent playlist(s).[/green]")
+        result = validate_imported_playlists(data)
+
+        if not result.items:
+            console.print("[red]No valid playlists found in import file.[/red]")
+            raise SystemExit(1)
+
+        save_playlists(result.items)
+
+        message = f"[green]Imported {len(result.items)} persistent playlist(s).[/green]"
+        if result.skipped:
+            message += f" [yellow]Skipped {result.skipped} invalid item(s).[/yellow]"
+        console.print(message)
         return
 
     configured_theme = str(get_config_value("theme", DEFAULT_THEME))

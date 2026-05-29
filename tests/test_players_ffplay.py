@@ -158,9 +158,14 @@ def test_ffplay_play_continues_when_previous_stop_fails(monkeypatch) -> None:
     monkeypatch.setattr("os.getpgid", lambda _pid: 123)
     monkeypatch.setattr("os.killpg", lambda _pgid, _signal: None)
     monkeypatch.setattr("subprocess.Popen", FakePopen)
+    monkeypatch.setattr(
+        "fluxtuner.players.ffplay.resolve_executable",
+        lambda _name: "/usr/bin/ffplay",
+    )
 
     controller.play("https://example.com/stream")
 
     assert created_commands
+    assert created_commands[0][0] == "/usr/bin/ffplay"
     assert created_commands[0][-1] == "https://example.com/stream"
     assert isinstance(controller.process, FakePopen)

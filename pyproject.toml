@@ -42,19 +42,19 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    "requests>=2.31.0",
-    "rich>=13.7.0",
-    "textual>=0.80.0",
+    "requests>=2.31.0,<3",
+    "rich>=13.7.0,<16",
+    "textual>=0.80.0,<9",
 ]
 
 [project.optional-dependencies]
 gui = [
-    "PyGObject>=3.46",
+    "PyGObject>=3.46,<4",
 ]
 dev = [
-    "build>=1.2.0",
-    "ruff>=0.5.0",
-    "pytest>=8.0.0",
+    "build>=1.2.0,<2",
+    "ruff>=0.5.0,<1",
+    "pytest>=8.0.0,<9",
 ]
 
 [project.urls]

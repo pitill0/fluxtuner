@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import socket
 import subprocess
 import tempfile
@@ -13,27 +12,30 @@ from pathlib import Path
 from typing import Any
 
 from fluxtuner.players.base import PlayerAdapter, PlayerError
+from fluxtuner.players.security import resolve_executable, validate_stream_url
 
 
 def is_mpv_available() -> bool:
     """Return True when mpv is installed and available in PATH."""
-    return shutil.which("mpv") is not None
+    try:
+        resolve_executable("mpv")
+        return True
+    except PlayerError:
+        return False
 
 
-def ensure_mpv_available() -> None:
-    """Fail early if mpv is not installed or not available in PATH."""
-    if not is_mpv_available():
-        raise PlayerError(
-            "mpv is required but was not found in PATH. Please install mpv and try again."
-        )
+def ensure_mpv_available() -> str:
+    """Return the resolved mpv path or fail early."""
+    return resolve_executable("mpv")
 
 
 def play_stream(url: str) -> None:
     """Play a stream URL using mpv and block until mpv exits."""
-    ensure_mpv_available()
+    mpv_path = ensure_mpv_available()
+    safe_url = validate_stream_url(url)
 
     with suppress(KeyboardInterrupt):
-        subprocess.run(["mpv", "--no-video", url], check=False)  # noqa: S603
+        subprocess.run([mpv_path, "--no-video", safe_url], check=False)  # noqa: S603
 
 
 @dataclass
@@ -50,7 +52,7 @@ class MpvController(PlayerAdapter):
         try:
             ensure_mpv_available()
             return True
-        except Exception:
+        except PlayerError:
             return False
 
     def play(self, url: str) -> None:
@@ -59,21 +61,22 @@ class MpvController(PlayerAdapter):
         If mpv is already running, replace the stream using IPC. This keeps the
         session alive and makes switching stations feel much smoother.
         """
-        ensure_mpv_available()
+        mpv_path = ensure_mpv_available()
+        safe_url = validate_stream_url(url)
 
         if self.is_playing():
-            self.load(url)
+            self.load(safe_url)
             return
 
         self.ipc_path = self._new_ipc_path()
         self.process = subprocess.Popen(  # noqa: S603
             [
-                "mpv",
+                mpv_path,
                 "--no-video",
                 "--really-quiet",
                 "--force-window=no",
                 f"--input-ipc-server={self.ipc_path}",
-                url,
+                safe_url,
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -82,7 +85,8 @@ class MpvController(PlayerAdapter):
 
     def load(self, url: str) -> None:
         """Replace the currently playing URL without restarting mpv."""
-        self.command(["loadfile", url, "replace"])
+        safe_url = validate_stream_url(url)
+        self.command(["loadfile", safe_url, "replace"])
 
     def stop(self) -> None:
         """Stop the current mpv process if it is still running."""

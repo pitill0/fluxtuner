@@ -505,6 +505,26 @@ python -m fluxtuner
 
 ---
 
+## Development checks
+
+Run the standard local quality checks:
+
+```bash
+ruff check .
+ruff format --check .
+python -m compileall fluxtuner tests
+python -m pytest
+```
+
+Audit installed Python dependencies:
+
+```bash
+python -m pip install pip-audit
+pip-audit --local
+```
+
+---
+
 # macOS GTK Development Note
 
 When using a Python virtual environment, PyGObject installed via Homebrew may not be visible inside the venv.

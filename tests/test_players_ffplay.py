@@ -4,6 +4,47 @@ from fluxtuner.players.base import PlayerError
 from fluxtuner.players.ffplay import FfplayController
 
 
+def test_ffplay_play_uses_resolved_executable(monkeypatch) -> None:
+    from fluxtuner.players.ffplay import FfplayController
+
+    created_commands = []
+
+    class FakePopen:
+        def __init__(self, command, **_kwargs):
+            created_commands.append(command)
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(
+        "fluxtuner.players.ffplay.resolve_executable", lambda _name: "/usr/bin/ffplay"
+    )
+    monkeypatch.setattr("subprocess.Popen", FakePopen)
+
+    controller = FfplayController()
+    controller.play("https://example.com/stream")
+
+    assert created_commands
+    assert created_commands[0][0] == "/usr/bin/ffplay"
+    assert created_commands[0][-1] == "https://example.com/stream"
+
+
+def test_ffplay_play_rejects_invalid_stream_url(monkeypatch) -> None:
+    import pytest
+
+    from fluxtuner.players.base import PlayerError
+    from fluxtuner.players.ffplay import FfplayController
+
+    monkeypatch.setattr(
+        "fluxtuner.players.ffplay.resolve_executable", lambda _name: "/usr/bin/ffplay"
+    )
+
+    controller = FfplayController()
+
+    with pytest.raises(PlayerError):
+        controller.play("file:///tmp/test.mp3")
+
+
 def test_ffplay_reports_live_capabilities() -> None:
     player = FfplayController()
 
@@ -117,9 +158,14 @@ def test_ffplay_play_continues_when_previous_stop_fails(monkeypatch) -> None:
     monkeypatch.setattr("os.getpgid", lambda _pid: 123)
     monkeypatch.setattr("os.killpg", lambda _pgid, _signal: None)
     monkeypatch.setattr("subprocess.Popen", FakePopen)
+    monkeypatch.setattr(
+        "fluxtuner.players.ffplay.resolve_executable",
+        lambda _name: "/usr/bin/ffplay",
+    )
 
     controller.play("https://example.com/stream")
 
     assert created_commands
+    assert created_commands[0][0] == "/usr/bin/ffplay"
     assert created_commands[0][-1] == "https://example.com/stream"
     assert isinstance(controller.process, FakePopen)

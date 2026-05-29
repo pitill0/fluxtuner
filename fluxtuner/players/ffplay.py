@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import os
-import shutil
 import signal
 import subprocess
 from contextlib import suppress
 from typing import Any
 
-from fluxtuner.players.base import PlayerAdapter
+from fluxtuner.players.base import PlayerAdapter, PlayerError
+from fluxtuner.players.security import resolve_executable, validate_stream_url
 
 
 class FfplayController(PlayerAdapter):
@@ -22,26 +22,33 @@ class FfplayController(PlayerAdapter):
 
     @classmethod
     def is_available(cls) -> bool:
-        return shutil.which("ffplay") is not None
+        try:
+            resolve_executable("ffplay")
+            return True
+        except PlayerError:
+            return False
 
     def play(self, url: str) -> None:
+        ffplay_path = resolve_executable("ffplay")
+        safe_url = validate_stream_url(url)
+
         with suppress(Exception):
             self.stop()
 
         volume = 0 if self.muted else max(0, min(100, int(self.volume)))
 
         command = [
-            "ffplay",
+            ffplay_path,
             "-nodisp",
             "-autoexit",
             "-loglevel",
             "warning",
             "-volume",
             str(volume),
-            url,
+            safe_url,
         ]
 
-        self.process = subprocess.Popen(
+        self.process = subprocess.Popen(  # noqa: S603
             command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

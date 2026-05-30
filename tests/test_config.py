@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from fluxtuner import config
@@ -77,6 +78,22 @@ def test_get_playback_state_ignores_invalid_volume(
 
     assert state["volume"] is None
     assert state["muted"] is False
+
+
+def test_load_config_logs_invalid_json(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    config_file = tmp_path / "config.json"
+    config_file.write_text("{not-json", encoding="utf-8")
+
+    monkeypatch.setattr(config, "CONFIG_FILE", config_file)
+
+    with caplog.at_level(logging.WARNING):
+        assert config.load_config() == config.default_config()
+
+    assert "Invalid config JSON" in caplog.text
 
 
 def test_load_config_returns_defaults_for_missing_file(

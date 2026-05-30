@@ -7,6 +7,10 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def write_json_atomic(
     path: Path,
@@ -52,4 +56,5 @@ def write_json_atomic(
         if temp_path is not None:
             with suppress(OSError):
                 temp_path.unlink(missing_ok=True)
+        logger.debug("Atomic JSON write failed before replacing destination", exc_info=True)
         raise

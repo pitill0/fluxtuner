@@ -6,7 +6,10 @@ from typing import Any
 
 from fluxtuner.core.stations import station_key, station_name
 from fluxtuner.core.storage import write_json_atomic
+from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
+
+logger = get_logger(__name__)
 
 LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
 FAVORITES_FILE = data_file("favorites.json")
@@ -26,7 +29,11 @@ def load_favorites() -> list[dict[str, Any]]:
 
     try:
         data = json.loads(FAVORITES_FILE.read_text(encoding="utf-8"))
+    except OSError:
+        logger.warning("Could not read favorites data; returning empty favorites", exc_info=True)
+        return []
     except json.JSONDecodeError:
+        logger.warning("Invalid favorites JSON; returning empty favorites", exc_info=True)
         return []
 
     if not isinstance(data, list):
@@ -39,7 +46,11 @@ def save_favorites(favorites: list[dict[str, Any]]) -> None:
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
     normalized = [normalize_favorite(item) for item in favorites if station_key(item)]
-    write_json_atomic(FAVORITES_FILE, normalized)
+    try:
+        write_json_atomic(FAVORITES_FILE, normalized)
+    except OSError:
+        logger.error("Could not write favorites data", exc_info=True)
+        raise
 
 
 def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:

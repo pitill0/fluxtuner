@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from fluxtuner.core import data_usage
@@ -164,3 +165,20 @@ def test_format_usage_line() -> None:
         )
         == "Data: 1.5 MB session · 2.5 MB today · 57.6 MB/h est."
     )
+
+
+def test_load_raw_logs_invalid_json(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    usage_file = tmp_path / "usage.json"
+    usage_file.write_text("{not-json", encoding="utf-8")
+
+    monkeypatch.setattr(data_usage, "USAGE_FILE", usage_file)
+    monkeypatch.setattr(data_usage, "LEGACY_USAGE_FILE", tmp_path / "legacy.json")
+
+    with caplog.at_level(logging.WARNING):
+        assert data_usage._load_raw() == {"days": {}, "months": {}}
+
+    assert "Invalid data usage JSON" in caplog.text

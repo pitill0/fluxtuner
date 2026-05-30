@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from fluxtuner.core.storage import write_json_atomic
+from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
 
+logger = get_logger(__name__)
 LEGACY_USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
 USAGE_FILE = data_file("usage.json")
 
@@ -28,14 +30,28 @@ def _load_raw() -> dict[str, Any]:
         return {"days": {}, "months": {}}
 
     try:
-        return json.loads(USAGE_FILE.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        data = json.loads(USAGE_FILE.read_text(encoding="utf-8"))
+    except OSError:
+        logger.warning("Could not read data usage file; using empty usage data", exc_info=True)
         return {"days": {}, "months": {}}
+    except json.JSONDecodeError:
+        logger.warning("Invalid data usage JSON; using empty usage data", exc_info=True)
+        return {"days": {}, "months": {}}
+
+    if not isinstance(data, dict):
+        logger.warning("Invalid data usage structure; using empty usage data")
+        return {"days": {}, "months": {}}
+
+    return data
 
 
 def _save_raw(data: dict[str, Any]) -> None:
     migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
-    write_json_atomic(USAGE_FILE, data, sort_keys=True)
+    try:
+        write_json_atomic(USAGE_FILE, data, sort_keys=True)
+    except OSError:
+        logger.error("Could not write data usage file", exc_info=True)
+        raise
 
 
 def estimate_mb(bitrate_kbps: int | float | None, seconds: int | float) -> float:

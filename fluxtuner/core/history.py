@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from fluxtuner.core.storage import write_json_atomic
+from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
 
+logger = get_logger(__name__)
 LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
 HISTORY_FILE = data_file("history.json")
 MAX_HISTORY_ITEMS = 100
@@ -22,10 +24,13 @@ def load_history() -> list[dict[str, Any]]:
 
     if not HISTORY_FILE.exists():
         return []
-
     try:
         data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+    except OSError:
+        logger.warning("Could not read history data; returning empty history", exc_info=True)
+        return []
     except json.JSONDecodeError:
+        logger.warning("Invalid history JSON; returning empty history", exc_info=True)
         return []
 
     if not isinstance(data, list):
@@ -37,7 +42,11 @@ def load_history() -> list[dict[str, Any]]:
 def save_history(history: list[dict[str, Any]]) -> None:
     migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
 
-    write_json_atomic(HISTORY_FILE, history[:MAX_HISTORY_ITEMS])
+    try:
+        write_json_atomic(HISTORY_FILE, history[:MAX_HISTORY_ITEMS])
+    except OSError:
+        logger.error("Could not write history data", exc_info=True)
+        raise
 
 
 def add_history(station: dict[str, Any]) -> None:

@@ -12,6 +12,8 @@ BASE_URL = "https://de1.api.radio-browser.info/json"
 
 DEFAULT_HEADERS = {"User-Agent": f"FluxTuner/{__version__} (+https://github.com/pitill0/fluxtuner)"}
 
+DEFAULT_TIMEOUT = 12
+
 
 def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
     """Return a compact station dictionary used by CLI, TUI and GUI."""
@@ -29,6 +31,37 @@ def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
         "homepage": station.get("homepage") or "",
         "language": station.get("language") or "",
     }
+
+
+def _safe_response_json(response: requests.Response) -> Any | None:
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+def _safe_get_json_list(
+    url: str,
+    *,
+    params: dict[str, Any],
+    timeout: int = DEFAULT_TIMEOUT,
+) -> list[dict[str, Any]]:
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            headers=DEFAULT_HEADERS,
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        return []
+
+    data = _safe_response_json(response)
+    if not isinstance(data, list):
+        return []
+
+    return [item for item in data if isinstance(item, dict)]
 
 
 def search_stations(
@@ -55,14 +88,10 @@ def search_stations(
     if countrycode:
         params["countrycode"] = countrycode.upper()
 
-    response = requests.get(
+    return _safe_get_json_list(
         f"{BASE_URL}/stations/search",
         params=params,
-        headers=DEFAULT_HEADERS,
-        timeout=12,
     )
-    response.raise_for_status()
-    return response.json()
 
 
 def search_stations_by_text(query: str, limit: int = 40) -> list[dict[str, Any]]:

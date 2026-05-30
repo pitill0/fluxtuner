@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import requests
@@ -278,3 +279,60 @@ def test_search_stations_uppercases_countrycode(monkeypatch) -> None:
     api.search_stations(countrycode="es")
 
     assert captured["params"]["countrycode"] == "ES"
+
+
+def test_search_stations_logs_request_error(monkeypatch, caplog) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        raise requests.Timeout("timeout")
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert api.search_stations(name="test") == []
+
+    assert "Radio Browser API request failed" in caplog.text
+
+
+def test_search_stations_logs_invalid_json(monkeypatch, caplog) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse(json_error=ValueError("invalid json"))
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert api.search_stations(name="test") == []
+
+    assert "Radio Browser API returned invalid JSON" in caplog.text
+
+
+def test_search_stations_logs_unexpected_response_type(monkeypatch, caplog) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse({"unexpected": "object"})
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert api.search_stations(name="test") == []
+
+    assert "Radio Browser API returned unexpected response type" in caplog.text
+
+
+def test_search_stations_filtered_logs_cache_hit(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(
+        api,
+        "get_cached_search",
+        lambda _key: [{"name": "Cached", "url": "https://example.com/stream"}],
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        results = api.search_stations_filtered("rock")
+
+    assert len(results) == 1
+    assert "Returning 1 cached search result(s)" in caplog.text
+
+
+def test_search_stations_filtered_logs_empty_filters(caplog) -> None:
+    with caplog.at_level(logging.DEBUG):
+        assert api.search_stations_filtered("") == []
+
+    assert "Skipping search because no filters were provided" in caplog.text

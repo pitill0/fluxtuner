@@ -7,12 +7,15 @@ import requests
 from fluxtuner import __version__
 from fluxtuner.core.cache import get_cached_search, make_search_key, set_cached_search
 from fluxtuner.core.stations import station_key
+from fluxtuner.logging_config import get_logger
 
 BASE_URL = "https://de1.api.radio-browser.info/json"
 
 DEFAULT_HEADERS = {"User-Agent": f"FluxTuner/{__version__} (+https://github.com/pitill0/fluxtuner)"}
 
 DEFAULT_TIMEOUT = 12
+
+logger = get_logger(__name__)
 
 
 def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
@@ -37,6 +40,7 @@ def _safe_response_json(response: requests.Response) -> Any | None:
     try:
         return response.json()
     except ValueError:
+        logger.debug("Radio Browser API returned invalid JSON", exc_info=True)
         return None
 
 
@@ -46,6 +50,11 @@ def _safe_get_json_list(
     params: dict[str, Any],
     timeout: int = DEFAULT_TIMEOUT,
 ) -> list[dict[str, Any]]:
+    logger.debug(
+        "Requesting Radio Browser API endpoint with filters: %s",
+        sorted(params.keys()),
+    )
+
     try:
         response = requests.get(
             url,
@@ -55,13 +64,23 @@ def _safe_get_json_list(
         )
         response.raise_for_status()
     except requests.RequestException:
+        logger.debug("Radio Browser API request failed", exc_info=True)
         return []
 
     data = _safe_response_json(response)
     if not isinstance(data, list):
+        logger.debug("Radio Browser API returned unexpected response type: %s", type(data).__name__)
         return []
 
-    return [item for item in data if isinstance(item, dict)]
+    valid_items = [item for item in data if isinstance(item, dict)]
+    skipped_items = len(data) - len(valid_items)
+
+    if skipped_items:
+        logger.debug("Skipped %s invalid Radio Browser API item(s)", skipped_items)
+
+    logger.debug("Radio Browser API returned %s valid station item(s)", len(valid_items))
+
+    return valid_items
 
 
 def search_stations(
@@ -164,12 +183,14 @@ def search_stations_filtered(
         min_bitrate = max(0, int(min_bitrate))
 
     if not query and not country and min_bitrate is None:
+        logger.debug("Skipping search because no filters were provided")
         return []
 
     cache_key = make_search_key(query, country, min_bitrate, limit)
     if use_cache:
         cached_results = get_cached_search(cache_key)
         if cached_results is not None:
+            logger.debug("Returning %s cached search result(s)", len(cached_results))
             return cached_results
 
     api_limit = max(limit * 4, 200)
@@ -240,5 +261,7 @@ def search_stations_filtered(
 
     if use_cache:
         set_cached_search(cache_key, results)
+
+    logger.debug("Search returned %s filtered result(s)", len(results))
 
     return results

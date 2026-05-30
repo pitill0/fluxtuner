@@ -7,6 +7,7 @@ from typing import Any
 
 from fluxtuner.core.favorites import favorite_display_name, load_favorites
 from fluxtuner.core.stations import station_key
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_PLAYLISTS_FILE = Path.home() / ".fluxtuner_playlists.json"
@@ -49,10 +50,7 @@ def save_playlists(playlists: list[dict[str, Any]]) -> None:
     normalized = [
         normalize_playlist(item) for item in playlists if str(item.get("name", "")).strip()
     ]
-    PLAYLISTS_FILE.write_text(
-        json.dumps(normalized, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    write_json_atomic(PLAYLISTS_FILE, normalized)
 
 
 def normalize_playlist(playlist: dict[str, Any]) -> dict[str, Any]:

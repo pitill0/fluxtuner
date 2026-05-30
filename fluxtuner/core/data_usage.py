@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_USAGE_FILE = Path.home() / ".fluxtuner_usage.json"
@@ -34,8 +35,7 @@ def _load_raw() -> dict[str, Any]:
 
 def _save_raw(data: dict[str, Any]) -> None:
     migrate_legacy_file(LEGACY_USAGE_FILE, USAGE_FILE)
-    USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USAGE_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    write_json_atomic(USAGE_FILE, data, sort_keys=True)
 
 
 def estimate_mb(bitrate_kbps: int | float | None, seconds: int | float) -> float:

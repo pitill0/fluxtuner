@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 from typing import Any
 
@@ -154,8 +155,76 @@ def test_fetch_stream_metadata_returns_none_for_excessive_metadata_size(monkeypa
 
 def test_fetch_stream_metadata_returns_none_on_request_error(monkeypatch) -> None:
     def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
-        raise RuntimeError("network failed")
+        raise stream_metadata.requests.Timeout("network failed")
 
     monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
 
     assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+
+
+def test_fetch_stream_metadata_logs_request_error(monkeypatch, caplog) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        raise stream_metadata.requests.Timeout("timeout")
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+
+    assert "ICY metadata request failed" in caplog.text
+
+
+def test_fetch_stream_metadata_logs_missing_metaint(monkeypatch, caplog) -> None:
+    response = FakeResponse(headers={}, raw=BytesIO(b""))
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+
+    assert "missing icy-metaint header" in caplog.text
+
+
+def test_fetch_stream_metadata_logs_excessive_metadata_size(monkeypatch, caplog) -> None:
+    blocks = (stream_metadata.MAX_METADATA_SIZE // 16) + 1
+    response = FakeResponse(
+        headers={"icy-metaint": "4"},
+        raw=BytesIO(b"a" * 4 + bytes([blocks])),
+    )
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert stream_metadata.fetch_stream_metadata("https://example.com/stream") is None
+
+    assert "metadata block exceeds size limit" in caplog.text
+
+
+def test_fetch_stream_metadata_logs_success(monkeypatch, caplog) -> None:
+    response = FakeResponse(
+        headers={"icy-metaint": "4"},
+        raw=BytesIO(icy_payload("Artist - Song", metaint=4)),
+    )
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return response
+
+    monkeypatch.setattr(stream_metadata.requests, "get", fake_get)
+
+    with caplog.at_level(logging.DEBUG):
+        assert stream_metadata.fetch_stream_metadata("https://example.com/stream") == {
+            "raw": "Artist - Song",
+            "artist": "Artist",
+            "title": "Song",
+            "source": "icy",
+        }
+
+    assert "ICY metadata parsed successfully" in caplog.text
+    assert "Artist - Song" not in caplog.text
+    assert "https://example.com/stream" not in caplog.text

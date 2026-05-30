@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -84,3 +85,16 @@ def test_clear_search_cache_removes_cache_file(
     cache.clear_search_cache()
 
     assert not cache_file.exists()
+
+
+def test_set_cached_search_logs_and_ignores_write_error(monkeypatch, caplog) -> None:
+    def fake_write_json_atomic(*_args, **_kwargs) -> None:
+        raise OSError("write failed")
+
+    monkeypatch.setattr(cache, "write_json_atomic", fake_write_json_atomic)
+    monkeypatch.setattr(cache, "_load_cache", lambda: {})
+
+    with caplog.at_level(logging.DEBUG):
+        cache.set_cached_search("key", [{"name": "Test"}])
+
+    assert "Could not write search cache" in caplog.text

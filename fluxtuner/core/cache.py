@@ -5,8 +5,10 @@ import time
 from typing import Any
 
 from fluxtuner.core.storage import write_json_atomic
+from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import cache_file
 
+logger = get_logger(__name__)
 CACHE_TTL_SECONDS = 6 * 60 * 60
 
 CACHE_FILE = cache_file("search_cache.json")
@@ -17,13 +19,20 @@ def _load_cache() -> dict[str, Any]:
         return {}
     try:
         data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError:
+        logger.debug("Could not read search cache; ignoring cache", exc_info=True)
+        return {}
+    except json.JSONDecodeError:
+        logger.debug("Invalid search cache JSON; ignoring cache", exc_info=True)
         return {}
     return data if isinstance(data, dict) else {}
 
 
 def _save_cache(data: dict[str, Any]) -> None:
-    write_json_atomic(CACHE_FILE, data, sort_keys=True)
+    try:
+        write_json_atomic(CACHE_FILE, data, sort_keys=True)
+    except OSError:
+        logger.debug("Could not write search cache; continuing without cache update", exc_info=True)
 
 
 def make_search_key(

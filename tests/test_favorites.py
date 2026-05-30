@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fluxtuner.core import favorites
@@ -180,6 +181,23 @@ def test_save_and_load_favorites_roundtrip(
     assert len(loaded) == 1
     assert loaded[0]["name"] == "Test Radio"
     assert loaded[0]["url_resolved"] == "https://example.com/stream"
+
+
+def test_load_favorites_logs_invalid_json(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    favorites_file = tmp_path / "favorites.json"
+    favorites_file.write_text("{not-json", encoding="utf-8")
+
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", favorites_file)
+    monkeypatch.setattr(favorites, "LEGACY_FAVORITES_FILE", tmp_path / "legacy.json")
+
+    with caplog.at_level(logging.WARNING):
+        assert favorites.load_favorites() == []
+
+    assert "Invalid favorites JSON" in caplog.text
 
 
 def test_add_favorite_avoids_duplicates(

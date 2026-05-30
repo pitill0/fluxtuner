@@ -4,7 +4,10 @@ import json
 from typing import Any
 
 from fluxtuner.core.storage import write_json_atomic
+from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import config_file
+
+logger = get_logger(__name__)
 
 CONFIG_FILE = config_file("config.json")
 
@@ -27,7 +30,11 @@ def load_config() -> dict[str, Any]:
 
     try:
         data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError:
+        logger.warning("Could not read config file; using default config", exc_info=True)
+        return default_config()
+    except json.JSONDecodeError:
+        logger.warning("Invalid config JSON; using default config", exc_info=True)
         return default_config()
 
     config = default_config()
@@ -38,7 +45,11 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     """Persist user configuration."""
-    write_json_atomic(CONFIG_FILE, config, sort_keys=True)
+    try:
+        write_json_atomic(CONFIG_FILE, config, sort_keys=True)
+    except OSError:
+        logger.error("Could not write config file", exc_info=True)
+        raise
 
 
 def get_config_value(key: str, default: Any = None) -> Any:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import random
+import secrets
 from typing import Any
 
 from fluxtuner.core.favorites import load_favorites
@@ -39,4 +39,4 @@ def random_by_tag(tag: str) -> dict[str, Any] | None:
     stations = get_by_tag(tag)
     if not stations:
         return None
-    return random.choice(stations)
+    return secrets.choice(stations)

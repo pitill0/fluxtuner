@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -145,7 +145,7 @@ def random_favorite_flow(player_name: str | None = None, player: Any | None = No
         console.print("[yellow]No favorites yet.[/yellow]")
         return
 
-    station = random.choice(favorites)
+    station = secrets.choice(favorites)
     console.print(f"[cyan]Random favorite:[/cyan] {station['name']}")
     return play_station(station, player_name, player)
 

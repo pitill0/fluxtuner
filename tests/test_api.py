@@ -1,5 +1,7 @@
 from typing import Any
 
+import requests
+
 from fluxtuner.core import api
 
 
@@ -153,3 +155,126 @@ def test_search_stations_filtered_falls_back_to_broad_search_when_country_too_st
     assert calls[1]["country"] == "Atlantis"
     assert "country" not in calls[2]
     assert "country" not in calls[3]
+
+
+class FakeResponse:
+    def __init__(
+        self,
+        data: Any = None,
+        *,
+        status_error: Exception | None = None,
+        json_error: Exception | None = None,
+    ) -> None:
+        self.data = data
+        self.status_error = status_error
+        self.json_error = json_error
+
+    def raise_for_status(self) -> None:
+        if self.status_error:
+            raise self.status_error
+
+    def json(self) -> Any:
+        if self.json_error:
+            raise self.json_error
+        return self.data
+
+
+def test_search_stations_returns_api_items(monkeypatch) -> None:
+    captured = {}
+
+    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return FakeResponse(
+            [
+                {
+                    "name": "Test Radio",
+                    "url": "https://example.com/stream",
+                }
+            ]
+        )
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == [
+        {
+            "name": "Test Radio",
+            "url": "https://example.com/stream",
+        }
+    ]
+
+    assert captured["url"] == f"{api.BASE_URL}/stations/search"
+    assert captured["kwargs"]["params"]["name"] == "test"
+    assert captured["kwargs"]["headers"] == api.DEFAULT_HEADERS
+    assert captured["kwargs"]["timeout"] == api.DEFAULT_TIMEOUT
+
+
+def test_search_stations_returns_empty_list_on_request_error(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        raise requests.Timeout("timeout")
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == []
+
+
+def test_search_stations_returns_empty_list_on_http_error(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse(
+            [],
+            status_error=requests.HTTPError("server error"),
+        )
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == []
+
+
+def test_search_stations_returns_empty_list_on_invalid_json(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse(json_error=ValueError("invalid json"))
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == []
+
+
+def test_search_stations_returns_empty_list_for_non_list_json(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse({"unexpected": "object"})
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == []
+
+
+def test_search_stations_filters_non_dict_items(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        return FakeResponse(
+            [
+                {"name": "Valid", "url": "https://example.com/stream"},
+                "not a dict",
+                None,
+                ["also invalid"],
+            ]
+        )
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    assert api.search_stations(name="test") == [
+        {"name": "Valid", "url": "https://example.com/stream"}
+    ]
+
+
+def test_search_stations_uppercases_countrycode(monkeypatch) -> None:
+    captured = {}
+
+    def fake_get(_url: str, **kwargs: Any) -> FakeResponse:
+        captured["params"] = kwargs["params"]
+        return FakeResponse([])
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    api.search_stations(countrycode="es")
+
+    assert captured["params"]["countrycode"] == "ES"

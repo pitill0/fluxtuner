@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from fluxtuner.players.base import PlayerError
@@ -49,3 +51,20 @@ def test_resolve_executable_raises_when_missing(monkeypatch) -> None:
 
     with pytest.raises(PlayerError):
         resolve_executable("mpv")
+
+
+def test_resolve_executable_logs_missing_player(monkeypatch, caplog) -> None:
+    monkeypatch.setattr("shutil.which", lambda _name: None)
+
+    with caplog.at_level(logging.DEBUG), pytest.raises(PlayerError):
+        resolve_executable("mpv")
+
+    assert "Player executable is not available: mpv" in caplog.text
+
+
+def test_validate_stream_url_logs_invalid_url(caplog) -> None:
+    with caplog.at_level(logging.DEBUG), pytest.raises(PlayerError):
+        validate_stream_url("file:///tmp/test.mp3")
+
+    assert "Rejected unsupported or invalid stream URL" in caplog.text
+    assert "file:///tmp/test.mp3" not in caplog.text

@@ -3,18 +3,24 @@ from __future__ import annotations
 import shutil
 from urllib.parse import urlparse
 
+from fluxtuner.logging_config import get_logger
 from fluxtuner.players.base import PlayerError
 
 SUPPORTED_STREAM_SCHEMES = {"http", "https"}
+
+logger = get_logger(__name__)
 
 
 def resolve_executable(name: str) -> str:
     """Return the absolute executable path for a player binary."""
     executable = shutil.which(name)
     if not executable:
+        logger.debug("Player executable is not available: %s", name)
         raise PlayerError(
             f"{name} is required but was not found in PATH. Please install {name} and try again."
         )
+
+    logger.debug("Player executable resolved: %s", name)
     return executable
 
 
@@ -34,6 +40,7 @@ def validate_stream_url(url: str | None) -> str:
     clean_url = str(url or "").strip()
 
     if not is_supported_stream_url(clean_url):
+        logger.debug("Rejected unsupported or invalid stream URL")
         raise PlayerError("Unsupported or invalid stream URL.")
 
     return clean_url

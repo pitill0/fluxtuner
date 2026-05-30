@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -78,3 +79,29 @@ def test_mpv_is_playing_returns_true_for_running_process(tmp_path: Path) -> None
     assert controller.process is not None
     assert controller.ipc_path == ipc_path
     assert ipc_path.exists()
+
+
+def test_mpv_play_logs_without_stream_url(monkeypatch, caplog) -> None:
+    from fluxtuner.players.mpv import MpvController
+
+    created_commands = []
+
+    class FakePopen:
+        def __init__(self, command, **_kwargs):
+            created_commands.append(command)
+
+        def poll(self):
+            return None
+
+    controller = MpvController()
+
+    monkeypatch.setattr("fluxtuner.players.mpv.resolve_executable", lambda _name: "/usr/bin/mpv")
+    monkeypatch.setattr("subprocess.Popen", FakePopen)
+    monkeypatch.setattr(controller, "_wait_for_ipc_socket", lambda: None)
+
+    with caplog.at_level(logging.DEBUG):
+        controller.play("https://example.com/private-stream")
+
+    assert created_commands
+    assert "Starting mpv playback" in caplog.text
+    assert "https://example.com/private-stream" not in caplog.text

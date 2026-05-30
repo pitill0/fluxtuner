@@ -11,8 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.logging_config import get_logger
 from fluxtuner.players.base import PlayerAdapter, PlayerError
 from fluxtuner.players.security import resolve_executable, validate_stream_url
+
+logger = get_logger(__name__)
 
 
 def is_mpv_available() -> bool:
@@ -34,8 +37,10 @@ def play_stream(url: str) -> None:
     mpv_path = ensure_mpv_available()
     safe_url = validate_stream_url(url)
 
+    logger.debug("Starting blocking mpv playback")
     with suppress(KeyboardInterrupt):
         subprocess.run([mpv_path, "--no-video", safe_url], check=False)  # noqa: S603
+    logger.debug("Blocking mpv playback finished")
 
 
 @dataclass
@@ -64,7 +69,10 @@ class MpvController(PlayerAdapter):
         mpv_path = ensure_mpv_available()
         safe_url = validate_stream_url(url)
 
+        logger.debug("Starting mpv playback")
+
         if self.is_playing():
+            logger.debug("Replacing current mpv stream through IPC")
             self.load(safe_url)
             return
 
@@ -82,32 +90,39 @@ class MpvController(PlayerAdapter):
             stderr=subprocess.DEVNULL,
         )
         self._wait_for_ipc_socket()
+        logger.debug("mpv playback process started")
 
     def load(self, url: str) -> None:
         """Replace the currently playing URL without restarting mpv."""
         safe_url = validate_stream_url(url)
+        logger.debug("Loading replacement stream into mpv")
         self.command(["loadfile", safe_url, "replace"])
 
     def stop(self) -> None:
         """Stop the current mpv process if it is still running."""
         if not self.process:
+            logger.debug("mpv stop requested without active process")
             self._cleanup_ipc_socket()
             return
 
         if self.process.poll() is None:
+            logger.debug("Stopping mpv playback process")
             try:
                 self.command(["quit"])
                 self.process.wait(timeout=2)
             except Exception:  # noqa: BLE001
+                logger.debug("Graceful mpv stop failed; terminating process", exc_info=True)
                 self.process.terminate()
                 try:
                     self.process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
+                    logger.debug("mpv process did not terminate; killing process", exc_info=True)
                     self.process.kill()
                     self.process.wait(timeout=3)
 
         self.process = None
         self._cleanup_ipc_socket()
+        logger.debug("mpv playback process stopped")
 
     def is_playing(self) -> bool:
         """Return True if mpv is currently running."""
@@ -196,6 +211,7 @@ class MpvController(PlayerAdapter):
             while True:
                 chunk = client.recv(4096)
                 if not chunk:
+                    logger.debug("mpv IPC socket closed before command response")
                     return None
                 buffer += chunk
 
@@ -206,6 +222,7 @@ class MpvController(PlayerAdapter):
                     try:
                         message = json.loads(line.decode("utf-8"))
                     except json.JSONDecodeError:
+                        logger.debug("Ignoring invalid JSON message from mpv IPC")
                         continue
                     if message.get("request_id") == request_id:
                         return message
@@ -223,6 +240,7 @@ class MpvController(PlayerAdapter):
             if self.ipc_path.exists():
                 return
             if self.process and self.process.poll() is not None:
+                logger.debug("mpv exited before IPC socket became ready")
                 raise PlayerError("mpv exited before the IPC socket was ready.")
             time.sleep(0.05)
 

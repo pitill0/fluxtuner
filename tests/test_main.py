@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 import types
 from pathlib import Path
@@ -696,3 +697,61 @@ def test_random_favorite_flow_plays_random_favorite(monkeypatch) -> None:
         "player_name": "mpv",
         "player": "existing-player",
     }
+
+
+def test_main_export_favorites_logs_export_summary(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+
+    monkeypatch.setattr(
+        main_module,
+        "configure_logging",
+        lambda *, verbose=False: None,
+    )
+    monkeypatch.setattr(
+        main_module,
+        "load_favorites",
+        lambda: [{"name": "Secret Radio", "url": "https://example.com/stream"}],
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        run_main(monkeypatch, "--export-favs", str(export_path))
+
+    assert "Exporting 1 item(s) for Favorites" in caplog.text
+    assert "Export completed for Favorites" in caplog.text
+    assert "Secret Radio" not in caplog.text
+    assert "https://example.com/stream" not in caplog.text
+
+
+def test_main_import_favorites_logs_validation_summary(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    import_path = tmp_path / "favorites.json"
+    import_path.write_text(
+        json.dumps(
+            [
+                {"name": "Valid", "url": "https://example.com/valid"},
+                {"name": "Invalid", "url": "file:///tmp/test.mp3"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        main_module,
+        "configure_logging",
+        lambda *, verbose=False: None,
+    )
+    monkeypatch.setattr(main_module, "save_favorites", lambda _items: None)
+
+    with caplog.at_level(logging.DEBUG):
+        run_main(monkeypatch, "--import-favs", str(import_path))
+
+    assert "Validated favorites import: accepted=1 skipped=1" in caplog.text
+    assert "https://example.com/valid" not in caplog.text
+    assert "file:///tmp/test.mp3" not in caplog.text

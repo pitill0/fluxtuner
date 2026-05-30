@@ -24,7 +24,7 @@ from fluxtuner.core.stations import (
     station_tags_text,
     station_url,
 )
-from fluxtuner.logging_config import configure_logging
+from fluxtuner.logging_config import configure_logging, get_logger
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
@@ -34,6 +34,7 @@ from fluxtuner.players import (
 from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
 
 console = Console()
+logger = get_logger(__name__)
 
 
 def print_station_table(stations: list[dict[str, Any]]) -> None:
@@ -84,15 +85,18 @@ def play_station(
 ) -> Any | None:
     stream_url = station_url(station)
     if not stream_url:
+        logger.debug("Playback skipped because selected station has no playable URL")
         console.print("[red]This station has no playable URL.[/red]")
         return player
 
     try:
         active_player = player or create_player(player_name)
     except Exception as exc:  # noqa: BLE001
+        logger.debug("Could not create player backend", exc_info=True)
         console.print(f"[red]Could not start player:[/red] {exc}")
         return player
 
+    logger.debug("Starting playback through selected player backend")
     console.print(f"\n[bold green]Playing:[/bold green] {station['name']}")
     active_player.play(stream_url)
     return active_player
@@ -157,10 +161,19 @@ def export_json_list(
     label: str,
 ) -> None:
     export_path = Path(path_value).expanduser()
-    export_path.write_text(
-        json.dumps(items, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    logger.debug("Exporting %s item(s) for %s", len(items), label)
+
+    try:
+        export_path.write_text(
+            json.dumps(items, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.debug("Export failed for %s", label, exc_info=True)
+        console.print(f"[red]Could not export {label.lower()}:[/red] {exc}")
+        raise SystemExit(1) from exc
+
+    logger.debug("Export completed for %s", label)
     console.print(f"[green]{label} exported to:[/green] {export_path}")
 
 
@@ -169,20 +182,25 @@ def import_json_list(
     label: str,
 ) -> list[dict[str, Any]]:
     import_path = Path(path_value).expanduser()
+    logger.debug("Importing %s JSON list", label)
 
     try:
         data = json.loads(import_path.read_text(encoding="utf-8"))
     except OSError as exc:
+        logger.debug("Import read failed for %s", label, exc_info=True)
         console.print(f"[red]Could not read {label} file:[/red] {exc}")
         raise SystemExit(1) from exc
     except json.JSONDecodeError as exc:
+        logger.debug("Import JSON parsing failed for %s", label, exc_info=True)
         console.print(f"[red]Invalid {label} JSON:[/red] {exc}")
         raise SystemExit(1) from exc
 
     if not isinstance(data, list):
+        logger.debug("Import rejected for %s because JSON root is not a list", label)
         console.print(f"[red]{label.capitalize()} import must be a JSON list.[/red]")
         raise SystemExit(1)
 
+    logger.debug("Imported %s raw item(s) for %s", len(data), label)
     return data
 
 
@@ -331,6 +349,11 @@ def main() -> None:
         data = import_json_list(args.import_favs, "favorites")
         result = validate_imported_favorites(data)
 
+        logger.debug(
+            "Validated favorites import: accepted=%s skipped=%s",
+            len(result.items),
+            result.skipped,
+        )
         if not result.items:
             console.print("[red]No valid favorites found in import file.[/red]")
             raise SystemExit(1)
@@ -350,6 +373,11 @@ def main() -> None:
     if args.import_playlists:
         data = import_json_list(args.import_playlists, "playlists")
         result = validate_imported_playlists(data)
+        logger.debug(
+            "Validated playlists import: accepted=%s skipped=%s",
+            len(result.items),
+            result.skipped,
+        )
 
         if not result.items:
             console.print("[red]No valid playlists found in import file.[/red]")

@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from fluxtuner.players.base import PlayerError
@@ -169,3 +171,30 @@ def test_ffplay_play_continues_when_previous_stop_fails(monkeypatch) -> None:
     assert created_commands[0][0] == "/usr/bin/ffplay"
     assert created_commands[0][-1] == "https://example.com/stream"
     assert isinstance(controller.process, FakePopen)
+
+
+def test_ffplay_play_logs_without_stream_url(monkeypatch, caplog) -> None:
+    from fluxtuner.players.ffplay import FfplayController
+
+    created_commands = []
+
+    class FakePopen:
+        def __init__(self, command, **_kwargs):
+            created_commands.append(command)
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(
+        "fluxtuner.players.ffplay.resolve_executable", lambda _name: "/usr/bin/ffplay"
+    )
+    monkeypatch.setattr("subprocess.Popen", FakePopen)
+
+    controller = FfplayController()
+
+    with caplog.at_level(logging.DEBUG):
+        controller.play("https://example.com/private-stream")
+
+    assert created_commands
+    assert "Starting ffplay playback" in caplog.text
+    assert "https://example.com/private-stream" not in caplog.text

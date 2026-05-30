@@ -24,6 +24,7 @@ from fluxtuner.core.stations import (
     station_tags_text,
     station_url,
 )
+from fluxtuner.logging_config import configure_logging
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
@@ -222,6 +223,11 @@ def main() -> None:
         version=f"FluxTuner {__version__}",
     )
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging.",
+    )
+    parser.add_argument(
         "--cli",
         action="store_true",
         help="Run the legacy numbered CLI instead of the default Textual TUI.",
@@ -291,6 +297,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    configure_logging(verbose=args.verbose)
 
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")

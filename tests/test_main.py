@@ -48,6 +48,34 @@ def test_main_clear_cache_calls_cache_clear(monkeypatch) -> None:
     assert called is True
 
 
+def test_main_configures_verbose_logging(monkeypatch) -> None:
+    captured = {}
+
+    def fake_configure_logging(*, verbose: bool = False) -> None:
+        captured["verbose"] = verbose
+
+    monkeypatch.setattr(main_module, "configure_logging", fake_configure_logging)
+    monkeypatch.setattr(main_module, "available_players", lambda: [])
+
+    run_main(monkeypatch, "--verbose", "--list-players")
+
+    assert captured == {"verbose": True}
+
+
+def test_main_configures_default_logging(monkeypatch) -> None:
+    captured = {}
+
+    def fake_configure_logging(*, verbose: bool = False) -> None:
+        captured["verbose"] = verbose
+
+    monkeypatch.setattr(main_module, "configure_logging", fake_configure_logging)
+    monkeypatch.setattr(main_module, "available_players", lambda: [])
+
+    run_main(monkeypatch, "--list-players")
+
+    assert captured == {"verbose": False}
+
+
 def test_main_version_exits_successfully(monkeypatch) -> None:
     monkeypatch.setattr("sys.argv", ["fluxtuner", "--version"])
 

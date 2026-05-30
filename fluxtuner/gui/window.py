@@ -1088,7 +1088,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_view_status("Tag playlist", len(stations), detail=tag)
 
     def on_random_tag_clicked(self, _button: Gtk.Button) -> None:
-        import random
+        import secrets
 
         tag = self._playlist_tag_value()
         if not tag:
@@ -1107,7 +1107,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations
-        self.selected_station = random.choice(stations)
+        self.selected_station = secrets.choice(stations)
         self._render_results()
         self._update_playlist_status()
         self.play_selected_station()

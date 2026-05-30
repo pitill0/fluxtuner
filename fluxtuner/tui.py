@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import random
+import secrets
 import textwrap
 import time
 from contextlib import suppress
@@ -989,7 +989,7 @@ class FluxTunerTUI(App[None]):
         if not favorites:
             self.set_status("No favorites yet.")
             return
-        self.selected_station = random.choice(favorites)
+        self.selected_station = secrets.choice(favorites)
         self.selected_theme = None
         self.selected_tag = None
         self.update_details(self.selected_station)

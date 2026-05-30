@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import random
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -146,7 +146,7 @@ def random_from_playlist(name: str) -> dict[str, Any] | None:
     stations = get_playlist_stations(name)
     if not stations:
         return None
-    return random.choice(stations)
+    return secrets.choice(stations)
 
 
 def playlist_counts() -> list[tuple[str, int]]:

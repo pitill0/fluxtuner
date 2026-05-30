@@ -650,7 +650,7 @@ def test_random_favorite_flow_plays_random_favorite(monkeypatch) -> None:
     played = {}
 
     monkeypatch.setattr(main_module, "load_favorites", lambda: favorites)
-    monkeypatch.setattr(main_module.random, "choice", lambda items: selected)
+    monkeypatch.setattr(main_module.secrets, "choice", lambda items: selected)
 
     def fake_play_station(station, player_name=None, player=None):
         played["station"] = station

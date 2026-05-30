@@ -4,6 +4,7 @@ import json
 import time
 from typing import Any
 
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import cache_file
 
 CACHE_TTL_SECONDS = 6 * 60 * 60
@@ -22,8 +23,7 @@ def _load_cache() -> dict[str, Any]:
 
 
 def _save_cache(data: dict[str, Any]) -> None:
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    write_json_atomic(CACHE_FILE, data, sort_keys=True)
 
 
 def make_search_key(

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from fluxtuner.core.stations import station_key, station_name
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
@@ -38,10 +39,7 @@ def save_favorites(favorites: list[dict[str, Any]]) -> None:
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
     normalized = [normalize_favorite(item) for item in favorites if station_key(item)]
-    FAVORITES_FILE.write_text(
-        json.dumps(normalized, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    write_json_atomic(FAVORITES_FILE, normalized)
 
 
 def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:

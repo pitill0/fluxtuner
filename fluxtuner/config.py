@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import config_file
 
 CONFIG_FILE = config_file("config.json")
@@ -37,8 +38,7 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     """Persist user configuration."""
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+    write_json_atomic(CONFIG_FILE, config, sort_keys=True)
 
 
 def get_config_value(key: str, default: Any = None) -> Any:

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.paths import data_file, migrate_legacy_file
 
 LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
@@ -36,10 +37,7 @@ def load_history() -> list[dict[str, Any]]:
 def save_history(history: list[dict[str, Any]]) -> None:
     migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
 
-    HISTORY_FILE.write_text(
-        json.dumps(history[:MAX_HISTORY_ITEMS], indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    write_json_atomic(HISTORY_FILE, history[:MAX_HISTORY_ITEMS])
 
 
 def add_history(station: dict[str, Any]) -> None:

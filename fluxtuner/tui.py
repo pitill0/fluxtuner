@@ -51,9 +51,12 @@ from fluxtuner.core.stations import (
     station_url as core_station_url,
 )
 from fluxtuner.core.stream_metadata import fetch_stream_metadata
+from fluxtuner.logging_config import get_logger
 from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
+
+logger = get_logger(__name__)
 
 
 class FluxTunerTUI(App[None]):
@@ -1406,8 +1409,8 @@ class FluxTunerTUI(App[None]):
             if isinstance(state.get("muted"), bool):
                 muted = state.get("muted")
                 self.restored_muted = muted
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001
+            logger.debug("Could not read player state before persistence", exc_info=True)
         save_playback_state(last_station=last_station, volume=volume, muted=muted)
 
     def _player_state_snapshot(self) -> dict[str, Any]:
@@ -1490,10 +1493,12 @@ class FluxTunerTUI(App[None]):
             now_playing.styles.overflow = "hidden"
             now_playing.styles.text_overflow = "ellipsis"
             # Textual versions differ here; ignore unsupported style names.
-            with suppress(Exception):
+            try:
                 now_playing.styles.white_space = "normal"
-        except Exception:
-            pass
+            except Exception:  # noqa: BLE001
+                logger.debug("Textual style property not supported: white_space", exc_info=True)
+        except Exception:  # noqa: BLE001
+            logger.debug("Could not apply Now Playing layout adjustments", exc_info=True)
 
     def _start_usage_tracking(self, station: dict[str, Any]) -> None:
         with suppress(Exception):

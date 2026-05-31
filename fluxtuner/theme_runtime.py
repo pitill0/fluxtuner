@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import re
-from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from textual.app import App
 from textual.widgets import Button, Footer, Header
 
+from fluxtuner.logging_config import get_logger
 from fluxtuner.themes import get_theme_path
+
+logger = get_logger(__name__)
 
 _RULE_RE = re.compile(r"(?P<selector>[^{}]+)\{(?P<body>[^{}]*)\}", re.MULTILINE | re.DOTALL)
 _DECL_RE = re.compile(r"(?P<name>[a-zA-Z_-]+)\s*:\s*(?P<value>[^;]+);")
@@ -97,8 +99,10 @@ def _parse_border(value: str) -> tuple[str, str] | None:
 
 def _set_if_supported(styles: Any, attr: str, value: Any) -> None:
     # Different Textual versions may support a slightly different style set.
-    with suppress(Exception):
+    try:
         setattr(styles, attr, value)
+    except Exception:  # noqa: BLE001
+        logger.debug("Ignoring unsupported runtime theme style property: %s", attr, exc_info=True)
 
 
 def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
@@ -106,33 +110,45 @@ def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
     for prop, value in declarations.items():
         if prop in COLOR_PROPS:
             _set_if_supported(styles, prop.replace("-", "_"), value)
+
         elif prop == "border":
             border = _parse_border(value)
             if border:
                 _set_if_supported(styles, "border", border)
+
         elif prop == "padding":
             spacing = _split_box(value)
             if spacing:
                 _set_if_supported(styles, "padding", spacing)
+
         elif prop == "margin":
             spacing = _split_box(value)
             if spacing:
                 _set_if_supported(styles, "margin", spacing)
+
         elif prop == "margin-left":
             try:
                 left = int(value)
             except ValueError:
                 continue
+
             current = getattr(styles, "margin", None)
             if current is not None:
                 try:
                     _set_if_supported(
-                        styles, "margin", (current.top, current.right, current.bottom, left)
+                        styles,
+                        "margin",
+                        (current.top, current.right, current.bottom, left),
                     )
-                except Exception:
+                except AttributeError:
+                    logger.debug(
+                        "Runtime theme margin object has no edge attributes; using fallback margin"
+                    )
                     _set_if_supported(styles, "margin", (0, 0, 0, left))
+
         elif prop == "text-style":
             _set_if_supported(styles, "text_style", value)
+
         elif prop in {"height", "width", "min-width", "max-width"}:
             parsed_value: Any = value
             if value.isdigit():
@@ -185,7 +201,12 @@ def apply_theme_runtime(app: App[Any], theme_name: str) -> Path:
             widgets = app.query(target) if isinstance(target, str) else app.query(target)
             for widget in widgets:
                 _apply_declarations(widget, declarations)
-        except Exception:
+        except Exception:  # noqa: BLE001
+            logger.debug(
+                "Skipping runtime theme selector that could not be applied: %s",
+                selector,
+                exc_info=True,
+            )
             continue
 
     app.refresh(layout=True)

@@ -178,3 +178,18 @@ def test_save_config_creates_parent_directory(
     config.save_config(config.default_config())
 
     assert config_file.exists()
+
+
+def test_save_playback_state_ignores_invalid_volume_without_overwriting_existing_value(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_config_file(tmp_path, monkeypatch)
+
+    config.save_playback_state(volume=35, muted=True)
+    config.save_playback_state(volume="loud")  # type: ignore[arg-type]
+
+    state = config.get_playback_state()
+
+    assert state["volume"] == 35
+    assert state["muted"] is True

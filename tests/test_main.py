@@ -755,3 +755,24 @@ def test_main_import_favorites_logs_validation_summary(
     assert "Validated favorites import: accepted=1 skipped=1" in caplog.text
     assert "https://example.com/valid" not in caplog.text
     assert "file:///tmp/test.mp3" not in caplog.text
+
+
+def test_export_json_list_exits_on_write_error(monkeypatch) -> None:
+    def fake_write_text(*_args, **_kwargs) -> None:
+        raise OSError("write failed")
+
+    monkeypatch.setattr(Path, "write_text", fake_write_text)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.export_json_list("/private/path/playlists.json", [], "Persistent playlists")
+
+    assert exc_info.value.code == 1
+
+
+def test_import_json_list_exits_when_file_cannot_be_read(tmp_path: Path) -> None:
+    missing_file = tmp_path / "missing.json"
+
+    with pytest.raises(SystemExit) as exc_info:
+        main_module.import_json_list(str(missing_file), "favorites")
+
+    assert exc_info.value.code == 1

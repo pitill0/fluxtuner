@@ -336,3 +336,142 @@ def test_search_stations_filtered_logs_empty_filters(caplog) -> None:
         assert api.search_stations_filtered("") == []
 
     assert "Skipping search because no filters were provided" in caplog.text
+
+
+def test_repeated_identical_filtered_search_uses_cached_results(monkeypatch) -> None:
+    calls = 0
+
+    def fake_search_stations(**_kwargs: Any) -> list[dict[str, Any]]:
+        nonlocal calls
+        calls += 1
+        return [
+            {
+                "name": "Cached Candidate",
+                "url": "https://example.com/cached",
+                "url_resolved": "https://example.com/cached",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "rock",
+                "bitrate": 128,
+            }
+        ]
+
+    memory_cache: dict[str, list[dict[str, Any]]] = {}
+
+    def fake_get_cached_search(key: str) -> list[dict[str, Any]] | None:
+        return memory_cache.get(key)
+
+    def fake_set_cached_search(key: str, results: list[dict[str, Any]]) -> None:
+        memory_cache[key] = results
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+    monkeypatch.setattr(api, "get_cached_search", fake_get_cached_search)
+    monkeypatch.setattr(api, "set_cached_search", fake_set_cached_search)
+
+    first = api.search_stations_filtered("rock", country="ES", min_bitrate=128, limit=10)
+    second = api.search_stations_filtered("rock", country="ES", min_bitrate=128, limit=10)
+
+    assert first == second
+    assert calls == 2
+
+
+def test_search_stations_filtered_cache_miss_stores_filtered_normalized_results(
+    monkeypatch,
+) -> None:
+    stored = {}
+
+    def fake_search_stations(**_kwargs: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "Valid High",
+                "url": "https://example.com/high",
+                "url_resolved": "https://example.com/high-resolved",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "jazz",
+                "bitrate": 192,
+            },
+            {
+                "name": "Too Low",
+                "url": "https://example.com/low",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "jazz",
+                "bitrate": 64,
+            },
+            {
+                "name": "Wrong Country",
+                "url": "https://example.com/france",
+                "country": "France",
+                "countrycode": "FR",
+                "tags": "jazz",
+                "bitrate": 192,
+            },
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+    monkeypatch.setattr(api, "get_cached_search", lambda _key: None)
+    monkeypatch.setattr(
+        api, "set_cached_search", lambda key, results: stored.setdefault(key, results)
+    )
+
+    results = api.search_stations_filtered("jazz", country="ES", min_bitrate=128, limit=10)
+
+    assert results == [
+        {
+            "name": "Valid High",
+            "url": "https://example.com/high",
+            "url_resolved": "https://example.com/high-resolved",
+            "country": "Spain",
+            "countrycode": "ES",
+            "tags": "jazz",
+            "codec": "",
+            "bitrate": 192,
+            "homepage": "",
+            "language": "",
+        }
+    ]
+    assert list(stored.values()) == [results]
+
+
+def test_search_stations_filtered_with_cache_disabled_does_not_read_or_write_cache(
+    monkeypatch,
+) -> None:
+    def fail_get_cache(_key: str) -> None:
+        raise AssertionError("cache should not be read when use_cache=False")
+
+    def fail_set_cache(_key: str, _results: list[dict[str, Any]]) -> None:
+        raise AssertionError("cache should not be written when use_cache=False")
+
+    monkeypatch.setattr(api, "get_cached_search", fail_get_cache)
+    monkeypatch.setattr(api, "set_cached_search", fail_set_cache)
+    monkeypatch.setattr(
+        api,
+        "search_stations",
+        lambda **_kwargs: [
+            {
+                "name": "No Cache",
+                "url": "https://example.com/no-cache",
+                "country": "Spain",
+                "countrycode": "ES",
+                "bitrate": 128,
+            }
+        ],
+    )
+
+    results = api.search_stations_filtered("rock", use_cache=False)
+
+    assert [station["name"] for station in results] == ["No Cache"]
+
+
+def test_search_stations_filtered_empty_filters_do_not_read_cache_or_network(monkeypatch) -> None:
+    def fail_get_cache(_key: str) -> None:
+        raise AssertionError("cache should not be read for empty filters")
+
+    def fail_search(**_kwargs: Any) -> None:
+        raise AssertionError("network search should not run for empty filters")
+
+    monkeypatch.setattr(api, "get_cached_search", fail_get_cache)
+    monkeypatch.setattr(api, "search_stations", fail_search)
+
+    assert api.search_stations_filtered("", country=" ", min_bitrate=None) == []

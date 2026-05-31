@@ -98,3 +98,53 @@ def test_set_cached_search_logs_and_ignores_write_error(monkeypatch, caplog) -> 
         cache.set_cached_search("key", [{"name": "Test"}])
 
     assert "Could not write search cache" in caplog.text
+
+
+def test_get_cached_search_ignores_non_dict_cache_root(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cache_file = patch_cache_file(tmp_path, monkeypatch)
+    cache_file.write_text(json.dumps(["not", "a", "dict"]), encoding="utf-8")
+
+    assert cache.get_cached_search("key") is None
+
+
+def test_get_cached_search_ignores_malformed_entry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cache_file = patch_cache_file(tmp_path, monkeypatch)
+    cache_file.write_text(
+        json.dumps(
+            {
+                "key": {
+                    "created_at": "not-a-timestamp",
+                    "results": [{"name": "Invalid"}],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cache.get_cached_search("key") is None
+
+
+def test_get_cached_search_ignores_entry_with_non_list_results(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    cache_file = patch_cache_file(tmp_path, monkeypatch)
+    cache_file.write_text(
+        json.dumps(
+            {
+                "key": {
+                    "created_at": time.time(),
+                    "results": {"name": "Invalid"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cache.get_cached_search("key") is None

@@ -83,3 +83,27 @@ flatpak install --user ./fluxtuner.flatpak
 - `appstream-compose: false` is currently enabled for local development builds.
 - Python dependencies are currently fetched from PyPI during build.
   Flathub submission will require dependency vendoring or proper module definitions.
+
+## Sandbox permissions
+
+The Flatpak manifest intentionally keeps sandbox permissions limited to the app's current runtime needs.
+
+Current permissions:
+
+- `--share=network`: required for Radio Browser API requests and internet radio streams.
+- `--socket=pulseaudio`: required for audio playback.
+- `--socket=wayland`: required for the GTK GUI on Wayland sessions.
+- `--socket=fallback-x11`: allows X11 only when Wayland is unavailable.
+- `--share=ipc`: kept for compatibility with graphical sessions and toolkit behavior.
+- `--device=dri`: kept for GTK/GNOME rendering compatibility.
+
+The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache, history, favorites and playlists through Flatpak-managed application data paths.
+
+Reviewed permissions and environment overrides:
+
+- `--socket=x11` is not requested; `--socket=fallback-x11` plus `--socket=wayland` is preferred.
+- `GSK_RENDERER=cairo` is configured by the application when needed instead of being forced by the Flatpak manifest.
+- `NO_AT_BRIDGE` is not forced by the Flatpak manifest.
+- `GTK_IM_MODULE` is not forced by the Flatpak manifest.
+
+Future permission reviews should specifically test whether `--share=ipc` and `--device=dri` can be removed without breaking the GTK GUI across Wayland/X11 sessions.

@@ -55,6 +55,16 @@ from fluxtuner.logging_config import get_logger
 from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
+from fluxtuner.tui_table import (
+    add_playlist_columns,
+    add_station_columns,
+    ellipsize,
+    next_table_key,
+    reset_table_state,
+    row_key_to_string,
+    station_custom_tags,
+    station_genre_tags,
+)
 
 logger = get_logger(__name__)
 
@@ -739,38 +749,27 @@ class FluxTunerTUI(App[None]):
         """Reset the main table for station-like rows."""
         table = self.query_one("#stations", DataTable)
         table.clear(columns=True)
-        self.table_items.clear()
-        self.table_key_counter = 0
-
-        table.add_column("", key="marker", width=2)
-        table.add_column("Name", key="name", width=42)
-        table.add_column("ID", key="id", width=10)
-        table.add_column("Country", key="country", width=16)
-        table.add_column("Genre / tags", key="tags", width=34)
-        table.add_column("Codec", key="codec", width=8)
-        table.add_column("kbps", key="bitrate", width=6)
-        table.add_column("Custom tags", key="custom_tags", width=24)
+        self.table_items, self.table_key_counter = reset_table_state()
+        add_station_columns(table)
         return table
 
     def reset_playlist_table(self) -> DataTable:
         """Reset the main table for playlist/theme rows."""
         table = self.query_one("#stations", DataTable)
         table.clear(columns=True)
-        self.table_items.clear()
-        self.table_key_counter = 0
-        table.add_columns("Type", "Name", "Count / Status", "Description")
+        self.table_items, self.table_key_counter = reset_table_state()
+        add_playlist_columns(table)
         return table
 
     def next_table_key(self, prefix: str) -> str:
-        self.table_key_counter += 1
-        return f"{prefix}-{self.table_key_counter}"
+        key, self.table_key_counter = next_table_key(prefix, self.table_key_counter)
+        return key
 
     def add_table_payload(self, key: str, kind: str, payload: Any) -> None:
         self.table_items[str(key)] = (kind, payload)
 
     def row_key_to_string(self, row_key: Any) -> str:
-        value = getattr(row_key, "value", row_key)
-        return str(value)
+        return row_key_to_string(row_key)
 
     def selected_payload_from_event(self, event: Any) -> tuple[str, Any] | None:
         key = self.row_key_to_string(getattr(event, "row_key", ""))
@@ -780,12 +779,10 @@ class FluxTunerTUI(App[None]):
         return core_station_short_id(station)
 
     def station_genre_tags(self, station: dict[str, Any], max_length: int = 42) -> str:
-        return self._ellipsize(station_tags_text(station, fallback="-"), max_length)
+        return station_genre_tags(station, max_length)
 
     def station_custom_tags(self, station: dict[str, Any], max_length: int = 28) -> str:
-        tags = station.get("favorite_tags") or station.get("tags_custom") or []
-        value = tags if isinstance(tags, str) else ", ".join(str(tag) for tag in tags)
-        return self._ellipsize(value if value else "-", max_length)
+        return station_custom_tags(station, max_length)
 
     def station_marker(self, station: dict[str, Any]) -> str:
         marker_parts: list[str] = []
@@ -799,12 +796,12 @@ class FluxTunerTUI(App[None]):
         key = self.next_table_key("station")
         self.add_table_payload(key, "station", station)
         marker = self.station_marker(station)
-        name = self._ellipsize(favorite_display_name(station), 40)
+        name = ellipsize(favorite_display_name(station), 40)
         table.add_row(
             marker,
             name,
             self.station_short_id(station),
-            self._ellipsize(station_country(station), 14),
+            ellipsize(station_country(station), 14),
             self.station_genre_tags(station, max_length=32),
             station_codec(station),
             str(station_bitrate(station) or "-"),

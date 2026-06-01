@@ -14,7 +14,6 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
-from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
     add_favorite,
@@ -37,6 +36,7 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
+from fluxtuner.core.search_service import SearchRequest, SearchService
 from fluxtuner.core.stations import (
     station_bitrate,
     station_codec,
@@ -94,6 +94,7 @@ class FluxTunerTUI(App[None]):
         super().__init__(css_path=str(self.theme_path))
         self.player_backend_name = selected_player_name(player_name)
         self.player = create_player(self.player_backend_name)
+        self.search_service = SearchService()
         self.usage_tracker = DataUsageTracker()
         self.current_artist = "—"
         self.current_track = "—"
@@ -554,9 +555,16 @@ class FluxTunerTUI(App[None]):
                 except ValueError:
                     self.set_status("Min kbps must be a number.")
                     return
-            stations = await asyncio.to_thread(
-                search_stations_filtered, query, country or None, min_bitrate, 50
+            result = await asyncio.to_thread(
+                self.search_service.search,
+                SearchRequest(
+                    query=query,
+                    country=country or None,
+                    min_bitrate=min_bitrate,
+                    limit=50,
+                ),
             )
+            stations = result.stations
         except Exception as exc:  # noqa: BLE001
             self.set_status(f"Search failed: {exc}")
             self.notify(f"Search failed: {exc}", severity="error")

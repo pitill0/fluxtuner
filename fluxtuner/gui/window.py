@@ -12,7 +12,6 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.config import get_playback_state, save_playback_state  # noqa: E402
-from fluxtuner.core.api import search_stations_filtered  # noqa: E402
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
@@ -24,6 +23,7 @@ from fluxtuner.core.favorites import (  # noqa: E402
     update_favorite,
 )
 from fluxtuner.core.history import add_history, load_history  # noqa: E402
+from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
     station_bitrate,
@@ -49,6 +49,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.player_backend_name = selected_player_name(player_name)
         self.player = create_player(self.player_backend_name)
+        self.search_service = SearchService()
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
         self._player_state_timer_id: int | None = None
@@ -559,12 +560,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
         def worker() -> None:
             try:
-                stations = search_stations_filtered(
-                    query=query or None,
-                    country=country,
-                    min_bitrate=min_bitrate,
-                    limit=50,
+                result = self.search_service.search(
+                    SearchRequest(
+                        query=query,
+                        country=country,
+                        min_bitrate=min_bitrate,
+                        limit=50,
+                    )
                 )
+                stations = result.stations
             except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
                 GLib.idle_add(self._search_failed, str(exc))
                 return

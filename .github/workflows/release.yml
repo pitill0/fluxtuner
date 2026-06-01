@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   build-release-artifacts:
     name: Build release artifacts
@@ -33,7 +36,7 @@ jobs:
           test -n "$(ls dist/*.tar.gz)"
           test -n "$(ls dist/*.whl)"
 
-      - name: Upload release artifacts
+      - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: fluxtuner-release-artifacts
@@ -41,3 +44,10 @@ jobs:
             dist/*.tar.gz
             dist/*.whl
           if-no-files-found: error
+
+      - name: Attach artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.whl

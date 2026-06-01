@@ -74,6 +74,18 @@ from fluxtuner.tui_table import (
     station_custom_tags,
     station_genre_tags,
 )
+from fluxtuner.tui_themes import (
+    random_favorite_disabled_in_themes_message,
+    theme_add_disabled_message,
+    theme_apply_failed_message,
+    theme_apply_status_message,
+    theme_load_failed_message,
+    theme_missing_status_message,
+    theme_preview_failed_message,
+    theme_preview_status_message,
+    theme_remove_disabled_message,
+    theme_saved_status_message,
+)
 
 logger = get_logger(__name__)
 
@@ -188,7 +200,7 @@ class FluxTunerTUI(App[None]):
             apply_theme_runtime(self, self.active_theme)
             self.ensure_now_playing_layout()
         except Exception as exc:  # noqa: BLE001
-            self.notify(f"Theme load failed: {exc}", severity="warning", timeout=6)
+            self.notify(theme_load_failed_message(exc), severity="warning", timeout=6)
 
         self.restore_playback_state()
         self.query_one("#stations", DataTable).focus()
@@ -268,9 +280,7 @@ class FluxTunerTUI(App[None]):
 
     def action_add_selected(self) -> None:
         if self.view_mode == "themes":
-            self.set_status(
-                "Use ↑/↓ to preview temporarily, Enter to apply, or y to save the active theme as default."
-            )
+            self.set_status(theme_add_disabled_message())
             return
         if self.view_mode == "playlists":
             self.set_status(
@@ -281,9 +291,7 @@ class FluxTunerTUI(App[None]):
 
     async def action_remove_selected(self) -> None:
         if self.view_mode == "themes":
-            self.set_status(
-                "Theme files are not deleted from FluxTuner. Remove .tcss files manually if needed."
-            )
+            self.set_status(theme_remove_disabled_message())
             return
         if self.view_mode == "playlists":
             await self.delete_selected_persistent_playlist()
@@ -313,9 +321,7 @@ class FluxTunerTUI(App[None]):
 
     def action_play_random_favorite(self) -> None:
         if self.view_mode == "themes":
-            self.set_status(
-                "Random favorite playback is disabled while browsing themes. Press f, h or search first."
-            )
+            self.set_status(random_favorite_disabled_in_themes_message())
             return
         if self.view_mode == "playlists":
             self.smart_play_selected_playlist_or_tag()
@@ -1085,27 +1091,27 @@ class FluxTunerTUI(App[None]):
     def save_active_theme(self) -> None:
         set_config_value("theme", self.active_theme)
         self.previewed_theme = None
-        self.set_status(f"Saved default theme: {self.active_theme}")
-        self.notify(f"Saved default theme: {self.active_theme}", severity="information")
+        message = theme_saved_status_message(self.active_theme)
+        self.set_status(message)
+        self.notify(message, severity="information")
 
     def preview_theme(self, theme_name: str, announce: bool = True) -> None:
         if not theme_exists(theme_name):
-            self.set_status(f"Theme not found: {theme_name}")
+            self.notify(f"Saved default theme: {self.active_theme}", severity="information")
             return
 
         try:
             apply_theme_runtime(self, theme_name)
             self.ensure_now_playing_layout()
         except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Theme preview failed: {exc}")
-            self.notify(f"Theme preview failed: {exc}", severity="error")
+            message = theme_preview_failed_message(exc)
+            self.set_status(message)
+            self.notify(message, severity="error")
             return
 
         self.previewed_theme = theme_name
         if announce:
-            self.set_status(
-                f"Theme preview: {theme_name}. Press Enter to apply or y to save the active theme."
-            )
+            self.set_status(theme_preview_status_message(theme_name))
 
     def restore_active_theme_if_previewing(self) -> None:
         if not self.previewed_theme or self.previewed_theme == self.active_theme:
@@ -1120,15 +1126,16 @@ class FluxTunerTUI(App[None]):
 
     def apply_theme(self, theme_name: str, save: bool = False, announce: bool = True) -> None:
         if not theme_exists(theme_name):
-            self.set_status(f"Theme not found: {theme_name}")
+            self.set_status(theme_missing_status_message(theme_name))
             return
 
         try:
             apply_theme_runtime(self, theme_name)
             self.ensure_now_playing_layout()
         except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Theme apply failed: {exc}")
-            self.notify(f"Theme apply failed: {exc}", severity="error")
+            message = theme_apply_failed_message(exc)
+            self.set_status(message)
+            self.notify(message, severity="error")
             return
 
         self.active_theme = theme_name
@@ -1141,8 +1148,7 @@ class FluxTunerTUI(App[None]):
         self.update_theme_details(theme_name)
 
         if announce:
-            suffix = "saved" if save else "applied"
-            self.set_status(f"Theme {suffix}: {theme_name}")
+            self.set_status(theme_apply_status_message(theme_name, saved=save))
 
     def _favorite_for_station(self, station: dict[str, Any] | None) -> dict[str, Any] | None:
         if not station:

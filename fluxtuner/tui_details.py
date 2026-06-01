@@ -10,6 +10,7 @@ from fluxtuner.core.stations import (
     station_country,
     station_tags_text,
 )
+from fluxtuner.tui_themes import theme_status
 
 
 def empty_station_details_text() -> str:
@@ -80,12 +81,11 @@ def theme_details_text(
     previewed_theme: str | None,
     path: str | Path,
 ) -> str:
-    if theme_name == active_theme:
-        status = "active"
-    elif theme_name == previewed_theme:
-        status = "preview"
-    else:
-        status = "available"
+    status = theme_status(
+        theme_name,
+        active_theme=active_theme,
+        previewed_theme=previewed_theme,
+    )
 
     return (
         "[b]Theme Preview[/b]\n\n"

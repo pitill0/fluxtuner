@@ -4,7 +4,7 @@ from fluxtuner.players.base import PlayerAdapter, PlayerError
 from fluxtuner.players.ffplay import FfplayController
 from fluxtuner.players.mpv import MpvController
 
-PLAYER_BACKENDS = {
+PLAYER_BACKENDS: dict[str, type[PlayerAdapter]] = {
     "mpv": MpvController,
     "ffplay": FfplayController,
 }

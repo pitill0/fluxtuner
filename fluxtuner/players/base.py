@@ -11,6 +11,11 @@ class PlayerError(RuntimeError):
 class PlayerAdapter(ABC):
     """Common interface implemented by all playback backends."""
 
+    @staticmethod
+    def is_available() -> bool:
+        """Return True when the backend executable is available."""
+        return False
+
     @abstractmethod
     def play(self, url: str) -> None:
         """Start playback for a stream URL."""

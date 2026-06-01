@@ -62,7 +62,7 @@ def favorite_tags(station: dict[str, Any] | None) -> list[str]:
 
 def all_station_tags(station: dict[str, Any] | None) -> set[str]:
     """Return stream and favorite tags as lowercase values."""
-    values = set()
+    values: set[str] = set()
 
     values.update(tag.lower() for tag in station_tags(station))
     values.update(tag.lower() for tag in favorite_tags(station))

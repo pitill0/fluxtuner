@@ -22,6 +22,48 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ---
 
+## [0.3.0] - 2026-06-01
+
+### Added
+
+- Added a shared `SearchService` used by both the Textual TUI and GTK GUI.
+- Added structured debug logging for playback, search, metadata, persistence and import/export flows.
+- Added `SECURITY.md` with responsible disclosure guidance and project security scope.
+- Added development documentation with local setup, validation commands, testing guidance and troubleshooting.
+- Added release workflow documentation and tag-triggered release artifact automation.
+- Added UI smoke tests for the Textual TUI and GTK GUI entry points.
+- Added regression tests for search caching, repeated filtered searches and live search cancellation.
+- Added gradual `mypy` typing checks for selected stable modules.
+
+### Changed
+
+- Split TUI table, detail and theme helper logic into dedicated modules.
+- Routed TUI and GTK GUI station searches through the shared search service.
+- Improved Flatpak sandbox permissions and documented the purpose of remaining permissions.
+- Added upper bounds to runtime dependencies to avoid untested future major versions.
+- Expanded CI to cover Python version matrix checks, package builds, dependency auditing, Bandit security checks and mypy.
+- Improved architecture, development, security and release documentation.
+
+### Fixed
+
+- Hardened imported favorites and playlists validation before persistence.
+- Added atomic JSON writes for local user data.
+- Improved persistence error reporting without exposing unnecessary local details.
+- Hardened network/API failure handling for search and metadata flows.
+- Limited ICY stream metadata reads to avoid excessive remote data processing.
+- Improved player executable and stream URL validation before external player execution.
+- Improved player backend registry typing and availability contracts.
+- Improved test isolation around player backends, persistence, cache and UI startup paths.
+
+### Security
+
+- Added Bandit static security analysis to CI.
+- Added dependency auditing with `pip-audit`.
+- Reviewed Flatpak permissions and removed broader or unnecessary manifest-level overrides.
+- Strengthened validation around imports, stream metadata, external player execution and network failures.
+
+---
+
 ## [0.2.9] - 2026-05-25
 
 - Fixed TUI station details rendering and side-panel layout after line breaks.

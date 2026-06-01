@@ -81,8 +81,8 @@ flatpak install --user ./fluxtuner.flatpak
   - mpv preferred if available
   - ffplay fallback
 - `appstream-compose: false` is currently enabled for local development builds.
-- Python dependencies are currently fetched from PyPI during build.
-  Flathub submission will require dependency vendoring or proper module definitions.
+- The local development manifest may fetch Python dependencies from PyPI during build.
+  The Flathub manifest should use vendored or generated dependency modules such as `python3-requirements.json`.
 
 ## Sandbox permissions
 

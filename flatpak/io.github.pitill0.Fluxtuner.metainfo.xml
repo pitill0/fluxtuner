@@ -81,6 +81,17 @@
 
   <releases>
 
+    <release version="0.3.0" date="2026-06-01">
+      <description>
+        <ul>
+          <li>Completed the technical hardening roadmap with improved CI, security checks and dependency auditing.</li>
+          <li>Added shared search service, structured debug logging and gradual typing checks.</li>
+          <li>Improved persistence safety, import validation, network failure handling and metadata limits.</li>
+          <li>Reviewed Flatpak permissions and split TUI table, detail and theme helpers into dedicated modules.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.2.9" date="2026-05-25">
       <description>
         <ul>

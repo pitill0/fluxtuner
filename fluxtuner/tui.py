@@ -42,7 +42,6 @@ from fluxtuner.core.stations import (
     station_codec,
     station_country,
     station_key,
-    station_tags_text,
 )
 from fluxtuner.core.stations import (
     station_short_id as core_station_short_id,
@@ -55,6 +54,16 @@ from fluxtuner.logging_config import get_logger
 from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
+from fluxtuner.tui_details import (
+    dynamic_playlist_details_text,
+    empty_station_details_text,
+    favorite_hint_text,
+    favorite_status_text,
+    favorite_tags_text,
+    persistent_playlist_details_text,
+    station_details_text,
+    theme_details_text,
+)
 from fluxtuner.tui_table import (
     add_playlist_columns,
     add_station_columns,
@@ -1147,102 +1156,56 @@ class FluxTunerTUI(App[None]):
         return None
 
     def _favorite_tags_text(self, station: dict[str, Any] | None) -> str:
-        favorite = self._favorite_for_station(station)
-        if not favorite:
-            return "-"
-        tags = favorite.get("favorite_tags") or []
-        if isinstance(tags, str):
-            return tags or "-"
-        return ", ".join(str(tag) for tag in tags) if tags else "-"
+        return favorite_tags_text(self._favorite_for_station(station))
 
     def _favorite_status_text(self, station: dict[str, Any] | None) -> str:
-        favorite = self._favorite_for_station(station)
-        if not favorite:
-            return "No"
-        custom_name = favorite.get("favorite_name")
-        if custom_name:
-            return f"Yes · {custom_name}"
-        return "Yes"
+        return favorite_status_text(self._favorite_for_station(station))
 
     def _favorite_hint_text(self, station: dict[str, Any] | None) -> str:
-        if self._favorite_for_station(station):
-            return "Favorite actions: e rename · g edit tags · d remove"
-        return "Favorite actions: a add selected station"
+        return favorite_hint_text(self._favorite_for_station(station))
 
     def update_details(self, station: dict[str, Any] | None) -> None:
         details = self.query_one("#details", Static)
         if not station:
-            details.update(
-                "[b]Station details[/b]\n"
-                "No station selected.\n\n"
-                "Use search/favorites/playlists to select a station."
-            )
+            details.update(empty_station_details_text())
             return
 
-        name = favorite_display_name(station)
-        country = station_country(station)
-        codec = station_codec(station)
-        bitrate = station_bitrate(station) or "?"
-        genre_tags = station_tags_text(station, fallback="-")
-
-        favorite_status = self._favorite_status_text(station)
-        favorite_tags = self._favorite_tags_text(station)
-        hint = self._favorite_hint_text(station)
-
         details.update(
-            "[b]Station details[/b]\n"
-            f"{name}\n\n"
-            f"Country: {country}\n"
-            f"Codec: {codec}\n"
-            f"Bitrate: {bitrate} kbps\n"
-            f"Genre/tags: {genre_tags}\n\n"
-            f"Favorite: {favorite_status}\n"
-            f"Favorite tags: {favorite_tags}\n\n"
-            f"{hint}"
+            station_details_text(
+                station,
+                favorite=self._favorite_for_station(station),
+            )
         )
 
     def update_theme_details(self, theme_name: str) -> None:
-        path = get_theme_path(theme_name)
-        if theme_name == self.active_theme:
-            status = "active"
-        elif theme_name == self.previewed_theme:
-            status = "preview"
-        else:
-            status = "available"
         self.query_one("#details", Static).update(
-            "[b]Theme Preview[/b]\n\n"
-            f"[b]{theme_name}[/b]\nStatus: {status}\nFile: {Path(path).name}\n\n"
-            "Highlight previews temporarily.\n"
-            "Enter: apply selected theme.\n"
-            "y: save active theme as default.\n"
-            "Leaving the theme selector restores the last applied theme if you only previewed."
+            theme_details_text(
+                theme_name,
+                active_theme=self.active_theme,
+                previewed_theme=self.previewed_theme,
+                path=get_theme_path(theme_name),
+            )
         )
 
     def update_playlist_details(self, tag: str, count: int) -> None:
         stations = get_by_tag(tag)
         names = [favorite_display_name(item) for item in stations[:6]]
-        preview = "\n".join(f"• {name}" for name in names) if names else "No stations."
-        extra = "" if len(stations) <= 6 else f"\n… and {len(stations) - 6} more"
         self.query_one("#details", Static).update(
-            "[b]Dynamic Playlist[/b]\n\n"
-            f"[b]#{tag}[/b]\n"
-            f"Stations: {count}\n\n"
-            "Enter / r: smart play random station\n"
-            "f: show matching favorites\n\n"
-            f"{preview}{extra}"
+            dynamic_playlist_details_text(
+                tag,
+                count=count,
+                preview_names=names,
+                total_count=len(stations),
+            )
         )
 
     def update_persistent_playlist_details(self, playlist_name: str, count: int) -> None:
-        preview = summarize_playlist(playlist_name)
         self.query_one("#details", Static).update(
-            "[b]Persistent Playlist[/b]\n\n"
-            f"[b]{playlist_name}[/b]\n"
-            f"Stations: {count}\n\n"
-            "Enter / r: smart play random station\n"
-            "f: show playlist stations\n"
-            "d: delete this playlist\n"
-            "b: add selected station to a playlist from other views\n\n"
-            f"{preview}"
+            persistent_playlist_details_text(
+                playlist_name,
+                count=count,
+                preview=summarize_playlist(playlist_name),
+            )
         )
 
     def ensure_favorite_selected(self) -> bool:

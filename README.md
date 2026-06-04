@@ -63,6 +63,8 @@ Built with Python and focused on speed, usability and modularity.
 
 ![TUI](screenshots/tui-main.png)
 
+![TUI2](screenshots/tui-main_2.png)
+
 ## Theme Selector
 
 ![Themes](screenshots/themes.png)

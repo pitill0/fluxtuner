@@ -22,6 +22,36 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ---
 
+## [0.4.0] - 2026-06-13
+
+### Added
+
+- Added player capability declarations for playback backends.
+- Added lightweight `mpg123` and `ogg123` playback backends.
+- Added station/backend compatibility checks for specialized backends.
+- Added player backend diagnostics to `--list-players`.
+- Added install hints for missing playback backends.
+- Added `--doctor` runtime diagnostics for support and troubleshooting.
+- Added tests covering player capability summaries, backend install hints, legacy CLI compatibility and doctor path diagnostics.
+
+### Changed
+
+- Updated automatic backend selection to include `mpg123` and `ogg123` after `mpv` and `ffplay`.
+- Improved Textual TUI and GTK GUI behavior so incompatible stations are filtered or blocked when specialized backends are selected.
+- Improved legacy numbered CLI behavior so searches, favorites and random favorite playback respect backend compatibility.
+- Updated Flatpak and AppStream metadata to describe backend detection and compatibility generically.
+- Expanded player backend documentation, usage notes and troubleshooting guidance.
+- Clarified GUI wording and removed stale experimental/MVP language.
+
+### Fixed
+
+- Prevented specialized backends from attempting playback for clearly incompatible stations.
+- Improved unsupported-backend messages for saved stations and specialized backend flows.
+- Kept saved favorites, history and playlists intact while applying compatibility checks at playback/search time.
+- Improved documentation consistency after adding new backends and runtime diagnostics.
+
+---
+
 ## [0.3.0] - 2026-06-01
 
 ### Added

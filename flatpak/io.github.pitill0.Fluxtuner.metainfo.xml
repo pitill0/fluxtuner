@@ -81,6 +81,19 @@
 
   <releases>
 
+
+    <release version="0.4.0" date="2026-06-13">
+      <description>
+        <ul>
+          <li>Added player capability declarations and compatibility checks for specialized playback backends.</li>
+          <li>Added lightweight mpg123 and ogg123 backend support alongside mpv and ffplay.</li>
+          <li>Improved backend diagnostics with richer list-players output, install hints and a new doctor command.</li>
+          <li>Improved TUI, GTK GUI and legacy CLI behavior when specialized backends are selected.</li>
+          <li>Updated documentation, Flatpak notes and AppStream metadata for the expanded backend model.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.3.0" date="2026-06-01">
       <description>
         <ul>

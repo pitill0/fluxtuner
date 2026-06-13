@@ -257,3 +257,5 @@ When a specialized backend is selected explicitly, FluxTuner filters search resu
 fluxtuner --player mpg123
 fluxtuner --player ogg123
 ```
+
+The legacy numbered CLI uses the same compatibility checks for searches, favorites and random favorite playback when a specialized backend is active.

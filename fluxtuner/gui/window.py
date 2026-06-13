@@ -44,7 +44,7 @@ from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 
 class MainWindow(Gtk.ApplicationWindow):
-    """Small GTK GUI MVP: search stations, list results and play selection."""
+    """GTK desktop GUI: search stations, list results and play selection."""
 
     def __init__(self, app: Gtk.Application, player_name: str = "mpv") -> None:
         super().__init__(application=app)
@@ -577,7 +577,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     )
                 )
                 stations = result.stations
-            except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
                 GLib.idle_add(self._search_failed, str(exc))
                 return
 
@@ -665,7 +665,7 @@ class MainWindow(Gtk.ApplicationWindow):
             if self.player.supports_mute():
                 self._set_player_mute(self.restored_muted)
 
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self.status_label.set_text(f"Playback failed: {exc}")
             return
 
@@ -824,7 +824,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             self.player.toggle_mute()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self._playback_command_failed("Mute", exc)
             return
 
@@ -842,7 +842,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             self._set_player_volume_from_scale()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self._playback_command_failed("Volume", exc)
             return
 
@@ -1199,7 +1199,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             state = get_state()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self.player_state_label.set_text(
                 f"Player: {self.player_backend_name} · state unavailable"
             )

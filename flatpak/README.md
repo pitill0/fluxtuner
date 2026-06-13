@@ -77,9 +77,13 @@ flatpak install --user ./fluxtuner.flatpak
 
 - GUI and TUI validated on Xubuntu/XFCE (X11).
 - GUI and TUI launchers are included.
-- Player backend selection is automatic:
-  - mpv preferred if available
-  - ffplay fallback
+- Player backend selection is automatic and follows the same priority as the application:
+  - `mpv` preferred when available
+  - `ffplay` broad fallback
+  - `mpg123` lightweight MP3/MPEG fallback
+  - `ogg123` lightweight Ogg/Vorbis/Opus/FLAC-style fallback
+- The local development manifest does not currently bundle player binaries explicitly.
+  Use `flatpak run io.github.pitill0.Fluxtuner --list-players` to confirm which backends are available inside the sandbox.
 - `appstream-compose: false` is currently enabled for local development builds.
 - The local development manifest may fetch Python dependencies from PyPI during build.
   The Flathub manifest should use vendored or generated dependency modules such as `python3-requirements.json`.

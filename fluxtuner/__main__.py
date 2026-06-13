@@ -37,6 +37,31 @@ console = Console()
 logger = get_logger(__name__)
 
 
+def player_capabilities_summary(backend_name: str) -> str:
+    """Return a compact human-readable summary for a player backend."""
+    capabilities = PLAYER_BACKENDS[backend_name].capabilities()
+
+    backend_type = "general-purpose" if capabilities.general_purpose else "specialized"
+    details: list[str] = [backend_type]
+
+    if capabilities.supported_codecs:
+        codecs = ", ".join(sorted(capabilities.supported_codecs))
+        details.append(f"codecs: {codecs}")
+
+    controls = []
+    if capabilities.supports_pause:
+        controls.append("pause")
+    if capabilities.supports_volume:
+        controls.append("volume")
+    if capabilities.supports_mute:
+        controls.append("mute")
+
+    if controls:
+        details.append("controls: " + ", ".join(controls))
+
+    return "; ".join(details)
+
+
 def print_station_table(stations: list[dict[str, Any]]) -> None:
     table = Table(title="FluxTuner stations")
     table.add_column("#", justify="right")
@@ -326,7 +351,8 @@ def main() -> None:
         for backend in PLAYER_BACKENDS:
             status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
             default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
-            console.print(f" - {backend}: {status}{default}")
+            summary = player_capabilities_summary(backend)
+            console.print(f" - {backend}: {status}{default} · {summary}")
 
         return
 

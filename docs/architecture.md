@@ -64,6 +64,7 @@ All frontends should use shared core modules instead of duplicating station, fav
 It also handles utility commands such as:
 
 - `--list-players`
+- `--doctor`
 - `--list-themes`
 - `--clear-cache`
 - `--export-favs`

@@ -8,8 +8,10 @@ FluxTuner requires:
 
 - Python 3.11 or newer.
 - At least one playback backend:
-  - `mpv` recommended.
-  - `ffplay`, provided by FFmpeg, as a lightweight fallback.
+  - `mpv` recommended for broad stream compatibility and live controls.
+  - `ffplay`, provided by FFmpeg, as a broad fallback.
+  - `mpg123` as an optional lightweight MP3/MPEG backend.
+  - `ogg123`, provided by vorbis-tools, as an optional lightweight Ogg/Vorbis/Opus-style backend.
 - A terminal emulator with good Unicode support for the TUI.
 
 The GTK desktop GUI also requires GTK4 and PyGObject.
@@ -21,30 +23,32 @@ The GTK desktop GUI also requires GTK4 and PyGObject.
 ```bash
 sudo prt-get depinst mpv
 sudo prt-get depinst ffmpeg
+sudo prt-get depinst mpg123
+sudo prt-get depinst libao vorbis-tools
 ```
 
 ### Debian / Ubuntu
 
 ```bash
-sudo apt install mpv ffmpeg
+sudo apt install mpv ffmpeg mpg123 vorbis-tools
 ```
 
 ### Arch Linux
 
 ```bash
-sudo pacman -S mpv ffmpeg
+sudo pacman -S mpv ffmpeg mpg123 vorbis-tools
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install mpv ffmpeg
+sudo dnf install mpv ffmpeg mpg123 vorbis-tools
 ```
 
 ### macOS
 
 ```bash
-brew install mpv ffmpeg
+brew install mpv ffmpeg mpg123 vorbis-tools
 ```
 
 Verify `ffplay` if you plan to use the fallback backend:
@@ -107,6 +111,8 @@ FluxTuner currently supports:
 
 - `mpv`
 - `ffplay`
+- `mpg123`
+- `ogg123`
 
 By default, FluxTuner uses automatic backend detection.
 
@@ -114,6 +120,8 @@ By default, FluxTuner uses automatic backend detection.
 fluxtuner --player auto
 fluxtuner --player mpv
 fluxtuner --player ffplay
+fluxtuner --player mpg123
+fluxtuner --player ogg123
 ```
 
 List supported and available backends:
@@ -125,8 +133,10 @@ fluxtuner --doctor
 
 Backend notes:
 
-- `mpv` supports play/stop, live volume and live mute controls.
-- `ffplay` is focused on play/stop and does not provide live volume or live mute control in FluxTuner.
+- `mpv` supports play/stop, live pause, live volume and live mute controls.
+- `ffplay` is a broad fallback focused on simple play/stop.
+- `mpg123` is a specialized lightweight backend for MP3/MPEG streams.
+- `ogg123` is a specialized lightweight backend for Ogg/Vorbis/Opus-style streams, depending on the local `ogg123` build.
 
 ## Themes
 
@@ -168,6 +178,7 @@ Built-in themes:
 fluxtuner --help
 fluxtuner --version
 fluxtuner --list-players
+fluxtuner --doctor
 fluxtuner --list-themes
 fluxtuner --clear-cache
 fluxtuner --export-favs favorites.json
@@ -260,6 +271,16 @@ fluxtuner --player ogg123
 ```
 
 The legacy numbered CLI uses the same compatibility checks for searches, favorites and random favorite playback when a specialized backend is active.
+
+## Runtime diagnostics
+
+Use `--doctor` to print a compact runtime diagnostic report:
+
+```bash
+fluxtuner --doctor
+```
+
+The report includes the FluxTuner version, Python/runtime platform, XDG storage paths and player backend availability. This is useful when reporting issues or checking what FluxTuner can see inside a sandboxed environment.
 
 ## Troubleshooting player backends
 

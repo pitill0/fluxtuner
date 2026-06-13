@@ -91,6 +91,7 @@ fluxtuner --cli        # legacy numbered CLI
 fluxtuner --help
 fluxtuner --version
 fluxtuner --list-players
+fluxtuner --doctor
 fluxtuner --list-themes
 fluxtuner --theme nord
 fluxtuner --theme nord --save-theme

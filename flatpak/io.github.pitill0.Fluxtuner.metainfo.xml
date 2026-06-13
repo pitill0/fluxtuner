@@ -32,7 +32,7 @@
       <li>Live stream metadata</li>
       <li>Theme support</li>
       <li>Estimated data usage tracking</li>
-      <li>Multiple playback backends (mpv and ffplay)</li>
+      <li>Multiple playback backends with automatic detection and compatibility checks</li>
     </ul>
 
     <p>

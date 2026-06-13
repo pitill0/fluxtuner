@@ -13,6 +13,11 @@ from fluxtuner import __version__
 from fluxtuner.config import get_config_value, set_config_value
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.cache import clear_search_cache
+from fluxtuner.core.compatibility import (
+    filter_supported_stations,
+    station_is_supported,
+    unsupported_station_message,
+)
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
@@ -35,6 +40,32 @@ from fluxtuner.themes import DEFAULT_THEME, list_themes, theme_exists
 
 console = Console()
 logger = get_logger(__name__)
+
+
+def backend_capabilities(player_name: str | None):
+    backend_name = player_name or selected_player_name(player_name)
+    return PLAYER_BACKENDS[backend_name].capabilities()
+
+
+def compatible_stations_for_player(
+    stations: list[dict[str, Any]],
+    player_name: str | None,
+) -> list[dict[str, Any]]:
+    return filter_supported_stations(stations, backend_capabilities(player_name))
+
+
+def station_supported_by_player(
+    station: dict[str, Any],
+    player_name: str | None,
+    player: Any | None = None,
+) -> bool:
+    if player is not None and hasattr(player, "capabilities"):
+        return station_is_supported(station, player.capabilities())
+
+    if player_name is None:
+        return True
+
+    return station_is_supported(station, backend_capabilities(player_name))
 
 
 def player_capabilities_summary(backend_name: str) -> str:
@@ -108,6 +139,11 @@ def play_station(
     player_name: str | None = None,
     player: Any | None = None,
 ) -> Any | None:
+    if not station_supported_by_player(station, player_name, player):
+        backend_name = player_name or selected_player_name(player_name)
+        console.print(f"[yellow]{unsupported_station_message(station, backend_name)}[/yellow]")
+        return player
+
     stream_url = station_url(station)
     if not stream_url:
         logger.debug("Playback skipped because selected station has no playable URL")
@@ -138,7 +174,15 @@ def search_flow(player_name: str | None = None, player: Any | None = None) -> An
         console.print(f"[red]Search failed:[/red] {exc}")
         return
 
-    station = choose_station(stations)
+    compatible_stations = compatible_stations_for_player(stations, player_name)
+    unsupported_count = len(stations) - len(compatible_stations)
+    if unsupported_count:
+        console.print(
+            f"[yellow]Filtered {unsupported_count} unsupported station(s) "
+            f"for backend {player_name}.[/yellow]"
+        )
+
+    station = choose_station(compatible_stations)
     if not station:
         return
 
@@ -152,7 +196,11 @@ def search_flow(player_name: str | None = None, player: Any | None = None) -> An
 
 
 def favorites_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = load_favorites()
+    favorites = compatible_stations_for_player(load_favorites(), player_name)
+    if not favorites:
+        console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
+        return player
+
     station = choose_station(favorites)
     if not station:
         return
@@ -170,10 +218,10 @@ def favorites_flow(player_name: str | None = None, player: Any | None = None) ->
 
 
 def random_favorite_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = load_favorites()
+    favorites = compatible_stations_for_player(load_favorites(), player_name)
     if not favorites:
-        console.print("[yellow]No favorites yet.[/yellow]")
-        return
+        console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
+        return player
 
     station = secrets.choice(favorites)
     console.print(f"[cyan]Random favorite:[/cyan] {station['name']}")

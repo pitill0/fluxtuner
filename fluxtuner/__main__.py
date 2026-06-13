@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import secrets
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,7 @@ from fluxtuner.core.stations import (
     station_url,
 )
 from fluxtuner.logging_config import configure_logging, get_logger
+from fluxtuner.paths import CACHE_DIR, CONFIG_DIR, DATA_DIR
 from fluxtuner.players import (
     PLAYER_BACKENDS,
     available_players,
@@ -59,6 +62,52 @@ def player_install_help() -> str:
     """Return a compact install help message for missing playback backends."""
     hints = ", ".join(player_install_hint(name) for name in PLAYER_BACKENDS)
     return f"No playback backend is available. Install one of: {hints}."
+
+
+def path_diagnostic_status(target: Path) -> str:
+    """Return a compact status for a diagnostic filesystem path."""
+    if target.exists():
+        return "present"
+    if target.parent.exists():
+        return "missing"
+    return "parent missing"
+
+
+def print_player_backend_status() -> None:
+    """Print player backend availability and capability details."""
+    available = available_players()
+    selected = selected_player_name(None) if available else None
+
+    for backend in PLAYER_BACKENDS:
+        status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
+        default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
+        summary = player_capabilities_summary(backend)
+        install_hint = ""
+        if backend not in available:
+            install_hint = f" · {player_install_hint(backend)}"
+        console.print(f" - {backend}: {status}{default} · {summary}{install_hint}")
+
+
+def run_doctor() -> None:
+    """Print a compact runtime diagnostic report."""
+    console.print("[bold]FluxTuner doctor[/bold]")
+    console.print(f"Version: {__version__}")
+    console.print(f"Python: {sys.version.split()[0]}")
+    console.print(f"Platform: {platform.platform()}")
+
+    console.print("\n[bold]Storage paths[/bold]")
+    for label, target in (
+        ("Config", CONFIG_DIR),
+        ("Data", DATA_DIR),
+        ("Cache", CACHE_DIR),
+    ):
+        console.print(f" - {label}: {target} ({path_diagnostic_status(target)})")
+
+    console.print("\n[bold]Player backends[/bold]")
+    print_player_backend_status()
+
+    if not available_players():
+        console.print(f"\n[yellow]{player_install_help()}[/yellow]")
 
 
 def backend_capabilities(player_name: str | None):
@@ -405,25 +454,22 @@ def main() -> None:
         action="store_true",
         help="List supported and available player backends, then exit.",
     )
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Print runtime diagnostics for paths and player backends, then exit.",
+    )
 
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
 
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
+        print_player_backend_status()
+        return
 
-        available = available_players()
-        selected = selected_player_name(None) if available else None
-
-        for backend in PLAYER_BACKENDS:
-            status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
-            default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
-            summary = player_capabilities_summary(backend)
-            install_hint = ""
-            if backend not in available:
-                install_hint = f" · {player_install_hint(backend)}"
-            console.print(f" - {backend}: {status}{default} · {summary}{install_hint}")
-
+    if args.doctor:
+        run_doctor()
         return
 
     if args.list_themes:

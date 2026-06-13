@@ -42,6 +42,25 @@ console = Console()
 logger = get_logger(__name__)
 
 
+_PLAYER_INSTALL_HINTS = {
+    "mpv": "install mpv",
+    "ffplay": "install FFmpeg / ffplay",
+    "mpg123": "install mpg123",
+    "ogg123": "install vorbis-tools / ogg123",
+}
+
+
+def player_install_hint(backend_name: str) -> str:
+    """Return a compact install hint for a known backend."""
+    return _PLAYER_INSTALL_HINTS.get(backend_name, f"install {backend_name}")
+
+
+def player_install_help() -> str:
+    """Return a compact install help message for missing playback backends."""
+    hints = ", ".join(player_install_hint(name) for name in PLAYER_BACKENDS)
+    return f"No playback backend is available. Install one of: {hints}."
+
+
 def backend_capabilities(player_name: str | None):
     backend_name = player_name or selected_player_name(player_name)
     return PLAYER_BACKENDS[backend_name].capabilities()
@@ -400,7 +419,10 @@ def main() -> None:
             status = "[green]available[/green]" if backend in available else "[red]missing[/red]"
             default = " [bold cyan](auto)[/bold cyan]" if backend == selected else ""
             summary = player_capabilities_summary(backend)
-            console.print(f" - {backend}: {status}{default} · {summary}")
+            install_hint = ""
+            if backend not in available:
+                install_hint = f" · {player_install_hint(backend)}"
+            console.print(f" - {backend}: {status}{default} · {summary}{install_hint}")
 
         return
 
@@ -490,6 +512,7 @@ def main() -> None:
         selected_player = selected_player_name(args.player)
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Player error:[/red] {exc}")
+        console.print(f"[yellow]{player_install_help()}[/yellow]")
         raise SystemExit(2) from exc
 
     if args.cli:

@@ -259,3 +259,22 @@ fluxtuner --player ogg123
 ```
 
 The legacy numbered CLI uses the same compatibility checks for searches, favorites and random favorite playback when a specialized backend is active.
+
+## Troubleshooting player backends
+
+Use `--list-players` to inspect which playback backends FluxTuner can find in the current environment:
+
+```bash
+fluxtuner --list-players
+```
+
+The command shows whether each backend is available or missing, whether it is general-purpose or specialized, and which codecs or live controls it declares.
+
+If no backend is available, install at least one supported player:
+
+- `mpv` for the recommended general-purpose backend.
+- `ffmpeg` / `ffplay` for the broad fallback backend.
+- `mpg123` for lightweight MP3/MPEG playback.
+- `vorbis-tools` / `ogg123` for lightweight Ogg/Vorbis/Opus-style playback.
+
+Inside Flatpak or other sandboxed environments, run the same command inside the sandbox to confirm which player binaries are actually visible to FluxTuner.

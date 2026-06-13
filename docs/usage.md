@@ -120,6 +120,7 @@ List supported and available backends:
 
 ```bash
 fluxtuner --list-players
+fluxtuner --doctor
 ```
 
 Backend notes:

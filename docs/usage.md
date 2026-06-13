@@ -1,21 +1,18 @@
 # Usage Guide
 
-This guide covers installation, launch modes, player backend selection, themes, keybindings and user data locations.
+This guide covers installing, running and configuring FluxTuner.
 
 ## Requirements
 
 FluxTuner requires:
 
 - Python 3.11 or newer.
-- At least one supported player backend:
-  - `mpv`, recommended.
+- At least one playback backend:
+  - `mpv` recommended.
   - `ffplay`, provided by FFmpeg, as a lightweight fallback.
 - A terminal emulator with good Unicode support for the TUI.
 
-The optional GTK desktop GUI also requires:
-
-- GTK4.
-- PyGObject.
+The GTK desktop GUI also requires GTK4 and PyGObject.
 
 ## Install player backends
 
@@ -50,7 +47,7 @@ sudo dnf install mpv ffmpeg
 brew install mpv ffmpeg
 ```
 
-Verify `ffplay` when using the fallback backend:
+Verify `ffplay` if you plan to use the fallback backend:
 
 ```bash
 ffplay -version
@@ -76,25 +73,24 @@ pipx install git+https://github.com/pitill0/fluxtuner.git
 fluxtuner
 ```
 
-Install a specific tag:
-
-```bash
-pipx install git+https://github.com/pitill0/fluxtuner.git@v0.3.0
-```
-
-Upgrade or uninstall:
+Upgrade:
 
 ```bash
 pipx upgrade fluxtuner
+```
+
+Uninstall:
+
+```bash
 pipx uninstall fluxtuner
 ```
 
 ## Launch modes
 
-FluxTuner provides three entry modes through the same `fluxtuner` command.
+FluxTuner provides three interfaces that share the same core services, playback layer and user data.
 
 ```bash
-fluxtuner              # default Textual TUI
+fluxtuner              # Textual TUI, default
 fluxtuner --gui        # GTK4 desktop GUI
 fluxtuner --cli        # legacy numbered CLI
 ```
@@ -107,36 +103,29 @@ python -m fluxtuner
 
 ## Player backends
 
-FluxTuner supports:
+FluxTuner currently supports:
 
-- `mpv`, recommended.
-- `ffplay`, lightweight fallback.
+- `mpv`
+- `ffplay`
 
-Automatic backend selection uses the first available supported backend in this order:
-
-1. `mpv`
-2. `ffplay`
-
-Inspect detected backends:
-
-```bash
-fluxtuner --list-players
-```
-
-Select a backend explicitly:
+By default, FluxTuner uses automatic backend detection.
 
 ```bash
 fluxtuner --player auto
 fluxtuner --player mpv
 fluxtuner --player ffplay
-fluxtuner --gui --player mpv
-fluxtuner --gui --player ffplay
 ```
 
-Backend capability notes:
+List supported and available backends:
 
-- `mpv` supports play, stop, live volume and live mute controls.
-- `ffplay` is focused on play and stop. FluxTuner does not currently expose live volume or mute controls through the `ffplay` backend.
+```bash
+fluxtuner --list-players
+```
+
+Backend notes:
+
+- `mpv` supports play/stop, live volume and live mute controls.
+- `ffplay` is focused on play/stop and does not provide live volume or live mute control in FluxTuner.
 
 ## Themes
 
@@ -177,7 +166,6 @@ Built-in themes:
 ```bash
 fluxtuner --help
 fluxtuner --version
-fluxtuner --verbose
 fluxtuner --list-players
 fluxtuner --list-themes
 fluxtuner --clear-cache
@@ -192,31 +180,33 @@ fluxtuner --import-playlists playlists.json
 | Key | Action |
 | --- | --- |
 | `/` | Focus search |
-| `Esc` | Focus station list |
-| `Enter` | Play/apply selected item |
+| `Enter` | Play/apply selected row |
+| `Escape` | Focus station list |
 | `Space` | Play/stop selected station |
 | `x` | Stop playback |
-| `+` / `-` | Volume up/down when supported |
-| `m` | Mute/unmute when supported |
+| `+` / `-` | Volume up/down when supported by the active backend |
+| `m` | Mute/unmute when supported by the active backend |
 | `a` | Add selected station to favorites |
 | `f` | Show favorites |
-| `d` | Delete/remove selected favorite |
+| `d` | Remove selected favorite |
 | `e` | Rename favorite |
 | `g` | Edit favorite tags |
 | `u` | Filter favorites by tag |
-| `h` | Show history |
-| `l` | Play last station |
 | `p` | Show playlists |
 | `n` | Create playlist |
-| `b` | Add selected station to playlist |
+| `b` | Add station to playlist |
 | `r` | Play random favorite |
+| `h` | Show history |
+| `l` | Play last station |
 | `t` | Show themes |
 | `y` | Save selected theme |
 | `q` | Quit |
 
 ## Data storage
 
-FluxTuner stores user data in XDG-style locations and respects `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when set.
+FluxTuner stores user data in XDG-style locations.
+
+The base directories respect `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when they are set.
 
 Default locations:
 
@@ -227,33 +217,22 @@ Default locations:
 - Data usage: `~/.local/share/fluxtuner/usage.json`
 - Search cache: `~/.cache/fluxtuner/search_cache.json`
 
-Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json`, `~/.fluxtuner_history.json` and `~/.fluxtuner_usage.json` are copied into the new XDG locations when needed and kept in place to avoid data loss.
+Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json`, `~/.fluxtuner_history.json` and `~/.fluxtuner_usage.json` are copied into the current XDG locations when needed and kept in place as a conservative migration.
 
 ## macOS GTK note
 
-When using a Python virtual environment, PyGObject installed through Homebrew may not be visible from inside the venv.
+When using a Python virtual environment, PyGObject installed through Homebrew may not be visible inside the venv.
 
-Install dependencies:
+Install system dependencies:
 
 ```bash
 brew install gtk4 pygobject3 mpv ffmpeg
 ```
 
-If the GUI fails with:
-
-```text
-ModuleNotFoundError: No module named 'gi'
-```
-
-find the Homebrew PyGObject path:
+If the GUI fails with `ModuleNotFoundError: No module named 'gi'`, find the Homebrew PyGObject path:
 
 ```bash
 find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 ```
 
-Then run FluxTuner with that path in `PYTHONPATH`. On Apple Silicon this is often similar to:
-
-```bash
-PYTHONPATH=/opt/homebrew/lib/python3.14/site-packages \
-python -m fluxtuner --gui --player mpv
-```
+Then run FluxTuner with that site-packages directory in `PYTHONPATH`.

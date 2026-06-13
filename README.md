@@ -14,7 +14,6 @@ FluxTuner is a modern internet radio player for the terminal and desktop.
 
 It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
 
-> Current status: active development. The TUI and GTK4 GUI are ready for daily use, while packaging and some advanced workflows continue to evolve.
 
 ---
 
@@ -150,16 +149,11 @@ See the full design notes in [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## Roadmap
+## Current focus
 
-Current focus:
+FluxTuner is under active development. The current focus is to keep improving the stable TUI and GTK desktop GUI, refine playlist and favorites workflows, improve packaging/distribution paths, and continue hardening reliability, tests and documentation.
 
-- Improving the GTK desktop experience.
-- Refining playlist workflows and persistent GUI settings.
-- Improving packaging and distribution.
-- Extending metadata, backend capability reporting and desktop integration.
-
-Planned ideas include MPRIS/media key support, richer history views, Flatpak packaging, AppImage builds and more import/export improvements.
+The roadmap is intentionally kept out of the README until items are confirmed. Please use GitHub issues and discussions for proposed features, bugs and packaging requests.
 
 ---
 

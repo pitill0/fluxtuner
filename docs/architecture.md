@@ -1,131 +1,73 @@
 # Architecture
 
-FluxTuner is organized around three frontends, shared core services, local persistence helpers and a small playback backend layer.
+FluxTuner is organized around a small set of frontends that share core services, user data and playback backends.
 
-The current frontends are:
-
-- Textual TUI, launched by default.
-- GTK4 desktop GUI, launched with `--gui`.
-- Legacy numbered CLI, launched with `--cli`.
-
-All frontends use the same station search, favorites, playlist, history, configuration and player backend services.
-
-## High-level architecture
+## Overview
 
 ```mermaid
-flowchart TB
-    User["User"] --> Entry["fluxtuner / python -m fluxtuner"]
+flowchart LR
+    User["User"] --> Entry["fluxtuner command"]
+    Entry --> TUI["Textual TUI"]
+    Entry --> GUI["GTK4 GUI"]
+    Entry --> CLI["Legacy CLI"]
 
-    Entry --> Argparse["Argument parsing"]
-    Argparse --> TUI["Textual TUI"]
-    Argparse --> GUI["GTK4 GUI"]
-    Argparse --> CLI["Legacy numbered CLI"]
-    Argparse --> Commands["Utility commands"]
+    TUI --> Services["Core services"]
+    GUI --> Services
+    CLI --> Services
 
-    Commands --> ImportExport["Import / export"]
-    Commands --> ThemeCommands["Theme commands"]
-    Commands --> CacheCommands["Cache commands"]
-    Commands --> PlayerCommands["Player listing"]
+    Services --> Search["SearchService"]
+    Services --> Library["Favorites, playlists, history"]
+    Services --> Metadata["Stream metadata"]
+    Services --> Usage["Data usage tracking"]
+    Services --> Config["Config and playback state"]
+    Services --> PlayerRegistry["Player registry"]
 
-    TUI --> Core["Core services"]
-    GUI --> Core
-    CLI --> Core
-    ImportExport --> Core
-    ThemeCommands --> Config["Configuration"]
-    CacheCommands --> Cache["Search cache"]
-    PlayerCommands --> Players["Player registry"]
+    Search --> RadioBrowser["Radio Browser API"]
 
-    Core --> SearchService["SearchService"]
-    Core --> Favorites["Favorites"]
-    Core --> ManualPlaylists["Manual playlists"]
-    Core --> TagPlaylists["Tag playlists"]
-    Core --> History["History"]
-    Core --> Metadata["Stream metadata"]
-    Core --> DataUsage["Data usage"]
-    Core --> Config
-    Core --> Players
+    PlayerRegistry --> MPV["mpv backend"]
+    PlayerRegistry --> FFPLAY["ffplay backend"]
+    MPV --> Streams["Online radio streams"]
+    FFPLAY --> Streams
 
-    SearchService --> RadioBrowser["Radio Browser API"]
-    SearchService --> Cache
-
-    Players --> Factory["create_player / selected_player_name"]
-    Factory --> MPV["mpv backend"]
-    Factory --> FFPLAY["ffplay backend"]
-
-    MPV --> MPVProcess["mpv subprocess"]
-    FFPLAY --> FFPLAYProcess["ffplay subprocess"]
-    MPVProcess --> Streams["Online radio streams"]
-    FFPLAYProcess --> Streams
-
-    Favorites --> DataFiles["XDG data files"]
-    ManualPlaylists --> DataFiles
-    History --> DataFiles
-    DataUsage --> DataFiles
-    Config --> ConfigFiles["XDG config file"]
-    Cache --> CacheFiles["XDG cache file"]
-
-    subgraph Frontends
-        TUI
-        GUI
-        CLI
-    end
-
-    subgraph SharedCore["Shared core"]
-        Core
-        SearchService
-        Favorites
-        ManualPlaylists
-        TagPlaylists
-        History
-        Metadata
-        DataUsage
-    end
-
-    subgraph Persistence
-        ConfigFiles
-        DataFiles
-        CacheFiles
-    end
-
-    subgraph Playback
-        Players
-        Factory
-        MPV
-        FFPLAY
-        MPVProcess
-        FFPLAYProcess
-        Streams
-    end
+    Library --> DataStorage["XDG data files"]
+    Usage --> DataStorage
+    Config --> ConfigStorage["XDG config file"]
+    Search --> CacheStorage["XDG cache file"]
 ```
-
-## Entrypoint flow
-
-`fluxtuner.__main__` owns command-line parsing and dispatches to the requested mode.
-
-Main responsibilities:
-
-- Parse flags such as `--gui`, `--cli`, `--player`, `--theme`, `--list-players`, `--list-themes`, import/export and cache commands.
-- Resolve the selected player backend.
-- Load or save theme configuration.
-- Dispatch to the default Textual TUI, GTK GUI or legacy CLI.
 
 ## Frontends
 
-### Textual TUI
+FluxTuner currently has three launch modes:
 
-The Textual TUI is the default interface. It handles search, filters, favorites, playlists, themes, playback controls, metadata display, history and session data usage in a keyboard-oriented layout.
+- Textual TUI, the default interface.
+- GTK4 desktop GUI.
+- Legacy numbered CLI.
 
-### GTK4 GUI
+All frontends should use shared core modules instead of duplicating station, favorite, playlist, storage or playback logic.
 
-The GTK4 GUI is the desktop-oriented interface. It shares the same backend services as the TUI while exposing a visual station list, side panel, playback bar, favorites, playlists, metadata and data usage display.
+## Entrypoint
 
-### Legacy CLI
+`fluxtuner.__main__` parses command-line options and dispatches to the selected interface:
 
-The legacy CLI is a simple numbered interface kept as a lightweight fallback and diagnostic mode.
+- `fluxtuner` starts the Textual TUI.
+- `fluxtuner --gui` starts the GTK4 desktop GUI.
+- `fluxtuner --cli` starts the legacy numbered CLI.
 
-## Shared core services
+It also handles utility commands such as:
 
-The `fluxtuner/core/` package contains reusable logic used by the frontends:
+- `--list-players`
+- `--list-themes`
+- `--clear-cache`
+- `--export-favs`
+- `--import-favs`
+- `--export-playlists`
+- `--import-playlists`
+
+## Core services
+
+The `fluxtuner/core/` package contains reusable behavior shared across interfaces.
+
+Important areas:
 
 ```text
 fluxtuner/core/
@@ -136,40 +78,53 @@ fluxtuner/core/
   history.py               Playback history
   importers.py             Import validation for favorites/playlists
   manual_playlists.py      User-managed playlists
-  playlists.py             Tag/dynamic playlist helpers
+  playlists.py             Built-in playlist/tag helpers
   search_service.py        Shared station search service
   stations.py              Station normalization helpers
   storage.py               Atomic JSON writes
   stream_metadata.py       ICY stream metadata parsing
 ```
 
+## Search flow
+
+Both the TUI and GTK GUI use the shared `SearchService`.
+
+The search flow is:
+
+1. Frontend builds a search request from user input.
+2. `SearchService` handles query parameters and cache behavior.
+3. Radio Browser API integration retrieves station data.
+4. Station helpers normalize returned station dictionaries.
+5. Frontend renders results and delegates playback to the selected backend.
+
 ## Playback layer
 
-Playback is isolated behind a small adapter layer in `fluxtuner/players/`.
+Playback is implemented through a backend registry.
 
-```text
-fluxtuner/players/
-  base.py      Player interface and shared errors
-  mpv.py       mpv backend
-  ffplay.py    ffplay backend
-  security.py  Executable and stream URL validation
+```mermaid
+flowchart TB
+    Request["Playback request"] --> Registry["Player registry"]
+    Registry --> Auto["auto selection"]
+    Auto --> MPVAvailable{"mpv available?"}
+    MPVAvailable -->|yes| MPV["MpvController"]
+    MPVAvailable -->|no| FFplayAvailable{"ffplay available?"}
+    FFplayAvailable -->|yes| FFPLAY["FfplayController"]
+    FFplayAvailable -->|no| Error["PlayerError"]
+
+    MPV --> MPVProcess["mpv process"]
+    FFPLAY --> FFPLAYProcess["ffplay process"]
+    MPVProcess --> Stream["Radio stream"]
+    FFPLAYProcess --> Stream
 ```
 
-Supported backends are registered in `PLAYER_BACKENDS`:
+Current backends:
 
-1. `mpv`
-2. `ffplay`
+- `mpv`
+- `ffplay`
 
-`selected_player_name("auto")` returns the first available backend in registry order. `create_player()` then instantiates the selected backend.
+`mpv` is the preferred backend because it supports richer controls. `ffplay` is a fallback focused on simple playback.
 
-Backend capability summary:
-
-| Backend | Play/stop | Live volume | Live mute | Notes |
-| --- | --- | --- | --- | --- |
-| `mpv` | Yes | Yes | Yes | Recommended backend. |
-| `ffplay` | Yes | No | No | Lightweight fallback through FFmpeg. |
-
-## Persistence
+## Storage
 
 FluxTuner uses XDG-style paths through `fluxtuner.paths`.
 
@@ -184,27 +139,30 @@ Default locations:
 ~/.cache/fluxtuner/search_cache.json
 ```
 
-The path helpers respect:
+These paths respect:
 
 - `XDG_CONFIG_HOME`
 - `XDG_DATA_HOME`
 - `XDG_CACHE_HOME`
 
-Legacy dotfiles are copied into the new XDG locations when needed and kept in place as a conservative migration.
+Local JSON writes should use atomic persistence helpers where possible.
 
-## Search and metadata
+## Themes
 
-Station search goes through the shared search service and Radio Browser integration. Results are normalized before being displayed by the TUI, GUI or CLI.
+TUI themes are stored as bundled TCSS files under `fluxtuner/themes/`.
 
-Stream metadata support reads ICY metadata when available. Metadata is intentionally lightweight and bounded so playback and UI responsiveness remain the priority.
+The TUI loads the selected theme on startup and supports runtime preview/application for a practical subset of theme declarations.
 
-## Documentation split
+## Security-sensitive areas
 
-The README should remain a landing page. Detailed information should live in focused documents:
+Security-sensitive areas include:
 
-- `README.md`: overview, quick start, screenshots, short command list and links.
-- `docs/usage.md`: user-facing installation, launch modes, backends, themes, keybindings and storage.
-- `docs/architecture.md`: architecture and diagram.
-- `docs/development.md`: local development, validation commands, tests, logging, security and troubleshooting.
-- `docs/release.md`: release process.
-- `flatpak/README.md`: Flatpak packaging notes.
+- Player executable resolution.
+- Stream URL validation.
+- External player subprocess execution.
+- Imported JSON validation.
+- Local user data writes.
+- Network/API error handling.
+- ICY stream metadata parsing.
+
+See `SECURITY.md` and `docs/development.md` for validation and contribution guidance.

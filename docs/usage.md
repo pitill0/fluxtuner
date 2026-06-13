@@ -236,3 +236,24 @@ find "$(brew --prefix)" -path "*site-packages/gi/__init__.py" 2>/dev/null
 ```
 
 Then run FluxTuner with that site-packages directory in `PYTHONPATH`.
+
+## Specialized player backend compatibility
+
+FluxTuner supports both general-purpose and specialized playback backends.
+
+General-purpose backends:
+
+- `mpv` — recommended backend with broad stream compatibility and live controls.
+- `ffplay` — broad compatibility fallback provided by FFmpeg.
+
+Specialized lightweight backends:
+
+- `mpg123` — lightweight backend for MP3/MPEG streams.
+- `ogg123` — lightweight backend for Ogg/Vorbis/Opus/FLAC-style streams, depending on the local `ogg123` build.
+
+When a specialized backend is selected explicitly, FluxTuner filters search results where possible so the station list only contains streams that match the active backend capabilities. Saved favorites, history and playlists are kept intact, but incompatible stations are marked and blocked from playback with a clear message.
+
+```bash
+fluxtuner --player mpg123
+fluxtuner --player ogg123
+```

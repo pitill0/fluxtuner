@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from fluxtuner.core.api import search_stations_filtered
+from fluxtuner.core.compatibility import filter_supported_stations
+from fluxtuner.players.capabilities import PlayerCapabilities
 
 Station = dict[str, object]
 
@@ -31,6 +33,8 @@ class SearchRequest:
 @dataclass(frozen=True)
 class SearchResult:
     stations: list[dict[str, object]]
+    total_found: int = 0
+    unsupported_count: int = 0
 
 
 class SearchService:
@@ -39,8 +43,10 @@ class SearchService:
     def __init__(
         self,
         backend: StationSearchBackend | None = None,
+        capabilities: PlayerCapabilities | None = None,
     ) -> None:
         self._backend = backend or search_stations_filtered
+        self._capabilities = capabilities
 
     def search(self, request: SearchRequest) -> SearchResult:
         query = request.query.strip()
@@ -56,7 +62,18 @@ class SearchService:
             request.use_cache,
         )
 
-        return SearchResult(stations=stations)
+        total_found = len(stations)
+        unsupported_count = 0
+        if self._capabilities is not None:
+            filtered = filter_supported_stations(stations, self._capabilities)  # type: ignore[arg-type]
+            unsupported_count = total_found - len(filtered)
+            stations = filtered
+
+        return SearchResult(
+            stations=stations,
+            total_found=total_found,
+            unsupported_count=unsupported_count,
+        )
 
     @staticmethod
     def _normalize_min_bitrate(value: int | None) -> int | None:

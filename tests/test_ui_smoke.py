@@ -3,6 +3,8 @@ import os
 
 import pytest
 
+from fluxtuner.players.capabilities import PlayerCapabilities
+
 
 def test_tui_module_imports() -> None:
     module = importlib.import_module("fluxtuner.tui")
@@ -14,6 +16,15 @@ def test_tui_app_can_be_constructed_with_mocked_runtime_dependencies(monkeypatch
     from fluxtuner import tui
 
     class FakePlayer:
+        @classmethod
+        def capabilities(cls) -> PlayerCapabilities:
+            return PlayerCapabilities(
+                general_purpose=True,
+                supports_pause=True,
+                supports_volume=True,
+                supports_mute=True,
+            )
+
         def supports_mute(self) -> bool:
             return True
 

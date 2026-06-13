@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from fluxtuner.players.capabilities import PlayerCapabilities
+
 
 class PlayerError(RuntimeError):
     """Raised when a player backend cannot be used."""
@@ -15,6 +17,11 @@ class PlayerAdapter(ABC):
     def is_available() -> bool:
         """Return True when the backend executable is available."""
         return False
+
+    @classmethod
+    def capabilities(cls) -> PlayerCapabilities:
+        """Return static backend capabilities."""
+        return PlayerCapabilities()
 
     @abstractmethod
     def play(self, url: str) -> None:
@@ -53,13 +60,13 @@ class PlayerAdapter(ABC):
         raise PlayerError("Mute is not supported by this backend.")
 
     def supports_pause(self) -> bool:
-        return False
+        return self.capabilities().supports_pause
 
     def supports_volume(self) -> bool:
-        return False
+        return self.capabilities().supports_volume
 
     def supports_mute(self) -> bool:
-        return False
+        return self.capabilities().supports_mute
 
     def get_state(self) -> dict[str, Any]:
         """Return a compact playback state snapshot."""

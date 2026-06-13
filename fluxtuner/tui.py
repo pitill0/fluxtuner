@@ -14,6 +14,11 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
+from fluxtuner.core.compatibility import (
+    filter_supported_stations,
+    station_is_supported,
+    unsupported_station_message,
+)
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
     add_favorite,
@@ -31,11 +36,10 @@ from fluxtuner.core.manual_playlists import (
     delete_playlist,
     get_playlist_stations,
     playlist_counts,
-    random_from_playlist,
     remove_station_from_playlist,
     summarize_playlist,
 )
-from fluxtuner.core.playlists import get_by_tag, get_tag_counts, random_by_tag
+from fluxtuner.core.playlists import get_by_tag, get_tag_counts
 from fluxtuner.core.search_service import SearchRequest, SearchService
 from fluxtuner.core.stations import (
     station_bitrate,
@@ -125,7 +129,8 @@ class FluxTunerTUI(App[None]):
         super().__init__(css_path=str(self.theme_path))
         self.player_backend_name = selected_player_name(player_name)
         self.player = create_player(self.player_backend_name)
-        self.search_service = SearchService()
+        self.player_capabilities = self.player.capabilities()
+        self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self.current_artist = "—"
         self.current_track = "—"
@@ -605,7 +610,14 @@ class FluxTunerTUI(App[None]):
             filters.append(f"min={min_bitrate_raw}kbps")
         suffix = f" ({', '.join(filters)})" if filters else ""
         prefix = "Live search" if live else "Found"
-        self.set_status(f"{prefix}: {len(stations)} station(s) for: {query}{suffix}")
+        compatibility_suffix = ""
+        if result.unsupported_count:
+            compatibility_suffix = (
+                f" · filtered {result.unsupported_count} unsupported for {self.player_backend_name}"
+            )
+        self.set_status(
+            f"{prefix}: {len(stations)} station(s) for: {query}{suffix}{compatibility_suffix}"
+        )
 
     async def show_favorites(self, tag_filter: str | None = None) -> None:
         self.restore_active_theme_if_previewing()
@@ -805,7 +817,15 @@ class FluxTunerTUI(App[None]):
             marker_parts.append("▶")
         if self._favorite_for_station(station):
             marker_parts.append("★")
+        if not self.station_supported(station):
+            marker_parts.append("!")
         return "".join(marker_parts)
+
+    def station_supported(self, station: dict[str, Any] | None) -> bool:
+        return station_is_supported(station, self.player_capabilities)
+
+    def supported_stations(self, stations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return filter_supported_stations(stations, self.player_capabilities)
 
     def add_station_table_row(self, table: DataTable, station: dict[str, Any]) -> None:
         key = self.next_table_key("station")
@@ -891,6 +911,10 @@ class FluxTunerTUI(App[None]):
         self.play_station(self.selected_station)
 
     def play_station(self, station: dict[str, Any]) -> bool:
+        if not self.station_supported(station):
+            self.set_status(unsupported_station_message(station, self.player_backend_name))
+            return False
+
         url = self.station_url(station)
         if not url:
             self.set_status("Selected station has no playable URL.")
@@ -1008,9 +1032,9 @@ class FluxTunerTUI(App[None]):
         self.play_selected_station()
 
     def play_random_favorite(self) -> None:
-        favorites = load_favorites()
+        favorites = self.supported_stations(load_favorites())
         if not favorites:
-            self.set_status("No favorites yet.")
+            self.set_status(f"No compatible favorites for {self.player_backend_name}.")
             return
         self.selected_station = secrets.choice(favorites)
         self.selected_theme = None
@@ -1020,10 +1044,11 @@ class FluxTunerTUI(App[None]):
 
     def smart_play_selected_playlist_or_tag(self) -> None:
         if self.selected_playlist:
-            station = random_from_playlist(self.selected_playlist)
+            stations = self.supported_stations(get_playlist_stations(self.selected_playlist))
+            station = secrets.choice(stations) if stations else None
             if not station:
                 self.set_status(
-                    f"Persistent playlist '{self.selected_playlist}' has no available favorite stations."
+                    f"Persistent playlist '{self.selected_playlist}' has no compatible stations for {self.player_backend_name}."
                 )
                 return
             self.selected_station = station
@@ -1036,9 +1061,12 @@ class FluxTunerTUI(App[None]):
             return
 
         if self.selected_tag:
-            station = random_by_tag(self.selected_tag)
+            stations = self.supported_stations(get_by_tag(self.selected_tag))
+            station = secrets.choice(stations) if stations else None
             if not station:
-                self.set_status(f"No favorite stations tagged '{self.selected_tag}'.")
+                self.set_status(
+                    f"No compatible stations tagged '{self.selected_tag}' for {self.player_backend_name}."
+                )
                 return
             self.selected_station = station
             self.selected_theme = None

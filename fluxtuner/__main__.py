@@ -254,13 +254,13 @@ def main() -> None:
     parser.add_argument(
         "--gui",
         action="store_true",
-        help="Run the experimental GTK GUI instead of the default Textual TUI.",
+        help="Run the GTK desktop GUI instead of the default Textual TUI.",
     )
     parser.add_argument(
         "--player",
         default="auto",
         metavar="BACKEND",
-        help="Player backend to use: auto, mpv or ffplay.",
+        help="Player backend to use: auto, mpv, ffplay, mpg123 or ogg123.",
     )
     parser.add_argument(
         "--theme",

@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from fluxtuner.players.base import PlayerAdapter, PlayerError
 from fluxtuner.players.ffplay import FfplayController
+from fluxtuner.players.mpg123 import Mpg123Controller
 from fluxtuner.players.mpv import MpvController
+from fluxtuner.players.ogg123 import Ogg123Controller
 
 PLAYER_BACKENDS: dict[str, type[PlayerAdapter]] = {
     "mpv": MpvController,
     "ffplay": FfplayController,
+    "mpg123": Mpg123Controller,
+    "ogg123": Ogg123Controller,
 }
 
 

@@ -12,6 +12,11 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner.config import get_playback_state, save_playback_state  # noqa: E402
+from fluxtuner.core.compatibility import (  # noqa: E402
+    filter_supported_stations,
+    station_is_supported,
+    unsupported_station_message,
+)
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
@@ -39,7 +44,7 @@ from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 
 class MainWindow(Gtk.ApplicationWindow):
-    """Small GTK GUI MVP: search stations, list results and play selection."""
+    """GTK desktop GUI: search stations, list results and play selection."""
 
     def __init__(self, app: Gtk.Application, player_name: str = "mpv") -> None:
         super().__init__(application=app)
@@ -49,7 +54,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.player_backend_name = selected_player_name(player_name)
         self.player = create_player(self.player_backend_name)
-        self.search_service = SearchService()
+        self.player_capabilities = self.player.capabilities()
+        self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
         self._player_state_timer_id: int | None = None
@@ -97,7 +103,7 @@ class MainWindow(Gtk.ApplicationWindow):
         title.add_css_class("title-1")
         header.append(title)
 
-        subtitle = Gtk.Label(label="Experimental GTK desktop GUI")
+        subtitle = Gtk.Label(label="GTK desktop GUI")
         subtitle.set_xalign(0)
         subtitle.add_css_class("dim-label")
         header.append(subtitle)
@@ -517,6 +523,8 @@ class MainWindow(Gtk.ApplicationWindow):
             marker_parts.append("▶")
         if self._is_favorite_station(station):
             marker_parts.append("★")
+        if not station_is_supported(station, self.player_capabilities):
+            marker_parts.append("!")
         return "".join(marker_parts)
 
     def _render_results(self) -> None:
@@ -569,7 +577,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     )
                 )
                 stations = result.stations
-            except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+            except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
                 GLib.idle_add(self._search_failed, str(exc))
                 return
 
@@ -638,6 +646,12 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Select a station first.")
             return
 
+        if not station_is_supported(self.selected_station, self.player_capabilities):
+            self.status_label.set_text(
+                unsupported_station_message(self.selected_station, self.player_backend_name)
+            )
+            return
+
         url = self._station_url(self.selected_station)
         if not url:
             self.status_label.set_text("Selected station has no playable URL.")
@@ -651,7 +665,7 @@ class MainWindow(Gtk.ApplicationWindow):
             if self.player.supports_mute():
                 self._set_player_mute(self.restored_muted)
 
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self.status_label.set_text(f"Playback failed: {exc}")
             return
 
@@ -810,7 +824,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             self.player.toggle_mute()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self._playback_command_failed("Mute", exc)
             return
 
@@ -828,7 +842,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             self._set_player_volume_from_scale()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self._playback_command_failed("Volume", exc)
             return
 
@@ -1103,9 +1117,12 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.status_label.set_text("No tags found in favorites yet.")
             return
 
-        stations = self._favorites_matching_favorite_tag(tag)
+        stations = filter_supported_stations(
+            self._favorites_matching_favorite_tag(tag),
+            self.player_capabilities,
+        )
         if not stations:
-            self.status_label.set_text(f"No favorite stations found for favorite tag: {tag}")
+            self.status_label.set_text(f"No compatible favorite stations found for tag: {tag}")
             return
 
         self.active_playlist_tag = tag
@@ -1182,7 +1199,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         try:
             state = get_state()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GUI MVP.
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
             self.player_state_label.set_text(
                 f"Player: {self.player_backend_name} · state unavailable"
             )

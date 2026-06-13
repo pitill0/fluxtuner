@@ -16,6 +16,7 @@ flowchart LR
     CLI --> Services
 
     Services --> Search["SearchService"]
+    Services --> Compatibility["Station compatibility"]
     Services --> Library["Favorites, playlists, history"]
     Services --> Metadata["Stream metadata"]
     Services --> Usage["Data usage tracking"]
@@ -23,11 +24,18 @@ flowchart LR
     Services --> PlayerRegistry["Player registry"]
 
     Search --> RadioBrowser["Radio Browser API"]
+    Search --> Compatibility
+    Compatibility --> Capabilities["PlayerCapabilities"]
+    Capabilities --> PlayerRegistry
 
     PlayerRegistry --> MPV["mpv backend"]
     PlayerRegistry --> FFPLAY["ffplay backend"]
+    PlayerRegistry --> MPG123["mpg123 backend"]
+    PlayerRegistry --> OGG123["ogg123 backend"]
     MPV --> Streams["Online radio streams"]
     FFPLAY --> Streams
+    MPG123 --> Streams
+    OGG123 --> Streams
 
     Library --> DataStorage["XDG data files"]
     Usage --> DataStorage
@@ -79,6 +87,7 @@ fluxtuner/core/
   importers.py             Import validation for favorites/playlists
   manual_playlists.py      User-managed playlists
   playlists.py             Built-in playlist/tag helpers
+  compatibility.py         Station/backend compatibility helpers
   search_service.py        Shared station search service
   stations.py              Station normalization helpers
   storage.py               Atomic JSON writes
@@ -95,7 +104,8 @@ The search flow is:
 2. `SearchService` handles query parameters and cache behavior.
 3. Radio Browser API integration retrieves station data.
 4. Station helpers normalize returned station dictionaries.
-5. Frontend renders results and delegates playback to the selected backend.
+5. If the active backend is specialized, compatibility helpers filter unsupported stations where possible.
+6. Frontend renders results and delegates playback to the selected backend.
 
 ## Playback layer
 
@@ -103,26 +113,53 @@ Playback is implemented through a backend registry.
 
 ```mermaid
 flowchart TB
-    Request["Playback request"] --> Registry["Player registry"]
+    Request["Playback request"] --> Compatibility{"Station compatible?"}
+    Compatibility -->|yes| Registry["Player registry"]
+    Compatibility -->|no| Unsupported["Clear unsupported-backend message"]
+
     Registry --> Auto["auto selection"]
     Auto --> MPVAvailable{"mpv available?"}
     MPVAvailable -->|yes| MPV["MpvController"]
     MPVAvailable -->|no| FFplayAvailable{"ffplay available?"}
     FFplayAvailable -->|yes| FFPLAY["FfplayController"]
-    FFplayAvailable -->|no| Error["PlayerError"]
+    FFplayAvailable -->|no| MPGAvailable{"mpg123 available?"}
+    MPGAvailable -->|yes| MPG123["Mpg123Controller"]
+    MPGAvailable -->|no| OGGAvailable{"ogg123 available?"}
+    OGGAvailable -->|yes| OGG123["Ogg123Controller"]
+    OGGAvailable -->|no| Error["PlayerError"]
 
     MPV --> MPVProcess["mpv process"]
     FFPLAY --> FFPLAYProcess["ffplay process"]
+    MPG123 --> MPGProcess["mpg123 process"]
+    OGG123 --> OGGProcess["ogg123 process"]
     MPVProcess --> Stream["Radio stream"]
     FFPLAYProcess --> Stream
+    MPGProcess --> Stream
+    OGGProcess --> Stream
 ```
 
 Current backends:
 
-- `mpv`
-- `ffplay`
+- `mpv` — recommended general-purpose backend with richer live controls.
+- `ffplay` — general-purpose fallback focused on simple playback.
+- `mpg123` — lightweight specialized backend for MP3/MPEG streams.
+- `ogg123` — lightweight specialized backend for Ogg/Vorbis/Opus/FLAC-style streams, depending on the local `ogg123` build.
 
-`mpv` is the preferred backend because it supports richer controls. `ffplay` is a fallback focused on simple playback.
+`mpv` and `ffplay` are treated as broadly compatible backends. `mpg123` and `ogg123` are specialized backends, so FluxTuner uses declared `PlayerCapabilities` plus station metadata to filter unsupported stations where possible.
+
+## Player capabilities and station compatibility
+
+Each backend declares static capabilities through `PlayerCapabilities`.
+
+The compatibility layer lives in `fluxtuner/core/compatibility.py` and is used by `SearchService` and the frontends to avoid starting streams that are unlikely to work with the active backend.
+
+The intended behavior is:
+
+- Search results are filtered when the active backend is specialized.
+- Favorites, history and playlists are kept intact.
+- Incompatible saved stations can be marked in the UI instead of being deleted.
+- Random playback and smart playlist playback should only choose compatible stations.
+- Attempting to play an incompatible station shows a clear message suggesting `mpv` or `ffplay` for broader compatibility.
 
 ## Storage
 
@@ -159,6 +196,7 @@ Security-sensitive areas include:
 
 - Player executable resolution.
 - Stream URL validation.
+- Station/backend compatibility checks.
 - External player subprocess execution.
 - Imported JSON validation.
 - Local user data writes.

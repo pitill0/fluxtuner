@@ -9,13 +9,22 @@ from fluxtuner.players import (
 from fluxtuner.players.base import PlayerError
 
 
-def set_availability(monkeypatch, *, mpv: bool, ffplay: bool) -> None:
+def set_availability(
+    monkeypatch,
+    *,
+    mpv: bool,
+    ffplay: bool,
+    mpg123: bool = False,
+    ogg123: bool = False,
+) -> None:
     monkeypatch.setattr(PLAYER_BACKENDS["mpv"], "is_available", classmethod(lambda cls: mpv))
     monkeypatch.setattr(
         PLAYER_BACKENDS["ffplay"],
         "is_available",
         classmethod(lambda cls: ffplay),
     )
+    monkeypatch.setattr(PLAYER_BACKENDS["mpg123"], "is_available", classmethod(lambda cls: mpg123))
+    monkeypatch.setattr(PLAYER_BACKENDS["ogg123"], "is_available", classmethod(lambda cls: ogg123))
 
 
 def test_available_players_returns_available_backend_names(monkeypatch) -> None:
@@ -34,6 +43,18 @@ def test_selected_player_name_auto_falls_back_to_ffplay(monkeypatch) -> None:
     set_availability(monkeypatch, mpv=False, ffplay=True)
 
     assert selected_player_name("auto") == "ffplay"
+
+
+def test_selected_player_name_auto_falls_back_to_mpg123_after_general_backends(monkeypatch) -> None:
+    set_availability(monkeypatch, mpv=False, ffplay=False, mpg123=True)
+
+    assert selected_player_name("auto") == "mpg123"
+
+
+def test_selected_player_name_auto_falls_back_to_ogg123_last(monkeypatch) -> None:
+    set_availability(monkeypatch, mpv=False, ffplay=False, mpg123=False, ogg123=True)
+
+    assert selected_player_name("auto") == "ogg123"
 
 
 def test_selected_player_name_raises_when_no_backend_available(monkeypatch) -> None:

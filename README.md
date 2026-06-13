@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
 ![GUI](https://img.shields.io/badge/GUI-GTK4-blueviolet)
-![Player](https://img.shields.io/badge/player-mpv%20%7C%20ffplay-orange)
+![Player](https://img.shields.io/badge/player-mpv%20%7C%20ffplay%20%7C%20mpg123%20%7C%20ogg123-orange)
 ![GitHub stars](https://img.shields.io/github/stars/pitill0/fluxtuner)
 ![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
 ![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
@@ -20,7 +20,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 ## Highlights
 
 - Search internet radio stations by name, genre/tag and country.
-- Play streams through `mpv` or `ffplay` with automatic backend detection.
+- Play streams through `mpv`, `ffplay`, `mpg123` or `ogg123` with automatic backend detection.
 - Manage favorites, custom favorite names, tags and playlists.
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
@@ -52,7 +52,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 ### Requirements
 
 - Python 3.11+
-- `mpv` recommended, or `ffmpeg` / `ffplay` as fallback
+- `mpv` recommended, `ffmpeg` / `ffplay` as broad fallback, or optional lightweight `mpg123` / `ogg123` backends
 - Optional GUI dependencies: GTK4 and PyGObject
 
 ### Run from source
@@ -132,14 +132,22 @@ flowchart LR
     CLI --> Services
 
     Services --> Search["Radio Browser search"]
+    Services --> Compatibility["Station compatibility"]
     Services --> Library["Favorites, playlists, history"]
     Services --> Config["Config and playback state"]
     Services --> PlayerRegistry["Player registry"]
 
+    Search --> Compatibility
+    Compatibility --> PlayerRegistry
+
     PlayerRegistry --> MPV["mpv backend"]
     PlayerRegistry --> FFPLAY["ffplay backend"]
+    PlayerRegistry --> MPG123["mpg123 backend"]
+    PlayerRegistry --> OGG123["ogg123 backend"]
     MPV --> Streams["Online radio streams"]
     FFPLAY --> Streams
+    MPG123 --> Streams
+    OGG123 --> Streams
 
     Library --> Storage["XDG data files"]
     Config --> Storage
@@ -164,7 +172,7 @@ Issues, feature requests, screenshots, workflows and pull requests are welcome.
 A good first contribution can be as simple as:
 
 - trying FluxTuner on your Linux/macOS setup,
-- reporting whether `mpv` or `ffplay` detection works,
+- reporting whether `mpv`, `ffplay`, `mpg123` or `ogg123` detection works,
 - sharing terminal or GTK screenshots,
 - suggesting stations, playlist workflows or packaging improvements,
 - opening a small documentation or bug-fix PR.

@@ -9,6 +9,7 @@ from typing import Any
 
 from fluxtuner.logging_config import get_logger
 from fluxtuner.players.base import PlayerAdapter, PlayerError
+from fluxtuner.players.capabilities import PlayerCapabilities
 from fluxtuner.players.security import resolve_executable, validate_stream_url
 
 logger = get_logger(__name__)
@@ -30,6 +31,15 @@ class FfplayController(PlayerAdapter):
         except PlayerError:
             logger.debug("ffplay backend is not available")
             return False
+
+    @classmethod
+    def capabilities(cls) -> PlayerCapabilities:
+        return PlayerCapabilities(
+            general_purpose=True,
+            supports_pause=False,
+            supports_volume=False,
+            supports_mute=False,
+        )
 
     def play(self, url: str) -> None:
         ffplay_path = resolve_executable("ffplay")

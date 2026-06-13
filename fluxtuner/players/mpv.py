@@ -13,6 +13,7 @@ from typing import Any
 
 from fluxtuner.logging_config import get_logger
 from fluxtuner.players.base import PlayerAdapter, PlayerError
+from fluxtuner.players.capabilities import PlayerCapabilities
 from fluxtuner.players.security import resolve_executable, validate_stream_url
 
 logger = get_logger(__name__)
@@ -59,6 +60,15 @@ class MpvController(PlayerAdapter):
             return True
         except PlayerError:
             return False
+
+    @classmethod
+    def capabilities(cls) -> PlayerCapabilities:
+        return PlayerCapabilities(
+            general_purpose=True,
+            supports_pause=True,
+            supports_volume=True,
+            supports_mute=True,
+        )
 
     def play(self, url: str) -> None:
         """Play a stream URL.

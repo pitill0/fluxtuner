@@ -10,6 +10,8 @@
 ![GitHub forks](https://img.shields.io/github/forks/pitill0/fluxtuner)
 ![GitHub issues](https://img.shields.io/github/issues/pitill0/fluxtuner)
 
+**Website:** [https://fluxtuner.vjml.es](https://fluxtuner.vjml.es)
+
 FluxTuner is a modern internet radio player for the terminal and desktop.
 
 It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
@@ -108,6 +110,7 @@ fluxtuner --clear-cache
 
 | Topic | Link |
 | --- | --- |
+| Project website, overview, screenshots and quick introduction | [FluxTuner website](https://fluxtuner.vjml.es) |
 | Installation, launch modes, player backends, themes, keybindings and data storage | [Usage guide](docs/usage.md) |
 | Architecture, modules, storage and playback flow | [Architecture](docs/architecture.md) |
 | Local development, tests, quality checks and troubleshooting | [Development guide](docs/development.md) |

@@ -77,6 +77,63 @@ pipx install git+https://github.com/pitill0/fluxtuner.git
 fluxtuner
 ```
 
+### Run from source tarball
+
+You can run FluxTuner directly from a tagged source archive:
+
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.4.0.tar.gz
+    tar xvf v0.4.0.tar.gz
+    cd fluxtuner-0.4.0
+
+Install the Python dependencies required by the terminal interface.
+
+For pip-based environments:
+
+    python -m pip install requests rich textual
+
+On systems using distribution packages, install the equivalent packages instead, for example:
+
+    requests
+    rich
+    textual
+
+Then launch FluxTuner:
+
+    python -m fluxtuner
+
+For playback, make sure at least one supported player backend is installed:
+
+    mpv
+    ffplay
+    mpg123
+    ogg123
+
+`mpv` is recommended for the best general compatibility.
+
+#### GTK GUI dependencies
+
+To run the GTK interface, you also need GTK 4 and PyGObject available on your system.
+
+For pip-based environments, PyGObject may still require system GTK development/runtime packages, so distribution packages are often preferred.
+
+On Debian/Ubuntu-based systems:
+
+    sudo apt install python3-gi gir1.2-gtk-4.0
+
+On Arch Linux:
+
+    sudo pacman -S gtk4 python-gobject
+
+On systems using source-based or ports-based package managers, install the equivalent packages for:
+
+    GTK 4
+    PyGObject
+    GObject Introspection
+
+Then launch the GUI mode using the documented FluxTuner GUI option.
+
+This method is useful for testing a release quickly. For regular use, prefer the packaged installation methods when available.
+
 ### Launch modes
 
 ```bash

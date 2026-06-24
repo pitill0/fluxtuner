@@ -10,7 +10,9 @@ from typing import Any
 
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
@@ -94,33 +96,96 @@ from fluxtuner.tui_themes import (
 logger = get_logger(__name__)
 
 
+SHORTCUT_HELP_TEXT = """\
+[b]Playback[/b]
+  Space        Play / Stop
+  x            Stop
+  l            Play last station
+  r            Random favorite
+  + / -        Volume up / down
+  m            Toggle mute
+
+[b]Navigation[/b]
+  ↑ / ↓        Move selection
+  Enter        Play station / apply selected item
+  Escape       Focus results
+  /            Focus search
+
+[b]Library[/b]
+  f            Favorites
+  h            History
+  a            Add selected station to favorites
+  d            Delete favorite / remove playlist item
+  e            Rename favorite
+  g            Edit favorite tags
+  u            Filter favorites by tag
+
+[b]Playlists[/b]
+  p            Playlists
+  b            Add selected station to playlist
+  n            New playlist
+
+[b]Themes[/b]
+  t            Themes
+  y            Save current theme
+
+[b]Application[/b]
+  ?            Show / close this help
+  q            Quit
+"""
+
+
+class ShortcutHelpScreen(ModalScreen[None]):
+    """Modal help screen listing FluxTuner keyboard shortcuts."""
+
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+        Binding("question_mark", "close", "Close", key_display="?"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="shortcut-help-modal"):
+            yield Static("Keyboard Shortcuts", id="shortcut-help-title")
+            yield Static(SHORTCUT_HELP_TEXT, id="shortcut-help-body")
+            yield Static("Press Esc or ? to close", id="shortcut-help-hint")
+            yield Button("Close", id="close-shortcut-help", classes="primary-button")
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+    @on(Button.Pressed, "#close-shortcut-help")
+    def close_from_button(self) -> None:
+        self.dismiss()
+
+
 class FluxTunerTUI(App[None]):
     """Textual application for FluxTuner."""
 
     BINDINGS = [
-        ("q", "quit", "Quit"),
-        ("/", "focus_search", "Search"),
-        ("escape", "focus_station_list", "Results"),
-        ("enter", "activate_selected", "Play/apply"),
-        ("a", "add_selected", "Add"),
-        ("f", "show_favorites", "Favorites"),
-        ("h", "show_history", "History"),
-        ("l", "play_last_station", "Last"),
-        ("d", "remove_selected", "Delete fav"),
-        ("e", "edit_favorite_name", "Rename fav"),
-        ("g", "edit_favorite_tags", "Tags"),
-        ("u", "filter_favorites_by_tag", "Filter tag"),
-        ("b", "add_to_playlist", "Add playlist"),
-        ("n", "new_playlist", "New playlist"),
-        ("r", "play_random_favorite", "Random"),
-        ("space", "play_stop", "Play/Stop"),
-        ("plus", "volume_up", "Vol+"),
-        ("minus", "volume_down", "Vol-"),
-        ("m", "toggle_mute", "Mute"),
-        ("x", "stop", "Stop"),
-        ("t", "show_themes", "Themes"),
-        ("p", "show_playlists", "Playlists"),
-        ("y", "save_theme", "Save theme"),
+        Binding("space", "play_stop", "Play/Stop"),
+        Binding("/", "focus_search", "Search"),
+        Binding("f", "show_favorites", "Favorites"),
+        Binding("question_mark", "show_shortcuts", "Help", key_display="?"),
+        Binding("q", "quit", "Quit"),
+        Binding("escape", "focus_station_list", "Results", show=False),
+        Binding("enter", "activate_selected", "Play/apply", show=False),
+        Binding("a", "add_selected", "Add", show=False),
+        Binding("h", "show_history", "History", show=False),
+        Binding("l", "play_last_station", "Last", show=False),
+        Binding("d", "remove_selected", "Delete fav", show=False),
+        Binding("e", "edit_favorite_name", "Rename fav", show=False),
+        Binding("g", "edit_favorite_tags", "Tags", show=False),
+        Binding("u", "filter_favorites_by_tag", "Filter tag", show=False),
+        Binding("b", "add_to_playlist", "Add playlist", show=False),
+        Binding("n", "new_playlist", "New playlist", show=False),
+        Binding("r", "play_random_favorite", "Random", show=False),
+        Binding("plus", "volume_up", "Vol+", show=False),
+        Binding("minus", "volume_down", "Vol-", show=False),
+        Binding("m", "toggle_mute", "Mute", show=False),
+        Binding("x", "stop", "Stop", show=False),
+        Binding("t", "show_themes", "Themes", show=False),
+        Binding("p", "show_playlists", "Playlists", show=False),
+        Binding("y", "save_theme", "Save theme", show=False),
     ]
 
     def __init__(self, theme: str | None = None, player_name: str = "mpv") -> None:
@@ -194,7 +259,7 @@ class FluxTunerTUI(App[None]):
                 )
                 yield Button("Edit tags", id="edit-tags", classes="side-button secondary-button")
         yield Static(
-            "Ready. Press '/' search, 'f' favorites, 'h' history, 'p' playlists, 'b' add to playlist, 't' themes, Space play/stop, +/- volume.",
+            "Ready. Press Space play/stop, '/' search, 'f' favorites, '?' help, 'q' quit.",
             id="status",
         )
         yield Footer()
@@ -255,6 +320,10 @@ class FluxTunerTUI(App[None]):
             self.set_status(
                 "Station list focused. Use Enter to play, f favorites, h history, p playlists, a add, r random."
             )
+
+    def action_show_shortcuts(self) -> None:
+        self.push_screen(ShortcutHelpScreen())
+        self.set_status("Opened keyboard shortcuts help.")
 
     async def action_show_favorites(self) -> None:
         if self.view_mode == "playlists" and self.selected_playlist:

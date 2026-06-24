@@ -207,3 +207,39 @@ Button:hover {
     color: #eceff4;
     border: round #bf616a;
 }
+
+ShortcutHelpScreen {
+    align: center middle;
+}
+
+#shortcut-help-modal {
+    width: 72;
+    max-width: 90%;
+    max-height: 90%;
+    padding: 1 2;
+    border: round #88c0d0;
+    background: #3b4252;
+    color: #eceff4;
+}
+
+#shortcut-help-title {
+    height: 1;
+    margin-bottom: 1;
+    content-align: center middle;
+    text-style: bold;
+    color: #88c0d0;
+}
+
+#shortcut-help-body {
+    width: 100%;
+    background: #2e3440;
+    color: #eceff4;
+}
+
+#shortcut-help-hint {
+    height: 1;
+    margin-top: 1;
+    margin-bottom: 1;
+    content-align: center middle;
+    color: #d8dee9;
+}

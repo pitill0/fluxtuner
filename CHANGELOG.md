@@ -10,11 +10,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added a Textual TUI keyboard shortcuts help modal, available with `?`.
 
 ### Changed
 
-- Nothing yet.
+- Reduced the visible TUI footer shortcuts to the most important actions.
 
 ### Fixed
 

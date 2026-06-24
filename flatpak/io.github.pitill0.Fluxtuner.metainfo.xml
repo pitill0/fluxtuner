@@ -81,6 +81,18 @@
 
   <releases>
 
+    <release version="0.5.0" date="2026-06-24">
+      <description>
+        <ul>
+          <li>Added a Textual TUI keyboard shortcuts help modal, available with the ? key.</li>
+          <li>Reduced visible TUI footer shortcuts to the most important actions.</li>
+          <li>Made the shortcuts help content scrollable for smaller terminals.</li>
+          <li>Improved the first-run terminal experience with a cleaner main interface.</li>
+          <li>Updated release metadata for FluxTuner 0.5.0.</li>
+        </ul>
+      </description>
+    </release>
+
 
     <release version="0.4.0" date="2026-06-13">
       <description>

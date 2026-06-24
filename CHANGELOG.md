@@ -4,9 +4,25 @@ All notable changes to FluxTuner will be documented in this file.
 
 The format is inspired by Keep a Changelog, and this project uses semantic versioning where possible.
 
+ ---
+
+## Unreleased
+   
+### Added
+
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
 ---
 
-## [Unreleased]
+## 0.5.0 - 2026-06-24
 
 ### Added
 

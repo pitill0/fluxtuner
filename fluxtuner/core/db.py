@@ -546,18 +546,21 @@ def replace_favorites(
 
 
 def history_from_row(row: sqlite3.Row) -> dict[str, Any]:
-    """Return a history station dict from a joined history/station row."""
+    """Return a history station dict from a joined history/station row.
+
+    History entries are snapshots. FluxTuner 0.6.0 returned the saved JSON item
+    mostly as-is, so migrated history should not grow station defaults such as
+    codec, bitrate or url_resolved unless they were already present.
+    """
     try:
         snapshot = json.loads(str(row["station_snapshot_json"] or "{}"))
     except json.JSONDecodeError:
         snapshot = {}
 
-    if not isinstance(snapshot, dict):
-        snapshot = {}
+    if isinstance(snapshot, dict) and snapshot:
+        return dict(snapshot)
 
     station = station_from_row(row)
-    station.update(snapshot)
-
     station["last_played_at"] = str(row["last_played_at"] or "")
     station["play_count"] = _safe_int(row["play_count"])
 
@@ -612,7 +615,22 @@ def add_history_record(
     active_profile_id = profile_id or ensure_default_profile(conn)
     station_id = upsert_station(conn, station)
     timestamp = played_at or utc_now()
-    snapshot = station_metadata(station)
+
+    previous = conn.execute(
+        """
+        SELECT play_count
+        FROM history_entries
+        WHERE profile_id = ?
+          AND station_id = ?
+        """,
+        (active_profile_id, station_id),
+    ).fetchone()
+    play_count = _safe_int(previous["play_count"]) + 1 if previous is not None else 1
+
+    snapshot_data = dict(station)
+    snapshot_data["last_played_at"] = timestamp
+    snapshot_data["play_count"] = play_count
+    snapshot = station_metadata(snapshot_data)
 
     conn.execute(
         """
@@ -623,16 +641,17 @@ def add_history_record(
             play_count,
             station_snapshot_json
         )
-        VALUES (?, ?, ?, 1, ?)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(profile_id, station_id) DO UPDATE SET
             last_played_at = excluded.last_played_at,
-            play_count = history_entries.play_count + 1,
+            play_count = excluded.play_count,
             station_snapshot_json = excluded.station_snapshot_json
         """,
         (
             active_profile_id,
             station_id,
             timestamp,
+            play_count,
             snapshot,
         ),
     )

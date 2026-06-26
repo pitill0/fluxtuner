@@ -87,6 +87,15 @@ function updatePlayerControls() {
   } else {
     playerToggleButton.textContent = "Pause";
   }
+
+  if (playerOpenLink) {
+    const hasStream = Boolean(currentStation && stationUrl(currentStation));
+    playerOpenLink.hidden = !hasStream;
+
+    if (!hasStream) {
+      playerOpenLink.removeAttribute("href");
+    }
+  }
 }
 
 async function playStation(station) {
@@ -188,7 +197,7 @@ function renderStation(station) {
         }
         ${
           streamUrl
-            ? `<a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Open stream</a>`
+            ? `<a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
             : ""
         }
         ${

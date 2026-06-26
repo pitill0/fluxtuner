@@ -81,9 +81,9 @@ fluxtuner
 
 You can run FluxTuner directly from a tagged source archive:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.6.0.tar.gz
-    tar xvf v0.6.0.tar.gz
-    cd fluxtuner-0.6.0
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.7.0.tar.gz
+    tar xvf v0.7.0.tar.gz
+    cd fluxtuner-0.7.0
 
 Install the Python dependencies required by the terminal interface.
 

@@ -10,6 +10,22 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+---
+
+## 0.7.0 - 2026-06-26
+
+### Added
+
 - Added a SQLite storage foundation with schema migrations and an internal `default` profile.
 - Added SQLite persistence helpers for normalized stations, favorites, playback history and manual playlists.
 

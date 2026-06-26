@@ -142,9 +142,9 @@ fluxtuner --gui        # GTK4 desktop GUI
 fluxtuner --cli        # legacy numbered CLI
 ```
 
-### Experimental web interface
+### Web/server mode
 
-FluxTuner includes an experimental web/server mode:
+FluxTuner includes an browser-based web/server mode:
 
 ```bash
 python -m pip install -e ".[web]"

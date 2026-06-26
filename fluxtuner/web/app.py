@@ -81,7 +81,7 @@ def create_app() -> Any:
     app = FastAPI(
         title=f"{__app_name__} Web",
         version=__version__,
-        description="Experimental FluxTuner web/server interface.",
+        description="FluxTuner web/server interface.",
     )
 
     static_dir = resources.files("fluxtuner.web").joinpath("static")

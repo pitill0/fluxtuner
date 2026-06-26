@@ -14,16 +14,19 @@
         <p class="eyebrow">Web/server mode</p>
         <h1 id="page-title">FluxTuner Web</h1>
         <p class="lede">
-          A lightweight browser-based server mode for FluxTuner. Search internet radio
-          stations and play streams directly from your browser.
+          Search, play, favorite and organize internet radio from any browser.
         </p>
 
-        <div class="actions">
-          <button type="button" data-health-check>Check server</button>
-          <a href="/api/health">Open health endpoint</a>
-        </div>
+        <details class="server-tools">
+          <summary>Server tools</summary>
 
-        <pre class="status" data-status>Server status: not checked yet.</pre>
+          <div class="actions">
+            <button type="button" data-health-check>Check server</button>
+            <a href="/api/health">Open health endpoint</a>
+          </div>
+
+          <pre class="status" data-status>Server status: not checked yet.</pre>
+        </details>
       </section>
 
       <section class="panel" aria-labelledby="search-title">
@@ -32,12 +35,12 @@
             <p class="eyebrow" data-results-kicker>Radio Browser</p>
             <h2 id="search-title" data-results-title>Search stations</h2>
           </div>
-        
+
           <div class="panel-tools">
             <p data-result-count>No search yet.</p>
             <button type="button" data-load-history>Load history</button>
             <button type="button" data-load-favorites>Load favorites</button>
-  <button type="button" data-load-playlists>Load playlists</button>
+            <button type="button" data-load-playlists>Load playlists</button>
           </div>
         </div>
 

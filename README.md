@@ -12,7 +12,7 @@
 
 **Website:** [https://fluxtuner.vjml.es](https://fluxtuner.vjml.es)
 
-FluxTuner is a modern internet radio player for the terminal and desktop.
+FluxTuner is a modern internet radio player for the terminal, desktop and web.
 
 It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
 

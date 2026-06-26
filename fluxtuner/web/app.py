@@ -5,6 +5,7 @@ from importlib import resources
 from typing import Any
 
 from fluxtuner import __app_name__, __version__
+from fluxtuner.core.api import search_stations_filtered
 
 
 def _missing_web_dependency_message() -> str:
@@ -20,10 +21,25 @@ def _read_template(name: str) -> str:
     )
 
 
+def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": station.get("name") or "Unknown station",
+        "url": station.get("url") or "",
+        "url_resolved": station.get("url_resolved") or station.get("url") or "",
+        "country": station.get("country") or "Unknown",
+        "countrycode": station.get("countrycode") or "",
+        "tags": station.get("tags") or "",
+        "codec": station.get("codec") or "",
+        "bitrate": int(station.get("bitrate") or 0),
+        "homepage": station.get("homepage") or "",
+        "language": station.get("language") or "",
+    }
+
+
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import FastAPI
+        from fastapi import FastAPI, Query
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
     except ImportError as exc:
@@ -53,6 +69,33 @@ def create_app() -> Any:
             "app": __app_name__,
             "version": __version__,
             "mode": "web",
+        }
+
+    @app.get("/api/search")
+    def search(
+        q: str = Query(default="", max_length=120),
+        country: str = Query(default="", max_length=80),
+        min_bitrate: int = Query(default=0, ge=0, le=1000),
+        limit: int = Query(default=25, ge=1, le=50),
+    ) -> dict[str, Any]:
+        query = q.strip()
+        country_filter = country.strip() or None
+        bitrate_filter = min_bitrate if min_bitrate > 0 else None
+
+        stations = search_stations_filtered(
+            query=query,
+            country=country_filter,
+            min_bitrate=bitrate_filter,
+            limit=limit,
+        )
+
+        return {
+            "query": query,
+            "country": country_filter or "",
+            "min_bitrate": min_bitrate,
+            "limit": limit,
+            "count": len(stations),
+            "stations": [_station_payload(station) for station in stations],
         }
 
     return app

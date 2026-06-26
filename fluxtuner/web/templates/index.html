@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FluxTuner Web</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/styles.css">
     <script src="/static/app.js" defer></script>
   </head>
@@ -13,8 +14,8 @@
         <p class="eyebrow">Experimental web/server mode</p>
         <h1 id="page-title">FluxTuner Web</h1>
         <p class="lede">
-          A lightweight browser interface for FluxTuner. This first cut only
-          proves the server, static assets and API skeleton.
+          A lightweight browser interface for FluxTuner. Search internet radio
+          stations from your browser and prepare them for browser playback.
         </p>
 
         <div class="actions">
@@ -25,14 +26,55 @@
         <pre class="status" data-status>Server status: not checked yet.</pre>
       </section>
 
-      <section class="panel" aria-labelledby="next-title">
-        <h2 id="next-title">Next steps</h2>
-        <ul>
-          <li>Search stations through the existing Radio Browser backend.</li>
-          <li>Play streams in the browser using HTML audio.</li>
-          <li>Add favorites, history and playlists.</li>
-          <li>Prepare Docker and Podman deployment.</li>
-        </ul>
+      <section class="panel" aria-labelledby="search-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Radio Browser</p>
+            <h2 id="search-title">Search stations</h2>
+          </div>
+          <p data-result-count>No search yet.</p>
+        </div>
+
+        <form class="search-form" data-search-form>
+          <label>
+            <span>Search</span>
+            <input
+              name="q"
+              type="search"
+              placeholder="Station name or genre/tag"
+              autocomplete="off"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Country</span>
+            <input
+              name="country"
+              type="search"
+              placeholder="Optional, e.g. Spain or ES"
+              autocomplete="off"
+            >
+          </label>
+
+          <label>
+            <span>Min kbps</span>
+            <input
+              name="min_bitrate"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              value="0"
+            >
+          </label>
+
+          <button type="submit">Search</button>
+        </form>
+
+        <div class="results" data-results>
+          <p class="empty">Search for a station, genre or tag to see results here.</p>
+        </div>
       </section>
 
       <footer>

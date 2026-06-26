@@ -15,7 +15,7 @@
         <h1 id="page-title">FluxTuner Web</h1>
         <p class="lede">
           A lightweight browser interface for FluxTuner. Search internet radio
-          stations from your browser and prepare them for browser playback.
+          stations and play streams directly from your browser.
         </p>
 
         <div class="actions">
@@ -81,5 +81,23 @@
         FluxTuner __FLUXTUNER_VERSION__
       </footer>
     </main>
+
+    <aside class="player-bar" data-player-bar aria-live="polite">
+      <div class="player-info">
+        <p class="eyebrow">Browser playback</p>
+        <h2 data-player-title>Nothing playing yet</h2>
+        <p data-player-status>Idle</p>
+      </div>
+
+      <div class="player-actions">
+        <button type="button" data-player-toggle disabled>Pause</button>
+        <button type="button" data-player-stop disabled>Stop</button>
+        <a href="#" data-player-open target="_blank" rel="noopener noreferrer" hidden>
+          Open stream
+        </a>
+      </div>
+
+      <audio data-audio preload="none"></audio>
+    </aside>
   </body>
 </html>

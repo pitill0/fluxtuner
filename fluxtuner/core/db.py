@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from fluxtuner.core.stations import station_key, station_name
 from fluxtuner.paths import data_file
 
 DB_FILE = data_file("fluxtuner.db")
@@ -192,3 +195,152 @@ def table_names(conn: sqlite3.Connection) -> set[str]:
         """
     ).fetchall()
     return {str(row["name"]) for row in rows}
+
+def _clean_text(value: Any) -> str | None:
+    if value is None:
+        return None
+
+    clean_value = str(value).strip()
+    return clean_value or None
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def station_metadata(station: dict[str, Any]) -> str:
+    """Serialize a station dict for lossless-ish metadata preservation."""
+    return json.dumps(
+        station,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+
+
+def upsert_station(conn: sqlite3.Connection, station: dict[str, Any]) -> int:
+    """Insert or update a station and return its database id.
+
+    FluxTuner 0.6.0 identifies saved stations by the playable URL returned by
+    station_key(). SQLite keeps that same key so existing favorites, history and
+    playlists can migrate without changing user-visible behavior.
+    """
+    key = station_key(station)
+    if not key:
+        raise ValueError("Station URL is required.")
+
+    now = utc_now()
+    url = _clean_text(station.get("url")) or key
+    url_resolved = _clean_text(station.get("url_resolved")) or url
+
+    conn.execute(
+        """
+        INSERT INTO stations (
+            station_key,
+            stationuuid,
+            name,
+            url,
+            url_resolved,
+            homepage,
+            favicon,
+            country,
+            countrycode,
+            language,
+            tags,
+            codec,
+            bitrate,
+            metadata_json,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(station_key) DO UPDATE SET
+            stationuuid = excluded.stationuuid,
+            name = excluded.name,
+            url = excluded.url,
+            url_resolved = excluded.url_resolved,
+            homepage = excluded.homepage,
+            favicon = excluded.favicon,
+            country = excluded.country,
+            countrycode = excluded.countrycode,
+            language = excluded.language,
+            tags = excluded.tags,
+            codec = excluded.codec,
+            bitrate = excluded.bitrate,
+            metadata_json = excluded.metadata_json,
+            updated_at = excluded.updated_at
+        """,
+        (
+            key,
+            _clean_text(station.get("stationuuid")),
+            station_name(station),
+            url,
+            url_resolved,
+            _clean_text(station.get("homepage")),
+            _clean_text(station.get("favicon")),
+            _clean_text(station.get("country")),
+            _clean_text(station.get("countrycode")),
+            _clean_text(station.get("language")),
+            _clean_text(station.get("tags")),
+            _clean_text(station.get("codec")),
+            _safe_int(station.get("bitrate")),
+            station_metadata(station),
+            now,
+            now,
+        ),
+    )
+
+    row = conn.execute(
+        "SELECT id FROM stations WHERE station_key = ?",
+        (key,),
+    ).fetchone()
+
+    if row is None:
+        raise RuntimeError("Could not persist station.")
+
+    return int(row["id"])
+
+
+def station_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    """Return a FluxTuner station dict from a stations row."""
+    try:
+        metadata = json.loads(str(row["metadata_json"] or "{}"))
+    except json.JSONDecodeError:
+        metadata = {}
+
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    station = dict(metadata)
+
+    station["stationuuid"] = row["stationuuid"] or station.get("stationuuid") or ""
+    station["name"] = row["name"] or station.get("name") or "Unknown station"
+    station["url"] = row["url"] or station.get("url") or ""
+    station["url_resolved"] = row["url_resolved"] or station.get("url_resolved") or station["url"]
+    station["homepage"] = row["homepage"] or station.get("homepage") or ""
+    station["favicon"] = row["favicon"] or station.get("favicon") or ""
+    station["country"] = row["country"] or station.get("country") or ""
+    station["countrycode"] = row["countrycode"] or station.get("countrycode") or ""
+    station["language"] = row["language"] or station.get("language") or ""
+    station["tags"] = row["tags"] or station.get("tags") or ""
+    station["codec"] = row["codec"] or station.get("codec") or ""
+    station["bitrate"] = _safe_int(row["bitrate"])
+
+    return station
+
+
+def get_station_by_key(conn: sqlite3.Connection, key: str) -> dict[str, Any] | None:
+    """Load a station by FluxTuner station key."""
+    row = conn.execute(
+        "SELECT * FROM stations WHERE station_key = ?",
+        (key,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return station_from_row(row)
+

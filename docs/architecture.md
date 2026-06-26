@@ -37,8 +37,8 @@ flowchart LR
     MPG123 --> Streams
     OGG123 --> Streams
 
-    Library --> DataStorage["XDG data files"]
-    Usage --> DataStorage
+    Library --> LibraryDB["SQLite library database"]
+    Usage --> DataStorage["XDG data files"]
     Config --> ConfigStorage["XDG config file"]
     Search --> CacheStorage["XDG cache file"]
 ```
@@ -83,6 +83,7 @@ fluxtuner/core/
   api.py                   Radio Browser API integration
   cache.py                 Search cache
   data_usage.py            Playback data usage tracking
+  db.py                    SQLite schema and persistence helpers
   favorites.py             Favorites persistence and updates
   history.py               Playback history
   importers.py             Import validation for favorites/playlists
@@ -91,7 +92,7 @@ fluxtuner/core/
   compatibility.py         Station/backend compatibility helpers
   search_service.py        Shared station search service
   stations.py              Station normalization helpers
-  storage.py               Atomic JSON writes
+  storage.py               Atomic JSON writes for remaining JSON files
   stream_metadata.py       ICY stream metadata parsing
 ```
 
@@ -166,13 +167,27 @@ The intended behavior is:
 
 FluxTuner uses XDG-style paths through `fluxtuner.paths`.
 
-Default locations:
+The primary local library store is SQLite:
+
+```text
+~/.local/share/fluxtuner/fluxtuner.db
+```
+
+The SQLite database stores the default profile library:
+
+- normalized stations
+- favorites
+- playback history
+- manual playlists
+
+FluxTuner currently creates a single internal profile named `default`. This keeps
+the current single-user UX unchanged while preparing the storage model for future
+profile or user-aware features.
+
+Other local files remain JSON-based:
 
 ```text
 ~/.config/fluxtuner/config.json
-~/.local/share/fluxtuner/favorites.json
-~/.local/share/fluxtuner/playlists.json
-~/.local/share/fluxtuner/history.json
 ~/.local/share/fluxtuner/usage.json
 ~/.cache/fluxtuner/search_cache.json
 ```
@@ -182,6 +197,25 @@ These paths respect:
 - `XDG_CONFIG_HOME`
 - `XDG_DATA_HOME`
 - `XDG_CACHE_HOME`
+
+`FLUXTUNER_DATA_DIR` overrides the data directory used for `fluxtuner.db`,
+`usage.json` and migration source files. It does not override config or cache
+locations.
+
+Legacy library files are migrated conservatively:
+
+```text
+~/.local/share/fluxtuner/favorites.json
+~/.local/share/fluxtuner/playlists.json
+~/.local/share/fluxtuner/history.json
+```
+
+Older dotfiles such as `~/.fluxtuner_favorites.json`,
+`~/.fluxtuner_playlists.json` and `~/.fluxtuner_history.json` are copied into
+the current XDG data directory when needed. The JSON files are then imported into
+SQLite once and kept in place instead of being deleted.
+
+Import and export commands still use JSON as the external interchange format.
 
 Local JSON writes should use atomic persistence helpers where possible.
 

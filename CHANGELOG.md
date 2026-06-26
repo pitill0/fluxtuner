@@ -10,15 +10,18 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added a SQLite storage foundation with schema migrations and an internal `default` profile.
+- Added SQLite persistence helpers for normalized stations, favorites, playback history and manual playlists.
 
 ### Changed
 
-- Nothing yet.
+- Moved favorites, playback history and manual playlists from active JSON storage to `fluxtuner.db`.
+- Kept existing public APIs and JSON import/export commands compatible while migrating legacy JSON files conservatively.
+- Updated storage documentation to describe SQLite as the primary library store.
 
 ### Fixed
 
-- Nothing yet.
+- Preserved history snapshot compatibility during JSON-to-SQLite migration.
 
 ---
 

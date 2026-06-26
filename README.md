@@ -27,7 +27,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
 - Run either the default Textual TUI, the GTK4 desktop GUI or the legacy numbered CLI.
-- Store user data in XDG-style config, data and cache locations.
+- Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
 ---
 
@@ -235,8 +235,8 @@ flowchart LR
     MPG123 --> Streams
     OGG123 --> Streams
 
-    Library --> Storage["XDG data files"]
-    Config --> Storage
+    Library --> Storage["SQLite library database"]
+    Config --> ConfigStorage["XDG config file"]
 ```
 
 See the full design notes in [docs/architecture.md](docs/architecture.md).

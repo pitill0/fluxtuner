@@ -49,14 +49,18 @@ By default, FluxTuner stores user data in the XDG data directory:
 ~/.local/share/fluxtuner
 ```
 
-FluxTuner Web uses the same data model as the other interfaces, so the following
-files can be shared across TUI, GTK, CLI, and Web:
+FluxTuner Web uses the same SQLite library database as the TUI, GTK and CLI
+interfaces:
 
 ```text
-history.json
-favorites.json
-playlists.json
+fluxtuner.db
 ```
+
+The shared database contains favorites, playback history, manual playlists and
+normalized station records for the internal `default` profile.
+
+Legacy JSON library files are still supported as migration sources, but the
+active library store is `fluxtuner.db`.
 
 ## Use a separate data directory
 

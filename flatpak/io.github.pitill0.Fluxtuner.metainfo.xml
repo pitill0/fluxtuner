@@ -81,6 +81,18 @@
 
   <releases>
 
+    <release version="0.6.0" date="2026-06-26">
+      <description>
+        <ul>
+          <li>Updated release metadata for FluxTuner 0.6.0.</li>
+          <li>Improved shared data directory handling for isolated profiles and container workflows.</li>
+          <li>Added source-level web/server mode documentation and packaging notes.</li>
+          <li>Improved project documentation for web, container and multi-interface usage.</li>
+          <li>Kept the Flatpak package focused on the GTK and terminal interfaces.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.5.0" date="2026-06-24">
       <description>
         <ul>

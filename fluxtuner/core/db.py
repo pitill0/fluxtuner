@@ -543,3 +543,151 @@ def replace_favorites(
     for favorite in favorites:
         if station_key(favorite):
             add_favorite_record(conn, favorite, active_profile_id)
+
+
+def history_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    """Return a history station dict from a joined history/station row."""
+    try:
+        snapshot = json.loads(str(row["station_snapshot_json"] or "{}"))
+    except json.JSONDecodeError:
+        snapshot = {}
+
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+
+    station = station_from_row(row)
+    station.update(snapshot)
+
+    station["last_played_at"] = str(row["last_played_at"] or "")
+    station["play_count"] = _safe_int(row["play_count"])
+
+    return station
+
+
+def list_history(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 100,
+    profile_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return profile history, newest first."""
+    active_profile_id = profile_id or ensure_default_profile(conn)
+    safe_limit = max(0, int(limit))
+
+    rows = conn.execute(
+        """
+        SELECT
+            stations.*,
+            history_entries.last_played_at,
+            history_entries.play_count,
+            history_entries.station_snapshot_json
+        FROM history_entries
+        JOIN stations ON stations.id = history_entries.station_id
+        WHERE history_entries.profile_id = ?
+        ORDER BY history_entries.last_played_at DESC, history_entries.id DESC
+        LIMIT ?
+        """,
+        (active_profile_id, safe_limit),
+    ).fetchall()
+
+    return [history_from_row(row) for row in rows]
+
+
+def add_history_record(
+    conn: sqlite3.Connection,
+    station: dict[str, Any],
+    *,
+    played_at: str | None = None,
+    profile_id: int | None = None,
+) -> None:
+    """Insert or update one history entry for a station.
+
+    FluxTuner history keeps one row per station and increments play_count on
+    repeated plays. It is not a raw play-event log.
+    """
+    key = station_key(station)
+    if not key:
+        return
+
+    active_profile_id = profile_id or ensure_default_profile(conn)
+    station_id = upsert_station(conn, station)
+    timestamp = played_at or utc_now()
+    snapshot = station_metadata(station)
+
+    conn.execute(
+        """
+        INSERT INTO history_entries (
+            profile_id,
+            station_id,
+            last_played_at,
+            play_count,
+            station_snapshot_json
+        )
+        VALUES (?, ?, ?, 1, ?)
+        ON CONFLICT(profile_id, station_id) DO UPDATE SET
+            last_played_at = excluded.last_played_at,
+            play_count = history_entries.play_count + 1,
+            station_snapshot_json = excluded.station_snapshot_json
+        """,
+        (
+            active_profile_id,
+            station_id,
+            timestamp,
+            snapshot,
+        ),
+    )
+
+
+def replace_history(
+    conn: sqlite3.Connection,
+    history: list[dict[str, Any]],
+    *,
+    limit: int = 100,
+    profile_id: int | None = None,
+) -> None:
+    """Replace profile history with the provided station dictionaries."""
+    active_profile_id = profile_id or ensure_default_profile(conn)
+
+    conn.execute(
+        "DELETE FROM history_entries WHERE profile_id = ?",
+        (active_profile_id,),
+    )
+
+    for item in history[:limit]:
+        if not station_key(item):
+            continue
+
+        station_id = upsert_station(conn, item)
+        last_played_at = str(item.get("last_played_at") or utc_now())
+
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO history_entries (
+                profile_id,
+                station_id,
+                last_played_at,
+                play_count,
+                station_snapshot_json
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                active_profile_id,
+                station_id,
+                last_played_at,
+                max(1, _safe_int(item.get("play_count"))),
+                station_metadata(item),
+            ),
+        )
+
+
+def clear_history_records(
+    conn: sqlite3.Connection,
+    profile_id: int | None = None,
+) -> None:
+    """Clear profile history."""
+    active_profile_id = profile_id or ensure_default_profile(conn)
+    conn.execute(
+        "DELETE FROM history_entries WHERE profile_id = ?",
+        (active_profile_id,),
+    )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404
 from contextlib import suppress
 from typing import Any
 
@@ -52,7 +52,7 @@ class Mpg123Controller(PlayerAdapter):
             logger.debug("Ignoring mpg123 stop error before starting new playback", exc_info=True)
 
         logger.debug("Starting mpg123 playback")
-        self.process = subprocess.Popen(  # noqa: S603
+        self.process = subprocess.Popen(  # noqa: S603  # nosec B603
             [player_path, "-q", safe_url],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

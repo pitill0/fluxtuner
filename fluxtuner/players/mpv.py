@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import socket
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 import time
 from contextlib import suppress
@@ -40,7 +40,7 @@ def play_stream(url: str) -> None:
 
     logger.debug("Starting blocking mpv playback")
     with suppress(KeyboardInterrupt):
-        subprocess.run([mpv_path, "--no-video", safe_url], check=False)  # noqa: S603
+        subprocess.run([mpv_path, "--no-video", safe_url], check=False)  # noqa: S603  # nosec B603
     logger.debug("Blocking mpv playback finished")
 
 
@@ -87,7 +87,7 @@ class MpvController(PlayerAdapter):
             return
 
         self.ipc_path = self._new_ipc_path()
-        self.process = subprocess.Popen(  # noqa: S603
+        self.process = subprocess.Popen(  # noqa: S603  # nosec B603
             [
                 mpv_path,
                 "--no-video",

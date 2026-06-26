@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404
 from typing import Any
 
 from fluxtuner.logging_config import get_logger
@@ -64,7 +64,7 @@ class FfplayController(PlayerAdapter):
         ]
 
         logger.debug("Starting ffplay playback")
-        self.process = subprocess.Popen(  # noqa: S603
+        self.process = subprocess.Popen(  # noqa: S603  # nosec B603
             command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

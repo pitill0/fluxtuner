@@ -6,6 +6,7 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core.api import search_stations_filtered
+from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
 
 
@@ -22,44 +23,46 @@ def _read_template(name: str) -> str:
     )
 
 
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _favorite_tags_payload(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
 def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
     return {
-        "name": station.get("name") or "Unknown station",
-        "url": station.get("url") or "",
-        "url_resolved": station.get("url_resolved") or station.get("url") or "",
-        "country": station.get("country") or "Unknown",
-        "countrycode": station.get("countrycode") or "",
-        "tags": station.get("tags") or "",
-        "codec": station.get("codec") or "",
-        "bitrate": int(station.get("bitrate") or 0),
-        "homepage": station.get("homepage") or "",
-        "language": station.get("language") or "",
-        "last_played_at": station.get("last_played_at") or "",
-        "play_count": int(station.get("play_count") or 0),
+        "name": str(station.get("name") or "Unknown station"),
+        "url": str(station.get("url") or ""),
+        "url_resolved": str(station.get("url_resolved") or station.get("url") or ""),
+        "country": str(station.get("country") or "Unknown"),
+        "countrycode": str(station.get("countrycode") or ""),
+        "tags": str(station.get("tags") or ""),
+        "codec": str(station.get("codec") or ""),
+        "bitrate": _safe_int(station.get("bitrate")),
+        "homepage": str(station.get("homepage") or ""),
+        "language": str(station.get("language") or ""),
+        "last_played_at": str(station.get("last_played_at") or ""),
+        "play_count": _safe_int(station.get("play_count")),
+        "custom_name": str(station.get("custom_name") or ""),
+        "favorite_tags": _favorite_tags_payload(station.get("favorite_tags")),
     }
 
 
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import FastAPI, Query
+        from fastapi import Body, FastAPI, HTTPException, Query
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
-        from pydantic import BaseModel, Field
     except ImportError as exc:
         raise RuntimeError(_missing_web_dependency_message()) from exc
-
-    class StationPayload(BaseModel):
-        name: str = Field(default="Unknown station", max_length=240)
-        url: str = Field(default="", max_length=4096)
-        url_resolved: str = Field(default="", max_length=4096)
-        country: str = Field(default="Unknown", max_length=120)
-        countrycode: str = Field(default="", max_length=8)
-        tags: str = Field(default="", max_length=1000)
-        codec: str = Field(default="", max_length=40)
-        bitrate: int = Field(default=0, ge=0, le=10000)
-        homepage: str = Field(default="", max_length=4096)
-        language: str = Field(default="", max_length=200)
 
     app = FastAPI(
         title=f"{__app_name__} Web",
@@ -124,13 +127,51 @@ def create_app() -> Any:
         }
 
     @app.post("/api/history")
-    def record_history(station: StationPayload) -> dict[str, Any]:
-        station_data = station.model_dump()
+    def record_history(station: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        station_data = _station_payload(station)
+
+        if not station_data["url"]:
+            raise HTTPException(status_code=400, detail="Station URL is required.")
+
         add_history(station_data)
 
         return {
             "status": "ok",
-            "station": _station_payload(station_data),
+            "station": station_data,
+        }
+
+    @app.get("/api/favorites")
+    def favorites() -> dict[str, Any]:
+        stations = load_favorites()
+
+        return {
+            "count": len(stations),
+            "stations": [_station_payload(station) for station in stations],
+        }
+
+    @app.post("/api/favorites")
+    def create_favorite(station: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        station_data = _station_payload(station)
+
+        if not station_data["url"]:
+            raise HTTPException(status_code=400, detail="Station URL is required.")
+
+        added = add_favorite(station_data)
+
+        return {
+            "status": "ok",
+            "added": added,
+            "station": station_data,
+        }
+
+    @app.delete("/api/favorites")
+    def delete_favorite(url: str = Query(..., min_length=1, max_length=4096)) -> dict[str, Any]:
+        removed = remove_favorite(url)
+
+        return {
+            "status": "ok",
+            "removed": removed,
+            "url": url,
         }
 
     return app

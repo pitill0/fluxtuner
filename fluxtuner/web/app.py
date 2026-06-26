@@ -6,6 +6,7 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core.api import search_stations_filtered
+from fluxtuner.core.history import add_history, load_history
 
 
 def _missing_web_dependency_message() -> str:
@@ -33,6 +34,8 @@ def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
         "bitrate": int(station.get("bitrate") or 0),
         "homepage": station.get("homepage") or "",
         "language": station.get("language") or "",
+        "last_played_at": station.get("last_played_at") or "",
+        "play_count": int(station.get("play_count") or 0),
     }
 
 
@@ -42,8 +45,21 @@ def create_app() -> Any:
         from fastapi import FastAPI, Query
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
+        from pydantic import BaseModel, Field
     except ImportError as exc:
         raise RuntimeError(_missing_web_dependency_message()) from exc
+
+    class StationPayload(BaseModel):
+        name: str = Field(default="Unknown station", max_length=240)
+        url: str = Field(default="", max_length=4096)
+        url_resolved: str = Field(default="", max_length=4096)
+        country: str = Field(default="Unknown", max_length=120)
+        countrycode: str = Field(default="", max_length=8)
+        tags: str = Field(default="", max_length=1000)
+        codec: str = Field(default="", max_length=40)
+        bitrate: int = Field(default=0, ge=0, le=10000)
+        homepage: str = Field(default="", max_length=4096)
+        language: str = Field(default="", max_length=200)
 
     app = FastAPI(
         title=f"{__app_name__} Web",
@@ -96,6 +112,25 @@ def create_app() -> Any:
             "limit": limit,
             "count": len(stations),
             "stations": [_station_payload(station) for station in stations],
+        }
+
+    @app.get("/api/history")
+    def history(limit: int = Query(default=25, ge=1, le=100)) -> dict[str, Any]:
+        stations = load_history()[:limit]
+
+        return {
+            "count": len(stations),
+            "stations": [_station_payload(station) for station in stations],
+        }
+
+    @app.post("/api/history")
+    def record_history(station: StationPayload) -> dict[str, Any]:
+        station_data = station.model_dump()
+        add_history(station_data)
+
+        return {
+            "status": "ok",
+            "station": _station_payload(station_data),
         }
 
     return app

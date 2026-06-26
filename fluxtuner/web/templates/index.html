@@ -29,10 +29,14 @@
       <section class="panel" aria-labelledby="search-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Radio Browser</p>
-            <h2 id="search-title">Search stations</h2>
+            <p class="eyebrow" data-results-kicker>Radio Browser</p>
+            <h2 id="search-title" data-results-title>Search stations</h2>
           </div>
-          <p data-result-count>No search yet.</p>
+        
+          <div class="panel-tools">
+            <p data-result-count>No search yet.</p>
+            <button type="button" data-load-history>Load history</button>
+          </div>
         </div>
 
         <form class="search-form" data-search-form>

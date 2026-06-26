@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "fluxtuner"
+DATA_DIR_ENV = "FLUXTUNER_DATA_DIR"
 
 
 def _xdg_dir(env_name: str, fallback: Path) -> Path:
@@ -13,8 +14,15 @@ def _xdg_dir(env_name: str, fallback: Path) -> Path:
     return fallback
 
 
+def _app_data_dir() -> Path:
+    raw_value = os.environ.get(DATA_DIR_ENV)
+    if raw_value:
+        return Path(raw_value).expanduser()
+    return _xdg_dir("XDG_DATA_HOME", Path.home() / ".local" / "share") / APP_NAME
+
+
 CONFIG_DIR = _xdg_dir("XDG_CONFIG_HOME", Path.home() / ".config") / APP_NAME
-DATA_DIR = _xdg_dir("XDG_DATA_HOME", Path.home() / ".local" / "share") / APP_NAME
+DATA_DIR = _app_data_dir()
 CACHE_DIR = _xdg_dir("XDG_CACHE_HOME", Path.home() / ".cache") / APP_NAME
 
 

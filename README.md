@@ -142,6 +142,31 @@ fluxtuner --gui        # GTK4 desktop GUI
 fluxtuner --cli        # legacy numbered CLI
 ```
 
+### Experimental web interface
+
+FluxTuner includes an experimental web/server mode:
+
+```bash
+python -m pip install -e ".[web]"
+fluxtuner-web --host 127.0.0.1 --port 8080
+```
+
+Open it in your browser:
+
+```text
+http://127.0.0.1:8080
+```
+
+For isolated web development, testing, or containers, set a custom data directory:
+
+```bash
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 8080
+```
+
+This keeps web playback history, favorites, and playlists separate from your normal FluxTuner profile.
+
+See [`docs/web.md`](docs/web.md) for details.
+
 ---
 
 ## Common commands

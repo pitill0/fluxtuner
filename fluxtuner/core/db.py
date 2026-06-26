@@ -478,40 +478,80 @@ def update_favorite_record(
     conn: sqlite3.Connection,
     key: str,
     *,
-    custom_name: str | None | object = ...,
-    favorite_tags: list[str] | None | object = ...,
+    custom_name: Any = ...,
+    favorite_tags: Any = ...,
     profile_id: int | None = None,
 ) -> bool:
-    """Update favorite metadata by station key or raw URL."""
+    """Update editable favorite metadata for a saved station."""
     clean_key = key.strip()
     if not clean_key:
         return False
 
-    active_profile_id = profile_id or ensure_default_profile(conn)
-
-    assignments: list[str] = []
-    values: list[Any] = []
-
-    if custom_name is not ...:
-        assignments.append("custom_name = ?")
-        values.append(_clean_text(custom_name))
-
-    if favorite_tags is not ...:
-        assignments.append("favorite_tags_json = ?")
-        values.append(favorite_tags_to_json(favorite_tags or []))
-
-    if not assignments:
+    if custom_name is ... and favorite_tags is ...:
         return False
 
-    assignments.append("updated_at = ?")
-    values.append(utc_now())
+    active_profile_id = profile_id or ensure_default_profile(conn)
+    now = utc_now()
 
-    values.extend([active_profile_id, clean_key, clean_key, clean_key])
+    if custom_name is not ... and favorite_tags is not ...:
+        cursor = conn.execute(
+            """
+            UPDATE favorites
+            SET custom_name = ?,
+                favorite_tags_json = ?,
+                updated_at = ?
+            WHERE profile_id = ?
+              AND station_id IN (
+                  SELECT id
+                  FROM stations
+                  WHERE station_key = ?
+                     OR url = ?
+                     OR url_resolved = ?
+              )
+            """,
+            (
+                _clean_text(custom_name),
+                favorite_tags_to_json(favorite_tags or []),
+                now,
+                active_profile_id,
+                clean_key,
+                clean_key,
+                clean_key,
+            ),
+        )
+        return cursor.rowcount > 0
+
+    if custom_name is not ...:
+        cursor = conn.execute(
+            """
+            UPDATE favorites
+            SET custom_name = ?,
+                updated_at = ?
+            WHERE profile_id = ?
+              AND station_id IN (
+                  SELECT id
+                  FROM stations
+                  WHERE station_key = ?
+                     OR url = ?
+                     OR url_resolved = ?
+              )
+            """,
+            (
+                _clean_text(custom_name),
+                now,
+                active_profile_id,
+                clean_key,
+                clean_key,
+                clean_key,
+            ),
+        )
+        return cursor.rowcount > 0
 
     cursor = conn.execute(
-        f"""
+        """
         UPDATE favorites
-        SET {", ".join(assignments)}
+        SET favorite_tags_json = ?,
+            updated_at = ?
         WHERE profile_id = ?
           AND station_id IN (
               SELECT id
@@ -521,9 +561,15 @@ def update_favorite_record(
                  OR url_resolved = ?
           )
         """,
-        values,
+        (
+            favorite_tags_to_json(favorite_tags or []),
+            now,
+            active_profile_id,
+            clean_key,
+            clean_key,
+            clean_key,
+        ),
     )
-
     return cursor.rowcount > 0
 
 

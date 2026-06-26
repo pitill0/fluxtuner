@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FluxTuner Web</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">Experimental web/server mode</p>
+        <h1 id="page-title">FluxTuner Web</h1>
+        <p class="lede">
+          A lightweight browser interface for FluxTuner. This first cut only
+          proves the server, static assets and API skeleton.
+        </p>
+
+        <div class="actions">
+          <button type="button" data-health-check>Check server</button>
+          <a href="/api/health">Open health endpoint</a>
+        </div>
+
+        <pre class="status" data-status>Server status: not checked yet.</pre>
+      </section>
+
+      <section class="panel" aria-labelledby="next-title">
+        <h2 id="next-title">Next steps</h2>
+        <ul>
+          <li>Search stations through the existing Radio Browser backend.</li>
+          <li>Play streams in the browser using HTML audio.</li>
+          <li>Add favorites, history and playlists.</li>
+          <li>Prepare Docker and Podman deployment.</li>
+        </ul>
+      </section>
+
+      <footer>
+        FluxTuner __FLUXTUNER_VERSION__
+      </footer>
+    </main>
+  </body>
+</html>

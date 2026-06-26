@@ -1,0 +1,160 @@
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --panel: #0c1b2f;
+  --panel-soft: #10233d;
+  --text: #e8f4ff;
+  --muted: #9bb4ce;
+  --accent: #6ee7d8;
+  --accent-strong: #38bdf8;
+  --border: rgba(110, 231, 216, 0.24);
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.16), transparent 28rem),
+    radial-gradient(circle at 80% 10%, rgba(110, 231, 216, 0.12), transparent 24rem),
+    var(--bg);
+}
+
+.shell {
+  width: min(68rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 4rem 0;
+}
+
+.hero,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
+    var(--panel);
+  box-shadow: 0 1.5rem 4rem var(--shadow);
+}
+
+.hero {
+  padding: clamp(2rem, 6vw, 4rem);
+}
+
+.panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1.1;
+}
+
+h1 {
+  max-width: 12ch;
+  font-size: clamp(3rem, 10vw, 6rem);
+  letter-spacing: -0.08em;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.lede {
+  max-width: 44rem;
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 2vw, 1.3rem);
+  line-height: 1.65;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+button,
+a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--panel-soft);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover,
+a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.status {
+  overflow-x: auto;
+  margin: 1.5rem 0 0;
+  padding: 1rem;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 1rem;
+  color: var(--accent);
+  background: rgba(3, 7, 18, 0.55);
+}
+
+ul {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+footer {
+  margin-top: 1.5rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 42rem) {
+  .shell {
+    width: min(100% - 1rem, 68rem);
+    padding: 0.5rem 0;
+  }
+
+  .hero,
+  .panel {
+    border-radius: 1rem;
+  }
+}

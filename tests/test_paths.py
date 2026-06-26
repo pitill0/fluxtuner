@@ -17,7 +17,7 @@ def test_data_dir_uses_fluxtuner_data_dir(
 
     reloaded_paths = importlib.reload(paths)
 
-    assert reloaded_paths.DATA_DIR == custom_data_dir
+    assert custom_data_dir == reloaded_paths.DATA_DIR
     assert reloaded_paths.data_file("history.json") == custom_data_dir / "history.json"
     assert custom_data_dir.exists()
 
@@ -35,7 +35,7 @@ def test_data_dir_falls_back_to_xdg_data_home(
 
     reloaded_paths = importlib.reload(paths)
 
-    assert reloaded_paths.DATA_DIR == xdg_data_home / "fluxtuner"
+    assert xdg_data_home / "fluxtuner" == reloaded_paths.DATA_DIR
     assert reloaded_paths.data_file("favorites.json") == (
         xdg_data_home / "fluxtuner" / "favorites.json"
     )
@@ -57,6 +57,6 @@ def test_config_and_cache_keep_xdg_locations_when_data_dir_is_custom(
 
     reloaded_paths = importlib.reload(paths)
 
-    assert reloaded_paths.DATA_DIR == custom_data_dir
-    assert reloaded_paths.CONFIG_DIR == custom_config_home / "fluxtuner"
-    assert reloaded_paths.CACHE_DIR == custom_cache_home / "fluxtuner"
+    assert custom_data_dir == reloaded_paths.DATA_DIR
+    assert custom_config_home / "fluxtuner" == reloaded_paths.CONFIG_DIR
+    assert custom_cache_home / "fluxtuner" == reloaded_paths.CACHE_DIR

@@ -20,15 +20,12 @@ from fluxtuner.core.manual_playlists import (
 
 def _missing_web_dependency_message() -> str:
     return (
-        "FluxTuner Web dependencies are not installed. "
-        'Install them with: pip install -e ".[web]"'
+        'FluxTuner Web dependencies are not installed. Install them with: pip install -e ".[web]"'
     )
 
 
 def _read_template(name: str) -> str:
-    return resources.files("fluxtuner.web").joinpath("templates", name).read_text(
-        encoding="utf-8"
-    )
+    return resources.files("fluxtuner.web").joinpath("templates", name).read_text(encoding="utf-8")
 
 
 def _safe_int(value: Any) -> int:

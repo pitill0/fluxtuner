@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FluxTuner Web</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">Web/server mode</p>
+        <h1 id="page-title">FluxTuner Web</h1>
+        <p class="lede">
+          Search, play, favorite and organize internet radio from any browser.
+        </p>
+
+        <details class="server-tools">
+          <summary>Server tools</summary>
+
+          <div class="actions">
+            <button type="button" data-health-check>Check server</button>
+            <a href="/api/health">Open health endpoint</a>
+          </div>
+
+          <pre class="status" data-status>Server status: not checked yet.</pre>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="search-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow" data-results-kicker>Radio Browser</p>
+            <h2 id="search-title" data-results-title>Search stations</h2>
+          </div>
+
+          <div class="panel-tools">
+            <p data-result-count>No search yet.</p>
+            <button type="button" data-load-history>Load history</button>
+            <button type="button" data-load-favorites>Load favorites</button>
+            <button type="button" data-load-playlists>Load playlists</button>
+          </div>
+        </div>
+
+        <form class="search-form" data-search-form>
+          <label>
+            <span>Search</span>
+            <input
+              name="q"
+              type="search"
+              placeholder="Station name or genre/tag"
+              autocomplete="off"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Country</span>
+            <input
+              name="country"
+              type="search"
+              placeholder="Optional, e.g. Spain or ES"
+              autocomplete="off"
+            >
+          </label>
+
+          <label>
+            <span>Min kbps</span>
+            <input
+              name="min_bitrate"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              value="0"
+            >
+          </label>
+
+          <button type="submit">Search</button>
+        </form>
+
+        <div class="results" data-results>
+          <p class="empty">Search for a station, genre or tag to see results here.</p>
+        </div>
+      </section>
+
+      <footer>
+        FluxTuner __FLUXTUNER_VERSION__
+      </footer>
+    </main>
+
+    <aside class="player-bar" data-player-bar aria-live="polite">
+      <div class="player-info">
+        <p class="eyebrow">Browser playback</p>
+        <h2 data-player-title>Nothing playing yet</h2>
+        <p data-player-status>Idle</p>
+      </div>
+
+      <div class="player-actions">
+        <button type="button" data-player-toggle disabled>Pause</button>
+        <button type="button" data-player-stop disabled>Stop</button>
+        <a href="#" data-player-open target="_blank" rel="noopener noreferrer" hidden>
+          Open stream
+        </a>
+      </div>
+
+      <audio data-audio preload="none"></audio>
+    </aside>
+  </body>
+</html>

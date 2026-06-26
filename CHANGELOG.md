@@ -7,7 +7,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
  ---
 
 ## Unreleased
-   
+
 ### Added
 
 - Nothing yet.
@@ -19,6 +19,33 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 ### Fixed
 
 - Nothing yet.
+
+---
+
+## 0.6.0 - 2026-06-26
+
+### Added
+
+- Added FluxTuner Web, a browser-based web/server mode for searching, playing, favoriting and organizing internet radio stations.
+- Added browser audio playback using the web client's native audio engine.
+- Added web access to playback history, favorites and manual playlists.
+- Added `fluxtuner-web` as a dedicated web/server entry point.
+- Added optional web dependencies through the `web` extra.
+- Added `FLUXTUNER_DATA_DIR` to support isolated data directories for web, containers, demos and tests.
+- Added container support with `Containerfile`, `.dockerignore`, `compose.yaml` and persistent `/data` storage.
+- Added web and container documentation.
+
+### Changed
+
+- Updated the project description and documentation to include the new web/server mode alongside the TUI and GTK interfaces.
+- Improved the mobile web layout so search, playback and library actions are easier to use from phones.
+- Polished the web player bar, station cards and server tools layout.
+- Kept server health/debug tools available without making them the primary hero action.
+
+### Fixed
+
+- Relaxed web station payload handling so Radio Browser responses and saved station records are accepted more reliably.
+- Cleaned up web styles after iterative layout changes.
 
 ---
 

@@ -12,7 +12,7 @@
 
 **Website:** [https://fluxtuner.vjml.es](https://fluxtuner.vjml.es)
 
-FluxTuner is a modern internet radio player for the terminal and desktop.
+FluxTuner is a modern internet radio player for the terminal, desktop and web.
 
 It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
 
@@ -141,6 +141,31 @@ fluxtuner              # default Textual TUI
 fluxtuner --gui        # GTK4 desktop GUI
 fluxtuner --cli        # legacy numbered CLI
 ```
+
+### Web/server mode
+
+FluxTuner includes an browser-based web/server mode:
+
+```bash
+python -m pip install -e ".[web]"
+fluxtuner-web --host 127.0.0.1 --port 8080
+```
+
+Open it in your browser:
+
+```text
+http://127.0.0.1:8080
+```
+
+For isolated web development, testing, or containers, set a custom data directory:
+
+```bash
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 8080
+```
+
+This keeps web playback history, favorites, and playlists separate from your normal FluxTuner profile.
+
+See [`docs/web.md`](docs/web.md) for details.
 
 ---
 

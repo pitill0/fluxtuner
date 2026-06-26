@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.core import db
 from fluxtuner.core.stations import station_key, station_name
-from fluxtuner.core.storage import write_json_atomic
 from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
 
@@ -13,6 +13,17 @@ logger = get_logger(__name__)
 
 LEGACY_FAVORITES_FILE = Path.home() / ".fluxtuner_favorites.json"
 FAVORITES_FILE = data_file("favorites.json")
+FAVORITES_JSON_MIGRATION = "favorites_json_v1"
+
+
+def _db_path() -> Path:
+    """Return the SQLite DB path next to the current favorites file.
+
+    Tests patch FAVORITES_FILE directly. Deriving the DB path from it keeps the
+    SQLite-backed implementation isolated in the same tmp directory without
+    requiring every existing test to patch db.DB_FILE too.
+    """
+    return FAVORITES_FILE.parent / "fluxtuner.db"
 
 
 def _normalize_favorite_tags(tags: Any) -> list[str]:
@@ -21,9 +32,7 @@ def _normalize_favorite_tags(tags: Any) -> list[str]:
     return sorted({str(tag).strip() for tag in tags if str(tag).strip()})
 
 
-def load_favorites() -> list[dict[str, Any]]:
-    migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
-
+def _read_json_favorites() -> list[dict[str, Any]]:
     if not FAVORITES_FILE.exists():
         return []
 
@@ -42,15 +51,58 @@ def load_favorites() -> list[dict[str, Any]]:
     return [normalize_favorite(item) for item in data if isinstance(item, dict)]
 
 
-def save_favorites(favorites: list[dict[str, Any]]) -> None:
+def _migration_applied(conn, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE name = ?",
+        (name,),
+    ).fetchone()
+    return row is not None
+
+
+def _mark_migration_applied(conn, name: str) -> None:
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO schema_migrations (name, applied_at)
+        VALUES (?, ?)
+        """,
+        (name, db.utc_now()),
+    )
+
+
+def _ensure_favorites_db() -> None:
+    """Create SQLite storage and migrate existing JSON favorites once."""
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
+    db_path = _db_path()
+    db.init_db(db_path)
+
+    with db.connect(db_path) as conn:
+        if _migration_applied(conn, FAVORITES_JSON_MIGRATION):
+            return
+
+        favorites = _read_json_favorites()
+        if favorites:
+            db.replace_favorites(conn, favorites)
+
+        _mark_migration_applied(conn, FAVORITES_JSON_MIGRATION)
+        conn.commit()
+
+
+def load_favorites() -> list[dict[str, Any]]:
+    _ensure_favorites_db()
+
+    with db.connect(_db_path()) as conn:
+        return [normalize_favorite(item) for item in db.list_favorites(conn)]
+
+
+def save_favorites(favorites: list[dict[str, Any]]) -> None:
+    _ensure_favorites_db()
+
     normalized = [normalize_favorite(item) for item in favorites if station_key(item)]
-    try:
-        write_json_atomic(FAVORITES_FILE, normalized)
-    except OSError:
-        logger.error("Could not write favorites data", exc_info=True)
-        raise
+
+    with db.connect(_db_path()) as conn:
+        db.replace_favorites(conn, normalized)
+        conn.commit()
 
 
 def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:
@@ -82,27 +134,27 @@ def favorite_display_name(station: dict[str, Any]) -> str:
 
 
 def add_favorite(station: dict[str, Any]) -> bool:
-    favorites = load_favorites()
-    key = station_key(station)
+    _ensure_favorites_db()
 
+    key = station_key(station)
     if not key:
         return False
 
-    if any(station_key(item) == key for item in favorites):
-        return False
-
     favorite = normalize_favorite(station)
-    favorites.append(favorite)
-    save_favorites(favorites)
-    return True
+
+    with db.connect(_db_path()) as conn:
+        added = db.add_favorite_record(conn, favorite)
+        conn.commit()
+        return added
 
 
 def remove_favorite(url: str) -> bool:
-    favorites = load_favorites()
-    original_len = len(favorites)
-    favorites = [item for item in favorites if station_key(item) != url and item.get("url") != url]
-    save_favorites(favorites)
-    return len(favorites) != original_len
+    _ensure_favorites_db()
+
+    with db.connect(_db_path()) as conn:
+        removed = db.remove_favorite_record(conn, url)
+        conn.commit()
+        return removed
 
 
 def update_favorite(
@@ -111,27 +163,17 @@ def update_favorite(
     custom_name: str | None | object = ...,
     favorite_tags: list[str] | None | object = ...,
 ) -> bool:
-    favorites = load_favorites()
-    changed = False
+    _ensure_favorites_db()
 
-    for item in favorites:
-        if station_key(item) != url and item.get("url") != url:
-            continue
-
-        if custom_name is not ...:
-            clean_name = str(custom_name or "").strip()
-            item["custom_name"] = clean_name or None
-            changed = True
-
-        if favorite_tags is not ...:
-            item["favorite_tags"] = _normalize_favorite_tags(favorite_tags or [])
-            changed = True
-
-        break
-
-    if changed:
-        save_favorites(favorites)
-    return changed
+    with db.connect(_db_path()) as conn:
+        changed = db.update_favorite_record(
+            conn,
+            url,
+            custom_name=custom_name,
+            favorite_tags=favorite_tags,
+        )
+        conn.commit()
+        return changed
 
 
 def filter_favorites_by_tag(tag: str) -> list[dict[str, Any]]:

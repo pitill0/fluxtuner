@@ -216,20 +216,39 @@ fluxtuner --import-playlists playlists.json
 
 ## Data storage
 
-FluxTuner stores user data in XDG-style locations.
+FluxTuner stores local data in XDG-style locations.
 
 The base directories respect `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when they are set.
 
 Default locations:
 
+- Library database: `~/.local/share/fluxtuner/fluxtuner.db`
 - Config: `~/.config/fluxtuner/config.json`
-- Favorites: `~/.local/share/fluxtuner/favorites.json`
-- Playlists: `~/.local/share/fluxtuner/playlists.json`
-- History: `~/.local/share/fluxtuner/history.json`
 - Data usage: `~/.local/share/fluxtuner/usage.json`
 - Search cache: `~/.cache/fluxtuner/search_cache.json`
 
-Legacy files such as `~/.fluxtuner_favorites.json`, `~/.fluxtuner_playlists.json`, `~/.fluxtuner_history.json` and `~/.fluxtuner_usage.json` are copied into the current XDG locations when needed and kept in place as a conservative migration.
+The library database stores favorites, playback history, manual playlists and
+normalized station records for the internal `default` profile.
+
+Legacy library JSON files are still supported as migration sources:
+
+- `~/.local/share/fluxtuner/favorites.json`
+- `~/.local/share/fluxtuner/playlists.json`
+- `~/.local/share/fluxtuner/history.json`
+
+Older dotfiles such as `~/.fluxtuner_favorites.json`,
+`~/.fluxtuner_playlists.json`, `~/.fluxtuner_history.json` and
+`~/.fluxtuner_usage.json` are copied into the current XDG locations when needed
+and kept in place as a conservative migration.
+
+Import and export commands still use JSON files:
+
+```bash
+fluxtuner --export-favs favorites.json
+fluxtuner --import-favs favorites.json
+fluxtuner --export-playlists playlists.json
+fluxtuner --import-playlists playlists.json
+```
 
 ## macOS GTK note
 

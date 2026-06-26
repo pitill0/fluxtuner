@@ -8,6 +8,14 @@ from fluxtuner import __app_name__, __version__
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
+from fluxtuner.core.manual_playlists import (
+    add_station_to_playlist,
+    create_playlist,
+    delete_playlist,
+    get_playlist_stations,
+    load_playlists,
+    remove_station_from_playlist,
+)
 
 
 def _missing_web_dependency_message() -> str:
@@ -55,6 +63,10 @@ def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _playlist_name(payload: dict[str, Any]) -> str:
+    return str(payload.get("name") or "").strip()
+
+
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
@@ -63,6 +75,8 @@ def create_app() -> Any:
         from fastapi.staticfiles import StaticFiles
     except ImportError as exc:
         raise RuntimeError(_missing_web_dependency_message()) from exc
+
+    required_body = Body(...)
 
     app = FastAPI(
         title=f"{__app_name__} Web",
@@ -127,7 +141,7 @@ def create_app() -> Any:
         }
 
     @app.post("/api/history")
-    def record_history(station: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    def record_history(station: dict[str, Any] = required_body) -> dict[str, Any]:
         station_data = _station_payload(station)
 
         if not station_data["url"]:
@@ -150,7 +164,7 @@ def create_app() -> Any:
         }
 
     @app.post("/api/favorites")
-    def create_favorite(station: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    def create_favorite(station: dict[str, Any] = required_body) -> dict[str, Any]:
         station_data = _station_payload(station)
 
         if not station_data["url"]:
@@ -171,6 +185,89 @@ def create_app() -> Any:
         return {
             "status": "ok",
             "removed": removed,
+            "url": url,
+        }
+
+    @app.get("/api/playlists")
+    def playlists() -> dict[str, Any]:
+        items = load_playlists()
+
+        return {
+            "count": len(items),
+            "playlists": [
+                {
+                    "name": item["name"],
+                    "count": len(get_playlist_stations(item["name"])),
+                }
+                for item in items
+            ],
+        }
+
+    @app.post("/api/playlists")
+    def create_web_playlist(payload: dict[str, Any] = required_body) -> dict[str, Any]:
+        name = _playlist_name(payload)
+        if not name:
+            raise HTTPException(status_code=400, detail="Playlist name is required.")
+
+        created = create_playlist(name)
+
+        return {
+            "status": "ok",
+            "created": created,
+            "name": name,
+        }
+
+    @app.delete("/api/playlists/{name}")
+    def delete_web_playlist(name: str) -> dict[str, Any]:
+        removed = delete_playlist(name)
+
+        return {
+            "status": "ok",
+            "removed": removed,
+            "name": name,
+        }
+
+    @app.get("/api/playlists/{name}/stations")
+    def playlist_stations(name: str) -> dict[str, Any]:
+        stations = get_playlist_stations(name)
+
+        return {
+            "name": name,
+            "count": len(stations),
+            "stations": [_station_payload(station) for station in stations],
+        }
+
+    @app.post("/api/playlists/{name}/stations")
+    def add_web_station_to_playlist(
+        name: str,
+        station: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        station_data = _station_payload(station)
+
+        if not station_data["url"]:
+            raise HTTPException(status_code=400, detail="Station URL is required.")
+
+        add_favorite(station_data)
+        added = add_station_to_playlist(name, station_data)
+
+        return {
+            "status": "ok",
+            "added": added,
+            "name": name,
+            "station": station_data,
+        }
+
+    @app.delete("/api/playlists/{name}/stations")
+    def remove_web_station_from_playlist(
+        name: str,
+        url: str = Query(..., min_length=1, max_length=4096),
+    ) -> dict[str, Any]:
+        removed = remove_station_from_playlist(name, {"url": url})
+
+        return {
+            "status": "ok",
+            "removed": removed,
+            "name": name,
             "url": url,
         }
 

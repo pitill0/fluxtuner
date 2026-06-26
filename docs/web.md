@@ -56,3 +56,10 @@ volumes:
 
 `FLUXTUNER_DATA_DIR` only changes the data directory. Config and cache still use
 their XDG locations unless `XDG_CONFIG_HOME` or `XDG_CACHE_HOME` are also set.
+
+## Containers
+
+FluxTuner Web can also run in Docker or Podman.
+
+See [`docs/container.md`](container.md) for build, run, Compose, and persistent
+volume examples.

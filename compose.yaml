@@ -1,0 +1,16 @@
+services:
+  fluxtuner-web:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: fluxtuner-web:dev
+    ports:
+      - "8080:8080"
+    environment:
+      FLUXTUNER_DATA_DIR: /data
+    volumes:
+      - fluxtuner-data:/data
+    restart: unless-stopped
+
+volumes:
+  fluxtuner-data:

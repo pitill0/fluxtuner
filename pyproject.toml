@@ -108,6 +108,7 @@ norecursedirs = [
     "build",
     "dist",
     "build-dir",
+    "flatpak/build-dir",
 ]
 
 [tool.bandit]

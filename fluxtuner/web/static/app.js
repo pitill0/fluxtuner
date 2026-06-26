@@ -6,6 +6,7 @@ const resultCountNode = document.querySelector("[data-result-count]");
 const resultsKickerNode = document.querySelector("[data-results-kicker]");
 const resultsTitleNode = document.querySelector("[data-results-title]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
+const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -17,6 +18,7 @@ const playerOpenLink = document.querySelector("[data-player-open]");
 
 let currentStation = null;
 let recordedHistoryUrl = "";
+let currentView = "search";
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -136,6 +138,70 @@ async function recordHistory(station) {
   }
 }
 
+async function addFavorite(station) {
+  const url = stationUrl(station);
+  if (!url) {
+    setPlayerState("error", "This station has no URL to save as favorite.");
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/favorites", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(station),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    setPlayerState(
+      "idle",
+      payload.added ? "Saved to favorites." : "Station is already in favorites.",
+    );
+  } catch (error) {
+    setPlayerState("error", `Could not save favorite. ${error}`);
+  }
+}
+
+async function removeFavorite(station) {
+  const url = stationUrl(station);
+  if (!url) {
+    setPlayerState("error", "This station has no URL to remove.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    setPlayerState(
+      "idle",
+      payload.removed ? "Removed from favorites." : "Station was not in favorites.",
+    );
+
+    if (currentView === "favorites") {
+      await loadFavorites();
+    }
+  } catch (error) {
+    setPlayerState("error", `Could not remove favorite. ${error}`);
+  }
+}
+
 async function playStation(station) {
   if (!audioNode || !playerTitleNode || !playerOpenLink) return;
 
@@ -211,18 +277,20 @@ function renderStation(station) {
   const tags = stationTags(station);
   const playCount = Number(station.play_count || 0);
   const lastPlayedAt = station.last_played_at || "";
+  const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
 
   return `
     <article class="station-card">
       <header>
         <div>
-          <h3>${escapeHtml(station.name || "Unknown station")}</h3>
+          <h3>${escapeHtml(station.custom_name || station.name || "Unknown station")}</h3>
         </div>
         <div class="station-meta">
           <span>${escapeHtml(station.country || "Unknown")}</span>
           <span>${escapeHtml(station.codec || "Unknown codec")}</span>
           <span>${Number(station.bitrate || 0)} kbps</span>
           ${playCount ? `<span>${playCount} play${playCount === 1 ? "" : "s"}</span>` : ""}
+          ${favoriteTags.length ? `<span>${escapeHtml(favoriteTags.join(", "))}</span>` : ""}
         </div>
       </header>
 
@@ -248,6 +316,20 @@ function renderStation(station) {
         }
         ${
           streamUrl
+            ? `<button type="button" data-add-favorite="${stationButtonPayload(
+                station,
+              )}">Add favorite</button>`
+            : ""
+        }
+        ${
+          currentView === "favorites" && streamUrl
+            ? `<button type="button" data-remove-favorite="${stationButtonPayload(
+                station,
+              )}">Remove favorite</button>`
+            : ""
+        }
+        ${
+          streamUrl
             ? `<a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
             : ""
         }
@@ -261,14 +343,44 @@ function renderStation(station) {
   `;
 }
 
+function parseStationButton(button) {
+  const payload =
+    button.getAttribute("data-play-station") ||
+    button.getAttribute("data-add-favorite") ||
+    button.getAttribute("data-remove-favorite");
+
+  if (!payload) return null;
+  return JSON.parse(payload);
+}
+
 function bindResultActions() {
   document.querySelectorAll("[data-play-station]").forEach((button) => {
     button.addEventListener("click", () => {
-      const payload = button.getAttribute("data-play-station");
-      if (!payload) return;
-
       try {
-        playStation(JSON.parse(payload));
+        const station = parseStationButton(button);
+        if (station) playStation(station);
+      } catch (error) {
+        setPlayerState("error", `Could not read station data. ${error}`);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-add-favorite]").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        const station = parseStationButton(button);
+        if (station) addFavorite(station);
+      } catch (error) {
+        setPlayerState("error", `Could not read station data. ${error}`);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-remove-favorite]").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        const station = parseStationButton(button);
+        if (station) removeFavorite(station);
       } catch (error) {
         setPlayerState("error", `Could not read station data. ${error}`);
       }
@@ -318,6 +430,7 @@ async function searchStations(event) {
     return;
   }
 
+  currentView = "search";
   setResultsHeader("Radio Browser", "Search stations");
   resultCountNode.textContent = "Searching...";
   resultsNode.innerHTML = '<p class="empty">Searching Radio Browser...</p>';
@@ -343,12 +456,39 @@ async function searchStations(event) {
 async function loadHistory() {
   if (!resultsNode || !resultCountNode) return;
 
+  currentView = "history";
   setResultsHeader("Playback", "History");
   resultCountNode.textContent = "Loading history...";
   resultsNode.innerHTML = '<p class="empty">Loading playback history...</p>';
 
   try {
     const response = await fetch("/api/history?limit=25", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    renderResults(payload);
+  } catch (error) {
+    renderSearchError(error);
+  }
+}
+
+async function loadFavorites() {
+  if (!resultsNode || !resultCountNode) return;
+
+  currentView = "favorites";
+  setResultsHeader("Library", "Favorites");
+  resultCountNode.textContent = "Loading favorites...";
+  resultsNode.innerHTML = '<p class="empty">Loading favorites...</p>';
+
+  try {
+    const response = await fetch("/api/favorites", {
       headers: {
         Accept: "application/json",
       },
@@ -375,6 +515,10 @@ if (searchForm) {
 
 if (loadHistoryButton) {
   loadHistoryButton.addEventListener("click", loadHistory);
+}
+
+if (loadFavoritesButton) {
+  loadFavoritesButton.addEventListener("click", loadFavorites);
 }
 
 if (playerToggleButton) {

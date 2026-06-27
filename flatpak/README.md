@@ -101,7 +101,7 @@ Current permissions:
 - `--share=ipc`: kept for compatibility with graphical sessions and toolkit behavior.
 - `--device=dri`: kept for GTK/GNOME rendering compatibility.
 
-The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache, history, favorites and playlists through Flatpak-managed application data paths.
+The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache and SQLite library database through Flatpak-managed application data paths. The library database contains favorites, playback history and manual playlists.
 
 Reviewed permissions and environment overrides:
 

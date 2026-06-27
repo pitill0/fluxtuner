@@ -81,6 +81,16 @@
 
   <releases>
 
+    <release version="0.7.0" date="2026-06-26">
+      <description>
+        <ul>
+          <li>Moved favorites, playback history and manual playlists to a local SQLite library database.</li>
+          <li>Added conservative migration from legacy JSON library files.</li>
+          <li>Prepared the storage model for future profile-aware features while keeping the current single-user workflow unchanged.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.6.0" date="2026-06-26">
       <description>
         <ul>

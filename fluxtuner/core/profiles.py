@@ -3,7 +3,10 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from fluxtuner import config
 from fluxtuner.core import db
+
+ACTIVE_PROFILE_CONFIG_KEY = "active_profile"
 
 
 def resolve_profile_id(
@@ -31,3 +34,37 @@ def load_profiles() -> list[dict[str, Any]]:
 
     with db.connect() as conn:
         return db.list_profiles(conn)
+
+
+def get_active_profile_name() -> str | None:
+    """Return the persisted active profile name, if configured."""
+    value = config.get_config_value(ACTIVE_PROFILE_CONFIG_KEY)
+    if not isinstance(value, str):
+        return None
+
+    normalized = db.normalize_profile_name(value)
+    return normalized or None
+
+
+def set_active_profile_name(profile_name: str) -> str:
+    """Persist the active profile name and return its normalized value."""
+    normalized = db.normalize_profile_name(profile_name)
+    config.set_config_value(ACTIVE_PROFILE_CONFIG_KEY, normalized)
+    return normalized
+
+
+def clear_active_profile_name() -> None:
+    """Clear the persisted active profile name."""
+    stored_config = config.load_config()
+    stored_config.pop(ACTIVE_PROFILE_CONFIG_KEY, None)
+    config.save_config(stored_config)
+
+
+def resolve_effective_profile_name(
+    profile_name: str | None = None,
+) -> str | None:
+    """Resolve an explicit profile name or the persisted active profile."""
+    if profile_name is not None:
+        return db.normalize_profile_name(profile_name)
+
+    return get_active_profile_name()

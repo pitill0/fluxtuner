@@ -23,7 +23,13 @@ from fluxtuner.core.compatibility import (
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
-from fluxtuner.core.profiles import load_profiles
+from fluxtuner.core.profiles import (
+    clear_active_profile_name,
+    get_active_profile_name,
+    load_profiles,
+    resolve_effective_profile_name,
+    set_active_profile_name,
+)
 from fluxtuner.core.stations import (
     station_bitrate,
     station_codec,
@@ -467,9 +473,24 @@ def main() -> None:
         default=None,
         metavar="NAME",
         help=(
-            "Profile name to use for import/export commands. "
-            "Defaults to the internal default profile."
+            "Profile name to use for profile-aware commands. "
+            "Overrides the persisted active profile."
         ),
+    )
+    parser.add_argument(
+        "--set-active-profile",
+        action="store_true",
+        help="Persist --profile NAME as the active profile and exit.",
+    )
+    parser.add_argument(
+        "--show-active-profile",
+        action="store_true",
+        help="Show the persisted active profile and exit.",
+    )
+    parser.add_argument(
+        "--clear-active-profile",
+        action="store_true",
+        help="Clear the persisted active profile and exit.",
     )
     parser.add_argument(
         "--theme",
@@ -536,6 +557,30 @@ def main() -> None:
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
 
+    effective_profile_name = resolve_effective_profile_name(args.profile)
+
+    if args.set_active_profile:
+        if not args.profile:
+            console.print("[red]--set-active-profile requires --profile NAME.[/red]")
+            raise SystemExit(1)
+
+        persisted_profile_name = set_active_profile_name(args.profile)
+        console.print(f"[green]Active profile set to {persisted_profile_name!r}.[/green]")
+        return
+
+    if args.show_active_profile:
+        current_profile_name = get_active_profile_name()
+        if current_profile_name is None:
+            console.print("[yellow]No active profile configured.[/yellow]")
+        else:
+            console.print(f"Active profile: {current_profile_name}")
+        return
+
+    if args.clear_active_profile:
+        clear_active_profile_name()
+        console.print("[green]Active profile cleared.[/green]")
+        return
+
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
         print_player_backend_status()
@@ -563,7 +608,7 @@ def main() -> None:
     if args.export_favs:
         export_json_list(
             args.export_favs,
-            load_favorites(profile_name=args.profile),
+            load_favorites(profile_name=effective_profile_name),
             "Favorites",
         )
         return
@@ -581,7 +626,7 @@ def main() -> None:
             console.print("[red]No valid favorites found in import file.[/red]")
             raise SystemExit(1)
 
-        save_favorites(result.items, profile_name=args.profile)
+        save_favorites(result.items, profile_name=effective_profile_name)
 
         message = f"[green]Imported {len(result.items)} favorite(s).[/green]"
         if result.skipped:
@@ -592,7 +637,7 @@ def main() -> None:
     if args.export_playlists:
         export_json_list(
             args.export_playlists,
-            load_playlists(profile_name=args.profile),
+            load_playlists(profile_name=effective_profile_name),
             "Persistent playlists",
         )
         return
@@ -610,7 +655,7 @@ def main() -> None:
             console.print("[red]No valid playlists found in import file.[/red]")
             raise SystemExit(1)
 
-        save_playlists(result.items, profile_name=args.profile)
+        save_playlists(result.items, profile_name=effective_profile_name)
 
         message = f"[green]Imported {len(result.items)} persistent playlist(s).[/green]"
         if result.skipped:
@@ -647,7 +692,7 @@ def main() -> None:
         raise SystemExit(2) from exc
 
     if args.cli:
-        run_cli(selected_player, profile_name=args.profile)
+        run_cli(selected_player, profile_name=effective_profile_name)
         return
 
     if args.gui:

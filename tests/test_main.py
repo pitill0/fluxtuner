@@ -1040,3 +1040,116 @@ def test_run_cli_passes_profile_name_to_flows(
     main_module.run_cli(profile_name="work")
 
     assert seen_profiles == ["work", "work", "work"]
+
+
+def test_main_set_active_profile_requires_profile(
+    monkeypatch,
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        run_main(monkeypatch, "--set-active-profile")
+
+    assert excinfo.value.code == 1
+
+
+def test_main_set_active_profile_persists_profile(
+    monkeypatch,
+) -> None:
+    seen_profile_name = None
+
+    def fake_set_active_profile_name(profile_name: str) -> str:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return "work"
+
+    monkeypatch.setattr(
+        main_module,
+        "set_active_profile_name",
+        fake_set_active_profile_name,
+    )
+
+    run_main(monkeypatch, "--profile", "work", "--set-active-profile")
+
+    assert seen_profile_name == "work"
+
+
+def test_main_clear_active_profile_clears_profile(
+    monkeypatch,
+) -> None:
+    called = False
+
+    def fake_clear_active_profile_name() -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(
+        main_module,
+        "clear_active_profile_name",
+        fake_clear_active_profile_name,
+    )
+
+    run_main(monkeypatch, "--clear-active-profile")
+
+    assert called is True
+
+
+def test_main_export_favorites_uses_active_profile_when_profile_is_omitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+    seen_profile_name = None
+
+    monkeypatch.setattr(
+        main_module,
+        "resolve_effective_profile_name",
+        lambda profile_name=None: "work",
+    )
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Work Radio", "url": "https://example.com/work"}]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+
+    run_main(monkeypatch, "--export-favs", str(export_path))
+
+    assert seen_profile_name == "work"
+
+
+def test_main_profile_argument_overrides_active_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+    seen_resolve_argument = None
+    seen_profile_name = None
+
+    def fake_resolve_effective_profile_name(profile_name=None):
+        nonlocal seen_resolve_argument
+        seen_resolve_argument = profile_name
+        return profile_name or "active"
+
+    monkeypatch.setattr(
+        main_module,
+        "resolve_effective_profile_name",
+        fake_resolve_effective_profile_name,
+    )
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Office Radio", "url": "https://example.com/office"}]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+
+    run_main(monkeypatch, "--profile", "office", "--export-favs", str(export_path))
+
+    assert seen_resolve_argument == "office"
+    assert seen_profile_name == "office"

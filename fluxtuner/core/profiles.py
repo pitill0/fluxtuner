@@ -14,6 +14,7 @@ def resolve_profile_id(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> int | None:
     """Resolve an optional profile selector to a profile id.
 
@@ -25,7 +26,7 @@ def resolve_profile_id(
     if profile_name is None:
         return None
 
-    return db.get_or_create_profile(conn, profile_name)
+    return db.get_or_create_profile(conn, profile_name, user_id=user_id)
 
 
 def load_profiles() -> list[dict[str, Any]]:

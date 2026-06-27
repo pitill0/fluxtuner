@@ -37,10 +37,11 @@ def test_init_db_creates_expected_tables(
             "profiles",
             "schema_migrations",
             "stations",
+            "users",
         }
 
 
-def test_init_db_creates_default_profile(
+def test_init_db_creates_default_user_and_profile(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -49,14 +50,29 @@ def test_init_db_creates_default_profile(
     db.init_db()
 
     with db.connect() as conn:
-        row = conn.execute(
-            "SELECT name, display_name FROM profiles WHERE name = ?",
-            (db.DEFAULT_PROFILE_NAME,),
+        user = conn.execute(
+            "SELECT id, username, display_name, is_admin FROM users WHERE username = ?",
+            (db.DEFAULT_USER_NAME,),
+        ).fetchone()
+        profile = conn.execute(
+            """
+            SELECT profiles.name, profiles.display_name, profiles.user_id
+            FROM profiles
+            JOIN users ON users.id = profiles.user_id
+            WHERE profiles.name = ? AND users.username = ?
+            """,
+            (db.DEFAULT_PROFILE_NAME, db.DEFAULT_USER_NAME),
         ).fetchone()
 
-    assert row is not None
-    assert row["name"] == "default"
-    assert row["display_name"] == "Default"
+    assert user is not None
+    assert user["username"] == "default"
+    assert user["display_name"] == "Default"
+    assert user["is_admin"] == 1
+
+    assert profile is not None
+    assert profile["name"] == "default"
+    assert profile["display_name"] == "Default"
+    assert profile["user_id"] == user["id"]
 
 
 def test_get_default_profile_id_is_stable(
@@ -845,3 +861,100 @@ def test_list_profiles_returns_profiles_in_creation_order(
         ("work", "Work"),
         ("testing", "Testing"),
     ]
+
+
+def test_get_or_create_user_is_case_insensitive(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        first_id = db.get_or_create_user(conn, "Laura", display_name="Laura")
+        second_id = db.get_or_create_user(conn, "laura", display_name="Other")
+
+    assert first_id == second_id
+
+
+def test_profiles_are_unique_per_user(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        laura_id = db.get_or_create_user(conn, "laura")
+        guest_id = db.get_or_create_user(conn, "guest")
+
+        laura_profile_id = db.get_or_create_profile(
+            conn,
+            "work",
+            user_id=laura_id,
+        )
+        guest_profile_id = db.get_or_create_profile(
+            conn,
+            "work",
+            user_id=guest_id,
+        )
+        repeated_laura_profile_id = db.get_or_create_profile(
+            conn,
+            "WORK",
+            user_id=laura_id,
+        )
+
+        laura_profiles = db.list_profiles(conn, user_id=laura_id)
+        guest_profiles = db.list_profiles(conn, user_id=guest_id)
+
+    assert laura_profile_id != guest_profile_id
+    assert repeated_laura_profile_id == laura_profile_id
+    assert [profile["name"] for profile in laura_profiles] == ["work"]
+    assert [profile["name"] for profile in guest_profiles] == ["work"]
+
+
+def test_existing_profiles_are_migrated_to_default_user(
+    tmp_path: Path,
+) -> None:
+    db_file = tmp_path / "legacy.db"
+
+    with db.connect(db_file) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_migrations (
+                name TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+
+            CREATE TABLE profiles (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                display_name TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CHECK (length(trim(name)) > 0)
+            );
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO profiles (id, name, display_name, created_at, updated_at)
+            VALUES (10, 'work', 'Work', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')
+            """
+        )
+        conn.commit()
+
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        user = db.get_user_by_username(conn, db.DEFAULT_USER_NAME)
+        profile = db.get_profile_by_name(
+            conn,
+            "work",
+            user_id=user["id"] if user else None,
+        )
+
+    assert user is not None
+    assert profile is not None
+    assert profile["id"] == 10
+    assert profile["user_id"] == user["id"]

@@ -185,7 +185,7 @@ def add_favorite(
 
 
 def remove_favorite(
-    station: dict[str, Any],
+    station: dict[str, Any] | str,
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,

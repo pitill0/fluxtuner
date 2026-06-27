@@ -28,6 +28,7 @@ from fluxtuner.core.favorites import (  # noqa: E402
     update_favorite,
 )
 from fluxtuner.core.history import add_history, load_history  # noqa: E402
+from fluxtuner.core.profiles import resolve_effective_profile_name  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -53,6 +54,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_size_request(520, 420)
 
         self.player_backend_name = selected_player_name(player_name)
+        self.profile_name = resolve_effective_profile_name()
         self.player = create_player(self.player_backend_name)
         self.player_capabilities = self.player.capabilities()
         self.search_service = SearchService(capabilities=self.player_capabilities)
@@ -421,7 +423,11 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(self.status_label)
 
     def _favorite_url_set(self) -> set[str]:
-        return {key for item in load_favorites() if (key := station_key(item))}
+        return {
+            key
+            for item in load_favorites(profile_name=self.profile_name)
+            if (key := station_key(item))
+        }
 
     def _is_favorite_station(self, station: dict[str, Any]) -> bool:
         key = station_key(station)
@@ -671,7 +677,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.current_station = self.selected_station
         self.usage_tracker.start(self.current_station)
-        add_history(self.current_station)
+        add_history(self.current_station, profile_name=self.profile_name)
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
@@ -867,7 +873,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if not selected_key:
             return None
 
-        for favorite in load_favorites():
+        for favorite in load_favorites(profile_name=self.profile_name):
             if station_key(favorite) == selected_key:
                 return favorite
         return None
@@ -959,7 +965,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_favorite_buttons()
             return
 
-        if add_favorite(self.selected_station):
+        if add_favorite(self.selected_station, profile_name=self.profile_name):
             self._refresh_favorite_cache()
             self._render_results()
             self.status_label.set_text("Added to favorites.")
@@ -984,7 +990,12 @@ class MainWindow(Gtk.ApplicationWindow):
         favorite_name = self._favorite_edit_name_from_entry()
         favorite_tags = self._favorite_edit_tags_from_entry()
 
-        if not update_favorite(key, custom_name=favorite_name, favorite_tags=favorite_tags):
+        if not update_favorite(
+            key,
+            custom_name=favorite_name,
+            favorite_tags=favorite_tags,
+            profile_name=self.profile_name,
+        ):
             self.status_label.set_text("Could not update favorite.")
             self._update_favorite_buttons()
             return
@@ -1012,11 +1023,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_favorite_buttons()
             return
 
-        if remove_favorite(key):
+        if remove_favorite(key, profile_name=self.profile_name):
             self._refresh_favorite_cache()
             self.status_label.set_text("Removed from favorites.")
             if self.current_view == "favorites":
-                self.stations = load_favorites()
+                self.stations = load_favorites(profile_name=self.profile_name)
                 self.selected_station = None
             self._render_results()
             self._update_favorite_buttons()
@@ -1030,7 +1041,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_view = "favorites"
         self.active_playlist_tag = None
         self._refresh_favorite_cache()
-        self.stations = load_favorites()
+        self.stations = load_favorites(profile_name=self.profile_name)
         self.selected_station = None
         self._render_results()
         self._update_playlist_status()
@@ -1051,7 +1062,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_view = "history"
         self.active_playlist_tag = None
         self._refresh_favorite_cache()
-        self.stations = load_history()
+        self.stations = load_history(profile_name=self.profile_name)
         self.selected_station = None
         self._render_results()
         self._update_playlist_status()

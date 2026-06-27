@@ -220,3 +220,116 @@ def test_clear_history_removes_saved_items(
     history.clear_history()
 
     assert history.load_history() == []
+
+
+def test_history_is_isolated_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_history_file(tmp_path, monkeypatch)
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+    }
+
+    history.add_history(default_station)
+    history.add_history(work_station, profile_name="work")
+
+    assert [item["name"] for item in history.load_history()] == ["Default Radio"]
+    assert [item["name"] for item in history.load_history(profile_name="work")] == [
+        "Work Radio"
+    ]
+
+
+def test_history_play_count_is_scoped_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_history_file(tmp_path, monkeypatch)
+
+    station = {
+        "name": "Shared Radio",
+        "url": "https://example.com/shared",
+    }
+
+    history.add_history(station)
+    history.add_history(station, profile_name="work")
+    history.add_history(station, profile_name="work")
+
+    assert history.load_history()[0]["play_count"] == 1
+    assert history.load_history(profile_name="work")[0]["play_count"] == 2
+
+
+def test_save_history_replaces_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_history_file(tmp_path, monkeypatch)
+
+    history.save_history(
+        [
+            {
+                "name": "Default Radio",
+                "url": "https://example.com/default",
+                "last_played_at": "2026-01-01T10:00:00+00:00",
+                "play_count": 1,
+            }
+        ]
+    )
+    history.save_history(
+        [
+            {
+                "name": "Work Radio",
+                "url": "https://example.com/work",
+                "last_played_at": "2026-01-01T11:00:00+00:00",
+                "play_count": 1,
+            }
+        ],
+        profile_name="work",
+    )
+
+    history.save_history(
+        [
+            {
+                "name": "Updated Work Radio",
+                "url": "https://example.com/updated-work",
+                "last_played_at": "2026-01-01T12:00:00+00:00",
+                "play_count": 3,
+            }
+        ],
+        profile_name="work",
+    )
+
+    assert [item["name"] for item in history.load_history()] == ["Default Radio"]
+    assert [item["name"] for item in history.load_history(profile_name="work")] == [
+        "Updated Work Radio"
+    ]
+
+
+def test_clear_history_clears_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_history_file(tmp_path, monkeypatch)
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+    }
+
+    history.add_history(default_station)
+    history.add_history(work_station, profile_name="work")
+
+    history.clear_history(profile_name="work")
+
+    assert [item["name"] for item in history.load_history()] == ["Default Radio"]
+    assert history.load_history(profile_name="work") == []

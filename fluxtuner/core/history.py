@@ -65,6 +65,21 @@ def _mark_migration_applied(conn, name: str) -> None:
     )
 
 
+def _resolve_profile_id(
+    conn,
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> int | None:
+    if profile_id is not None:
+        return profile_id
+
+    if profile_name is None:
+        return None
+
+    return db.get_or_create_profile(conn, profile_name)
+
+
 def _ensure_history_db() -> None:
     """Create SQLite storage and migrate existing JSON history once."""
     migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
@@ -84,39 +99,82 @@ def _ensure_history_db() -> None:
         conn.commit()
 
 
-def load_history() -> list[dict[str, Any]]:
+def load_history(
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> list[dict[str, Any]]:
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        return db.list_history(conn, limit=MAX_HISTORY_ITEMS)
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        return db.list_history(conn, limit=MAX_HISTORY_ITEMS, profile_id=active_profile_id)
 
 
-def save_history(history: list[dict[str, Any]]) -> None:
+def save_history(
+    history: list[dict[str, Any]],
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> None:
     _ensure_history_db()
 
     try:
         with db.connect(_db_path()) as conn:
-            db.replace_history(conn, history, limit=MAX_HISTORY_ITEMS)
+            active_profile_id = _resolve_profile_id(
+                conn,
+                profile_id=profile_id,
+                profile_name=profile_name,
+            )
+            db.replace_history(
+                conn,
+                history,
+                limit=MAX_HISTORY_ITEMS,
+                profile_id=active_profile_id,
+            )
             conn.commit()
     except OSError:
         logger.error("Could not write history data", exc_info=True)
         raise
 
 
-def add_history(station: dict[str, Any]) -> None:
+def add_history(
+    station: dict[str, Any],
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> None:
     if not station.get("url"):
         return
 
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        db.add_history_record(conn, station)
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        db.add_history_record(conn, station, profile_id=active_profile_id)
         conn.commit()
 
 
-def clear_history() -> None:
+def clear_history(
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> None:
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        db.clear_history_records(conn)
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        db.clear_history_records(conn, profile_id=active_profile_id)
         conn.commit()

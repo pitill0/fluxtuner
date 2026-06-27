@@ -326,9 +326,9 @@ def test_get_playlist_stations_uses_matching_profile_favorites(
     manual_playlists.add_station_to_playlist("Shared", default_station)
     manual_playlists.add_station_to_playlist("Shared", work_station, profile_name="work")
 
-    assert [
-        item["name"] for item in manual_playlists.get_playlist_stations("Shared")
-    ] == ["Default Radio"]
+    assert [item["name"] for item in manual_playlists.get_playlist_stations("Shared")] == [
+        "Default Radio"
+    ]
     assert [
         item.get("custom_name")
         for item in manual_playlists.get_playlist_stations("Shared", profile_name="work")
@@ -429,6 +429,4 @@ def test_playlist_counts_and_summary_are_scoped_by_profile_name(
     assert manual_playlists.playlist_counts(profile_name="work") == [("Morning", 1)]
 
     assert manual_playlists.summarize_playlist("Morning") == "• Default Radio"
-    assert manual_playlists.summarize_playlist("Morning", profile_name="work") == (
-        "• Work Radio"
-    )
+    assert manual_playlists.summarize_playlist("Morning", profile_name="work") == ("• Work Radio")

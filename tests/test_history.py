@@ -241,9 +241,7 @@ def test_history_is_isolated_by_profile_name(
     history.add_history(work_station, profile_name="work")
 
     assert [item["name"] for item in history.load_history()] == ["Default Radio"]
-    assert [item["name"] for item in history.load_history(profile_name="work")] == [
-        "Work Radio"
-    ]
+    assert [item["name"] for item in history.load_history(profile_name="work")] == ["Work Radio"]
 
 
 def test_history_play_count_is_scoped_by_profile_name(

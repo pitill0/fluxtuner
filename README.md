@@ -318,3 +318,19 @@ MIT
 ## Support the project
 
 If you find FluxTuner useful, please consider starring the repository, opening issues, suggesting improvements or sharing your setup. Feedback helps shape the future of the project.
+
+The persisted active profile is also used by the Textual TUI, GTK GUI and Web
+mode. Web API endpoints additionally accept `?profile=NAME` as a per-request
+override.
+
+Examples:
+
+    python -m fluxtuner --profile work --set-active-profile
+    python -m fluxtuner
+    python -m fluxtuner --gui
+    python -m fluxtuner --web
+
+Web API override example:
+
+    /api/favorites?profile=work
+

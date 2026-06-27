@@ -364,3 +364,20 @@ When omitted, FluxTuner uses the internal `default` profile.
 This does not change the active TUI, GTK GUI or Web profile yet. It only scopes
 CLI import/export operations.
 
+### Profile-aware interfaces
+
+The persisted active profile is used by profile-aware CLI commands, the legacy
+numbered CLI favorites flow, the Textual TUI, GTK GUI and Web mode.
+
+Web API endpoints also accept `?profile=NAME` as a per-request override:
+
+    /api/favorites?profile=work
+    /api/history?profile=work
+    /api/playlists?profile=work
+
+Profile resolution order remains:
+
+    1. Explicit `--profile NAME` or Web `?profile=NAME`
+    2. Persisted active profile
+    3. Internal default profile
+

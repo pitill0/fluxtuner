@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 from fluxtuner.core import db
 
@@ -22,3 +23,11 @@ def resolve_profile_id(
         return None
 
     return db.get_or_create_profile(conn, profile_name)
+
+
+def load_profiles() -> list[dict[str, Any]]:
+    """Return known profiles from the default FluxTuner database."""
+    db.init_db()
+
+    with db.connect() as conn:
+        return db.list_profiles(conn)

@@ -23,6 +23,7 @@ from fluxtuner.core.compatibility import (
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
+from fluxtuner.core.profiles import load_profiles
 from fluxtuner.core.stations import (
     station_bitrate,
     station_codec,
@@ -86,6 +87,27 @@ def print_player_backend_status() -> None:
         if backend not in available:
             install_hint = f" · {player_install_hint(backend)}"
         console.print(f" - {backend}: {status}{default} · {summary}{install_hint}")
+
+
+def print_profiles() -> None:
+    """Print known FluxTuner profiles."""
+    profiles = load_profiles()
+
+    table = Table(title="FluxTuner profiles")
+    table.add_column("Name")
+    table.add_column("Display name")
+    table.add_column("Created")
+    table.add_column("Updated")
+
+    for profile in profiles:
+        table.add_row(
+            str(profile["name"]),
+            str(profile["display_name"]),
+            str(profile["created_at"]),
+            str(profile["updated_at"]),
+        )
+
+    console.print(table)
 
 
 def run_doctor() -> None:
@@ -234,13 +256,13 @@ def play_station(
 def search_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
     query = input("Search station by name: ").strip()
     if not query:
-        return
+        return player
 
     try:
         stations = [normalize_station(item) for item in search_stations(name=query, limit=25)]
     except Exception as exc:  # noqa: BLE001
         console.print(f"[red]Search failed:[/red] {exc}")
-        return
+        return player
 
     compatible_stations = compatible_stations_for_player(stations, player_name)
     unsupported_count = len(stations) - len(compatible_stations)
@@ -252,7 +274,7 @@ def search_flow(player_name: str | None = None, player: Any | None = None) -> An
 
     station = choose_station(compatible_stations)
     if not station:
-        return
+        return player
 
     player = play_station(station, player_name, player)
 
@@ -271,7 +293,7 @@ def favorites_flow(player_name: str | None = None, player: Any | None = None) ->
 
     station = choose_station(favorites)
     if not station:
-        return
+        return player
 
     console.print("\n1. Play")
     console.print("2. Remove from favorites")
@@ -455,6 +477,11 @@ def main() -> None:
         help="List supported and available player backends, then exit.",
     )
     parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        help="List known FluxTuner profiles and exit.",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Print runtime diagnostics for paths and player backends, then exit.",
@@ -466,6 +493,10 @@ def main() -> None:
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
         print_player_backend_status()
+        return
+
+    if args.list_profiles:
+        print_profiles()
         return
 
     if args.doctor:

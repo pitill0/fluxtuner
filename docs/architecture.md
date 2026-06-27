@@ -311,3 +311,23 @@ Security-sensitive areas include:
 - ICY stream metadata parsing.
 
 See `SECURITY.md` and `docs/development.md` for validation and contribution guidance.
+
+## Future web multi-user model
+
+FluxTuner 0.9.0 targets real multi-user behavior for Web/server mode only.
+CLI, TUI and GTK GUI remain local interfaces that use the local filesystem
+trust model.
+
+The future web model adds authenticated users above profiles:
+
+    authenticated web user
+    └── owned profile
+        ├── favorites
+        ├── playback history
+        └── manual playlists
+
+Web API requests must resolve the current user from the authenticated session.
+Profile overrides such as `?profile=work` must only select profiles owned by
+that authenticated user.
+
+See `docs/multiuser.md` for the detailed 0.9.0 design.

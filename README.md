@@ -228,6 +228,7 @@ They are not separate user accounts.
 - [Usage guide](docs/usage.md)
 - [Architecture](docs/architecture.md)
 - [Web/server mode](docs/web.md)
+- [Multi-user web auth design](docs/multiuser.md)
 - [Release process](docs/release.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)

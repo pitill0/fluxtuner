@@ -83,3 +83,15 @@ FluxTuner Web can also run in Docker or Podman.
 
 See [`docs/container.md`](container.md) for build, run, Compose, and persistent
 volume examples.
+
+## Profiles
+
+Web mode uses the persisted active profile by default. API endpoints also accept
+`?profile=NAME` as a per-request override:
+
+    /api/favorites?profile=work
+    /api/history?profile=work
+    /api/playlists?profile=work
+
+Profiles separate favorites, manual playlists and playback history by context.
+They are not separate user accounts.

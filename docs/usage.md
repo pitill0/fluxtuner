@@ -334,10 +334,6 @@ Profile resolution order is:
     2. Persisted active profile
     3. Internal default profile
 
-The persisted active profile is currently used by CLI import/export commands and
-the legacy numbered CLI favorites flow. Textual TUI, GTK GUI and Web mode do not
-use active profile selection yet.
-
 
 ### Legacy CLI profile scope
 
@@ -347,8 +343,6 @@ The legacy numbered CLI honors `--profile NAME` for favorites operations:
 
 This scopes saving favorites from search, listing/removing favorites and random
 favorite playback to the selected profile.
-
-Profile selection is not active in the Textual TUI, GTK GUI or Web mode yet.
 
 
 ### Profile-aware import and export
@@ -360,9 +354,6 @@ When omitted, FluxTuner uses the internal `default` profile.
     python -m fluxtuner --profile work --import-favs work-favorites.json
     python -m fluxtuner --profile work --export-playlists work-playlists.json
     python -m fluxtuner --profile work --import-playlists work-playlists.json
-
-This does not change the active TUI, GTK GUI or Web profile yet. It only scopes
-CLI import/export operations.
 
 ### Profile-aware interfaces
 
@@ -381,3 +372,41 @@ Profile resolution order remains:
     2. Persisted active profile
     3. Internal default profile
 
+
+### Profiles
+
+FluxTuner profiles separate favorites, manual playlists and playback history by
+context. They are useful for setups such as work, home, terrace, pool, focus or
+testing.
+
+Profiles are not separate user accounts. Anyone using the same FluxTuner
+installation can still see and select the available profiles.
+
+Use `--profile NAME` to target a profile explicitly:
+
+    python -m fluxtuner --profile work --export-favs work-favorites.json
+    python -m fluxtuner --profile work --import-favs work-favorites.json
+    python -m fluxtuner --profile work --export-playlists work-playlists.json
+    python -m fluxtuner --profile work --import-playlists work-playlists.json
+    python -m fluxtuner --cli --profile work
+
+Persist an active profile for profile-aware interfaces:
+
+    python -m fluxtuner --profile work --set-active-profile
+    python -m fluxtuner --show-active-profile
+    python -m fluxtuner --clear-active-profile
+
+Profile resolution order is:
+
+1. Explicit `--profile NAME`
+2. Persisted active profile
+3. Internal default profile
+
+The persisted active profile is used by CLI import/export commands, the legacy
+numbered CLI favorites flow, the Textual TUI, GTK GUI and Web mode.
+
+Web API endpoints also accept `?profile=NAME` as a per-request override:
+
+    /api/favorites?profile=work
+    /api/history?profile=work
+    /api/playlists?profile=work

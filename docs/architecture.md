@@ -181,14 +181,16 @@ The SQLite database stores the default profile library:
 - playback history
 - manual playlists
 
-FluxTuner currently creates a single internal profile named `default`. This keeps
-the current single-user UX unchanged while preparing the storage model for future
-profile or user-aware features.
+FluxTuner stores favorites, playback history and manual playlists under an
+internal profile. The default profile is named `default`.
 
-Core library APIs can now resolve an optional `profile_id` or `profile_name`.
-When no profile is provided, they continue to use the internal `default` profile.
-This keeps TUI, GTK, CLI and Web behavior unchanged while allowing future
-frontends or services to become profile-aware incrementally.
+Core library APIs can resolve an optional `profile_id` or `profile_name`. When no
+explicit profile is provided, app interfaces use the persisted active profile if
+one is configured, otherwise they fall back to the internal `default` profile.
+
+Profiles are context-level separation, not user accounts. They prepare the
+storage and interface model for a future user layer without claiming user
+identity, authentication or per-user isolation today.
 
 Other local files remain JSON-based:
 

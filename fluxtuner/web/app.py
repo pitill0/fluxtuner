@@ -16,6 +16,7 @@ from fluxtuner.core.manual_playlists import (
     load_playlists,
     remove_station_from_playlist,
 )
+from fluxtuner.core.profiles import resolve_effective_profile_name
 
 
 def _missing_web_dependency_message() -> str:
@@ -75,6 +76,9 @@ def create_app() -> Any:
 
     required_body = Body(...)
 
+    def effective_profile_name(profile: str | None = None) -> str | None:
+        return resolve_effective_profile_name(profile)
+
     app = FastAPI(
         title=f"{__app_name__} Web",
         version=__version__,
@@ -129,8 +133,12 @@ def create_app() -> Any:
         }
 
     @app.get("/api/history")
-    def history(limit: int = Query(default=25, ge=1, le=100)) -> dict[str, Any]:
-        stations = load_history()[:limit]
+    def history(
+        limit: int = Query(default=25, ge=1, le=100),
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        profile_name = effective_profile_name(profile)
+        stations = load_history(profile_name=profile_name)[:limit]
 
         return {
             "count": len(stations),
@@ -138,13 +146,16 @@ def create_app() -> Any:
         }
 
     @app.post("/api/history")
-    def record_history(station: dict[str, Any] = required_body) -> dict[str, Any]:
+    def record_history(
+        station: dict[str, Any] = required_body,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        add_history(station_data)
+        add_history(station_data, profile_name=effective_profile_name(profile))
 
         return {
             "status": "ok",
@@ -152,8 +163,11 @@ def create_app() -> Any:
         }
 
     @app.get("/api/favorites")
-    def favorites() -> dict[str, Any]:
-        stations = load_favorites()
+    def favorites(
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        profile_name = effective_profile_name(profile)
+        stations = load_favorites(profile_name=profile_name)
 
         return {
             "count": len(stations),
@@ -161,13 +175,16 @@ def create_app() -> Any:
         }
 
     @app.post("/api/favorites")
-    def create_favorite(station: dict[str, Any] = required_body) -> dict[str, Any]:
+    def create_favorite(
+        station: dict[str, Any] = required_body,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        added = add_favorite(station_data)
+        added = add_favorite(station_data, profile_name=effective_profile_name(profile))
 
         return {
             "status": "ok",
@@ -176,8 +193,11 @@ def create_app() -> Any:
         }
 
     @app.delete("/api/favorites")
-    def delete_favorite(url: str = Query(..., min_length=1, max_length=4096)) -> dict[str, Any]:
-        removed = remove_favorite(url)
+    def delete_favorite(
+        url: str = Query(..., min_length=1, max_length=4096),
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        removed = remove_favorite(url, profile_name=effective_profile_name(profile))
 
         return {
             "status": "ok",
@@ -186,27 +206,33 @@ def create_app() -> Any:
         }
 
     @app.get("/api/playlists")
-    def playlists() -> dict[str, Any]:
-        items = load_playlists()
+    def playlists(
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        profile_name = effective_profile_name(profile)
+        items = load_playlists(profile_name=profile_name)
 
         return {
             "count": len(items),
             "playlists": [
                 {
                     "name": item["name"],
-                    "count": len(get_playlist_stations(item["name"])),
+                    "count": len(get_playlist_stations(item["name"], profile_name=profile_name)),
                 }
                 for item in items
             ],
         }
 
     @app.post("/api/playlists")
-    def create_web_playlist(payload: dict[str, Any] = required_body) -> dict[str, Any]:
+    def create_web_playlist(
+        payload: dict[str, Any] = required_body,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
         name = _playlist_name(payload)
         if not name:
             raise HTTPException(status_code=400, detail="Playlist name is required.")
 
-        created = create_playlist(name)
+        created = create_playlist(name, profile_name=effective_profile_name(profile))
 
         return {
             "status": "ok",
@@ -215,8 +241,11 @@ def create_app() -> Any:
         }
 
     @app.delete("/api/playlists/{name}")
-    def delete_web_playlist(name: str) -> dict[str, Any]:
-        removed = delete_playlist(name)
+    def delete_web_playlist(
+        name: str,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        removed = delete_playlist(name, profile_name=effective_profile_name(profile))
 
         return {
             "status": "ok",
@@ -225,8 +254,11 @@ def create_app() -> Any:
         }
 
     @app.get("/api/playlists/{name}/stations")
-    def playlist_stations(name: str) -> dict[str, Any]:
-        stations = get_playlist_stations(name)
+    def playlist_stations(
+        name: str,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        stations = get_playlist_stations(name, profile_name=effective_profile_name(profile))
 
         return {
             "name": name,
@@ -238,14 +270,16 @@ def create_app() -> Any:
     def add_web_station_to_playlist(
         name: str,
         station: dict[str, Any] = required_body,
+        profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        add_favorite(station_data)
-        added = add_station_to_playlist(name, station_data)
+        profile_name = effective_profile_name(profile)
+        add_favorite(station_data, profile_name=profile_name)
+        added = add_station_to_playlist(name, station_data, profile_name=profile_name)
 
         return {
             "status": "ok",
@@ -258,8 +292,13 @@ def create_app() -> Any:
     def remove_web_station_from_playlist(
         name: str,
         url: str = Query(..., min_length=1, max_length=4096),
+        profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        removed = remove_station_from_playlist(name, {"url": url})
+        removed = remove_station_from_playlist(
+            name,
+            {"url": url},
+            profile_name=effective_profile_name(profile),
+        )
 
         return {
             "status": "ok",

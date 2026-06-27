@@ -95,7 +95,7 @@ def test_main_export_favorites_writes_json_file(
     monkeypatch.setattr(
         main_module,
         "load_favorites",
-        lambda: [{"name": "Test Radio", "url": "https://example.com/stream"}],
+        lambda *, profile_name=None: [{"name": "Test Radio", "url": "https://example.com/stream"}],
     )
 
     run_main(monkeypatch, "--export-favs", str(export_path))
@@ -117,7 +117,11 @@ def test_main_import_favorites_reads_json_file(
 
     saved = []
 
-    def fake_save_favorites(items: list[dict[str, object]]) -> None:
+    def fake_save_favorites(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
         saved.extend(items)
 
     monkeypatch.setattr(main_module, "save_favorites", fake_save_favorites)
@@ -157,7 +161,11 @@ def test_main_import_favorites_skips_invalid_items(
 
     saved = []
 
-    def fake_save_favorites(items: list[dict[str, object]]) -> None:
+    def fake_save_favorites(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
         saved.extend(items)
 
     monkeypatch.setattr(main_module, "save_favorites", fake_save_favorites)
@@ -207,7 +215,9 @@ def test_main_export_playlists_writes_json_file(
     monkeypatch.setattr(
         main_module,
         "load_playlists",
-        lambda: [{"name": "Morning", "station_keys": ["https://example.com/stream"]}],
+        lambda *, profile_name=None: [
+            {"name": "Morning", "station_keys": ["https://example.com/stream"]}
+        ],
     )
 
     run_main(monkeypatch, "--export-playlists", str(export_path))
@@ -229,7 +239,11 @@ def test_main_import_playlists_reads_json_file(
 
     saved = []
 
-    def fake_save_playlists(items: list[dict[str, object]]) -> None:
+    def fake_save_playlists(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
         saved.extend(items)
 
     monkeypatch.setattr(main_module, "save_playlists", fake_save_playlists)
@@ -257,7 +271,11 @@ def test_main_import_playlists_skips_invalid_items(
 
     saved = []
 
-    def fake_save_playlists(items: list[dict[str, object]]) -> None:
+    def fake_save_playlists(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
         saved.extend(items)
 
     monkeypatch.setattr(main_module, "save_playlists", fake_save_playlists)
@@ -507,7 +525,7 @@ def test_search_flow_plays_selected_station_without_saving(monkeypatch) -> None:
 
     saved = []
 
-    def fake_add_favorite(station):
+    def fake_add_favorite(station, *, profile_name=None):
         saved.append(station)
         return True
 
@@ -544,7 +562,7 @@ def test_search_flow_saves_selected_station_when_requested(monkeypatch) -> None:
 
     saved = []
 
-    def fake_add_favorite(station):
+    def fake_add_favorite(station, *, profile_name=None):
         saved.append(station)
         return True
 
@@ -596,7 +614,7 @@ def test_favorites_flow_returns_none_when_no_station_is_selected(monkeypatch) ->
     monkeypatch.setattr(
         main_module,
         "load_favorites",
-        lambda: [{"name": "Test Radio", "url": "https://example.com/stream"}],
+        lambda *, profile_name=None: [{"name": "Test Radio", "url": "https://example.com/stream"}],
     )
     monkeypatch.setattr(main_module, "choose_station", lambda _stations: None)
 
@@ -606,7 +624,7 @@ def test_favorites_flow_returns_none_when_no_station_is_selected(monkeypatch) ->
 def test_favorites_flow_plays_selected_favorite(monkeypatch) -> None:
     station = {"name": "Test Radio", "url": "https://example.com/stream"}
 
-    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "load_favorites", lambda *, profile_name=None: [station])
     monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
     monkeypatch.setattr("builtins.input", lambda _prompt: "1")
 
@@ -633,13 +651,13 @@ def test_favorites_flow_plays_selected_favorite(monkeypatch) -> None:
 def test_favorites_flow_removes_selected_favorite(monkeypatch) -> None:
     station = {"name": "Test Radio", "url": "https://example.com/stream"}
 
-    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "load_favorites", lambda *, profile_name=None: [station])
     monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
     monkeypatch.setattr("builtins.input", lambda _prompt: "2")
 
     removed = []
 
-    def fake_remove_favorite(url: str) -> bool:
+    def fake_remove_favorite(url: str, *, profile_name=None) -> bool:
         removed.append(url)
         return True
 
@@ -654,7 +672,7 @@ def test_favorites_flow_removes_selected_favorite(monkeypatch) -> None:
 def test_favorites_flow_unknown_choice_returns_existing_player(monkeypatch) -> None:
     station = {"name": "Test Radio", "url": "https://example.com/stream"}
 
-    monkeypatch.setattr(main_module, "load_favorites", lambda: [station])
+    monkeypatch.setattr(main_module, "load_favorites", lambda *, profile_name=None: [station])
     monkeypatch.setattr(main_module, "choose_station", lambda stations: stations[0])
     monkeypatch.setattr("builtins.input", lambda _prompt: "unknown")
 
@@ -664,7 +682,7 @@ def test_favorites_flow_unknown_choice_returns_existing_player(monkeypatch) -> N
 
 
 def test_random_favorite_flow_returns_none_without_favorites(monkeypatch) -> None:
-    monkeypatch.setattr(main_module, "load_favorites", lambda: [])
+    monkeypatch.setattr(main_module, "load_favorites", lambda *, profile_name=None: [])
 
     assert main_module.random_favorite_flow("mpv") is None
 
@@ -678,7 +696,7 @@ def test_random_favorite_flow_plays_random_favorite(monkeypatch) -> None:
     selected = favorites[1]
     played = {}
 
-    monkeypatch.setattr(main_module, "load_favorites", lambda: favorites)
+    monkeypatch.setattr(main_module, "load_favorites", lambda *, profile_name=None: favorites)
     monkeypatch.setattr(main_module.secrets, "choice", lambda items: selected)
 
     def fake_play_station(station, player_name=None, player=None):
@@ -714,7 +732,9 @@ def test_main_export_favorites_logs_export_summary(
     monkeypatch.setattr(
         main_module,
         "load_favorites",
-        lambda: [{"name": "Secret Radio", "url": "https://example.com/stream"}],
+        lambda *, profile_name=None: [
+            {"name": "Secret Radio", "url": "https://example.com/stream"}
+        ],
     )
 
     with caplog.at_level(logging.DEBUG):
@@ -747,7 +767,11 @@ def test_main_import_favorites_logs_validation_summary(
         "configure_logging",
         lambda *, verbose=False: None,
     )
-    monkeypatch.setattr(main_module, "save_favorites", lambda _items: None)
+    monkeypatch.setattr(
+        main_module,
+        "save_favorites",
+        lambda _items, *, profile_name=None: None,
+    )
 
     with caplog.at_level(logging.DEBUG):
         run_main(monkeypatch, "--import-favs", str(import_path))
@@ -776,3 +800,356 @@ def test_import_json_list_exits_when_file_cannot_be_read(tmp_path: Path) -> None
         main_module.import_json_list(str(missing_file), "favorites")
 
     assert exc_info.value.code == 1
+
+
+def test_main_export_favorites_uses_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+    seen_profile_name = None
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Work Radio", "url": "https://example.com/work"}]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+
+    run_main(monkeypatch, "--profile", "work", "--export-favs", str(export_path))
+
+    assert seen_profile_name == "work"
+    assert json.loads(export_path.read_text(encoding="utf-8")) == [
+        {"name": "Work Radio", "url": "https://example.com/work"}
+    ]
+
+
+def test_main_import_favorites_uses_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "favorites.json"
+    import_path.write_text(
+        json.dumps([{"name": "Work Radio", "url": "https://example.com/work"}]),
+        encoding="utf-8",
+    )
+    seen_profile_name = None
+    saved_items: list[dict[str, object]] = []
+
+    def fake_save_favorites(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        saved_items.extend(items)
+
+    monkeypatch.setattr(main_module, "save_favorites", fake_save_favorites)
+
+    run_main(monkeypatch, "--profile", "work", "--import-favs", str(import_path))
+
+    assert seen_profile_name == "work"
+    assert [(item["name"], item["url"]) for item in saved_items] == [
+        ("Work Radio", "https://example.com/work")
+    ]
+
+
+def test_main_export_playlists_uses_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "playlists.json"
+    seen_profile_name = None
+
+    def fake_load_playlists(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Work", "station_keys": ["https://example.com/work"]}]
+
+    monkeypatch.setattr(main_module, "load_playlists", fake_load_playlists)
+
+    run_main(monkeypatch, "--profile", "work", "--export-playlists", str(export_path))
+
+    assert seen_profile_name == "work"
+    assert json.loads(export_path.read_text(encoding="utf-8")) == [
+        {"name": "Work", "station_keys": ["https://example.com/work"]}
+    ]
+
+
+def test_main_import_playlists_uses_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import_path = tmp_path / "playlists.json"
+    import_path.write_text(
+        json.dumps([{"name": "Work", "station_keys": ["https://example.com/work"]}]),
+        encoding="utf-8",
+    )
+    seen_profile_name = None
+
+    def fake_save_playlists(
+        items: list[dict[str, object]],
+        *,
+        profile_name: str | None = None,
+    ) -> None:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        assert items == [{"name": "Work", "station_keys": ["https://example.com/work"]}]
+
+    monkeypatch.setattr(main_module, "save_playlists", fake_save_playlists)
+
+    run_main(monkeypatch, "--profile", "work", "--import-playlists", str(import_path))
+
+    assert seen_profile_name == "work"
+
+
+def test_favorites_flow_loads_and_removes_from_profile(
+    monkeypatch,
+) -> None:
+    seen_load_profile_name = None
+    seen_remove_profile_name = None
+    station = {"name": "Work Radio", "url": "https://example.com/work"}
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_load_profile_name
+        seen_load_profile_name = profile_name
+        return [station]
+
+    def fake_remove_favorite(
+        station_or_key: dict[str, object] | str,
+        *,
+        profile_name: str | None = None,
+    ) -> bool:
+        nonlocal seen_remove_profile_name
+        seen_remove_profile_name = profile_name
+        assert station_or_key == "https://example.com/work"
+        return True
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+    monkeypatch.setattr(main_module, "remove_favorite", fake_remove_favorite)
+    monkeypatch.setattr(main_module, "compatible_stations_for_player", lambda items, _player: items)
+    monkeypatch.setattr(main_module, "choose_station", lambda _stations: station)
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "2")
+
+    assert main_module.favorites_flow(profile_name="work") is None
+    assert seen_load_profile_name == "work"
+    assert seen_remove_profile_name == "work"
+
+
+def test_random_favorite_flow_loads_from_profile(
+    monkeypatch,
+) -> None:
+    seen_profile_name = None
+    station = {"name": "Work Radio", "url": "https://example.com/work"}
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [station]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+    monkeypatch.setattr(main_module, "compatible_stations_for_player", lambda items, _player: items)
+    monkeypatch.setattr(main_module.secrets, "choice", lambda items: items[0])
+    monkeypatch.setattr(main_module, "play_station", lambda selected, _player_name, player: player)
+
+    assert main_module.random_favorite_flow(profile_name="work") is None
+    assert seen_profile_name == "work"
+
+
+def test_search_flow_saves_favorite_to_profile(
+    monkeypatch,
+) -> None:
+    seen_profile_name = None
+    station = {"name": "Work Radio", "url": "https://example.com/work"}
+
+    def fake_add_favorite(
+        selected_station: dict[str, object],
+        *,
+        profile_name: str | None = None,
+    ) -> bool:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        assert selected_station == station
+        return True
+
+    answers = iter(["work", "y"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+    monkeypatch.setattr(main_module, "search_stations", lambda name, limit: [station])
+    monkeypatch.setattr(main_module, "normalize_station", lambda item: item)
+    monkeypatch.setattr(main_module, "compatible_stations_for_player", lambda items, _player: items)
+    monkeypatch.setattr(main_module, "choose_station", lambda _stations: station)
+    monkeypatch.setattr(main_module, "play_station", lambda selected, _player_name, player: player)
+    monkeypatch.setattr(main_module, "add_favorite", fake_add_favorite)
+
+    assert main_module.search_flow(profile_name="work") is None
+    assert seen_profile_name == "work"
+
+
+def test_run_cli_passes_profile_name_to_flows(
+    monkeypatch,
+) -> None:
+    seen_profiles: list[str | None] = []
+    choices = iter(["1", "2", "3", "4"])
+
+    def fake_search_flow(
+        player_name: str | None = None,
+        player=None,
+        *,
+        profile_name: str | None = None,
+    ):
+        seen_profiles.append(profile_name)
+        return player
+
+    def fake_favorites_flow(
+        player_name: str | None = None,
+        player=None,
+        *,
+        profile_name: str | None = None,
+    ):
+        seen_profiles.append(profile_name)
+        return player
+
+    def fake_random_favorite_flow(
+        player_name: str | None = None,
+        player=None,
+        *,
+        profile_name: str | None = None,
+    ):
+        seen_profiles.append(profile_name)
+        return player
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(choices))
+    monkeypatch.setattr(main_module, "search_flow", fake_search_flow)
+    monkeypatch.setattr(main_module, "favorites_flow", fake_favorites_flow)
+    monkeypatch.setattr(main_module, "random_favorite_flow", fake_random_favorite_flow)
+
+    main_module.run_cli(profile_name="work")
+
+    assert seen_profiles == ["work", "work", "work"]
+
+
+def test_main_set_active_profile_requires_profile(
+    monkeypatch,
+) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        run_main(monkeypatch, "--set-active-profile")
+
+    assert excinfo.value.code == 1
+
+
+def test_main_set_active_profile_persists_profile(
+    monkeypatch,
+) -> None:
+    seen_profile_name = None
+
+    def fake_set_active_profile_name(profile_name: str) -> str:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return "work"
+
+    monkeypatch.setattr(
+        main_module,
+        "set_active_profile_name",
+        fake_set_active_profile_name,
+    )
+
+    run_main(monkeypatch, "--profile", "work", "--set-active-profile")
+
+    assert seen_profile_name == "work"
+
+
+def test_main_clear_active_profile_clears_profile(
+    monkeypatch,
+) -> None:
+    called = False
+
+    def fake_clear_active_profile_name() -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(
+        main_module,
+        "clear_active_profile_name",
+        fake_clear_active_profile_name,
+    )
+
+    run_main(monkeypatch, "--clear-active-profile")
+
+    assert called is True
+
+
+def test_main_export_favorites_uses_active_profile_when_profile_is_omitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+    seen_profile_name = None
+
+    monkeypatch.setattr(
+        main_module,
+        "resolve_effective_profile_name",
+        lambda profile_name=None: "work",
+    )
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Work Radio", "url": "https://example.com/work"}]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+
+    run_main(monkeypatch, "--export-favs", str(export_path))
+
+    assert seen_profile_name == "work"
+
+
+def test_main_profile_argument_overrides_active_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    export_path = tmp_path / "favorites.json"
+    seen_resolve_argument = None
+    seen_profile_name = None
+
+    def fake_resolve_effective_profile_name(profile_name=None):
+        nonlocal seen_resolve_argument
+        seen_resolve_argument = profile_name
+        return profile_name or "active"
+
+    monkeypatch.setattr(
+        main_module,
+        "resolve_effective_profile_name",
+        fake_resolve_effective_profile_name,
+    )
+
+    def fake_load_favorites(
+        *,
+        profile_name: str | None = None,
+    ) -> list[dict[str, object]]:
+        nonlocal seen_profile_name
+        seen_profile_name = profile_name
+        return [{"name": "Office Radio", "url": "https://example.com/office"}]
+
+    monkeypatch.setattr(main_module, "load_favorites", fake_load_favorites)
+
+    run_main(monkeypatch, "--profile", "office", "--export-favs", str(export_path))
+
+    assert seen_resolve_argument == "office"
+    assert seen_profile_name == "office"

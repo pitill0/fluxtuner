@@ -56,8 +56,8 @@ interfaces:
 fluxtuner.db
 ```
 
-The shared database contains favorites, playback history, manual playlists and
-normalized station records for the internal `default` profile.
+The shared database contains profile-scoped favorites, playback history, manual playlists and
+normalized station records for profile-scoped library data.
 
 Legacy JSON library files are still supported as migration sources, but the
 active library store is `fluxtuner.db`.
@@ -83,3 +83,15 @@ FluxTuner Web can also run in Docker or Podman.
 
 See [`docs/container.md`](container.md) for build, run, Compose, and persistent
 volume examples.
+
+## Profiles
+
+Web mode uses the persisted active profile by default. API endpoints also accept
+?profile=NAME as a per-request override:
+
+    /api/favorites?profile=work
+    /api/history?profile=work
+    /api/playlists?profile=work
+
+Profiles separate favorites, manual playlists and playback history by context.
+They are not separate user accounts.

@@ -80,13 +80,24 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.8.0" date="2026-06-27">
+      <description>
+        <ul>
+          <li>Added multi-profile support for favorites, playback history and manual playlists.</li>
+          <li>Added persistent active profile commands and profile-aware CLI import/export.</li>
+          <li>Textual TUI, GTK GUI and Web mode now use the persisted active profile.</li>
+          <li>Web API endpoints now support a per-request profile override with ?profile=NAME.</li>
+          <li>Updated documentation and architecture notes for the new profile-scoped library model.</li>
+        </ul>
+      </description>
+    </release>
 
     <release version="0.7.1" date="2026-06-27">
       <description>
         <ul>
           <li>Adds internal profile-aware storage for favorites, history and playlists.</li>
           <li>Adds a CLI command to inspect known profiles.</li>
-          <li>Keeps the default single-user behavior unchanged.</li>
+          <li>Keeps the default profile behavior unchanged.</li>
         </ul>
       </description>
     </release>
@@ -96,7 +107,7 @@
         <ul>
           <li>Moved favorites, playback history and manual playlists to a local SQLite library database.</li>
           <li>Added conservative migration from legacy JSON library files.</li>
-          <li>Prepared the storage model for future profile-aware features while keeping the current single-user workflow unchanged.</li>
+          <li>Prepared the storage model for profile-aware features while keeping the default-profile workflow unchanged.</li>
         </ul>
       </description>
     </release>
@@ -105,7 +116,7 @@
       <description>
         <ul>
           <li>Updated release metadata for FluxTuner 0.6.0.</li>
-          <li>Improved shared data directory handling for isolated profiles and container workflows.</li>
+          <li>Improved shared data directory handling for isolated app data and container workflows.</li>
           <li>Added source-level web/server mode documentation and packaging notes.</li>
           <li>Improved project documentation for web, container and multi-interface usage.</li>
           <li>Kept the Flatpak package focused on the GTK and terminal interfaces.</li>

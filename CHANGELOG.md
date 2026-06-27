@@ -20,6 +20,33 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [0.8.0] - 2026-06-27
+
+### Added
+
+- Added multi-profile support for favorites, playback history and manual playlists.
+- Added persistent active profile support.
+- Added `--profile NAME` for profile-aware CLI commands.
+- Added `--set-active-profile`, `--show-active-profile` and `--clear-active-profile`.
+- Added profile-aware import/export for favorites and manual playlists.
+- Added profile-aware behavior to the legacy numbered CLI favorites flow.
+- Added profile-aware behavior to the Textual TUI, GTK GUI and Web mode.
+- Added Web API `?profile=NAME` override support for profile-aware endpoints.
+- Added dynamic favorite tag playlist support scoped by profile.
+
+### Changed
+
+- Favorites, playback history and manual playlists are now resolved using profile-aware storage.
+- Profile resolution now follows this order: explicit profile, persisted active profile, internal default profile.
+- The Web API now uses the persisted active profile by default when no `?profile=NAME` override is provided.
+- Documentation now describes the feature as multi-profile support rather than multi-user support.
+
+### Notes
+
+- Profiles separate favorites, manual playlists and playback history by context.
+- Profiles are not user accounts and do not provide authentication, permissions or per-user isolation.
+- This release prepares the storage and interface foundation for future true multi-user support.
+
 ## 0.7.1 - 2026-06-27
 
 ### Added

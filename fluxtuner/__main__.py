@@ -23,7 +23,13 @@ from fluxtuner.core.compatibility import (
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
-from fluxtuner.core.profiles import load_profiles
+from fluxtuner.core.profiles import (
+    clear_active_profile_name,
+    get_active_profile_name,
+    load_profiles,
+    resolve_effective_profile_name,
+    set_active_profile_name,
+)
 from fluxtuner.core.stations import (
     station_bitrate,
     station_codec,
@@ -253,7 +259,12 @@ def play_station(
     return active_player
 
 
-def search_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
+def search_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
     query = input("Search station by name: ").strip()
     if not query:
         return player
@@ -280,13 +291,21 @@ def search_flow(player_name: str | None = None, player: Any | None = None) -> An
 
     save = input("Save to favorites? [y/N]: ").strip().lower()
     if save == "y":
-        add_favorite(station)
+        add_favorite(station, profile_name=profile_name)
         console.print("[green]Saved to favorites.[/green]")
     return player
 
 
-def favorites_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = compatible_stations_for_player(load_favorites(), player_name)
+def favorites_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
+    favorites = compatible_stations_for_player(
+        load_favorites(profile_name=profile_name),
+        player_name,
+    )
     if not favorites:
         console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
         return player
@@ -302,13 +321,21 @@ def favorites_flow(player_name: str | None = None, player: Any | None = None) ->
     if choice == "1":
         return play_station(station, player_name, player)
     elif choice == "2":
-        remove_favorite(station["url"])
+        remove_favorite(station["url"], profile_name=profile_name)
         console.print("[green]Removed from favorites.[/green]")
     return player
 
 
-def random_favorite_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = compatible_stations_for_player(load_favorites(), player_name)
+def random_favorite_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
+    favorites = compatible_stations_for_player(
+        load_favorites(profile_name=profile_name),
+        player_name,
+    )
     if not favorites:
         console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
         return player
@@ -367,7 +394,11 @@ def import_json_list(
     return data
 
 
-def run_cli(player_name: str | None = None) -> None:
+def run_cli(
+    player_name: str | None = None,
+    *,
+    profile_name: str | None = None,
+) -> None:
     """Run the legacy numbered CLI with an already resolved player backend."""
     player: Any | None = None
 
@@ -382,11 +413,23 @@ def run_cli(player_name: str | None = None) -> None:
             choice = input("> ").strip()
 
             if choice == "1":
-                player = search_flow(player_name, player)
+                player = search_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "2":
-                player = favorites_flow(player_name, player)
+                player = favorites_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "3":
-                player = random_favorite_flow(player_name, player)
+                player = random_favorite_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "4":
                 break
             else:
@@ -424,6 +467,30 @@ def main() -> None:
         default="auto",
         metavar="BACKEND",
         help="Player backend to use: auto, mpv, ffplay, mpg123 or ogg123.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Profile name to use for profile-aware commands. "
+            "Overrides the persisted active profile."
+        ),
+    )
+    parser.add_argument(
+        "--set-active-profile",
+        action="store_true",
+        help="Persist --profile NAME as the active profile and exit.",
+    )
+    parser.add_argument(
+        "--show-active-profile",
+        action="store_true",
+        help="Show the persisted active profile and exit.",
+    )
+    parser.add_argument(
+        "--clear-active-profile",
+        action="store_true",
+        help="Clear the persisted active profile and exit.",
     )
     parser.add_argument(
         "--theme",
@@ -490,6 +557,30 @@ def main() -> None:
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
 
+    effective_profile_name = resolve_effective_profile_name(args.profile)
+
+    if args.set_active_profile:
+        if not args.profile:
+            console.print("[red]--set-active-profile requires --profile NAME.[/red]")
+            raise SystemExit(1)
+
+        persisted_profile_name = set_active_profile_name(args.profile)
+        console.print(f"[green]Active profile set to {persisted_profile_name!r}.[/green]")
+        return
+
+    if args.show_active_profile:
+        current_profile_name = get_active_profile_name()
+        if current_profile_name is None:
+            console.print("[yellow]No active profile configured.[/yellow]")
+        else:
+            console.print(f"Active profile: {current_profile_name}")
+        return
+
+    if args.clear_active_profile:
+        clear_active_profile_name()
+        console.print("[green]Active profile cleared.[/green]")
+        return
+
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
         print_player_backend_status()
@@ -515,7 +606,11 @@ def main() -> None:
         return
 
     if args.export_favs:
-        export_json_list(args.export_favs, load_favorites(), "Favorites")
+        export_json_list(
+            args.export_favs,
+            load_favorites(profile_name=effective_profile_name),
+            "Favorites",
+        )
         return
 
     if args.import_favs:
@@ -531,7 +626,7 @@ def main() -> None:
             console.print("[red]No valid favorites found in import file.[/red]")
             raise SystemExit(1)
 
-        save_favorites(result.items)
+        save_favorites(result.items, profile_name=effective_profile_name)
 
         message = f"[green]Imported {len(result.items)} favorite(s).[/green]"
         if result.skipped:
@@ -540,7 +635,11 @@ def main() -> None:
         return
 
     if args.export_playlists:
-        export_json_list(args.export_playlists, load_playlists(), "Persistent playlists")
+        export_json_list(
+            args.export_playlists,
+            load_playlists(profile_name=effective_profile_name),
+            "Persistent playlists",
+        )
         return
 
     if args.import_playlists:
@@ -556,7 +655,7 @@ def main() -> None:
             console.print("[red]No valid playlists found in import file.[/red]")
             raise SystemExit(1)
 
-        save_playlists(result.items)
+        save_playlists(result.items, profile_name=effective_profile_name)
 
         message = f"[green]Imported {len(result.items)} persistent playlist(s).[/green]"
         if result.skipped:
@@ -593,7 +692,7 @@ def main() -> None:
         raise SystemExit(2) from exc
 
     if args.cli:
-        run_cli(selected_player)
+        run_cli(selected_player, profile_name=effective_profile_name)
         return
 
     if args.gui:

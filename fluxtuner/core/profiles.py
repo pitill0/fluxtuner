@@ -18,15 +18,21 @@ def resolve_profile_id(
 ) -> int | None:
     """Resolve an optional profile selector to a profile id.
 
-    Returning None preserves the existing default-profile behavior in db helpers.
+    Returning None preserves the existing default-profile behavior in db helpers
+    for legacy callers that do not provide a user. When a user is provided, the
+    user's default profile is resolved explicitly so user-scoped callers do not
+    fall back to the global default profile.
     """
     if profile_id is not None:
         return profile_id
 
-    if profile_name is None:
-        return None
+    if profile_name is not None:
+        return db.get_or_create_profile(conn, profile_name, user_id=user_id)
 
-    return db.get_or_create_profile(conn, profile_name, user_id=user_id)
+    if user_id is not None:
+        return db.ensure_default_profile(conn, user_id=user_id)
+
+    return None
 
 
 def load_profiles() -> list[dict[str, Any]]:

@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from fluxtuner.core import favorites
+from fluxtuner.core import db, favorites
 
 
 def patch_favorites_file(tmp_path: Path, monkeypatch) -> Path:
@@ -408,3 +408,30 @@ def test_favorite_tags_can_be_scoped_by_profile_name(
     assert [
         item["name"] for item in favorites.filter_favorites_by_tag("office", profile_name="work")
     ] == ["Work Radio"]
+
+
+def test_favorites_are_isolated_by_user_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    station = {
+        "name": "Shared Radio",
+        "url": "https://example.com/shared",
+        "favorite_tags": ["shared"],
+    }
+
+    db.init_db(favorites._db_path())
+
+    with db.connect(favorites._db_path()) as conn:
+        laura_id = db.get_or_create_user(conn, "laura")
+        guest_id = db.get_or_create_user(conn, "guest")
+        conn.commit()
+
+    assert favorites.add_favorite(station, user_id=laura_id) is True
+
+    assert [item["name"] for item in favorites.load_favorites(user_id=laura_id)] == ["Shared Radio"]
+    assert favorites.load_favorites(user_id=guest_id) == []
+    assert favorites.all_favorite_tags(user_id=laura_id) == ["shared"]
+    assert favorites.all_favorite_tags(user_id=guest_id) == []

@@ -104,6 +104,7 @@ def load_playlists(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     _ensure_playlists_db()
 
@@ -112,6 +113,7 @@ def load_playlists(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         return [
             normalize_playlist(item)
@@ -124,6 +126,7 @@ def save_playlists(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> None:
     _ensure_playlists_db()
 
@@ -136,6 +139,7 @@ def save_playlists(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         db.replace_playlists(conn, normalized, profile_id=active_profile_id)
         conn.commit()
@@ -152,6 +156,7 @@ def get_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any] | None:
     clean_name = name.strip().lower()
     if not clean_name:
@@ -164,6 +169,7 @@ def get_playlist(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         playlist = db.get_playlist_record(conn, clean_name, profile_id=active_profile_id)
 
@@ -175,6 +181,7 @@ def create_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     clean_name = name.strip()
     if not clean_name:
@@ -187,6 +194,7 @@ def create_playlist(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         created = db.create_playlist_record(conn, clean_name, profile_id=active_profile_id)
         conn.commit()
@@ -198,6 +206,7 @@ def delete_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     clean_name = name.strip()
     if not clean_name:
@@ -210,6 +219,7 @@ def delete_playlist(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         removed = db.delete_playlist_record(conn, clean_name, profile_id=active_profile_id)
         conn.commit()
@@ -222,6 +232,7 @@ def add_station_to_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     clean_name = name.strip()
     key = station_key(station)
@@ -235,6 +246,7 @@ def add_station_to_playlist(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         added = db.add_station_to_playlist_record(
             conn,
@@ -252,6 +264,7 @@ def remove_station_from_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     clean_name = name.strip()
     key = station_key(station)
@@ -265,6 +278,7 @@ def remove_station_from_playlist(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         changed = db.remove_station_from_playlist_record(
             conn,
@@ -281,12 +295,13 @@ def get_playlist_stations(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
-    playlist = get_playlist(name, profile_id=profile_id, profile_name=profile_name)
+    playlist = get_playlist(name, profile_id=profile_id, profile_name=profile_name, user_id=user_id)
     if not playlist:
         return []
 
-    favorites = load_favorites(profile_id=profile_id, profile_name=profile_name)
+    favorites = load_favorites(profile_id=profile_id, profile_name=profile_name, user_id=user_id)
     favorite_map = {station_key(item): item for item in favorites if station_key(item)}
     return [favorite_map[key] for key in playlist["station_keys"] if key in favorite_map]
 
@@ -296,11 +311,13 @@ def random_from_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any] | None:
     stations = get_playlist_stations(
         name,
         profile_id=profile_id,
         profile_name=profile_name,
+        user_id=user_id,
     )
     if not stations:
         return None
@@ -311,6 +328,7 @@ def playlist_counts(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[tuple[str, int]]:
     return [
         (
@@ -320,10 +338,13 @@ def playlist_counts(
                     item["name"],
                     profile_id=profile_id,
                     profile_name=profile_name,
+                    user_id=user_id,
                 )
             ),
         )
-        for item in load_playlists(profile_id=profile_id, profile_name=profile_name)
+        for item in load_playlists(
+            profile_id=profile_id, profile_name=profile_name, user_id=user_id
+        )
     ]
 
 
@@ -333,11 +354,13 @@ def summarize_playlist(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> str:
     stations = get_playlist_stations(
         name,
         profile_id=profile_id,
         profile_name=profile_name,
+        user_id=user_id,
     )
     names = [favorite_display_name(item) for item in stations[:limit]]
     preview = "\n".join(f"• {item}" for item in names) if names else "No stations yet."

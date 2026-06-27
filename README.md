@@ -175,6 +175,7 @@ See [`docs/web.md`](docs/web.md) for details.
 fluxtuner --help
 fluxtuner --version
 fluxtuner --list-players
+python -m fluxtuner --list-profiles
 fluxtuner --doctor
 fluxtuner --list-themes
 fluxtuner --theme nord

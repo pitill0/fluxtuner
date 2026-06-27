@@ -11,6 +11,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 ### Added
 
 - Added internal profile-aware core helpers for favorites, playback history and manual playlists.
+- Added `--list-profiles` to inspect known FluxTuner profiles from the CLI.
 
 ### Changed
 

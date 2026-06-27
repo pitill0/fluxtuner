@@ -52,10 +52,12 @@ gui = [
     "PyGObject>=3.46,<4",
 ]
 web = [
+    "argon2-cffi>=25.1.0,<26",
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
 ]
 dev = [
+    "argon2-cffi>=25.1.0,<26",
     "build>=1.2.0,<2",
     "ruff>=0.5.0,<1",
     "pytest>=9.0.3,<10",

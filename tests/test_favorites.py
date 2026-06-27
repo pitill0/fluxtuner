@@ -268,3 +268,144 @@ def test_filter_favorites_by_tag_uses_user_favorite_tags_only(
     result = favorites.filter_favorites_by_tag("morning")
 
     assert [item["name"] for item in result] == ["News Station"]
+
+
+def test_favorites_are_isolated_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+    }
+
+    assert favorites.add_favorite(default_station) is True
+    assert favorites.add_favorite(work_station, profile_name="work") is True
+
+    assert [item["name"] for item in favorites.load_favorites()] == ["Default Radio"]
+    assert [item["name"] for item in favorites.load_favorites(profile_name="work")] == [
+        "Work Radio"
+    ]
+
+
+def test_save_favorites_replaces_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    favorites.save_favorites(
+        [
+            {
+                "name": "Default Radio",
+                "url": "https://example.com/default",
+            }
+        ]
+    )
+    favorites.save_favorites(
+        [
+            {
+                "name": "Work Radio",
+                "url": "https://example.com/work",
+            }
+        ],
+        profile_name="work",
+    )
+
+    favorites.save_favorites(
+        [
+            {
+                "name": "Updated Work Radio",
+                "url": "https://example.com/updated-work",
+            }
+        ],
+        profile_name="work",
+    )
+
+    assert [item["name"] for item in favorites.load_favorites()] == ["Default Radio"]
+    assert [item["name"] for item in favorites.load_favorites(profile_name="work")] == [
+        "Updated Work Radio"
+    ]
+
+
+def test_update_favorite_updates_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    station = {
+        "name": "Shared URL Radio",
+        "url": "https://example.com/shared",
+    }
+
+    favorites.add_favorite(station)
+    favorites.add_favorite(station, profile_name="work")
+
+    changed = favorites.update_favorite(
+        "https://example.com/shared",
+        custom_name="Work Custom",
+        profile_name="work",
+    )
+
+    assert changed is True
+    assert favorites.load_favorites()[0]["custom_name"] is None
+    assert favorites.load_favorites(profile_name="work")[0]["custom_name"] == "Work Custom"
+
+
+def test_remove_favorite_removes_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    station = {
+        "name": "Shared URL Radio",
+        "url": "https://example.com/shared",
+    }
+
+    favorites.add_favorite(station)
+    favorites.add_favorite(station, profile_name="work")
+
+    removed = favorites.remove_favorite(station, profile_name="work")
+
+    assert removed is True
+    assert len(favorites.load_favorites()) == 1
+    assert favorites.load_favorites(profile_name="work") == []
+
+
+def test_favorite_tags_can_be_scoped_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_favorites_file(tmp_path, monkeypatch)
+
+    favorites.add_favorite(
+        {
+            "name": "Home Radio",
+            "url": "https://example.com/home",
+            "favorite_tags": ["home"],
+        }
+    )
+    favorites.add_favorite(
+        {
+            "name": "Work Radio",
+            "url": "https://example.com/work",
+            "favorite_tags": ["office"],
+        },
+        profile_name="work",
+    )
+
+    assert favorites.all_favorite_tags() == ["home"]
+    assert favorites.all_favorite_tags(profile_name="work") == ["office"]
+    assert [item["name"] for item in favorites.filter_favorites_by_tag("office")] == []
+    assert [
+        item["name"]
+        for item in favorites.filter_favorites_by_tag("office", profile_name="work")
+    ] == ["Work Radio"]

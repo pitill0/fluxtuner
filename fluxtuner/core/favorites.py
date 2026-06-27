@@ -69,6 +69,21 @@ def _mark_migration_applied(conn, name: str) -> None:
     )
 
 
+def _resolve_profile_id(
+    conn,
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> int | None:
+    if profile_id is not None:
+        return profile_id
+
+    if profile_name is None:
+        return None
+
+    return db.get_or_create_profile(conn, profile_name)
+
+
 def _ensure_favorites_db() -> None:
     """Create SQLite storage and migrate existing JSON favorites once."""
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
@@ -88,21 +103,47 @@ def _ensure_favorites_db() -> None:
         conn.commit()
 
 
-def load_favorites() -> list[dict[str, Any]]:
+def load_favorites(
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> list[dict[str, Any]]:
     _ensure_favorites_db()
 
     with db.connect(_db_path()) as conn:
-        return [normalize_favorite(item) for item in db.list_favorites(conn)]
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        return [
+            normalize_favorite(item)
+            for item in db.list_favorites(conn, profile_id=active_profile_id)
+        ]
 
 
-def save_favorites(favorites: list[dict[str, Any]]) -> None:
+def save_favorites(
+    favorites: list[dict[str, Any]],
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> None:
     _ensure_favorites_db()
 
     normalized = [normalize_favorite(item) for item in favorites if station_key(item)]
 
-    with db.connect(_db_path()) as conn:
-        db.replace_favorites(conn, normalized)
-        conn.commit()
+    try:
+        with db.connect(_db_path()) as conn:
+            active_profile_id = _resolve_profile_id(
+                conn,
+                profile_id=profile_id,
+                profile_name=profile_name,
+            )
+            db.replace_favorites(conn, normalized, profile_id=active_profile_id)
+            conn.commit()
+    except OSError:
+        logger.error("Could not write favorites data", exc_info=True)
+        raise
 
 
 def normalize_favorite(station: dict[str, Any]) -> dict[str, Any]:
@@ -133,62 +174,108 @@ def favorite_display_name(station: dict[str, Any]) -> str:
     return station_name(station)
 
 
-def add_favorite(station: dict[str, Any]) -> bool:
-    _ensure_favorites_db()
-
+def add_favorite(
+    station: dict[str, Any],
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> bool:
     key = station_key(station)
     if not key:
         return False
 
-    favorite = normalize_favorite(station)
+    _ensure_favorites_db()
 
+    favorite = normalize_favorite(station)
     with db.connect(_db_path()) as conn:
-        added = db.add_favorite_record(conn, favorite)
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        added = db.add_favorite_record(conn, favorite, profile_id=active_profile_id)
         conn.commit()
         return added
 
 
-def remove_favorite(url: str) -> bool:
+def remove_favorite(
+    station: dict[str, Any],
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> bool:
+    key = station_key(station)
+    if not key:
+        return False
+
     _ensure_favorites_db()
 
     with db.connect(_db_path()) as conn:
-        removed = db.remove_favorite_record(conn, url)
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
+        removed = db.remove_favorite_record(conn, key, profile_id=active_profile_id)
         conn.commit()
         return removed
 
 
 def update_favorite(
-    url: str,
+    station: dict[str, Any] | str,
     *,
-    custom_name: str | None | object = ...,
-    favorite_tags: list[str] | None | object = ...,
+    custom_name: Any = ...,
+    favorite_tags: Any = ...,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
 ) -> bool:
+    key = station.strip() if isinstance(station, str) else station_key(station) or ""
+
+    if not key:
+        return False
+
     _ensure_favorites_db()
 
     with db.connect(_db_path()) as conn:
+        active_profile_id = _resolve_profile_id(
+            conn,
+            profile_id=profile_id,
+            profile_name=profile_name,
+        )
         changed = db.update_favorite_record(
             conn,
-            url,
+            key,
             custom_name=custom_name,
             favorite_tags=favorite_tags,
+            profile_id=active_profile_id,
         )
         conn.commit()
         return changed
 
 
-def filter_favorites_by_tag(tag: str) -> list[dict[str, Any]]:
+def filter_favorites_by_tag(
+    tag: str,
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> list[dict[str, Any]]:
     clean_tag = tag.strip().lower()
     if not clean_tag:
-        return load_favorites()
+        return load_favorites(profile_id=profile_id, profile_name=profile_name)
+
     return [
         favorite
-        for favorite in load_favorites()
-        if clean_tag in {str(item).lower() for item in favorite.get("favorite_tags", [])}
+        for favorite in load_favorites(profile_id=profile_id, profile_name=profile_name)
+        if clean_tag in {item.lower() for item in favorite.get("favorite_tags", [])}
     ]
 
 
-def all_favorite_tags() -> list[str]:
+def all_favorite_tags(
+    *,
+    profile_id: int | None = None,
+    profile_name: str | None = None,
+) -> list[str]:
     tags: set[str] = set()
-    for favorite in load_favorites():
-        tags.update(_normalize_favorite_tags(favorite.get("favorite_tags")))
+    for favorite in load_favorites(profile_id=profile_id, profile_name=profile_name):
+        tags.update(favorite.get("favorite_tags", []))
     return sorted(tags, key=str.lower)

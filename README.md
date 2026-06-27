@@ -37,7 +37,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 - Manage favorites, custom favorite names, tags and playlists.
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
-- Run either the default Textual TUI, the GTK4 desktop GUI or the legacy numbered CLI.
+- Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
 ---
@@ -46,7 +46,9 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 
 ### Web mode
 
-![Web mobile](screenshots/web-mobile.png)
+<p align="center">
+  <img src="screenshots/web-mobile.png" alt="FluxTuner Web mobile interface" width="360">
+</p>
 
 ### GTK GUI
 
@@ -159,7 +161,7 @@ fluxtuner --cli        # legacy numbered CLI
 
 ### Web/server mode
 
-FluxTuner includes a browser-based web/server mode:
+FluxTuner includes a browser-based web/server mode for local or LAN usage, remote control and lightweight testing:
 
 ```bash
 python -m pip install -e ".[web]"

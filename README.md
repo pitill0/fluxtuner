@@ -16,6 +16,17 @@ FluxTuner is a modern internet radio player for the terminal, desktop and web.
 
 It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
 
+## Contents
+
+- [Highlights](#highlights)
+- [Screenshots](#screenshots)
+- [Quick start](#quick-start)
+- [Launch modes](#launch-modes)
+- [Web/server mode](#webserver-mode)
+- [Common commands](#common-commands)
+- [Documentation](#documentation)
+- [License](#license)
+- [Support the project](#support-the-project)
 
 ---
 
@@ -32,6 +43,10 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 ---
 
 ## Screenshots
+
+### Web mode
+
+![Web mobile](screenshots/web-mobile.png)
 
 ### GTK GUI
 
@@ -81,9 +96,9 @@ fluxtuner
 
 You can run FluxTuner directly from a tagged source archive:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.7.1.tar.gz
-    tar xvf v0.7.1.tar.gz
-    cd fluxtuner-0.7.1
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.8.0.tar.gz
+    tar xvf v0.8.0.tar.gz
+    cd fluxtuner-0.8.0
 
 Install the Python dependencies required by the terminal interface.
 
@@ -144,7 +159,7 @@ fluxtuner --cli        # legacy numbered CLI
 
 ### Web/server mode
 
-FluxTuner includes an browser-based web/server mode:
+FluxTuner includes a browser-based web/server mode:
 
 ```bash
 python -m pip install -e ".[web]"
@@ -163,7 +178,7 @@ For isolated web development, testing, or containers, set a custom data director
 FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 8080
 ```
 
-This keeps web playback history, favorites, and playlists separate from your normal FluxTuner profile.
+This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory.
 
 See [`docs/web.md`](docs/web.md) for details.
 
@@ -205,6 +220,16 @@ for example:
 
 Profiles separate favorites, manual playlists and playback history by context.
 They are not separate user accounts.
+
+## Documentation
+
+- [Usage guide](docs/usage.md)
+- [Architecture](docs/architecture.md)
+- [Web/server mode](docs/web.md)
+- [Release process](docs/release.md)
+- [Smoke test](SMOKE_TEST.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
 ---
 

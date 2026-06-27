@@ -426,6 +426,15 @@ def main() -> None:
         help="Player backend to use: auto, mpv, ffplay, mpg123 or ogg123.",
     )
     parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Profile name to use for import/export commands. "
+            "Defaults to the internal default profile."
+        ),
+    )
+    parser.add_argument(
         "--theme",
         default=None,
         help="Theme to use for this run. Use --list-themes to see available themes.",
@@ -515,7 +524,11 @@ def main() -> None:
         return
 
     if args.export_favs:
-        export_json_list(args.export_favs, load_favorites(), "Favorites")
+        export_json_list(
+            args.export_favs,
+            load_favorites(profile_name=args.profile),
+            "Favorites",
+        )
         return
 
     if args.import_favs:
@@ -531,7 +544,7 @@ def main() -> None:
             console.print("[red]No valid favorites found in import file.[/red]")
             raise SystemExit(1)
 
-        save_favorites(result.items)
+        save_favorites(result.items, profile_name=args.profile)
 
         message = f"[green]Imported {len(result.items)} favorite(s).[/green]"
         if result.skipped:
@@ -540,7 +553,11 @@ def main() -> None:
         return
 
     if args.export_playlists:
-        export_json_list(args.export_playlists, load_playlists(), "Persistent playlists")
+        export_json_list(
+            args.export_playlists,
+            load_playlists(profile_name=args.profile),
+            "Persistent playlists",
+        )
         return
 
     if args.import_playlists:
@@ -556,7 +573,7 @@ def main() -> None:
             console.print("[red]No valid playlists found in import file.[/red]")
             raise SystemExit(1)
 
-        save_playlists(result.items)
+        save_playlists(result.items, profile_name=args.profile)
 
         message = f"[green]Imported {len(result.items)} persistent playlist(s).[/green]"
         if result.skipped:

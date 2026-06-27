@@ -176,6 +176,15 @@ fluxtuner --help
 fluxtuner --version
 fluxtuner --list-players
 python -m fluxtuner --list-profiles
+
+`--profile NAME` can be combined with import/export commands to target a named
+profile. When omitted, FluxTuner uses the internal `default` profile.
+
+    python -m fluxtuner --profile work --export-favs work-favorites.json
+    python -m fluxtuner --profile work --import-favs work-favorites.json
+    python -m fluxtuner --profile work --export-playlists work-playlists.json
+    python -m fluxtuner --profile work --import-playlists work-playlists.json
+
 fluxtuner --doctor
 fluxtuner --list-themes
 fluxtuner --theme nord

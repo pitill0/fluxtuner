@@ -319,3 +319,17 @@ If no backend is available, install at least one supported player:
 - `vorbis-tools` / `ogg123` for lightweight Ogg/Vorbis/Opus-style playback.
 
 Inside Flatpak or other sandboxed environments, run the same command inside the sandbox to confirm which player binaries are actually visible to FluxTuner.
+
+### Profile-aware import and export
+
+Import and export commands accept `--profile NAME` to target a named profile.
+When omitted, FluxTuner uses the internal `default` profile.
+
+    python -m fluxtuner --profile work --export-favs work-favorites.json
+    python -m fluxtuner --profile work --import-favs work-favorites.json
+    python -m fluxtuner --profile work --export-playlists work-playlists.json
+    python -m fluxtuner --profile work --import-playlists work-playlists.json
+
+This does not change the active TUI, GTK GUI or Web profile yet. It only scopes
+CLI import/export operations.
+

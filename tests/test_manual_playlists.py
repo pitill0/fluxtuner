@@ -21,6 +21,23 @@ def patch_data_files(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     return favorites_file, playlists_file
 
 
+def patch_playlists_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> Path:
+    playlists_file = tmp_path / "playlists.json"
+    legacy_playlists_file = tmp_path / "legacy_playlists.json"
+
+    monkeypatch.setattr(manual_playlists, "PLAYLISTS_FILE", playlists_file)
+    monkeypatch.setattr(
+        manual_playlists,
+        "LEGACY_PLAYLISTS_FILE",
+        legacy_playlists_file,
+    )
+
+    return playlists_file
+
+
 def test_normalize_playlist_removes_duplicate_station_keys() -> None:
     playlist = {
         "name": "My Playlist",
@@ -248,3 +265,170 @@ def test_load_playlists_does_not_overwrite_existing_file_with_legacy(
             "station_keys": ["https://example.com/current"],
         }
     ]
+
+
+def test_playlists_are_isolated_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    playlists_file = patch_playlists_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", playlists_file.with_name("favorites.json"))
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+    }
+
+    favorites.add_favorite(default_station)
+    favorites.add_favorite(work_station, profile_name="work")
+
+    manual_playlists.add_station_to_playlist("Morning", default_station)
+    manual_playlists.add_station_to_playlist("Morning", work_station, profile_name="work")
+
+    assert manual_playlists.load_playlists() == [
+        {
+            "name": "Morning",
+            "station_keys": ["https://example.com/default"],
+        }
+    ]
+    assert manual_playlists.load_playlists(profile_name="work") == [
+        {
+            "name": "Morning",
+            "station_keys": ["https://example.com/work"],
+        }
+    ]
+
+
+def test_get_playlist_stations_uses_matching_profile_favorites(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    playlists_file = patch_playlists_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", playlists_file.with_name("favorites.json"))
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+        "custom_name": "Work Custom",
+    }
+
+    favorites.add_favorite(default_station)
+    favorites.add_favorite(work_station, profile_name="work")
+
+    manual_playlists.add_station_to_playlist("Shared", default_station)
+    manual_playlists.add_station_to_playlist("Shared", work_station, profile_name="work")
+
+    assert [
+        item["name"] for item in manual_playlists.get_playlist_stations("Shared")
+    ] == ["Default Radio"]
+    assert [
+        item.get("custom_name")
+        for item in manual_playlists.get_playlist_stations("Shared", profile_name="work")
+    ] == ["Work Custom"]
+
+
+def test_save_playlists_replaces_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    playlists_file = patch_playlists_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", playlists_file.with_name("favorites.json"))
+
+    manual_playlists.save_playlists(
+        [
+            {
+                "name": "Default",
+                "station_keys": ["https://example.com/default"],
+            }
+        ]
+    )
+    manual_playlists.save_playlists(
+        [
+            {
+                "name": "Work",
+                "station_keys": ["https://example.com/work"],
+            }
+        ],
+        profile_name="work",
+    )
+
+    manual_playlists.save_playlists(
+        [
+            {
+                "name": "Updated Work",
+                "station_keys": ["https://example.com/updated-work"],
+            }
+        ],
+        profile_name="work",
+    )
+
+    assert manual_playlists.load_playlists() == [
+        {
+            "name": "Default",
+            "station_keys": ["https://example.com/default"],
+        }
+    ]
+    assert manual_playlists.load_playlists(profile_name="work") == [
+        {
+            "name": "Updated Work",
+            "station_keys": ["https://example.com/updated-work"],
+        }
+    ]
+
+
+def test_delete_playlist_deletes_only_requested_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    playlists_file = patch_playlists_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", playlists_file.with_name("favorites.json"))
+
+    assert manual_playlists.create_playlist("Shared") is True
+    assert manual_playlists.create_playlist("Shared", profile_name="work") is True
+
+    assert manual_playlists.delete_playlist("Shared", profile_name="work") is True
+
+    assert manual_playlists.get_playlist("Shared") == {
+        "name": "Shared",
+        "station_keys": [],
+    }
+    assert manual_playlists.get_playlist("Shared", profile_name="work") is None
+
+
+def test_playlist_counts_and_summary_are_scoped_by_profile_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    playlists_file = patch_playlists_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", playlists_file.with_name("favorites.json"))
+
+    default_station = {
+        "name": "Default Radio",
+        "url": "https://example.com/default",
+    }
+    work_station = {
+        "name": "Work Radio",
+        "url": "https://example.com/work",
+    }
+
+    favorites.add_favorite(default_station)
+    favorites.add_favorite(work_station, profile_name="work")
+
+    manual_playlists.add_station_to_playlist("Morning", default_station)
+    manual_playlists.add_station_to_playlist("Morning", work_station, profile_name="work")
+
+    assert manual_playlists.playlist_counts() == [("Morning", 1)]
+    assert manual_playlists.playlist_counts(profile_name="work") == [("Morning", 1)]
+
+    assert manual_playlists.summarize_playlist("Morning") == "• Default Radio"
+    assert manual_playlists.summarize_playlist("Morning", profile_name="work") == (
+        "• Work Radio"
+    )

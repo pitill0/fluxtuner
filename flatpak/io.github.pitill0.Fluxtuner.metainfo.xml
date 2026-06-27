@@ -81,6 +81,16 @@
 
   <releases>
 
+    <release version="0.7.1" date="2026-06-27">
+      <description>
+        <ul>
+          <li>Adds internal profile-aware storage for favorites, history and playlists.</li>
+          <li>Adds a CLI command to inspect known profiles.</li>
+          <li>Keeps the default single-user behavior unchanged.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.7.0" date="2026-06-26">
       <description>
         <ul>

@@ -734,3 +734,114 @@ def test_playlist_station_order_is_preserved(
             "https://example.com/b",
         ],
     }
+
+
+def test_get_profile_by_name_returns_default_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        profile = db.get_profile_by_name(conn, "default")
+
+    assert profile is not None
+    assert profile["name"] == "default"
+    assert profile["display_name"] == "Default"
+
+
+def test_get_profile_by_name_is_case_insensitive(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        profile = db.get_profile_by_name(conn, "DEFAULT")
+
+    assert profile is not None
+    assert profile["name"] == "default"
+
+
+def test_get_profile_by_name_returns_none_for_blank_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        profile = db.get_profile_by_name(conn, "   ")
+
+    assert profile is None
+
+
+def test_get_or_create_profile_creates_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        profile_id = db.get_or_create_profile(conn, "work", display_name="Work")
+        profile = db.get_profile_by_name(conn, "work")
+
+    assert profile is not None
+    assert profile["id"] == profile_id
+    assert profile["name"] == "work"
+    assert profile["display_name"] == "Work"
+
+
+def test_get_or_create_profile_reuses_existing_profile_case_insensitive(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        first_profile_id = db.get_or_create_profile(conn, "work", display_name="Work")
+        second_profile_id = db.get_or_create_profile(conn, "WORK", display_name="Ignored")
+        profile = db.get_profile_by_name(conn, "work")
+
+    assert second_profile_id == first_profile_id
+    assert profile is not None
+    assert profile["display_name"] == "Work"
+
+
+def test_get_or_create_profile_requires_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        try:
+            db.get_or_create_profile(conn, "   ")
+        except ValueError as exc:
+            assert str(exc) == "Profile name is required."
+        else:
+            raise AssertionError("Expected ValueError")
+
+
+def test_list_profiles_returns_profiles_in_creation_order(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    with db.connect() as conn:
+        db.get_or_create_profile(conn, "work", display_name="Work")
+        db.get_or_create_profile(conn, "testing", display_name="Testing")
+        profiles = db.list_profiles(conn)
+
+    assert [(item["name"], item["display_name"]) for item in profiles] == [
+        ("default", "Default"),
+        ("work", "Work"),
+        ("testing", "Testing"),
+    ]

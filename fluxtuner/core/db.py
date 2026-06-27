@@ -1033,3 +1033,103 @@ def replace_playlists(
                 {"name": clean_key, "url": clean_key},
                 active_profile_id,
             )
+
+
+def normalize_profile_name(name: str) -> str:
+    """Normalize a profile name for storage and lookup."""
+    return name.strip()
+
+
+def get_profile_by_name(
+    conn: sqlite3.Connection,
+    name: str,
+) -> dict[str, Any] | None:
+    """Return a profile by name."""
+    clean_name = normalize_profile_name(name)
+    if not clean_name:
+        return None
+
+    row = conn.execute(
+        """
+        SELECT id, name, display_name, created_at, updated_at
+        FROM profiles
+        WHERE lower(name) = lower(?)
+        """,
+        (clean_name,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "id": int(row["id"]),
+        "name": str(row["name"]),
+        "display_name": str(row["display_name"] or row["name"]),
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
+    }
+
+
+def get_or_create_profile(
+    conn: sqlite3.Connection,
+    name: str,
+    *,
+    display_name: str | None = None,
+) -> int:
+    """Return a profile id, creating the profile if needed."""
+    clean_name = normalize_profile_name(name)
+    if not clean_name:
+        raise ValueError("Profile name is required.")
+
+    existing = get_profile_by_name(conn, clean_name)
+    if existing is not None:
+        return int(existing["id"])
+
+    now = utc_now()
+    clean_display_name = _clean_text(display_name) or clean_name
+
+    cursor = conn.execute(
+        """
+        INSERT INTO profiles (
+            name,
+            display_name,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            clean_name,
+            clean_display_name,
+            now,
+            now,
+        ),
+    )
+
+    profile_id = cursor.lastrowid
+    if profile_id is None:
+        raise RuntimeError("Could not create profile.")
+
+    return int(profile_id)
+
+
+def list_profiles(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return all known profiles."""
+    rows = conn.execute(
+        """
+        SELECT id, name, display_name, created_at, updated_at
+        FROM profiles
+        ORDER BY created_at ASC, id ASC
+        """
+    ).fetchall()
+
+    return [
+        {
+            "id": int(row["id"]),
+            "name": str(row["name"]),
+            "display_name": str(row["display_name"] or row["name"]),
+            "created_at": str(row["created_at"]),
+            "updated_at": str(row["updated_at"]),
+        }
+        for row in rows
+    ]

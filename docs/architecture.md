@@ -1,5 +1,56 @@
 # Architecture
 
+## SQLite library database
+
+The primary local library store is SQLite:
+
+    ~/.local/share/fluxtuner/fluxtuner.db
+
+The database stores normalized stations, profiles, favorites, playback history
+and manual playlists.
+
+FluxTuner 0.8.0 uses profile-scoped library data. Profiles are context-level
+separation inside the same FluxTuner installation. They are useful for contexts
+such as work, home, terrace, pool, focus or testing.
+
+Current model:
+
+    FluxTuner installation
+    ├── config.json
+    │   └── active_profile: optional profile name
+    └── SQLite library database
+        └── profiles
+            ├── default
+            │   ├── favorites
+            │   ├── playback history
+            │   └── manual playlists
+            ├── work
+            │   ├── favorites
+            │   ├── playback history
+            │   └── manual playlists
+            └── terrace
+                ├── favorites
+                ├── playback history
+                └── manual playlists
+
+Profile resolution order:
+
+    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME
+    2. Persisted active profile from config
+    3. Internal default profile
+
+Profiles are not user accounts. They do not provide authentication,
+authorization, ownership, permissions or per-person isolation.
+
+The profile layer prepares the storage and interface model for a future user
+layer. A future user/account model would add ownership above profiles:
+
+    user
+    └── profile
+        ├── favorites
+        ├── playback history
+        └── manual playlists
+
 FluxTuner is organized around a small set of frontends that share core services, user data and playback backends.
 
 ## Overview
@@ -10,14 +61,18 @@ flowchart LR
     Entry --> TUI["Textual TUI"]
     Entry --> GUI["GTK4 GUI"]
     Entry --> CLI["Legacy CLI"]
+    Entry --> Web["Web mode"]
 
-    TUI --> Services["Core services"]
-    GUI --> Services
-    CLI --> Services
+    TUI --> ProfileResolution["Profile resolution"]
+    GUI --> ProfileResolution
+    CLI --> ProfileResolution
+    Web --> ProfileResolution
+
+    ProfileResolution --> Services["Core services"]
 
     Services --> Search["SearchService"]
     Services --> Compatibility["Station compatibility"]
-    Services --> Library["Favorites, playlists, history"]
+    Services --> Library["Profile-scoped library"]
     Services --> Metadata["Stream metadata"]
     Services --> Usage["Data usage tracking"]
     Services --> Config["Config and playback state"]
@@ -32,16 +87,25 @@ flowchart LR
     PlayerRegistry --> FFPLAY["ffplay backend"]
     PlayerRegistry --> MPG123["mpg123 backend"]
     PlayerRegistry --> OGG123["ogg123 backend"]
+
     MPV --> Streams["Online radio streams"]
     FFPLAY --> Streams
     MPG123 --> Streams
     OGG123 --> Streams
 
+    Config --> ActiveProfile["active_profile"]
+    ProfileResolution --> ActiveProfile
     Library --> LibraryDB["SQLite library database"]
+    LibraryDB --> Profiles["profiles"]
+    Profiles --> Favorites["favorites"]
+    Profiles --> History["playback history"]
+    Profiles --> ManualPlaylists["manual playlists"]
+
     Usage --> DataStorage["XDG data files"]
     Config --> ConfigStorage["XDG config file"]
     Search --> CacheStorage["XDG cache file"]
 ```
+
 
 ## Frontends
 
@@ -174,7 +238,7 @@ The primary local library store is SQLite:
 ~/.local/share/fluxtuner/fluxtuner.db
 ```
 
-The SQLite database stores the default profile library:
+The SQLite database stores the profile-scoped library:
 
 - normalized stations
 - favorites

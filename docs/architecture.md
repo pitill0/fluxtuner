@@ -84,6 +84,7 @@ fluxtuner/core/
   cache.py                 Search cache
   data_usage.py            Playback data usage tracking
   db.py                    SQLite schema and persistence helpers
+  profiles.py              Profile selection helpers
   favorites.py             Favorites persistence and updates
   history.py               Playback history
   importers.py             Import validation for favorites/playlists
@@ -183,6 +184,11 @@ The SQLite database stores the default profile library:
 FluxTuner currently creates a single internal profile named `default`. This keeps
 the current single-user UX unchanged while preparing the storage model for future
 profile or user-aware features.
+
+Core library APIs can now resolve an optional `profile_id` or `profile_name`.
+When no profile is provided, they continue to use the internal `default` profile.
+This keeps TUI, GTK, CLI and Web behavior unchanged while allowing future
+frontends or services to become profile-aware incrementally.
 
 Other local files remain JSON-based:
 

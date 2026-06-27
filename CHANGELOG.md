@@ -10,11 +10,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added internal profile-aware core helpers for favorites, playback history and manual playlists.
 
 ### Changed
 
-- Nothing yet.
+- Centralized profile resolution for core library storage while keeping the existing default-profile behavior unchanged.
 
 ### Fixed
 

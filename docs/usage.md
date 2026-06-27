@@ -320,6 +320,18 @@ If no backend is available, install at least one supported player:
 
 Inside Flatpak or other sandboxed environments, run the same command inside the sandbox to confirm which player binaries are actually visible to FluxTuner.
 
+### Legacy CLI profile scope
+
+The legacy numbered CLI honors `--profile NAME` for favorites operations:
+
+    python -m fluxtuner --cli --profile work
+
+This scopes saving favorites from search, listing/removing favorites and random
+favorite playback to the selected profile.
+
+Profile selection is not active in the Textual TUI, GTK GUI or Web mode yet.
+
+
 ### Profile-aware import and export
 
 Import and export commands accept `--profile NAME` to target a named profile.

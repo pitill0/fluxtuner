@@ -177,6 +177,13 @@ fluxtuner --version
 fluxtuner --list-players
 python -m fluxtuner --list-profiles
 
+The same `--profile NAME` option is also honored by the legacy numbered CLI
+when saving, listing, removing or playing favorites:
+
+    python -m fluxtuner --cli --profile work
+
+Profile selection is not active in the Textual TUI, GTK GUI or Web mode yet.
+
 `--profile NAME` can be combined with import/export commands to target a named
 profile. When omitted, FluxTuner uses the internal `default` profile.
 

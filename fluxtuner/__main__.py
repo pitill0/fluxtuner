@@ -253,7 +253,12 @@ def play_station(
     return active_player
 
 
-def search_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
+def search_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
     query = input("Search station by name: ").strip()
     if not query:
         return player
@@ -280,13 +285,21 @@ def search_flow(player_name: str | None = None, player: Any | None = None) -> An
 
     save = input("Save to favorites? [y/N]: ").strip().lower()
     if save == "y":
-        add_favorite(station)
+        add_favorite(station, profile_name=profile_name)
         console.print("[green]Saved to favorites.[/green]")
     return player
 
 
-def favorites_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = compatible_stations_for_player(load_favorites(), player_name)
+def favorites_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
+    favorites = compatible_stations_for_player(
+        load_favorites(profile_name=profile_name),
+        player_name,
+    )
     if not favorites:
         console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
         return player
@@ -302,13 +315,21 @@ def favorites_flow(player_name: str | None = None, player: Any | None = None) ->
     if choice == "1":
         return play_station(station, player_name, player)
     elif choice == "2":
-        remove_favorite(station["url"])
+        remove_favorite(station["url"], profile_name=profile_name)
         console.print("[green]Removed from favorites.[/green]")
     return player
 
 
-def random_favorite_flow(player_name: str | None = None, player: Any | None = None) -> Any | None:
-    favorites = compatible_stations_for_player(load_favorites(), player_name)
+def random_favorite_flow(
+    player_name: str | None = None,
+    player: Any | None = None,
+    *,
+    profile_name: str | None = None,
+) -> Any | None:
+    favorites = compatible_stations_for_player(
+        load_favorites(profile_name=profile_name),
+        player_name,
+    )
     if not favorites:
         console.print(f"[yellow]No compatible favorites for backend {player_name}.[/yellow]")
         return player
@@ -367,7 +388,11 @@ def import_json_list(
     return data
 
 
-def run_cli(player_name: str | None = None) -> None:
+def run_cli(
+    player_name: str | None = None,
+    *,
+    profile_name: str | None = None,
+) -> None:
     """Run the legacy numbered CLI with an already resolved player backend."""
     player: Any | None = None
 
@@ -382,11 +407,23 @@ def run_cli(player_name: str | None = None) -> None:
             choice = input("> ").strip()
 
             if choice == "1":
-                player = search_flow(player_name, player)
+                player = search_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "2":
-                player = favorites_flow(player_name, player)
+                player = favorites_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "3":
-                player = random_favorite_flow(player_name, player)
+                player = random_favorite_flow(
+                    player_name,
+                    player,
+                    profile_name=profile_name,
+                )
             elif choice == "4":
                 break
             else:
@@ -610,7 +647,7 @@ def main() -> None:
         raise SystemExit(2) from exc
 
     if args.cli:
-        run_cli(selected_player)
+        run_cli(selected_player, profile_name=args.profile)
         return
 
     if args.gui:

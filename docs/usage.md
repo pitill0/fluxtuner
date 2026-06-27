@@ -320,6 +320,25 @@ If no backend is available, install at least one supported player:
 
 Inside Flatpak or other sandboxed environments, run the same command inside the sandbox to confirm which player binaries are actually visible to FluxTuner.
 
+### Persistent active profile
+
+FluxTuner can persist an active profile for profile-aware CLI commands:
+
+    python -m fluxtuner --profile work --set-active-profile
+    python -m fluxtuner --show-active-profile
+    python -m fluxtuner --clear-active-profile
+
+Profile resolution order is:
+
+    1. Explicit --profile NAME
+    2. Persisted active profile
+    3. Internal default profile
+
+The persisted active profile is currently used by CLI import/export commands and
+the legacy numbered CLI favorites flow. Textual TUI, GTK GUI and Web mode do not
+use active profile selection yet.
+
+
 ### Legacy CLI profile scope
 
 The legacy numbered CLI honors `--profile NAME` for favorites operations:

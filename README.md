@@ -184,6 +184,23 @@ when saving, listing, removing or playing favorites:
 
 Profile selection is not active in the Textual TUI, GTK GUI or Web mode yet.
 
+You can persist an active profile for profile-aware CLI commands:
+
+    python -m fluxtuner --profile work --set-active-profile
+    python -m fluxtuner --show-active-profile
+    python -m fluxtuner --clear-active-profile
+
+Profile resolution order is:
+
+    1. Explicit --profile NAME
+    2. Persisted active profile
+    3. Internal default profile
+
+The persisted active profile is used by profile-aware CLI import/export commands
+and by the legacy numbered CLI favorites flow. Textual TUI, GTK GUI and Web mode
+do not use active profile selection yet.
+
+
 `--profile NAME` can be combined with import/export commands to target a named
 profile. When omitted, FluxTuner uses the internal `default` profile.
 

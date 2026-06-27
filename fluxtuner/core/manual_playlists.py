@@ -7,6 +7,7 @@ from typing import Any
 
 from fluxtuner.core import db
 from fluxtuner.core.favorites import favorite_display_name, load_favorites
+from fluxtuner.core.profiles import resolve_profile_id
 from fluxtuner.core.stations import station_key
 from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
@@ -80,21 +81,6 @@ def _mark_migration_applied(conn, name: str) -> None:
     )
 
 
-def _resolve_profile_id(
-    conn,
-    *,
-    profile_id: int | None = None,
-    profile_name: str | None = None,
-) -> int | None:
-    if profile_id is not None:
-        return profile_id
-
-    if profile_name is None:
-        return None
-
-    return db.get_or_create_profile(conn, profile_name)
-
-
 def _ensure_playlists_db() -> None:
     """Create SQLite storage and migrate existing JSON playlists once."""
     migrate_legacy_file(LEGACY_PLAYLISTS_FILE, PLAYLISTS_FILE)
@@ -122,7 +108,7 @@ def load_playlists(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -146,7 +132,7 @@ def save_playlists(
     ]
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -174,7 +160,7 @@ def get_playlist(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -197,7 +183,7 @@ def create_playlist(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -220,7 +206,7 @@ def delete_playlist(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -245,7 +231,7 @@ def add_station_to_playlist(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -275,7 +261,7 @@ def remove_station_from_playlist(
     _ensure_playlists_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,

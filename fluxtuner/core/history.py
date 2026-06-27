@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from fluxtuner.core import db
+from fluxtuner.core.profiles import resolve_profile_id
 from fluxtuner.logging_config import get_logger
 from fluxtuner.paths import data_file, migrate_legacy_file
 
@@ -65,21 +66,6 @@ def _mark_migration_applied(conn, name: str) -> None:
     )
 
 
-def _resolve_profile_id(
-    conn,
-    *,
-    profile_id: int | None = None,
-    profile_name: str | None = None,
-) -> int | None:
-    if profile_id is not None:
-        return profile_id
-
-    if profile_name is None:
-        return None
-
-    return db.get_or_create_profile(conn, profile_name)
-
-
 def _ensure_history_db() -> None:
     """Create SQLite storage and migrate existing JSON history once."""
     migrate_legacy_file(LEGACY_HISTORY_FILE, HISTORY_FILE)
@@ -107,7 +93,7 @@ def load_history(
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -125,7 +111,7 @@ def save_history(
 
     try:
         with db.connect(_db_path()) as conn:
-            active_profile_id = _resolve_profile_id(
+            active_profile_id = resolve_profile_id(
                 conn,
                 profile_id=profile_id,
                 profile_name=profile_name,
@@ -154,7 +140,7 @@ def add_history(
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
@@ -171,7 +157,7 @@ def clear_history(
     _ensure_history_db()
 
     with db.connect(_db_path()) as conn:
-        active_profile_id = _resolve_profile_id(
+        active_profile_id = resolve_profile_id(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,

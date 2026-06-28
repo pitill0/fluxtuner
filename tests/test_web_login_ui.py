@@ -55,18 +55,3 @@ def test_web_playlist_picker_replaces_prompt() -> None:
     assert "async function openPlaylistDialog(station)" in js_response.text
     assert "async function submitPlaylistDialog(event)" in js_response.text
     assert "/api/playlists" in js_response.text
-
-
-def test_web_index_uses_compact_app_header() -> None:
-    client = TestClient(create_app())
-
-    response = client.get("/")
-
-    assert response.status_code == 200
-    assert 'class="app-topbar"' in response.text
-    assert "data-nav-favorites" in response.text
-    assert "data-nav-playlists" in response.text
-    assert "data-nav-history" in response.text
-    assert "data-nav-admin" in response.text
-    assert response.text.count("data-logout") == 1
-    assert response.text.count("data-auth-user ") == 1

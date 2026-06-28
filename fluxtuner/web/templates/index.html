@@ -14,25 +14,12 @@
   </head>
   <body>
     <main class="shell">
-
-      <header class="app-topbar" data-app-topbar aria-labelledby="page-title">
-        <div class="app-brand">
-          <p class="eyebrow">Web/server</p>
-          <h1 id="page-title">FluxTuner</h1>
-        </div>
-
-        <nav class="app-nav" aria-label="Primary navigation">
-          <button type="button" data-nav-search>Search</button>
-          <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
-          <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
-          <button type="button" data-nav-history data-private-action disabled>History</button>
-          <button type="button" data-nav-admin hidden>Admin</button>
-        </nav>
-
-        <div class="app-session" data-auth-user hidden>
-          <span data-auth-username></span>
-          <button type="button" data-logout>Logout</button>
-        </div>
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">Web/server mode</p>
+        <h1 id="page-title">FluxTuner Web</h1>
+        <p class="lede">
+          Search, play, favorite and organize internet radio from any browser.
+        </p>
 
         <details class="server-tools">
           <summary>Server tools</summary>
@@ -44,8 +31,7 @@
 
           <pre class="status" data-status>Server status: not checked yet.</pre>
         </details>
-      </header>
-
+      </section>
 
 
 
@@ -183,6 +169,11 @@
             <p class="eyebrow">Private library</p>
             <h2 id="auth-title">Sign in</h2>
           </div>
+
+          <div class="auth-user" data-auth-user hidden>
+            <span data-auth-username></span>
+            <button type="button" data-logout>Logout</button>
+          </div>
         </div>
 
         <form class="auth-form" data-login-form>
@@ -214,7 +205,7 @@
         </p>
       </section>
 
-      <section class="panel" data-search-panel aria-labelledby="search-title">
+      <section class="panel" aria-labelledby="search-title">
         <div class="panel-heading">
           <div>
             <p class="eyebrow" data-results-kicker>Radio Browser</p>

@@ -3,10 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 
-def station_url(station: dict[str, Any] | None) -> str | None:
-    """Return the preferred playable URL for a station."""
+def station_url(station: dict[str, Any] | str | None) -> str | None:
+    """Return the preferred playable URL for a station or raw stream URL."""
     if not station:
         return None
+
+    if isinstance(station, str):
+        clean_url = station.strip()
+        return clean_url or None
 
     url = station.get("url_resolved") or station.get("url")
     if not url:
@@ -16,7 +20,7 @@ def station_url(station: dict[str, Any] | None) -> str | None:
     return clean_url or None
 
 
-def station_key(station: dict[str, Any] | None) -> str | None:
+def station_key(station: dict[str, Any] | str | None) -> str | None:
     """Return the stable key used to identify a station across favorites/playlists."""
     return station_url(station)
 

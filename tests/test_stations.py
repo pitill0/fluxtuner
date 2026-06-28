@@ -136,3 +136,10 @@ def test_station_tags_text_joins_normalized_tags() -> None:
     assert station_tags_text({"tags": " rock, pop "}) == "rock, pop"
     assert station_tags_text({"tags": []}) == "No tags"
     assert station_tags_text({"tags": []}, fallback="-") == "-"
+
+
+def test_station_url_accepts_raw_url_string() -> None:
+    assert station_url(" https://example.com/stream ") == "https://example.com/stream"
+    assert station_key("https://example.com/stream") == "https://example.com/stream"
+    assert station_url("") is None
+    assert station_key("   ") is None

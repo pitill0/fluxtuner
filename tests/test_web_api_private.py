@@ -183,3 +183,26 @@ def test_private_data_is_isolated_between_authenticated_users(tmp_path, monkeypa
         "count": 0,
         "stations": [],
     }
+
+
+def test_authenticated_user_can_delete_favorite_by_url(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    station = station_payload("Alice Radio", "https://example.com/alice?ref=smoke")
+    add_response = client.post(
+        "/api/favorites",
+        json=station,
+        headers=csrf_headers(csrf_token),
+    )
+    assert add_response.status_code == 200
+
+    delete_response = client.delete(
+        "/api/favorites?url=https%3A%2F%2Fexample.com%2Falice%3Fref%3Dsmoke",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert delete_response.status_code == 200
+    assert delete_response.json()["removed"] is True
+    assert client.get("/api/favorites").json()["count"] == 0

@@ -151,6 +151,30 @@ h3 {
   margin-top: 0.9rem;
 }
 
+
+.setup-panel {
+  display: grid;
+  gap: 1rem;
+  border-color: rgba(139, 92, 246, 0.42);
+}
+
+.setup-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.setup-form button {
+  justify-self: start;
+}
+
+.setup-message {
+  margin: 0;
+  color: var(--muted);
+}
+
+
 .auth-panel {
   display: grid;
   gap: 1rem;
@@ -512,6 +536,7 @@ footer {
 }
 
 @media (max-width: 58rem) {
+  .setup-form,
   .auth-form,
   .search-form {
     grid-template-columns: 1fr 1fr;

@@ -15,6 +15,10 @@ const authUserPanel = document.querySelector("[data-auth-user]");
 const authUsernameNode = document.querySelector("[data-auth-username]");
 const logoutButton = document.querySelector("[data-logout]");
 const privateActionNodes = document.querySelectorAll("[data-private-action]");
+const setupPanel = document.querySelector("[data-setup-panel]");
+const setupForm = document.querySelector("[data-setup-form]");
+const setupTokenField = document.querySelector("[data-setup-token-field]");
+const setupMessageNode = document.querySelector("[data-setup-message]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -30,6 +34,8 @@ let currentView = "search";
 let currentPlaylistName = "";
 let currentUser = null;
 let csrfToken = "";
+let setupAvailable = false;
+let setupRequiresToken = false;
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -89,6 +95,127 @@ function setResultsHeader(kicker, title) {
 
   if (resultsTitleNode) {
     resultsTitleNode.textContent = title;
+  }
+}
+
+
+
+function updateSetupUi() {
+  if (setupPanel) {
+    setupPanel.hidden = !setupAvailable;
+  }
+
+  if (authPanel) {
+    authPanel.hidden = setupAvailable;
+  }
+
+  if (setupTokenField) {
+    setupTokenField.hidden = !setupRequiresToken;
+  }
+
+  if (setupMessageNode && setupAvailable) {
+    setupMessageNode.textContent = setupRequiresToken
+      ? "Enter the setup verification value configured on the server."
+      : "Local first-run setup is available. Create the first administrator.";
+  }
+}
+
+async function loadSetupState() {
+  try {
+    const response = await fetch("/api/setup/status", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      setupAvailable = false;
+      setupRequiresToken = false;
+      updateSetupUi();
+      await       return;
+    }
+
+    const payload = await response.json();
+    setupAvailable = Boolean(payload.available);
+    setupRequiresToken = Boolean(payload.requires_setup_token);
+    updateSetupUi();
+
+    if (!setupAvailable) {
+      await loadAuthState();
+      return;
+    }
+
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+  } catch (_error) {
+    setupAvailable = false;
+    setupRequiresToken = false;
+    updateSetupUi();
+    await loadAuthState();
+  }
+}
+
+async function createFirstAdmin(event) {
+  event.preventDefault();
+
+  if (!setupForm || !setupMessageNode) return;
+
+  const formData = new FormData(setupForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+  const setupToken = String(formData.get("setup_token") || "");
+
+  if (password !== confirmPassword) {
+    setupMessageNode.textContent = "Passwords do not match.";
+    return;
+  }
+
+  setupMessageNode.textContent = "Creating administrator...";
+
+  try {
+    const body = {
+      username,
+      password,
+    };
+
+    if (setupRequiresToken) {
+      body.setup_token = setupToken;
+    }
+
+    const response = await fetch("/api/setup/create-admin", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    setupForm.reset();
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("Too many setup attempts. Try again later.");
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not complete first-run setup.");
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
+    setupAvailable = false;
+    setupRequiresToken = false;
+    updateSetupUi();
+    updateAuthUi();
+  } catch (error) {
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+    setupMessageNode.textContent = String(error);
   }
 }
 
@@ -987,6 +1114,10 @@ async function loadPlaylistStations(name) {
   }
 }
 
+if (setupForm) {
+  setupForm.addEventListener("submit", createFirstAdmin);
+}
+
 if (loginForm) {
   loginForm.addEventListener("submit", login);
 }
@@ -1057,3 +1188,10 @@ if (audioNode) {
 
 updatePlayerControls();
 loadAuthState();
+async function initializeAuthFlow() {
+  updateSetupUi();
+  updateAuthUi();
+  await loadSetupState();
+}
+
+initializeAuthFlow();

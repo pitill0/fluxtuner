@@ -30,6 +30,63 @@
       </section>
 
 
+
+      <section class="panel setup-panel" data-setup-panel hidden aria-labelledby="setup-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">First-run setup</p>
+            <h2 id="setup-title">Create the first administrator</h2>
+          </div>
+        </div>
+
+        <form class="setup-form" data-setup-form>
+          <label>
+            <span>Admin username</span>
+            <input
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Confirm password</span>
+            <input
+              name="confirm_password"
+              type="password"
+              autocomplete="new-password"
+              required
+            >
+          </label>
+
+          <label data-setup-token-field hidden>
+            <span>Setup verification</span>
+            <input
+              name="setup_token"
+              type="password"
+              autocomplete="off"
+            >
+          </label>
+
+          <button type="submit" data-setup-submit>Create administrator</button>
+        </form>
+
+        <p class="setup-message" data-setup-message>
+          No administrator exists yet. Create one to finish securing FluxTuner Web.
+        </p>
+      </section>
+
       <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
         <div class="panel-heading">
           <div>

@@ -8,6 +8,13 @@ const resultsTitleNode = document.querySelector("[data-results-title]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
+const authPanel = document.querySelector("[data-auth-panel]");
+const loginForm = document.querySelector("[data-login-form]");
+const authMessageNode = document.querySelector("[data-auth-message]");
+const authUserPanel = document.querySelector("[data-auth-user]");
+const authUsernameNode = document.querySelector("[data-auth-username]");
+const logoutButton = document.querySelector("[data-logout]");
+const privateActionNodes = document.querySelectorAll("[data-private-action]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -21,6 +28,7 @@ let currentStation = null;
 let recordedHistoryUrl = "";
 let currentView = "search";
 let currentPlaylistName = "";
+let currentUser = null;
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -83,6 +91,143 @@ function setResultsHeader(kicker, title) {
   }
 }
 
+
+function updateAuthUi() {
+  const authenticated = Boolean(currentUser);
+
+  if (authPanel) {
+    authPanel.dataset.authenticated = authenticated ? "true" : "false";
+  }
+
+  if (loginForm) {
+    loginForm.hidden = authenticated;
+  }
+
+  if (authUserPanel) {
+    authUserPanel.hidden = !authenticated;
+  }
+
+  if (authUsernameNode) {
+    authUsernameNode.textContent = authenticated
+      ? `Signed in as ${currentUser.username}`
+      : "";
+  }
+
+  privateActionNodes.forEach((node) => {
+    node.disabled = !authenticated;
+  });
+
+  if (authMessageNode) {
+    authMessageNode.textContent = authenticated
+      ? "Private library tools are available."
+      : "Sign in to use favorites, history and playlists.";
+  }
+}
+
+function renderAuthRequired() {
+  if (resultsNode && resultCountNode) {
+    resultCountNode.textContent = "Login required.";
+    resultsNode.innerHTML =
+      '<p class="empty">Sign in to use favorites, history and playlists.</p>';
+  }
+
+  if (authMessageNode) {
+    authMessageNode.textContent = "Session expired or login required.";
+  }
+}
+
+async function apiFetch(url, options = {}) {
+  const response = await fetch(url, options);
+
+  if (response.status === 401) {
+    currentUser = null;
+    updateAuthUi();
+    renderAuthRequired();
+  }
+
+  return response;
+}
+
+async function loadAuthState() {
+  try {
+    const response = await fetch("/api/auth/me", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      currentUser = null;
+      updateAuthUi();
+      return;
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    updateAuthUi();
+  } catch (_error) {
+    currentUser = null;
+    updateAuthUi();
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+
+  if (!loginForm || !authMessageNode) return;
+
+  const formData = new FormData(loginForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  authMessageNode.textContent = "Signing in...";
+
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    loginForm.reset();
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("Too many login attempts. Try again later.");
+      }
+
+      throw new Error("Invalid username or password.");
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    updateAuthUi();
+  } catch (error) {
+    currentUser = null;
+    updateAuthUi();
+    authMessageNode.textContent = String(error);
+  }
+}
+
+async function logout() {
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  } finally {
+    currentUser = null;
+    updateAuthUi();
+    renderAuthRequired();
+  }
+}
+
+
 function setPlayerState(state, message) {
   if (playerBar) {
     playerBar.dataset.state = state;
@@ -118,12 +263,12 @@ function updatePlayerControls() {
 
 async function recordHistory(station) {
   const url = stationUrl(station);
-  if (!url || recordedHistoryUrl === url) return;
+  if (!currentUser || !url || recordedHistoryUrl === url) return;
 
   recordedHistoryUrl = url;
 
   try {
-    const response = await fetch("/api/history", {
+    const response = await apiFetch("/api/history", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -148,7 +293,7 @@ async function addFavorite(station) {
   }
 
   try {
-    const response = await fetch("/api/favorites", {
+    const response = await apiFetch("/api/favorites", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -179,7 +324,7 @@ async function removeFavorite(station) {
   }
 
   try {
-    const response = await fetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
+    const response = await apiFetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
       method: "DELETE",
       headers: {
         Accept: "application/json",
@@ -217,7 +362,7 @@ async function addToPlaylist(station) {
   }
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/playlists/${encodeURIComponent(playlistName.trim())}/stations`,
       {
         method: "POST",
@@ -252,7 +397,7 @@ async function removeFromPlaylist(station) {
   }
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/playlists/${encodeURIComponent(currentPlaylistName)}/stations?url=${encodeURIComponent(url)}`,
       {
         method: "DELETE",
@@ -287,7 +432,7 @@ async function createPlaylistFromPrompt() {
   }
 
   try {
-    const response = await fetch("/api/playlists", {
+    const response = await apiFetch("/api/playlists", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -320,7 +465,7 @@ async function deletePlaylist(name) {
   }
 
   try {
-    const response = await fetch(`/api/playlists/${encodeURIComponent(name)}`, {
+    const response = await apiFetch(`/api/playlists/${encodeURIComponent(name)}`, {
       method: "DELETE",
       headers: {
         Accept: "application/json",
@@ -458,28 +603,28 @@ function renderStation(station) {
             : ""
         }
         ${
-          streamUrl
+          currentUser && streamUrl
             ? `<button type="button" data-add-favorite="${stationButtonPayload(
                 station,
               )}">Add favorite</button>`
             : ""
         }
         ${
-          streamUrl
+          currentUser && streamUrl
             ? `<button type="button" data-add-to-playlist="${stationButtonPayload(
                 station,
               )}">Add to playlist</button>`
             : ""
         }
         ${
-          currentView === "favorites" && streamUrl
+          currentUser && currentView === "favorites" && streamUrl
             ? `<button type="button" data-remove-favorite="${stationButtonPayload(
                 station,
               )}">Remove favorite</button>`
             : ""
         }
         ${
-          currentView === "playlist" && streamUrl
+          currentUser && currentView === "playlist" && streamUrl
             ? `<button type="button" data-remove-from-playlist="${stationButtonPayload(
                 station,
               )}">Remove from playlist</button>`
@@ -751,7 +896,7 @@ async function loadFavorites() {
   resultsNode.innerHTML = '<p class="empty">Loading favorites...</p>';
 
   try {
-    const response = await fetch("/api/favorites", {
+    const response = await apiFetch("/api/favorites", {
       headers: {
         Accept: "application/json",
       },
@@ -778,7 +923,7 @@ async function loadPlaylists() {
   resultsNode.innerHTML = '<p class="empty">Loading playlists...</p>';
 
   try {
-    const response = await fetch("/api/playlists", {
+    const response = await apiFetch("/api/playlists", {
       headers: {
         Accept: "application/json",
       },
@@ -805,7 +950,7 @@ async function loadPlaylistStations(name) {
   resultsNode.innerHTML = '<p class="empty">Loading playlist stations...</p>';
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/playlists/${encodeURIComponent(name)}/stations`,
       {
         headers: {
@@ -823,6 +968,14 @@ async function loadPlaylistStations(name) {
   } catch (error) {
     renderSearchError(error);
   }
+}
+
+if (loginForm) {
+  loginForm.addEventListener("submit", login);
+}
+
+if (logoutButton) {
+  logoutButton.addEventListener("click", logout);
 }
 
 if (healthButton) {
@@ -886,3 +1039,4 @@ if (audioNode) {
 }
 
 updatePlayerControls();
+loadAuthState();

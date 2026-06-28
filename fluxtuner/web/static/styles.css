@@ -151,6 +151,42 @@ h3 {
   margin-top: 0.9rem;
 }
 
+.auth-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-panel[data-authenticated="true"] {
+  border-color: rgba(110, 231, 216, 0.42);
+}
+
+.auth-form {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.auth-user {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: end;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.auth-message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-message:empty {
+  display: none;
+}
+
+
 .search-form {
   display: grid;
   grid-template-columns: minmax(16rem, 1fr) minmax(12rem, 0.7fr) 8rem auto;
@@ -476,6 +512,7 @@ footer {
 }
 
 @media (max-width: 58rem) {
+  .auth-form,
   .search-form {
     grid-template-columns: 1fr 1fr;
   }

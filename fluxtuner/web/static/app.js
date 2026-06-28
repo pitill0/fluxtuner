@@ -379,7 +379,8 @@ async function loadSetupState() {
       setupAvailable = false;
       setupRequiresToken = false;
       updateSetupUi();
-      await       return;
+      await loadAuthState();
+      return;
     }
 
     const payload = await response.json();
@@ -1467,11 +1468,20 @@ if (audioNode) {
 }
 
 updatePlayerControls();
-loadAuthState();
+
 async function initializeAuthFlow() {
   updateSetupUi();
   updateAuthUi();
+
   await loadSetupState();
+
+  if (setupAvailable) {
+    updateSetupUi();
+    updateAuthUi();
+    return;
+  }
+
+  await loadAuthState();
 }
 
 initializeAuthFlow();

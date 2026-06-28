@@ -25,3 +25,4 @@ def test_web_static_js_does_not_store_auth_tokens() -> None:
     assert "/api/auth/login" in response.text
     assert "/api/auth/logout" in response.text
     assert "/api/auth/me" in response.text
+    assert "X-FluxTuner-CSRF" in response.text

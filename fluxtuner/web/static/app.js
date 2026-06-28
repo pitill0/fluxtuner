@@ -29,6 +29,7 @@ let recordedHistoryUrl = "";
 let currentView = "search";
 let currentPlaylistName = "";
 let currentUser = null;
+let csrfToken = "";
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -137,10 +138,22 @@ function renderAuthRequired() {
 }
 
 async function apiFetch(url, options = {}) {
-  const response = await fetch(url, options);
+  const requestOptions = { ...options };
+  const method = String(requestOptions.method || "GET").toUpperCase();
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
+    requestOptions.headers = {
+      ...(requestOptions.headers || {}),
+      "X-FluxTuner-CSRF": csrfToken,
+    };
+  }
+
+  const response = await fetch(url, requestOptions);
 
   if (response.status === 401) {
+    csrfToken = "";
     currentUser = null;
+    csrfToken = "";
     updateAuthUi();
     renderAuthRequired();
   }
@@ -158,12 +171,14 @@ async function loadAuthState() {
 
     if (!response.ok) {
       currentUser = null;
+      csrfToken = "";
       updateAuthUi();
       return;
     }
 
     const payload = await response.json();
     currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
     updateAuthUi();
   } catch (_error) {
     currentUser = null;
@@ -204,9 +219,11 @@ async function login(event) {
 
     const payload = await response.json();
     currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
     updateAuthUi();
   } catch (error) {
     currentUser = null;
+    csrfToken = "";
     updateAuthUi();
     authMessageNode.textContent = String(error);
   }
@@ -214,7 +231,7 @@ async function login(event) {
 
 async function logout() {
   try {
-    await fetch("/api/auth/logout", {
+    await apiFetch("/api/auth/logout", {
       method: "POST",
       headers: {
         Accept: "application/json",

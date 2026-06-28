@@ -4,6 +4,7 @@ from fluxtuner.core import db
 from fluxtuner.web import auth
 from fluxtuner.web.app import (
     AUTH_ERROR_DETAIL,
+    CSRF_HEADER_NAME,
     SESSION_COOKIE_NAME,
     create_app,
 )
@@ -43,15 +44,14 @@ def test_login_sets_http_only_session_cookie_and_me_returns_user(tmp_path, monke
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload == {
-        "authenticated": True,
-        "user": {
-            "id": user_id,
-            "username": "alice",
-            "display_name": "alice",
-            "is_admin": False,
-        },
+    assert payload["authenticated"] is True
+    assert payload["user"] == {
+        "id": user_id,
+        "username": "alice",
+        "display_name": "alice",
+        "is_admin": False,
     }
+    assert payload["csrf_token"]
     assert "token" not in payload
 
     set_cookie = response.headers["set-cookie"]
@@ -62,6 +62,7 @@ def test_login_sets_http_only_session_cookie_and_me_returns_user(tmp_path, monke
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json()["user"]["username"] == "alice"
+    assert me.json()["csrf_token"] == payload["csrf_token"]
 
 
 def test_login_rejects_wrong_password_with_generic_error(tmp_path, monkeypatch) -> None:
@@ -163,3 +164,22 @@ def test_secure_cookie_is_enabled_by_default(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert "Secure" in response.headers["set-cookie"]
+
+
+def test_logout_accepts_csrf_header(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    assert login.status_code == 200
+    csrf_token = str(login.json()["csrf_token"])
+
+    logout = client.post(
+        "/api/auth/logout",
+        headers={CSRF_HEADER_NAME: csrf_token},
+    )
+
+    assert logout.status_code == 200

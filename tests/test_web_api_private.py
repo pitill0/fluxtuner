@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from fluxtuner.core import db, favorites, history, manual_playlists
 from fluxtuner.web import auth
-from fluxtuner.web.app import create_app
+from fluxtuner.web.app import CSRF_ERROR_DETAIL, CSRF_HEADER_NAME, create_app
 
 VALID_PASSWORD = "correct horse battery staple"
 
@@ -45,12 +45,17 @@ def create_user(username: str, password: str = VALID_PASSWORD) -> int:
     return user_id
 
 
-def login(client: TestClient, username: str) -> None:
+def login(client: TestClient, username: str) -> str:
     response = client.post(
         "/api/auth/login",
         json={"username": username, "password": VALID_PASSWORD},
     )
     assert response.status_code == 200
+    return str(response.json()["csrf_token"])
+
+
+def csrf_headers(csrf_token: str) -> dict[str, str]:
+    return {CSRF_HEADER_NAME: csrf_token}
 
 
 def station_payload(name: str, url: str) -> dict[str, str]:
@@ -76,24 +81,33 @@ def test_private_data_routes_require_authentication(tmp_path, monkeypatch) -> No
 def test_authenticated_user_can_read_and_write_private_data(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")
-    login(client, "alice")
+    csrf_token = login(client, "alice")
 
     station = station_payload("Alice Radio", "https://example.com/alice")
 
-    assert client.post("/api/history", json=station).status_code == 200
+    assert (
+        client.post("/api/history", json=station, headers=csrf_headers(csrf_token)).status_code
+        == 200
+    )
     history = client.get("/api/history").json()
     assert history["count"] == 1
     assert history["stations"][0]["name"] == "Alice Radio"
 
-    favorite_response = client.post("/api/favorites", json=station)
+    favorite_response = client.post(
+        "/api/favorites", json=station, headers=csrf_headers(csrf_token)
+    )
     assert favorite_response.status_code == 200
     favorites = client.get("/api/favorites").json()
     assert favorites["count"] == 1
     assert favorites["stations"][0]["name"] == "Alice Radio"
 
-    playlist_response = client.post("/api/playlists", json={"name": "Morning"})
+    playlist_response = client.post(
+        "/api/playlists", json={"name": "Morning"}, headers=csrf_headers(csrf_token)
+    )
     assert playlist_response.status_code == 200
-    add_response = client.post("/api/playlists/Morning/stations", json=station)
+    add_response = client.post(
+        "/api/playlists/Morning/stations", json=station, headers=csrf_headers(csrf_token)
+    )
     assert add_response.status_code == 200
 
     playlists = client.get("/api/playlists").json()
@@ -105,21 +119,59 @@ def test_authenticated_user_can_read_and_write_private_data(tmp_path, monkeypatc
     assert stations["stations"][0]["name"] == "Alice Radio"
 
 
+def test_private_mutations_require_valid_csrf_token(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    response = client.post(
+        "/api/favorites",
+        json=station_payload("Station", "https://example.com/a"),
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": CSRF_ERROR_DETAIL}
+
+    response = client.delete(
+        "/api/favorites?url=https%3A%2F%2Fexample.com%2Fa",
+        headers={CSRF_HEADER_NAME: "invalid"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": CSRF_ERROR_DETAIL}
+
+
 def test_private_data_is_isolated_between_authenticated_users(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")
     create_user("bob")
 
-    login(client, "alice")
+    csrf_token = login(client, "alice")
     station = station_payload("Alice Radio", "https://example.com/alice")
 
-    assert client.post("/api/history", json=station).status_code == 200
-    assert client.post("/api/favorites", json=station).status_code == 200
-    assert client.post("/api/playlists", json={"name": "Morning"}).status_code == 200
-    assert client.post("/api/playlists/Morning/stations", json=station).status_code == 200
+    assert (
+        client.post("/api/history", json=station, headers=csrf_headers(csrf_token)).status_code
+        == 200
+    )
+    assert (
+        client.post("/api/favorites", json=station, headers=csrf_headers(csrf_token)).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/playlists", json={"name": "Morning"}, headers=csrf_headers(csrf_token)
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/playlists/Morning/stations", json=station, headers=csrf_headers(csrf_token)
+        ).status_code
+        == 200
+    )
 
     assert client.post("/api/auth/logout").status_code == 200
-    login(client, "bob")
+    csrf_token = login(client, "bob")
 
     assert client.get("/api/history").json() == {"count": 0, "stations": []}
     assert client.get("/api/favorites").json() == {"count": 0, "stations": []}

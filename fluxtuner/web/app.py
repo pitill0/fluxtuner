@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import os
 from importlib import resources
 from typing import Any
@@ -24,6 +26,9 @@ from fluxtuner.web import auth
 SESSION_COOKIE_NAME = "fluxtuner_session"
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
+AUTH_REQUIRED_DETAIL = "Authentication required."
+CSRF_HEADER_NAME = "X-FluxTuner-CSRF"
+CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
 
 
 def _web_secure_cookies() -> bool:
@@ -59,6 +64,18 @@ def _authenticated_user(request: Any) -> dict[str, Any] | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     with db.connect() as conn:
         return auth.get_session_user(conn, token)
+
+
+def _csrf_token_for_session_token(token: str | None) -> str:
+    """Return a CSRF token derived from the opaque session token."""
+    if not token:
+        return ""
+
+    return hmac.new(
+        token.encode("utf-8"),
+        b"fluxtuner-web-csrf-v1",
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _set_session_cookie(response: Any, token: str) -> None:
@@ -142,6 +159,14 @@ def create_app() -> Any:
         raise RuntimeError(_missing_web_dependency_message()) from exc
 
     required_body = Body(...)
+
+    def require_csrf(request: Request) -> None:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        expected = _csrf_token_for_session_token(token)
+        provided = request.headers.get(CSRF_HEADER_NAME, "")
+
+        if not expected or not hmac.compare_digest(provided, expected):
+            raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
 
     def effective_profile_name(profile: str | None = None) -> str | None:
         return resolve_effective_profile_name(profile)
@@ -236,6 +261,7 @@ def create_app() -> Any:
         return {
             "authenticated": True,
             "user": _public_user_payload(authenticated_user),
+            "csrf_token": _csrf_token_for_session_token(token),
         }
 
     @app.post("/api/auth/logout")
@@ -255,11 +281,12 @@ def create_app() -> Any:
             user = auth.get_session_user(conn, token)
 
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         return {
             "authenticated": True,
             "user": _public_user_payload(user),
+            "csrf_token": _csrf_token_for_session_token(token),
         }
 
     @app.get("/api/search")
@@ -297,7 +324,7 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         profile_name = effective_profile_name(profile)
         stations = load_history(
@@ -318,7 +345,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         station_data = _station_payload(station)
 
@@ -343,7 +372,7 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         profile_name = effective_profile_name(profile)
         stations = load_favorites(
@@ -364,7 +393,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         station_data = _station_payload(station)
 
@@ -391,7 +422,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         removed = remove_favorite(
             url,
@@ -412,7 +445,7 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         user_id = int(user["id"])
         profile_name = effective_profile_name(profile)
@@ -443,7 +476,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         name = _playlist_name(payload)
         if not name:
@@ -469,7 +504,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         removed = delete_playlist(
             name,
@@ -491,7 +528,7 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         stations = get_playlist_stations(
             name,
@@ -514,7 +551,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         station_data = _station_payload(station)
 
@@ -547,7 +586,9 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=401, detail="Authentication required.")
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
 
         removed = remove_station_from_playlist(
             name,

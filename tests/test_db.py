@@ -71,7 +71,7 @@ def test_init_db_creates_default_user_and_profile(
     assert user is not None
     assert user["username"] == "default"
     assert user["display_name"] == "Default"
-    assert user["is_admin"] == 1
+    assert user["is_admin"] == 0
 
     assert profile is not None
     assert profile["name"] == "default"
@@ -962,3 +962,30 @@ def test_existing_profiles_are_migrated_to_default_user(
     assert profile is not None
     assert profile["id"] == 10
     assert profile["user_id"] == user["id"]
+
+
+def test_default_web_user_is_not_admin_without_password(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("FLUXTUNER_DATA_DIR", str(tmp_path))
+
+    from fluxtuner.core import db
+
+    with db.connect() as conn:
+        db.create_schema(conn)
+        db.ensure_profile_user_schema(conn)
+        user_id = db.ensure_default_user(conn)
+        conn.commit()
+
+        user = conn.execute(
+            """
+            SELECT username, is_admin, is_active, password_hash
+            FROM users
+            WHERE id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+
+    assert user is not None
+    assert user["username"] == db.DEFAULT_USER_NAME
+    assert user["is_admin"] == 0
+    assert user["is_active"] == 1
+    assert user["password_hash"] is None

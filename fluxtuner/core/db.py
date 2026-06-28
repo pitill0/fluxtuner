@@ -318,13 +318,28 @@ def ensure_default_user(conn: sqlite3.Connection | None = None) -> int:
             managed_conn.commit()
             return user_id
 
-    return get_or_create_user(
+    user_id = get_or_create_user(
         conn,
         DEFAULT_USER_NAME,
         display_name="Default",
-        is_admin=True,
+        is_admin=False,
         is_active=True,
     )
+
+    conn.execute(
+        """
+        UPDATE users
+        SET
+            is_admin = 0,
+            updated_at = ?
+        WHERE username = ?
+          AND is_admin != 0
+          AND (password_hash IS NULL OR password_hash = '')
+        """,
+        (utc_now(), DEFAULT_USER_NAME),
+    )
+
+    return user_id
 
 
 def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:

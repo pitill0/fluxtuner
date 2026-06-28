@@ -267,6 +267,48 @@
       </footer>
     </main>
 
+
+    <section class="playlist-dialog" data-playlist-dialog hidden aria-labelledby="playlist-dialog-title">
+      <div class="playlist-dialog-card">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Playlist</p>
+            <h2 id="playlist-dialog-title">Add station to playlist</h2>
+          </div>
+
+          <button type="button" data-playlist-cancel>Cancel</button>
+        </div>
+
+        <p class="playlist-dialog-station" data-playlist-station-name></p>
+
+        <form class="playlist-dialog-form" data-playlist-form>
+          <label>
+            <span>Existing playlist</span>
+            <select name="playlist" data-playlist-select>
+              <option value="">Loading playlists...</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Or create a new playlist</span>
+            <input
+              name="new_playlist"
+              type="text"
+              autocomplete="off"
+              placeholder="New playlist name"
+            >
+          </label>
+
+          <p class="playlist-dialog-message" data-playlist-message></p>
+
+          <div class="station-actions">
+            <button type="submit">Add station</button>
+            <button type="button" data-playlist-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
     <aside class="player-bar" data-player-bar aria-live="polite">
       <div class="player-info">
         <p class="eyebrow">Browser playback</p>

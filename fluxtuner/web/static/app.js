@@ -29,6 +29,12 @@ const adminCreateUserForm = document.querySelector("[data-admin-create-user-form
 const adminPasswordForm = document.querySelector("[data-admin-password-form]");
 const adminMessageNode = document.querySelector("[data-admin-message]");
 const adminUsersNode = document.querySelector("[data-admin-users]");
+const playlistDialog = document.querySelector("[data-playlist-dialog]");
+const playlistForm = document.querySelector("[data-playlist-form]");
+const playlistSelect = document.querySelector("[data-playlist-select]");
+const playlistMessageNode = document.querySelector("[data-playlist-message]");
+const playlistStationNameNode = document.querySelector("[data-playlist-station-name]");
+const playlistCancelButtons = document.querySelectorAll("[data-playlist-cancel]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -47,6 +53,7 @@ let csrfToken = "";
 let setupAvailable = false;
 let setupRequiresToken = false;
 let adminUsersLoaded = false;
+let pendingPlaylistStation = null;
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -755,28 +762,135 @@ async function removeFavorite(station) {
   }
 }
 
-async function addToPlaylist(station) {
+
+function setPlaylistDialogMessage(message) {
+  if (playlistMessageNode) {
+    playlistMessageNode.textContent = message || "";
+  }
+}
+
+function closePlaylistDialog() {
+  pendingPlaylistStation = null;
+
+  if (playlistDialog) {
+    playlistDialog.hidden = true;
+  }
+
+  if (playlistForm) {
+    playlistForm.reset();
+  }
+
+  setPlaylistDialogMessage("");
+}
+
+function renderPlaylistOptions(playlists) {
+  if (!playlistSelect) return;
+
+  const items = playlists || [];
+  const options = items
+    .map((playlist) => {
+      const name = escapeHtml(playlist.name || "");
+      const count = Number(playlist.count || 0);
+      const suffix = `${count} station${count === 1 ? "" : "s"}`;
+      return `<option value="${name}">${name} · ${suffix}</option>`;
+    })
+    .join("");
+
+  playlistSelect.innerHTML =
+    '<option value="">Choose existing playlist...</option>' +
+    options;
+}
+
+async function loadPlaylistChoices() {
+  if (!playlistSelect) return;
+
+  playlistSelect.innerHTML = '<option value="">Loading playlists...</option>';
+
+  const response = await apiFetch("/api/playlists", {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  renderPlaylistOptions(payload.playlists || []);
+
+  if (!(payload.playlists || []).length) {
+    setPlaylistDialogMessage("No playlists yet. Enter a new playlist name below.");
+  } else {
+    setPlaylistDialogMessage("Choose an existing playlist or enter a new name.");
+  }
+}
+
+async function openPlaylistDialog(station) {
   const url = stationUrl(station);
   if (!url) {
     setPlayerState("error", "This station has no URL to add to a playlist.");
     return;
   }
 
-  const playlistName = window.prompt("Playlist name:");
-  if (!playlistName || !playlistName.trim()) {
+  if (!playlistDialog || !playlistForm) {
+    setPlayerState("error", "Playlist dialog is not available.");
     return;
   }
 
+  pendingPlaylistStation = station;
+  playlistDialog.hidden = false;
+
+  if (playlistStationNameNode) {
+    playlistStationNameNode.textContent = station.name
+      ? `Station: ${station.name}`
+      : "Station selected.";
+  }
+
+  setPlaylistDialogMessage("Loading playlists...");
+
+  try {
+    await loadPlaylistChoices();
+  } catch (error) {
+    setPlaylistDialogMessage(`Could not load playlists. ${error}`);
+  }
+
+  const firstInput = playlistDialog.querySelector("select, input, button");
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+async function submitPlaylistDialog(event) {
+  event.preventDefault();
+
+  if (!pendingPlaylistStation || !playlistForm) {
+    closePlaylistDialog();
+    return;
+  }
+
+  const formData = new FormData(playlistForm);
+  const selectedPlaylist = String(formData.get("playlist") || "").trim();
+  const newPlaylist = String(formData.get("new_playlist") || "").trim();
+  const playlistName = newPlaylist || selectedPlaylist;
+
+  if (!playlistName) {
+    setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.");
+    return;
+  }
+
+  setPlaylistDialogMessage("Adding station...");
+
   try {
     const response = await apiFetch(
-      `/api/playlists/${encodeURIComponent(playlistName.trim())}/stations`,
+      `/api/playlists/${encodeURIComponent(playlistName)}/stations`,
       {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(station),
+        body: JSON.stringify(pendingPlaylistStation),
       },
     );
 
@@ -785,15 +899,27 @@ async function addToPlaylist(station) {
     }
 
     const payload = await response.json();
+    closePlaylistDialog();
     setPlayerState(
       "idle",
       payload.added
         ? `Added to playlist "${payload.name}".`
         : `Station is already in playlist "${payload.name}".`,
     );
+
+    if (currentView === "playlists") {
+      await loadPlaylists();
+    } else if (currentView === "playlist" && currentPlaylistName === payload.name) {
+      await loadPlaylistStations(currentPlaylistName);
+    }
   } catch (error) {
-    setPlayerState("error", `Could not add station to playlist. ${error}`);
+    setPlaylistDialogMessage(`Could not add station. ${error}`);
   }
+}
+
+
+async function addToPlaylist(station) {
+  await openPlaylistDialog(station);
 }
 
 async function removeFromPlaylist(station) {
@@ -1395,6 +1521,14 @@ if (adminUsersNode) {
     mutateAdminUser(button.dataset.adminUsername || "", button.dataset.adminUserAction || "");
   });
 }
+
+if (playlistForm) {
+  playlistForm.addEventListener("submit", submitPlaylistDialog);
+}
+
+playlistCancelButtons.forEach((button) => {
+  button.addEventListener("click", closePlaylistDialog);
+});
 
 if (setupForm) {
   setupForm.addEventListener("submit", createFirstAdmin);

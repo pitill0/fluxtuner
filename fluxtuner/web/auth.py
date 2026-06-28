@@ -23,6 +23,17 @@ MAX_PASSWORD_BYTES = 1024
 SESSION_TOKEN_BYTES = 32
 DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24
 
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60 * 5
+MAX_CLIENT_KEY_LENGTH = 200
+# Not a credential. This dummy Argon2id hash is used only to spend comparable
+# verification work for missing/inactive users and reduce login timing leaks.
+DUMMY_PASSWORD_HASH = (  # nosec B105
+    "$argon2id$v=19$m=65536,t=3,p=4"
+    "$wheXMWg7h8om/H0ubwpzpg"
+    "$nFtO6iixRfJJCp7LILVWBgn3NZuneJy4Te1mw2GQ6MA"
+)
+
 _PASSWORD_HASHER = PasswordHasher(
     time_cost=ARGON2_TIME_COST,
     memory_cost=ARGON2_MEMORY_COST_KIB,
@@ -284,5 +295,114 @@ def purge_expired_sessions(
         WHERE expires_at <= ?
         """,
         (encode_datetime(current_time),),
+    )
+    return int(cursor.rowcount)
+
+
+def normalize_login_username(username: str) -> str:
+    return username.strip().casefold()
+
+
+def client_key_from_host(host: str | None) -> str:
+    clean_host = (host or "unknown").strip() or "unknown"
+    return clean_host[:MAX_CLIENT_KEY_LENGTH]
+
+
+def record_login_attempt(
+    conn: Any,
+    username: str,
+    client_key: str,
+    *,
+    success: bool,
+    now: datetime | None = None,
+) -> None:
+    normalized_username = normalize_login_username(username)
+    if not normalized_username:
+        return
+
+    current_time = now or utc_now()
+    conn.execute(
+        """
+        INSERT INTO web_login_attempts (
+            normalized_username,
+            client_key,
+            success,
+            attempted_at
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            normalized_username,
+            client_key_from_host(client_key),
+            1 if success else 0,
+            encode_datetime(current_time),
+        ),
+    )
+
+
+def count_recent_failed_login_attempts(
+    conn: Any,
+    username: str,
+    client_key: str,
+    *,
+    now: datetime | None = None,
+    window_seconds: int = LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+) -> int:
+    normalized_username = normalize_login_username(username)
+    if not normalized_username:
+        return 0
+
+    current_time = now or utc_now()
+    since = current_time - timedelta(seconds=window_seconds)
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM web_login_attempts
+        WHERE normalized_username = ?
+          AND client_key = ?
+          AND success = 0
+          AND attempted_at >= ?
+        """,
+        (
+            normalized_username,
+            client_key_from_host(client_key),
+            encode_datetime(since),
+        ),
+    ).fetchone()
+    return int(row["count"] if row is not None else 0)
+
+
+def is_login_rate_limited(
+    conn: Any,
+    username: str,
+    client_key: str,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    return (
+        count_recent_failed_login_attempts(
+            conn,
+            username,
+            client_key,
+            now=now,
+        )
+        >= MAX_FAILED_LOGIN_ATTEMPTS
+    )
+
+
+def purge_old_login_attempts(
+    conn: Any,
+    *,
+    now: datetime | None = None,
+    window_seconds: int = LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+) -> int:
+    current_time = now or utc_now()
+    cutoff = current_time - timedelta(seconds=window_seconds)
+    cursor = conn.execute(
+        """
+        DELETE FROM web_login_attempts
+        WHERE attempted_at < ?
+        """,
+        (encode_datetime(cutoff),),
     )
     return int(cursor.rowcount)

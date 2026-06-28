@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 from importlib import resources
 from typing import Any
 
 from fluxtuner import __app_name__, __version__
+from fluxtuner.core import db
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
@@ -17,6 +19,62 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.core.profiles import resolve_effective_profile_name
+from fluxtuner.web import auth
+
+SESSION_COOKIE_NAME = "fluxtuner_session"
+AUTH_ERROR_DETAIL = "Invalid username or password."
+RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
+
+
+def _web_secure_cookies() -> bool:
+    value = os.getenv("FLUXTUNER_WEB_SECURE_COOKIES", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _session_cookie_max_age() -> int:
+    value = os.getenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "")
+    try:
+        max_age = int(value)
+    except ValueError:
+        return auth.DEFAULT_SESSION_MAX_AGE_SECONDS
+    return max_age if max_age > 0 else auth.DEFAULT_SESSION_MAX_AGE_SECONDS
+
+
+def _request_client_host(request: Any) -> str:
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None)
+    return auth.client_key_from_host(str(host) if host else None)
+
+
+def _public_user_payload(user: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(user["id"]),
+        "username": str(user["username"]),
+        "display_name": str(user["display_name"]),
+        "is_admin": bool(user["is_admin"]),
+    }
+
+
+def _set_session_cookie(response: Any, token: str) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=_session_cookie_max_age(),
+        httponly=True,
+        secure=_web_secure_cookies(),
+        samesite="lax",
+        path="/",
+    )
+
+
+def _delete_session_cookie(response: Any) -> None:
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=_web_secure_cookies(),
+        httponly=True,
+        samesite="lax",
+    )
 
 
 def _missing_web_dependency_message() -> str:
@@ -68,9 +126,12 @@ def _playlist_name(payload: dict[str, Any]) -> str:
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import Body, FastAPI, HTTPException, Query
+        from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
+
+        globals()["Request"] = Request
+        globals()["Response"] = Response
     except ImportError as exc:
         raise RuntimeError(_missing_web_dependency_message()) from exc
 
@@ -103,6 +164,96 @@ def create_app() -> Any:
             "app": __app_name__,
             "version": __version__,
             "mode": "web",
+        }
+
+    @app.post("/api/auth/login")
+    def login(
+        request: Request,
+        response: Response,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        client_key = _request_client_host(request)
+
+        if not username or not password:
+            raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+        with db.connect() as conn:
+            if auth.is_login_rate_limited(conn, username, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            user = db.get_user_by_username(conn, username)
+            password_hash = None
+            if user is not None and bool(user["is_active"]):
+                password_hash = str(user["password_hash"] or "")
+
+            if not password_hash:
+                auth.verify_password(password, auth.DUMMY_PASSWORD_HASH)
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            if not auth.verify_password(password, password_hash):
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            authenticated_user = user
+            if authenticated_user is None:
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            token = auth.create_session(
+                conn,
+                int(authenticated_user["id"]),
+                max_age_seconds=_session_cookie_max_age(),
+            )
+            auth.record_login_attempt(
+                conn,
+                username,
+                client_key,
+                success=True,
+            )
+            conn.commit()
+
+        _set_session_cookie(response, token)
+        return {
+            "authenticated": True,
+            "user": _public_user_payload(authenticated_user),
+        }
+
+    @app.post("/api/auth/logout")
+    def logout(request: Request, response: Response) -> dict[str, Any]:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        with db.connect() as conn:
+            revoked = auth.revoke_session(conn, token)
+            conn.commit()
+
+        _delete_session_cookie(response)
+        return {"status": "ok", "revoked": revoked}
+
+    @app.get("/api/auth/me")
+    def me(request: Request) -> dict[str, Any]:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        with db.connect() as conn:
+            user = auth.get_session_user(conn, token)
+
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        return {
+            "authenticated": True,
+            "user": _public_user_payload(user),
         }
 
     @app.get("/api/search")

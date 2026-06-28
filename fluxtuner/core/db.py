@@ -12,7 +12,7 @@ from fluxtuner.paths import data_file
 DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
-SCHEMA_MIGRATION_NAME = "schema_v3"
+SCHEMA_MIGRATION_NAME = "schema_v4"
 
 
 def utc_now() -> str:
@@ -100,6 +100,20 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_web_sessions_expires_at
         ON web_sessions(expires_at);
+
+        CREATE TABLE IF NOT EXISTS web_login_attempts (
+            id INTEGER PRIMARY KEY,
+            normalized_username TEXT NOT NULL,
+            client_key TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 0,
+            attempted_at TEXT NOT NULL,
+            CHECK (length(trim(normalized_username)) > 0),
+            CHECK (length(trim(client_key)) > 0),
+            CHECK (success IN (0, 1))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_login_attempts_lookup
+        ON web_login_attempts(normalized_username, client_key, attempted_at);
 
         CREATE TABLE IF NOT EXISTS stations (
             id INTEGER PRIMARY KEY,

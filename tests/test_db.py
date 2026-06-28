@@ -38,6 +38,7 @@ def test_init_db_creates_expected_tables(
             "schema_migrations",
             "stations",
             "users",
+            "web_login_attempts",
             "web_sessions",
         }
 

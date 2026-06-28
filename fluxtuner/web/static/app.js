@@ -385,6 +385,10 @@ function updateSetupUi() {
     authPanel.hidden = setupAvailable;
   }
 
+  if (searchPanel) {
+    searchPanel.hidden = setupAvailable;
+  }
+
   if (setupTokenField) {
     setupTokenField.hidden = !setupRequiresToken;
   }
@@ -1659,6 +1663,7 @@ async function initializeAuthFlow() {
   if (setupAvailable) {
     updateSetupUi();
     updateAuthUi();
+    scrollToSection(setupPanel);
     return;
   }
 

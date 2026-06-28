@@ -70,3 +70,13 @@ def test_web_index_uses_compact_app_header() -> None:
     assert "data-nav-admin" in response.text
     assert response.text.count("data-logout") == 1
     assert response.text.count("data-auth-user ") == 1
+
+
+def test_web_static_js_focuses_setup_before_app_views() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "searchPanel.hidden = setupAvailable;" in response.text
+    assert "scrollToSection(setupPanel);" in response.text

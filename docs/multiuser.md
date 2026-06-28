@@ -331,3 +331,7 @@ Recommended commit sequence:
 - OWASP Password Storage Cheat Sheet
 - OWASP Session Management Cheat Sheet
 - OWASP Cross-Site Request Forgery Prevention Cheat Sheet
+
+## Secure deployment documentation
+
+Operational deployment guidance now lives in [`docs/secure-web-deployment.md`](secure-web-deployment.md). That document covers reverse proxy usage, secure cookies, setup tokens, persistent data, backups and post-deploy verification.

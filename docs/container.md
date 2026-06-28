@@ -77,6 +77,26 @@ Or, if your system uses the standalone Compose command:
 docker-compose up --build
 ```
 
+## Secure deployment
+
+For any network-accessible container deployment, keep the web app behind HTTPS, set a first-run setup token, and keep secure cookies enabled.
+
+Recommended container flags:
+
+```bash
+-e FLUXTUNER_WEB_SETUP_TOKEN=replace-with-random-token \
+-e FLUXTUNER_WEB_SECURE_COOKIES=true \
+-e FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=86400
+```
+
+When publishing ports directly for local reverse proxy use, bind to localhost instead of every interface:
+
+```bash
+-p 127.0.0.1:8080:8080
+```
+
+See [`docs/secure-web-deployment.md`](secure-web-deployment.md) for the full deployment checklist.
+
 ## Persistent data
 
 The container sets:

@@ -33,6 +33,8 @@ Open:
 http://127.0.0.1:8080
 ```
 
+For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).
+
 ## Web playback
 
 FluxTuner Web plays streams directly in the browser using the browser audio

@@ -236,6 +236,8 @@ They are not separate user accounts.
 
 ---
 
+- [Secure web deployment](docs/secure-web-deployment.md)
+
 ## License
 
 FluxTuner uses a split licensing model:

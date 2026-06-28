@@ -29,6 +29,11 @@ RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
 AUTH_REQUIRED_DETAIL = "Authentication required."
 CSRF_HEADER_NAME = "X-FluxTuner-CSRF"
 CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
+SETUP_UNAVAILABLE_DETAIL = "First-run setup is not available."
+SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
+SETUP_LOCAL_ONLY_DETAIL = "First-run setup requires local access or FLUXTUNER_WEB_SETUP_TOKEN."
+SETUP_INVALID_DETAIL = "Username and password are required."
+SETUP_RATE_LIMIT_USERNAME = "__setup__"
 
 
 def _web_secure_cookies() -> bool:
@@ -76,6 +81,41 @@ def _csrf_token_for_session_token(token: str | None) -> str:
         b"fluxtuner-web-csrf-v1",
         hashlib.sha256,
     ).hexdigest()
+
+
+def _configured_admin_exists(conn: Any) -> bool:
+    """Return whether a real active web admin has been configured."""
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM users
+        WHERE
+            is_admin = 1
+            AND is_active = 1
+            AND password_hash IS NOT NULL
+            AND length(trim(password_hash)) > 0
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
+def _setup_token_required() -> bool:
+    return bool(os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip())
+
+
+def _valid_setup_token(provided_token: str) -> bool:
+    expected_token = os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip()
+    if not expected_token:
+        return True
+
+    return hmac.compare_digest(provided_token, expected_token)
+
+
+def _setup_request_is_local(request: Any) -> bool:
+    client = getattr(request, "client", None)
+    host = str(getattr(client, "host", "") or "").strip().lower()
+    return host in {"127.0.0.1", "::1", "localhost", "testclient"}
 
 
 def _set_session_cookie(response: Any, token: str) -> None:
@@ -195,6 +235,117 @@ def create_app() -> Any:
             "app": __app_name__,
             "version": __version__,
             "mode": "web",
+        }
+
+    @app.get("/api/setup/status")
+    def setup_status(request: Request) -> dict[str, Any]:
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+            configured_admin_exists = _configured_admin_exists(conn)
+
+        return {
+            "available": not configured_admin_exists,
+            "configured_admin_exists": configured_admin_exists,
+            "requires_setup_token": _setup_token_required(),
+            "local_request": _setup_request_is_local(request),
+        }
+
+    @app.post("/api/setup/create-admin")
+    def setup_create_admin(
+        request: Request,
+        response: Response,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        setup_token = str(payload.get("setup_token") or "")
+        client_key = _request_client_host(request)
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
+
+        if _setup_token_required() and not _valid_setup_token(setup_token):
+            with db.connect() as conn:
+                db.create_schema(conn)
+                db.ensure_profile_user_schema(conn)
+                auth.record_login_attempt(
+                    conn,
+                    SETUP_RATE_LIMIT_USERNAME,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+            raise HTTPException(status_code=403, detail=SETUP_VERIFICATION_ERROR_DETAIL)
+
+        if not _setup_token_required() and not _setup_request_is_local(request):
+            raise HTTPException(status_code=403, detail=SETUP_LOCAL_ONLY_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            if _configured_admin_exists(conn):
+                raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
+
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
+
+            existing_user = db.get_user_by_username(conn, clean_username)
+            if existing_user is None:
+                user_id = db.get_or_create_user(
+                    conn,
+                    clean_username,
+                    password_hash=password_hash,
+                    is_admin=True,
+                    is_active=True,
+                )
+            else:
+                user_id = int(existing_user["id"])
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET
+                        password_hash = ?,
+                        is_admin = 1,
+                        is_active = 1,
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (password_hash, db.utc_now(), user_id),
+                )
+
+            db.ensure_default_profile(conn, user_id=user_id)
+            token = auth.create_session(conn, user_id)
+            auth.record_login_attempt(
+                conn,
+                SETUP_RATE_LIMIT_USERNAME,
+                client_key,
+                success=True,
+            )
+            conn.commit()
+
+            user = auth.get_session_user(conn, token)
+
+        if user is None:
+            raise HTTPException(status_code=500, detail="Could not create setup session.")
+
+        _set_session_cookie(response, token)
+
+        return {
+            "authenticated": True,
+            "setup_complete": True,
+            "user": _public_user_payload(user),
+            "csrf_token": _csrf_token_for_session_token(token),
         }
 
     @app.post("/api/auth/login")

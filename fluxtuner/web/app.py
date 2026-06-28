@@ -34,6 +34,12 @@ SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
 SETUP_LOCAL_ONLY_DETAIL = "First-run setup requires local access or FLUXTUNER_WEB_SETUP_TOKEN."
 SETUP_INVALID_DETAIL = "Username and password are required."
 SETUP_RATE_LIMIT_USERNAME = "__setup__"
+ADMIN_REQUIRED_DETAIL = "Administrator access required."
+ADMIN_USER_EXISTS_DETAIL = "Web user already exists."
+ADMIN_USER_NOT_FOUND_DETAIL = "Web user not found."
+ADMIN_LAST_ADMIN_DETAIL = "Cannot remove the last active administrator."
+ADMIN_INVALID_USER_DETAIL = "Username and password are required."
+ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
 
 
 def _web_secure_cookies() -> bool:
@@ -186,6 +192,64 @@ def _playlist_name(payload: dict[str, Any]) -> str:
     return str(payload.get("name") or "").strip()
 
 
+def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(user["id"]),
+        "username": str(user["username"]),
+        "display_name": str(user["display_name"]),
+        "is_admin": bool(user["is_admin"]),
+        "is_active": bool(user["is_active"]),
+        "created_at": str(user["created_at"]),
+        "updated_at": str(user["updated_at"]),
+    }
+
+
+def _active_admin_count(conn: Any) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM users
+        WHERE
+            is_admin = 1
+            AND is_active = 1
+            AND password_hash IS NOT NULL
+            AND length(trim(password_hash)) > 0
+        """
+    ).fetchone()
+    return int(row[0])
+
+
+def _revoke_user_sessions(conn: Any, user_id: int) -> None:
+    conn.execute(
+        """
+        UPDATE web_sessions
+        SET revoked_at = ?
+        WHERE user_id = ? AND revoked_at IS NULL
+        """,
+        (db.utc_now(), user_id),
+    )
+
+
+def _admin_target_user(conn: Any, username: str) -> dict[str, Any]:
+    from fastapi import HTTPException
+
+    user = db.get_user_by_username(conn, username)
+    if user is None:
+        raise HTTPException(status_code=404, detail=ADMIN_USER_NOT_FOUND_DETAIL)
+
+    return user
+
+
+def _ensure_not_last_active_admin(conn: Any, user: dict[str, Any]) -> None:
+    from fastapi import HTTPException
+
+    if not bool(user["is_admin"]) or not bool(user["is_active"]):
+        return
+
+    if _active_admin_count(conn) <= 1:
+        raise HTTPException(status_code=409, detail=ADMIN_LAST_ADMIN_DETAIL)
+
+
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
@@ -207,6 +271,14 @@ def create_app() -> Any:
 
         if not expected or not hmac.compare_digest(provided, expected):
             raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
+
+    def require_admin_user(request: Request) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+        if not bool(user["is_admin"]):
+            raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
+        return user
 
     def effective_profile_name(profile: str | None = None) -> str | None:
         return resolve_effective_profile_name(profile)
@@ -438,6 +510,236 @@ def create_app() -> Any:
             "authenticated": True,
             "user": _public_user_payload(user),
             "csrf_token": _csrf_token_for_session_token(token),
+        }
+
+    @app.get("/api/admin/users")
+    def admin_list_users(request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+            users = db.list_users(conn)
+
+        return {
+            "count": len(users),
+            "users": [_admin_user_payload(user) for user in users],
+        }
+
+    @app.post("/api/admin/users")
+    def admin_create_user(
+        request: Request,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        display_name = str(payload.get("display_name") or "").strip() or None
+        is_admin = bool(payload.get("is_admin", False))
+        is_active = bool(payload.get("is_active", True))
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
+
+            if db.get_user_by_username(conn, clean_username) is not None:
+                raise HTTPException(status_code=409, detail=ADMIN_USER_EXISTS_DETAIL)
+
+            user_id = db.get_or_create_user(
+                conn,
+                clean_username,
+                display_name=display_name,
+                password_hash=password_hash,
+                is_admin=is_admin,
+                is_active=is_active,
+            )
+            db.ensure_default_profile(conn, user_id=user_id)
+            conn.commit()
+
+            user = _admin_target_user(conn, clean_username)
+
+        return {
+            "user": _admin_user_payload(user),
+        }
+
+    @app.post("/api/admin/users/{username}/password")
+    def admin_set_user_password(
+        username: str,
+        request: Request,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        password = str(payload.get("password") or "")
+        if not password:
+            raise HTTPException(status_code=400, detail=ADMIN_MISSING_VALUE_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    password_hash = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (password_hash, db.utc_now(), user_id),
+            )
+            _revoke_user_sessions(conn, user_id)
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/deactivate")
+    def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            _ensure_not_last_active_admin(conn, user)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_active = 0,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            _revoke_user_sessions(conn, user_id)
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/activate")
+    def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_active = 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/admin")
+    def admin_grant_admin(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_admin = 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.delete("/api/admin/users/{username}/admin")
+    def admin_revoke_admin(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            _ensure_not_last_active_admin(conn, user)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_admin = 0,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
         }
 
     @app.get("/api/search")

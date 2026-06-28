@@ -3,12 +3,24 @@
  */
 
 const statusNode = document.querySelector("[data-status]");
+const healthStateNode = document.querySelector("[data-health-state]");
+const healthSummaryNode = document.querySelector("[data-health-summary]");
 const healthButton = document.querySelector("[data-health-check]");
 const searchForm = document.querySelector("[data-search-form]");
 const resultsNode = document.querySelector("[data-results]");
 const resultCountNode = document.querySelector("[data-result-count]");
 const resultsKickerNode = document.querySelector("[data-results-kicker]");
 const resultsTitleNode = document.querySelector("[data-results-title]");
+const appContent = document.querySelector("[data-app-content]");
+const searchPanel = document.querySelector("[data-search-panel]");
+const appContentNodes = document.querySelectorAll("[data-app-content]");
+const appHeader = document.querySelector("[data-app-header]");
+const navToggleButton = document.querySelector("[data-nav-toggle]");
+const navSearchButton = document.querySelector("[data-nav-search]");
+const navFavoritesButton = document.querySelector("[data-nav-favorites]");
+const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
+const navHistoryButton = document.querySelector("[data-nav-history]");
+const navAdminButton = document.querySelector("[data-nav-admin]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
@@ -55,10 +67,35 @@ let setupRequiresToken = false;
 let adminUsersLoaded = false;
 let pendingPlaylistStation = null;
 
-async function checkHealth() {
-  if (!statusNode) return;
 
-  statusNode.textContent = "Checking server...";
+function formatHealthSummary(payload) {
+  const status = payload.status || payload.state || "ok";
+  const version = payload.version ? ` · ${payload.version}` : "";
+  const database = payload.database || payload.db || payload.storage || "";
+  const databaseText = database ? ` · ${database}` : "";
+
+  return {
+    state: String(status).toUpperCase(),
+    summary: `Healthy${version}${databaseText} · checked now`,
+  };
+}
+
+function setHealthSummary(state, summary) {
+  if (healthStateNode) {
+    healthStateNode.textContent = state;
+  }
+
+  if (healthSummaryNode) {
+    healthSummaryNode.textContent = summary;
+  }
+}
+
+async function checkHealth() {
+  if (statusNode) {
+    statusNode.textContent = "Checking server...";
+  }
+
+  setHealthSummary("Checking", "Refreshing server status...");
 
   try {
     const response = await fetch("/api/health", {
@@ -72,11 +109,22 @@ async function checkHealth() {
     }
 
     const payload = await response.json();
-    statusNode.textContent = JSON.stringify(payload, null, 2);
+    const summary = formatHealthSummary(payload);
+
+    setHealthSummary(summary.state, summary.summary);
+
+    if (statusNode) {
+      statusNode.textContent = JSON.stringify(payload, null, 2);
+    }
   } catch (error) {
-    statusNode.textContent = `Server check failed: ${error}`;
+    setHealthSummary("Error", `Server check failed: ${error}`);
+
+    if (statusNode) {
+      statusNode.textContent = `Server check failed: ${error}`;
+    }
   }
 }
+
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => {
@@ -354,14 +402,79 @@ async function mutateAdminUser(username, action) {
 }
 
 
+function setAppContentVisible(visible) {
+  appContentNodes.forEach((node) => {
+    node.hidden = !visible;
+  });
+}
+
+function scrollToSection(node) {
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function setMobileMenuOpen(open) {
+  if (!appHeader || !navToggleButton) return;
+
+  const nextState = open ? "true" : "false";
+  appHeader.dataset.mobileMenuOpen = nextState;
+  navToggleButton.setAttribute("aria-expanded", nextState);
+}
+
+function closeMobileMenu() {
+  setMobileMenuOpen(false);
+}
+
+
+function showRadioBrowserView() {
+  if (searchPanel) {
+    searchPanel.hidden = false;
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = true;
+  }
+}
+
+function showAdminView() {
+  if (searchPanel) {
+    searchPanel.hidden = true;
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = false;
+  }
+}
+
+async function navigateToPrivateView(loader) {
+  closeMobileMenu();
+  showRadioBrowserView();
+  if (!currentUser) {
+    renderAuthRequired();
+    scrollToSection(authPanel);
+    return;
+  }
+
+  await loader();
+  scrollToSection(searchPanel);
+}
+
 function updateSetupUi() {
+  const authenticated = Boolean(currentUser);
+
+  if (appContent) {
+    appContent.hidden = !authenticated || setupAvailable;
+  }
+
   if (setupPanel) {
     setupPanel.hidden = !setupAvailable;
   }
 
   if (authPanel) {
-    authPanel.hidden = setupAvailable;
+    authPanel.hidden = setupAvailable || authenticated;
   }
+
+  setAppContentVisible(!setupAvailable && authenticated);
 
   if (setupTokenField) {
     setupTokenField.hidden = !setupRequiresToken;
@@ -466,6 +579,7 @@ async function createFirstAdmin(event) {
     setupRequiresToken = false;
     updateSetupUi();
     updateAuthUi();
+    scrollToSection(searchPanel);
   } catch (error) {
     currentUser = null;
     csrfToken = "";
@@ -480,19 +594,23 @@ function updateAuthUi() {
 
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
+    authPanel.hidden = setupAvailable || authenticated;
   }
+
+  setAppContentVisible(!setupAvailable && authenticated);
 
   const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
 
-  if (adminPanel) {
-    adminPanel.hidden = !showAdminPanel;
+  if (adminPanel && !showAdminPanel) {
+    adminPanel.hidden = true;
+  }
+
+  if (navAdminButton) {
+    navAdminButton.hidden = !showAdminPanel;
   }
 
   if (!showAdminPanel) {
     clearAdminUsers();
-  } else if (!adminUsersLoaded) {
-    adminUsersLoaded = true;
-    loadAdminUsers();
   }
 
   if (loginForm) {
@@ -505,7 +623,7 @@ function updateAuthUi() {
 
   if (authUsernameNode) {
     authUsernameNode.textContent = authenticated
-      ? `Signed in as ${currentUser.username}`
+      ? `${currentUser.username} · default`
       : "";
   }
 
@@ -516,7 +634,7 @@ function updateAuthUi() {
   if (authMessageNode) {
     authMessageNode.textContent = authenticated
       ? "Private library tools are available."
-      : "Sign in to use favorites, history and playlists.";
+      : "Sign in to search, play, favorite and organize stations.";
   }
 }
 
@@ -1544,6 +1662,52 @@ if (logoutButton) {
 
 if (healthButton) {
   healthButton.addEventListener("click", checkHealth);
+}
+
+if (navToggleButton) {
+  navToggleButton.addEventListener("click", () => {
+    const isOpen = appHeader?.dataset.mobileMenuOpen === "true";
+    setMobileMenuOpen(!isOpen);
+  });
+}
+
+if (navSearchButton) {
+  navSearchButton.addEventListener("click", () => {
+    closeMobileMenu();
+    showRadioBrowserView();
+    scrollToSection(searchPanel);
+  });
+}
+
+if (navFavoritesButton) {
+  navFavoritesButton.addEventListener("click", () => navigateToPrivateView(loadFavorites));
+}
+
+if (navPlaylistsButton) {
+  navPlaylistsButton.addEventListener("click", () => navigateToPrivateView(loadPlaylists));
+}
+
+if (navHistoryButton) {
+  navHistoryButton.addEventListener("click", () => navigateToPrivateView(loadHistory));
+}
+
+if (navAdminButton) {
+  navAdminButton.addEventListener("click", async () => {
+    closeMobileMenu();
+
+    if (!currentUser || !currentUser.is_admin || !adminPanel) return;
+
+    showAdminView();
+
+    await checkHealth();
+
+    if (!adminUsersLoaded) {
+      adminUsersLoaded = true;
+      await loadAdminUsers();
+    }
+
+    scrollToSection(adminPanel);
+  });
 }
 
 if (searchForm) {

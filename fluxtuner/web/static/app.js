@@ -74,9 +74,11 @@ function formatHealthSummary(payload) {
   const database = payload.database || payload.db || payload.storage || "";
   const databaseText = database ? ` · ${database}` : "";
 
+  const details = `${version}${databaseText}`.trim();
+
   return {
     state: String(status).toUpperCase(),
-    summary: `Healthy${version}${databaseText} · checked now`,
+    summary: details ? `${details} · checked now` : "checked now",
   };
 }
 

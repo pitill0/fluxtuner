@@ -25,5 +25,7 @@ def test_web_static_js_wires_first_run_setup_api() -> None:
     assert "/api/setup/status" in response.text
     assert "/api/setup/create-admin" in response.text
     assert "setup_token" in response.text
-    assert "localStorage" not in response.text
+    assert "authToken" not in response.text
+    assert "accessToken" not in response.text
+    assert "sessionStorage" not in response.text
     assert "sessionStorage" not in response.text

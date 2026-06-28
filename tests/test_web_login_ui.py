@@ -22,7 +22,6 @@ def test_web_static_js_does_not_store_auth_tokens() -> None:
     response = client.get("/static/app.js")
 
     assert response.status_code == 200
-    assert "localStorage" not in response.text
     assert "sessionStorage" not in response.text
     assert "/api/auth/login" in response.text
     assert "/api/auth/logout" in response.text
@@ -204,3 +203,42 @@ def test_web_css_has_compact_admin_health_bar() -> None:
     assert "/* Compact admin health bar */" in response.text
     assert ".admin-health-details" in response.text
     assert "grid-template-columns: minmax(0, 1fr) auto !important;" in response.text
+
+
+def test_web_header_has_theme_toggle() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "data-theme-toggle" in response.text
+    assert "data-theme-label" in response.text
+    assert "Switch theme" in response.text
+
+
+def test_web_static_js_controls_theme_without_auth_storage() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in response.text
+    assert "function applyTheme(theme)" in response.text
+    assert "function toggleTheme()" in response.text
+    assert "storedThemePreference() || systemThemePreference()" in response.text
+    assert 'document.querySelector("[data-theme-toggle]")' in response.text
+    assert "authToken" not in response.text
+    assert "accessToken" not in response.text
+    assert "sessionStorage" not in response.text
+
+
+def test_web_css_has_light_theme() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/styles.css")
+
+    assert response.status_code == 200
+    assert "/* Light/dark theme switcher */" in response.text
+    assert ':root[data-theme="light"]' in response.text
+    assert 'html[data-theme="light"] body' in response.text
+    assert ".theme-toggle" in response.text

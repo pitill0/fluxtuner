@@ -16,6 +16,8 @@ const searchPanel = document.querySelector("[data-search-panel]");
 const appContentNodes = document.querySelectorAll("[data-app-content]");
 const appHeader = document.querySelector("[data-app-header]");
 const navToggleButton = document.querySelector("[data-nav-toggle]");
+const themeToggleButton = document.querySelector("[data-theme-toggle]");
+const themeLabelNode = document.querySelector("[data-theme-label]");
 const navSearchButton = document.querySelector("[data-nav-search]");
 const navFavoritesButton = document.querySelector("[data-nav-favorites]");
 const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
@@ -409,6 +411,60 @@ function setAppContentVisible(visible) {
     node.hidden = !visible;
   });
 }
+
+const THEME_STORAGE_KEY = "fluxtuner.theme";
+
+function systemThemePreference() {
+  if (window.matchMedia?.("(prefers-color-scheme: light)").matches) {
+    return "light";
+  }
+
+  return "dark";
+}
+
+function storedThemePreference() {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveThemePreference(theme) {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore storage failures. The selected theme still applies for this page load.
+  }
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === "light" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = nextTheme;
+  document.documentElement.style.colorScheme = nextTheme;
+
+  if (themeLabelNode) {
+    themeLabelNode.textContent = nextTheme === "light" ? "Dark" : "Light";
+  }
+
+  if (themeToggleButton) {
+    const label = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
+    themeToggleButton.setAttribute("aria-label", label);
+    themeToggleButton.title = label;
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const nextTheme = currentTheme === "light" ? "dark" : "light";
+
+  applyTheme(nextTheme);
+  saveThemePreference(nextTheme);
+}
+
+applyTheme(storedThemePreference() || systemThemePreference());
 
 function scrollToSection(node) {
   if (!node) return;
@@ -1671,6 +1727,10 @@ if (navToggleButton) {
     const isOpen = appHeader?.dataset.mobileMenuOpen === "true";
     setMobileMenuOpen(!isOpen);
   });
+}
+
+if (themeToggleButton) {
+  themeToggleButton.addEventListener("click", toggleTheme);
 }
 
 if (navSearchButton) {

@@ -25,5 +25,7 @@ def test_web_static_js_wires_admin_user_api() -> None:
     assert response.status_code == 200
     assert "/api/admin/users" in response.text
     assert "data-admin-user-action" in response.text
-    assert "localStorage" not in response.text
+    assert "authToken" not in response.text
+    assert "accessToken" not in response.text
+    assert "sessionStorage" not in response.text
     assert "sessionStorage" not in response.text

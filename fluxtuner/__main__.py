@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import platform
 import secrets
@@ -439,6 +440,84 @@ def run_cli(
             player.stop()
 
 
+def prompt_web_admin_password() -> str:
+    """Prompt for a web admin password without echoing it."""
+    password = getpass.getpass("Password: ")
+    confirmation = getpass.getpass("Confirm password: ")
+
+    if password != confirmation:
+        console.print("[red]Passwords do not match.[/red]")
+        raise SystemExit(1)
+
+    return password
+
+
+def create_web_admin_user(username: str) -> None:
+    """Create or update an active web admin user."""
+    from fluxtuner.core import db
+    from fluxtuner.web import auth
+
+    clean_username = db.normalize_username(username)
+    if not clean_username:
+        console.print("[red]Username is required.[/red]")
+        raise SystemExit(1)
+
+    try:
+        password_hash = auth.hash_password(prompt_web_admin_password())
+    except auth.PasswordValidationError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1) from exc
+
+    with db.connect() as conn:
+        db.create_schema(conn)
+        db.ensure_profile_user_schema(conn)
+        db.ensure_default_user(conn)
+
+        existing_user = db.get_user_by_username(conn, clean_username)
+        if existing_user is None:
+            user_id = db.get_or_create_user(
+                conn,
+                clean_username,
+                password_hash=password_hash,
+                is_admin=True,
+                is_active=True,
+            )
+            action = "created"
+        else:
+            user_id = int(existing_user["id"])
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    password_hash = ?,
+                    is_admin = 1,
+                    is_active = 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (password_hash, db.utc_now(), user_id),
+            )
+            action = "updated"
+
+        db.ensure_default_profile(conn, user_id=user_id)
+        conn.commit()
+
+    console.print(f"[green]Web admin user {clean_username!r} {action}.[/green]")
+
+
+def handle_web_user_command(command: list[str]) -> bool:
+    """Handle web user management subcommands."""
+    if len(command) == 4 and command[:3] == ["web", "users", "create-admin"]:
+        create_web_admin_user(command[3])
+        return True
+
+    if command[:2] == ["web", "users"]:
+        console.print("[red]Usage: fluxtuner web users create-admin USERNAME[/red]")
+        raise SystemExit(1)
+
+    return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="FluxTuner internet radio player")
     parser.add_argument(
@@ -553,9 +632,19 @@ def main() -> None:
         action="store_true",
         help="Print runtime diagnostics for paths and player backends, then exit.",
     )
+    parser.add_argument(
+        "command",
+        nargs="*",
+        help=argparse.SUPPRESS,
+    )
 
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
+
+    if args.command:
+        if handle_web_user_command(args.command):
+            return
+        parser.error("unknown command: " + " ".join(args.command))
 
     effective_profile_name = resolve_effective_profile_name(args.profile)
 

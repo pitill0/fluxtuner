@@ -38,6 +38,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
+- Use Web/server accounts with first-run admin setup, authenticated profiles, CSRF-protected mutations and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
 ---
@@ -161,7 +162,7 @@ fluxtuner --cli        # legacy numbered CLI
 
 ### Web/server mode
 
-FluxTuner includes a browser-based web/server mode for local or LAN usage, remote control and lightweight testing:
+FluxTuner includes a browser-based web/server mode with local accounts, authenticated library APIs, first-run administrator setup and browser playback:
 
 ```bash
 python -m pip install -e ".[web]"
@@ -182,7 +183,7 @@ FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 
 
 This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory.
 
-See [`docs/web.md`](docs/web.md) for details.
+See [`docs/web.md`](docs/web.md) for Web/server usage and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
 
 ---
 
@@ -221,7 +222,7 @@ for example:
     /api/favorites?profile=work
 
 Profiles separate favorites, manual playlists and playback history by context.
-They are not separate user accounts.
+They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode adds authenticated users that own their own profiles.
 
 ## Documentation
 
@@ -229,14 +230,13 @@ They are not separate user accounts.
 - [Architecture](docs/architecture.md)
 - [Web/server mode](docs/web.md)
 - [Multi-user web auth design](docs/multiuser.md)
+- [Secure web deployment](docs/secure-web-deployment.md)
 - [Release process](docs/release.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
 ---
-
-- [Secure web deployment](docs/secure-web-deployment.md)
 
 ## License
 

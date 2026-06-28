@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 from pathlib import Path
 
 from fluxtuner.core import db, favorites, manual_playlists

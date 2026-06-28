@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
 from __future__ import annotations
 
 import getpass

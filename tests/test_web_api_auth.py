@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
 from fastapi.testclient import TestClient
 
 from fluxtuner.core import db

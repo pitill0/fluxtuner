@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/github/v/release/pitill0/fluxtuner?include_prereleases)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-MIT%20%2B%20Web--NC-blue)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
 ![GUI](https://img.shields.io/badge/GUI-GTK4-blueviolet)
 ![Player](https://img.shields.io/badge/player-mpv%20%7C%20ffplay%20%7C%20mpg123%20%7C%20ogg123-orange)
@@ -238,7 +238,23 @@ They are not separate user accounts.
 
 ## License
 
-MIT
+FluxTuner uses a split licensing model:
+
+- **MIT License** for the local/core application components.
+- **FluxTuner Web Non-Commercial License** for Web/server, multi-user,
+  authentication, session, first-run setup, admin-user management, and hosted
+  service components.
+- **Commercial Web/server use requires a separate written commercial license.**
+
+The FluxTuner name, logo, icons, screenshots, project website identity, and
+branding are not licensed with the software.
+
+See:
+
+- [`LICENSE`](LICENSE)
+- [`LICENSE-WEB`](LICENSE-WEB)
+- [`TRADEMARKS.md`](TRADEMARKS.md)
+- [`docs/licensing.md`](docs/licensing.md)
 
 ---
 

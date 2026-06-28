@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# FluxTuner core storage remains MIT for local application use.
+# Web/server-specific user, profile-ownership, login-attempt and session
+# storage behavior in this file is additionally governed by LICENSE-WEB
+# when used to operate, host, sell or monetize FluxTuner Web/server features.
+
 from __future__ import annotations
 
 import json

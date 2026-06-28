@@ -1,3 +1,7 @@
+> Licensing note: FluxTuner Web/server and multi-user components are licensed under the FluxTuner Web Non-Commercial License. Commercial hosted or SaaS use requires a separate written commercial license. See [`docs/licensing.md`](licensing.md).
+
+<!-- SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC -->
+
 # FluxTuner Web
 
 FluxTuner Web is a browser-based server mode for FluxTuner.

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
 import sys
 
 import pytest

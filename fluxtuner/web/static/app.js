@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
 const statusNode = document.querySelector("[data-status]");
 const healthButton = document.querySelector("[data-health-check]");
 const searchForm = document.querySelector("[data-search-form]");

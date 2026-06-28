@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
 from datetime import UTC, datetime, timedelta
 
 import pytest

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 import logging
 from pathlib import Path
 

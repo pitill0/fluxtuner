@@ -8,7 +8,7 @@ version = "0.8.0"
 description = "Modern internet radio player for terminal, desktop and web, powered by Textual, GTK and browser playback."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "MIT AND LicenseRef-FluxTuner-Web-NC"
 authors = [
     { name = "FluxTuner contributors" }
 ]
@@ -30,7 +30,7 @@ classifiers = [
     "Environment :: Console",
     "Environment :: X11 Applications :: GTK",
     "Intended Audience :: End Users/Desktop",
-    "MIT",
+    "License :: Other/Proprietary License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
@@ -70,6 +70,7 @@ Homepage = "https://github.com/pitill0/fluxtuner"
 Repository = "https://github.com/pitill0/fluxtuner"
 Issues = "https://github.com/pitill0/fluxtuner/issues"
 Changelog = "https://github.com/pitill0/fluxtuner/blob/main/CHANGELOG.md"
+Licensing = "https://github.com/pitill0/fluxtuner/blob/main/docs/licensing.md"
 
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"

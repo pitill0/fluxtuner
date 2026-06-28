@@ -152,6 +152,86 @@ h3 {
 }
 
 
+
+.admin-panel {
+  display: grid;
+  gap: 1rem;
+  border-color: rgba(110, 231, 216, 0.32);
+}
+
+.admin-forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.admin-user-form {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.admin-user-form h3 {
+  margin: 0;
+}
+
+.checkbox-label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.admin-message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-users {
+  overflow-x: auto;
+}
+
+.admin-users-table {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 44rem;
+}
+
+.admin-users-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.5fr) 0.5fr 0.5fr minmax(16rem, 1.4fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.admin-users-head {
+  color: var(--muted);
+  font-weight: 800;
+  background: transparent;
+}
+
+.admin-users-row small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.admin-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+
 .setup-panel {
   display: grid;
   gap: 1rem;
@@ -536,6 +616,7 @@ footer {
 }
 
 @media (max-width: 58rem) {
+  .admin-forms,
   .setup-form,
   .auth-form,
   .search-form {

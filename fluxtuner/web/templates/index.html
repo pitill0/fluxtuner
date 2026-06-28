@@ -31,6 +31,78 @@
 
 
 
+
+      <section class="panel admin-panel" data-admin-panel hidden aria-labelledby="admin-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Administration</p>
+            <h2 id="admin-title">Web users</h2>
+          </div>
+
+          <button type="button" data-admin-load-users>Refresh users</button>
+        </div>
+
+        <div class="admin-forms">
+          <form class="admin-user-form" data-admin-create-user-form>
+            <h3>Create user</h3>
+
+            <label>
+              <span>Username</span>
+              <input name="username" type="text" autocomplete="off" required>
+            </label>
+
+            <label>
+              <span>Display name</span>
+              <input name="display_name" type="text" autocomplete="off">
+            </label>
+
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" autocomplete="new-password" required>
+            </label>
+
+            <label>
+              <span>Confirm password</span>
+              <input name="confirm_password" type="password" autocomplete="new-password" required>
+            </label>
+
+            <label class="checkbox-label">
+              <input name="is_admin" type="checkbox">
+              <span>Administrator</span>
+            </label>
+
+            <button type="submit">Create user</button>
+          </form>
+
+          <form class="admin-user-form" data-admin-password-form>
+            <h3>Reset password</h3>
+
+            <label>
+              <span>Username</span>
+              <input name="username" type="text" autocomplete="off" required>
+            </label>
+
+            <label>
+              <span>New password</span>
+              <input name="password" type="password" autocomplete="new-password" required>
+            </label>
+
+            <label>
+              <span>Confirm password</span>
+              <input name="confirm_password" type="password" autocomplete="new-password" required>
+            </label>
+
+            <button type="submit">Update password</button>
+          </form>
+        </div>
+
+        <p class="admin-message" data-admin-message></p>
+
+        <div class="admin-users" data-admin-users>
+          <p class="empty">Admin users will appear here.</p>
+        </div>
+      </section>
+
       <section class="panel setup-panel" data-setup-panel hidden aria-labelledby="setup-title">
         <div class="panel-heading">
           <div>

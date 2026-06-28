@@ -19,6 +19,12 @@ const setupPanel = document.querySelector("[data-setup-panel]");
 const setupForm = document.querySelector("[data-setup-form]");
 const setupTokenField = document.querySelector("[data-setup-token-field]");
 const setupMessageNode = document.querySelector("[data-setup-message]");
+const adminPanel = document.querySelector("[data-admin-panel]");
+const adminLoadUsersButton = document.querySelector("[data-admin-load-users]");
+const adminCreateUserForm = document.querySelector("[data-admin-create-user-form]");
+const adminPasswordForm = document.querySelector("[data-admin-password-form]");
+const adminMessageNode = document.querySelector("[data-admin-message]");
+const adminUsersNode = document.querySelector("[data-admin-users]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -98,6 +104,229 @@ function setResultsHeader(kicker, title) {
   }
 }
 
+
+
+
+function setAdminMessage(message) {
+  if (adminMessageNode) {
+    adminMessageNode.textContent = message || "";
+  }
+}
+
+function renderAdminUsers(users) {
+  if (!adminUsersNode) return;
+
+  if (!users.length) {
+    adminUsersNode.innerHTML = '<p class="empty">No web users found.</p>';
+    return;
+  }
+
+  adminUsersNode.innerHTML = `
+    <div class="admin-users-table" role="table" aria-label="Web users">
+      <div class="admin-users-row admin-users-head" role="row">
+        <span role="columnheader">User</span>
+        <span role="columnheader">Admin</span>
+        <span role="columnheader">Active</span>
+        <span role="columnheader">Actions</span>
+      </div>
+      ${users
+        .map((user) => {
+          const username = escapeHtml(user.username || "");
+          const displayName = escapeHtml(user.display_name || user.username || "");
+          const adminLabel = user.is_admin ? "yes" : "no";
+          const activeLabel = user.is_active ? "yes" : "no";
+
+          return `
+            <div class="admin-users-row" role="row">
+              <span role="cell">
+                <strong>${displayName}</strong>
+                <small>${username}</small>
+              </span>
+              <span role="cell">${adminLabel}</span>
+              <span role="cell">${activeLabel}</span>
+              <span class="admin-user-actions" role="cell">
+                ${
+                  user.is_active
+                    ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
+                    : `<button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>`
+                }
+                ${
+                  user.is_admin
+                    ? `<button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Remove admin</button>`
+                    : `<button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Make admin</button>`
+                }
+              </span>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+async function loadAdminUsers() {
+  if (!currentUser || !currentUser.is_admin) return;
+
+  setAdminMessage("Loading users...");
+
+  try {
+    const response = await apiFetch("/api/admin/users", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not load users.");
+    }
+
+    const payload = await response.json();
+    renderAdminUsers(payload.users || []);
+    setAdminMessage(`${payload.count ?? 0} web user(s).`);
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function createAdminUser(event) {
+  event.preventDefault();
+
+  if (!adminCreateUserForm) return;
+
+  const formData = new FormData(adminCreateUserForm);
+  const username = String(formData.get("username") || "").trim();
+  const displayName = String(formData.get("display_name") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+  const isAdmin = formData.get("is_admin") === "on";
+
+  if (password !== confirmPassword) {
+    setAdminMessage("Passwords do not match.");
+    return;
+  }
+
+  setAdminMessage("Creating user...");
+
+  try {
+    const response = await apiFetch("/api/admin/users", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        display_name: displayName,
+        password,
+        is_admin: isAdmin,
+        is_active: true,
+      }),
+    });
+
+    adminCreateUserForm.reset();
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not create user.");
+    }
+
+    setAdminMessage("User created.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function setAdminUserPassword(event) {
+  event.preventDefault();
+
+  if (!adminPasswordForm) return;
+
+  const formData = new FormData(adminPasswordForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (password !== confirmPassword) {
+    setAdminMessage("Passwords do not match.");
+    return;
+  }
+
+  setAdminMessage("Updating password...");
+
+  try {
+    const response = await apiFetch(
+      `/api/admin/users/${encodeURIComponent(username)}/password`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      },
+    );
+
+    adminPasswordForm.reset();
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not update password.");
+    }
+
+    setAdminMessage("Password updated. Active sessions for that user were revoked.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function mutateAdminUser(username, action) {
+  const encodedUsername = encodeURIComponent(username);
+  const routes = {
+    activate: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/activate`,
+    },
+    deactivate: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/deactivate`,
+    },
+    "grant-admin": {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/admin`,
+    },
+    "revoke-admin": {
+      method: "DELETE",
+      url: `/api/admin/users/${encodedUsername}/admin`,
+    },
+  };
+
+  const route = routes[action];
+  if (!route) return;
+
+  setAdminMessage("Updating user...");
+
+  try {
+    const response = await apiFetch(route.url, {
+      method: route.method,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not update user.");
+    }
+
+    setAdminMessage("User updated.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
 
 
 function updateSetupUi() {
@@ -225,6 +454,10 @@ function updateAuthUi() {
 
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = !authenticated || !currentUser.is_admin || setupAvailable;
   }
 
   if (loginForm) {
@@ -1112,6 +1345,26 @@ async function loadPlaylistStations(name) {
   } catch (error) {
     renderSearchError(error);
   }
+}
+
+if (adminLoadUsersButton) {
+  adminLoadUsersButton.addEventListener("click", loadAdminUsers);
+}
+
+if (adminCreateUserForm) {
+  adminCreateUserForm.addEventListener("submit", createAdminUser);
+}
+
+if (adminPasswordForm) {
+  adminPasswordForm.addEventListener("submit", setAdminUserPassword);
+}
+
+if (adminUsersNode) {
+  adminUsersNode.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-user-action]");
+    if (!button) return;
+    mutateAdminUser(button.dataset.adminUsername || "", button.dataset.adminUserAction || "");
+  });
 }
 
 if (setupForm) {

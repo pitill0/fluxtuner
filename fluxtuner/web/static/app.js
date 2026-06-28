@@ -9,6 +9,12 @@ const resultsNode = document.querySelector("[data-results]");
 const resultCountNode = document.querySelector("[data-result-count]");
 const resultsKickerNode = document.querySelector("[data-results-kicker]");
 const resultsTitleNode = document.querySelector("[data-results-title]");
+const searchPanel = document.querySelector("[data-search-panel]");
+const navSearchButton = document.querySelector("[data-nav-search]");
+const navFavoritesButton = document.querySelector("[data-nav-favorites]");
+const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
+const navHistoryButton = document.querySelector("[data-nav-history]");
+const navAdminButton = document.querySelector("[data-nav-admin]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
@@ -354,6 +360,22 @@ async function mutateAdminUser(username, action) {
 }
 
 
+function scrollToSection(node) {
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function navigateToPrivateView(loader) {
+  if (!currentUser) {
+    renderAuthRequired();
+    scrollToSection(searchPanel);
+    return;
+  }
+
+  await loader();
+  scrollToSection(searchPanel);
+}
+
 function updateSetupUi() {
   if (setupPanel) {
     setupPanel.hidden = !setupAvailable;
@@ -486,6 +508,10 @@ function updateAuthUi() {
 
   if (adminPanel) {
     adminPanel.hidden = !showAdminPanel;
+  }
+
+  if (navAdminButton) {
+    navAdminButton.hidden = !showAdminPanel;
   }
 
   if (!showAdminPanel) {
@@ -1544,6 +1570,26 @@ if (logoutButton) {
 
 if (healthButton) {
   healthButton.addEventListener("click", checkHealth);
+}
+
+if (navSearchButton) {
+  navSearchButton.addEventListener("click", () => scrollToSection(searchPanel));
+}
+
+if (navFavoritesButton) {
+  navFavoritesButton.addEventListener("click", () => navigateToPrivateView(loadFavorites));
+}
+
+if (navPlaylistsButton) {
+  navPlaylistsButton.addEventListener("click", () => navigateToPrivateView(loadPlaylists));
+}
+
+if (navHistoryButton) {
+  navHistoryButton.addEventListener("click", () => navigateToPrivateView(loadHistory));
+}
+
+if (navAdminButton) {
+  navAdminButton.addEventListener("click", () => scrollToSection(adminPanel));
 }
 
 if (searchForm) {

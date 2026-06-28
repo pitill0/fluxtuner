@@ -55,6 +55,12 @@ def _public_user_payload(user: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _authenticated_user(request: Any) -> dict[str, Any] | None:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    with db.connect() as conn:
+        return auth.get_session_user(conn, token)
+
+
 def _set_session_cookie(response: Any, token: str) -> None:
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
@@ -285,11 +291,19 @@ def create_app() -> Any:
 
     @app.get("/api/history")
     def history(
+        request: Request,
         limit: int = Query(default=25, ge=1, le=100),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         profile_name = effective_profile_name(profile)
-        stations = load_history(profile_name=profile_name)[:limit]
+        stations = load_history(
+            profile_name=profile_name,
+            user_id=int(user["id"]),
+        )[:limit]
 
         return {
             "count": len(stations),
@@ -298,15 +312,24 @@ def create_app() -> Any:
 
     @app.post("/api/history")
     def record_history(
+        request: Request,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        add_history(station_data, profile_name=effective_profile_name(profile))
+        add_history(
+            station_data,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -315,10 +338,18 @@ def create_app() -> Any:
 
     @app.get("/api/favorites")
     def favorites(
+        request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         profile_name = effective_profile_name(profile)
-        stations = load_favorites(profile_name=profile_name)
+        stations = load_favorites(
+            profile_name=profile_name,
+            user_id=int(user["id"]),
+        )
 
         return {
             "count": len(stations),
@@ -327,15 +358,24 @@ def create_app() -> Any:
 
     @app.post("/api/favorites")
     def create_favorite(
+        request: Request,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        added = add_favorite(station_data, profile_name=effective_profile_name(profile))
+        added = add_favorite(
+            station_data,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -345,10 +385,19 @@ def create_app() -> Any:
 
     @app.delete("/api/favorites")
     def delete_favorite(
+        request: Request,
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        removed = remove_favorite(url, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        removed = remove_favorite(
+            url,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -358,17 +407,29 @@ def create_app() -> Any:
 
     @app.get("/api/playlists")
     def playlists(
+        request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        user_id = int(user["id"])
         profile_name = effective_profile_name(profile)
-        items = load_playlists(profile_name=profile_name)
+        items = load_playlists(profile_name=profile_name, user_id=user_id)
 
         return {
             "count": len(items),
             "playlists": [
                 {
                     "name": item["name"],
-                    "count": len(get_playlist_stations(item["name"], profile_name=profile_name)),
+                    "count": len(
+                        get_playlist_stations(
+                            item["name"],
+                            profile_name=profile_name,
+                            user_id=user_id,
+                        )
+                    ),
                 }
                 for item in items
             ],
@@ -376,14 +437,23 @@ def create_app() -> Any:
 
     @app.post("/api/playlists")
     def create_web_playlist(
+        request: Request,
         payload: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         name = _playlist_name(payload)
         if not name:
             raise HTTPException(status_code=400, detail="Playlist name is required.")
 
-        created = create_playlist(name, profile_name=effective_profile_name(profile))
+        created = create_playlist(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -393,10 +463,19 @@ def create_app() -> Any:
 
     @app.delete("/api/playlists/{name}")
     def delete_web_playlist(
+        request: Request,
         name: str,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        removed = delete_playlist(name, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        removed = delete_playlist(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -406,10 +485,19 @@ def create_app() -> Any:
 
     @app.get("/api/playlists/{name}/stations")
     def playlist_stations(
+        request: Request,
         name: str,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        stations = get_playlist_stations(name, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
+        stations = get_playlist_stations(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "name": name,
@@ -419,18 +507,29 @@ def create_app() -> Any:
 
     @app.post("/api/playlists/{name}/stations")
     def add_web_station_to_playlist(
+        request: Request,
         name: str,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
+        user_id = int(user["id"])
         profile_name = effective_profile_name(profile)
-        add_favorite(station_data, profile_name=profile_name)
-        added = add_station_to_playlist(name, station_data, profile_name=profile_name)
+        add_favorite(station_data, profile_name=profile_name, user_id=user_id)
+        added = add_station_to_playlist(
+            name,
+            station_data,
+            profile_name=profile_name,
+            user_id=user_id,
+        )
 
         return {
             "status": "ok",
@@ -441,14 +540,20 @@ def create_app() -> Any:
 
     @app.delete("/api/playlists/{name}/stations")
     def remove_web_station_from_playlist(
+        request: Request,
         name: str,
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+
         removed = remove_station_from_playlist(
             name,
             {"url": url},
             profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
         )
 
         return {

@@ -42,6 +42,7 @@ let currentUser = null;
 let csrfToken = "";
 let setupAvailable = false;
 let setupRequiresToken = false;
+let adminUsersLoaded = false;
 
 async function checkHealth() {
   if (!statusNode) return;
@@ -106,6 +107,18 @@ function setResultsHeader(kicker, title) {
 
 
 
+
+function clearAdminUsers() {
+  adminUsersLoaded = false;
+
+  if (adminMessageNode) {
+    adminMessageNode.textContent = "";
+  }
+
+  if (adminUsersNode) {
+    adminUsersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
+  }
+}
 
 function setAdminMessage(message) {
   if (adminMessageNode) {
@@ -182,6 +195,7 @@ async function loadAdminUsers() {
     }
 
     const payload = await response.json();
+    adminUsersLoaded = true;
     renderAdminUsers(payload.users || []);
     setAdminMessage(`${payload.count ?? 0} web user(s).`);
   } catch (error) {
@@ -456,8 +470,17 @@ function updateAuthUi() {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
   }
 
+  const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
+
   if (adminPanel) {
-    adminPanel.hidden = !authenticated || !currentUser.is_admin || setupAvailable;
+    adminPanel.hidden = !showAdminPanel;
+  }
+
+  if (!showAdminPanel) {
+    clearAdminUsers();
+  } else if (!adminUsersLoaded) {
+    adminUsersLoaded = true;
+    loadAdminUsers();
   }
 
   if (loginForm) {

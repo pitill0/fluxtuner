@@ -252,3 +252,41 @@ def test_admin_user_missing_returns_404(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": ADMIN_USER_NOT_FOUND_DETAIL}
+
+
+def test_admin_resetting_own_password_revokes_current_session(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    csrf_token = login(client, "admin")
+
+    response = client.post(
+        "/api/admin/users/admin/password",
+        json={"password": OTHER_PASSWORD},
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 200
+
+    me = client.get("/api/auth/me")
+    assert me.status_code == 401
+
+
+def test_admin_deactivating_self_revokes_current_session_when_another_admin_exists(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    create_user("backup", is_admin=True)
+    csrf_token = login(client, "admin")
+
+    response = client.post(
+        "/api/admin/users/admin/deactivate",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["is_active"] is False
+
+    me = client.get("/api/auth/me")
+    assert me.status_code == 401

@@ -626,6 +626,7 @@ async function logout() {
       },
     });
   } finally {
+    stopPlayback();
     currentUser = null;
     updateAuthUi();
     renderAuthRequired();

@@ -9,8 +9,8 @@ The primary local library store is SQLite:
 The database stores normalized stations, profiles, favorites, playback history
 and manual playlists.
 
-FluxTuner 0.8.0 uses profile-scoped library data. Profiles are context-level
-separation inside the same FluxTuner installation. They are useful for contexts
+FluxTuner local interfaces use profile-scoped library data. Profiles are
+context-level separation inside the same FluxTuner installation. They are useful for contexts
 such as work, home, terrace, pool, focus or testing.
 
 Current model:
@@ -35,15 +35,14 @@ Current model:
 
 Profile resolution order:
 
-    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME
+    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user
     2. Persisted active profile from config
     3. Internal default profile
 
-Profiles are not user accounts. They do not provide authentication,
-authorization, ownership, permissions or per-person isolation.
+Profiles are not user accounts in local CLI/TUI/GTK mode. Web/server mode adds
+authenticated users above profiles, so each Web user owns their own profile set.
 
-The profile layer prepares the storage and interface model for a future user
-layer. A future user/account model would add ownership above profiles:
+The Web user/account model adds ownership above profiles:
 
     user
     └── profile
@@ -312,13 +311,13 @@ Security-sensitive areas include:
 
 See `SECURITY.md` and `docs/development.md` for validation and contribution guidance.
 
-## Future web multi-user model
+## Web multi-user model
 
-FluxTuner 0.9.0 targets real multi-user behavior for Web/server mode only.
+FluxTuner 0.9.0 implements real multi-user behavior for Web/server mode only.
 CLI, TUI and GTK GUI remain local interfaces that use the local filesystem
 trust model.
 
-The future web model adds authenticated users above profiles:
+The web model adds authenticated users above profiles:
 
     authenticated web user
     └── owned profile
@@ -326,7 +325,7 @@ The future web model adds authenticated users above profiles:
         ├── playback history
         └── manual playlists
 
-Web API requests must resolve the current user from the authenticated session.
+Web API requests resolve the current user from the authenticated session.
 Profile overrides such as `?profile=work` must only select profiles owned by
 that authenticated user.
 

@@ -33,6 +33,15 @@ Open:
 http://127.0.0.1:8080
 ```
 
+On first run, FluxTuner Web shows a setup wizard to create the first
+administrator. After setup, the Web UI requires login before search, playback,
+favorites, history or playlists are available.
+
+The app shell includes authenticated navigation, isolated Admin user management,
+browser playback, a compact server-health summary inside Admin, and a local
+light/dark theme preference stored as `fluxtuner.theme`.
+
+
 For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).
 
 ## Web playback
@@ -90,14 +99,19 @@ FluxTuner Web can also run in Docker or Podman.
 See [`docs/container.md`](container.md) for build, run, Compose, and persistent
 volume examples.
 
-## Profiles
+## Users and profiles
 
-Web mode uses the persisted active profile by default. API endpoints also accept
-?profile=NAME as a per-request override:
+FluxTuner Web uses local username/password accounts. Each authenticated user owns
+their Web profiles and private library data.
+
+Profile names are scoped to the authenticated user. API endpoints can still use a
+`?profile=NAME` override, but the selected profile must belong to the current
+session user:
 
     /api/favorites?profile=work
     /api/history?profile=work
     /api/playlists?profile=work
 
 Profiles separate favorites, manual playlists and playback history by context.
-They are not separate user accounts.
+They are not login accounts by themselves; Web users provide authentication,
+ownership and administrator permissions.

@@ -34,6 +34,8 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Added user-owned profile resolution for Web/server mode.
 - Added Web admin API endpoints for listing users, creating users, resetting passwords, activating/deactivating users and granting/removing admin access.
 - Added Web admin UI for browser-based user management.
+- Added a responsive Web app shell with compact hamburger navigation, a centered player, isolated Admin view and light/dark theme toggle.
+- Added a playlist picker in the Web UI so stations can be added to existing or new playlists without browser prompts.
 - Added emergency CLI commands for Web user administration through `fluxtuner web users ...`.
 - Added session revocation when passwords change or users are deactivated.
 - Added protection against deactivating or demoting the last active configured administrator.
@@ -54,6 +56,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 ### Fixed
 
 - Prevented stale admin user data from remaining visible in the Web UI after logout or session loss.
+- Fixed deleting Web favorites by raw stream URL.
 - Ensured self password reset and self deactivation revoke the current admin session.
 - Ensured inactive Web users cannot log in.
 - Ensured password hashes and session tokens are not exposed by Web API responses.

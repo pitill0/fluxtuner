@@ -4,8 +4,8 @@
 
 # Local multi-user web authentication design
 
-FluxTuner 0.9.0 introduces the design target for real multi-user behavior in
-Web/server mode while keeping CLI, TUI and GTK GUI local and filesystem-based.
+FluxTuner 0.9.0 introduces real multi-user behavior in Web/server mode while
+keeping CLI, TUI and GTK GUI local and filesystem-based.
 
 This document defines the security model before implementation. The goal is a
 small, maintainable and secure local account system, not a shortcut-based auth
@@ -65,7 +65,7 @@ Current 0.8.x model:
         ├── work
         └── terrace
 
-Target 0.9.x web model:
+Current 0.9.x web model:
 
     installation
     └── users
@@ -77,7 +77,7 @@ Target 0.9.x web model:
             ├── default
             └── bedtime
 
-Proposed tables:
+Implemented data model:
 
     users
     - id
@@ -107,7 +107,7 @@ profiles through profile_id.
 
 The migration must be safe and reversible during development.
 
-Initial migration target:
+Migration target:
 
 1. Create an internal default web user.
 2. Add user ownership to profiles.
@@ -140,8 +140,7 @@ Fallback if dependency constraints make Argon2id impractical:
 
     bcrypt
 
-The selected dependency and parameters must be documented in the implementation
-commit.
+The implementation uses Argon2id through `argon2-cffi`.
 
 ## Session design
 
@@ -234,8 +233,8 @@ Authenticated routes:
 - POST /api/playlists/{name}/stations
 - DELETE /api/playlists/{name}/stations
 
-Admin-only routes can be added later. The first implementation should avoid an
-admin API unless it is needed for initial user bootstrap.
+Admin-only routes are implemented for Web user management. They require an
+authenticated active administrator session.
 
 ## Bootstrap strategy
 
@@ -243,9 +242,10 @@ There must be no default password.
 
 Accepted bootstrap options:
 
-1. Create the first admin user from the CLI.
-2. Create the first admin user from an environment-driven one-shot bootstrap
-   command in containers.
+1. Create the first administrator through the first-run Web setup wizard.
+2. Protect remote first-run setup with `FLUXTUNER_WEB_SETUP_TOKEN`.
+3. Use the emergency `fluxtuner web users ...` CLI for recovery and manual
+   administration.
 
 Rejected bootstrap options:
 
@@ -254,10 +254,13 @@ Rejected bootstrap options:
 - Hidden bypass tokens.
 - Auth disabled by default in container mode.
 
-Proposed CLI commands:
+Web user CLI commands:
 
-    python -m fluxtuner --web-create-user alice --admin
-    python -m fluxtuner --web-list-users
+    fluxtuner web users list
+    fluxtuner web users create alice --admin
+    fluxtuner web users password alice
+    fluxtuner web users activate alice
+    fluxtuner web users deactivate alice
     python -m fluxtuner --web-disable-user alice
     python -m fluxtuner --web-reset-password alice
 

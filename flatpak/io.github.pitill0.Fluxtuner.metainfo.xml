@@ -80,6 +80,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.9.0" date="2026-06-28">
+      <description>
+        <ul>
+          <li>Added Web/server local accounts with first-run administrator setup.</li>
+          <li>Added authenticated Web library access, CSRF-protected mutations and admin user management.</li>
+          <li>Improved Web UI navigation, browser playback layout and light/dark theme switching.</li>
+          <li>Updated licensing documentation for the MIT core and non-commercial Web/server components.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.8.0" date="2026-06-27">
       <description>
         <ul>

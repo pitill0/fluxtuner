@@ -10,11 +10,15 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added a Web dashboard with user library metrics, recent playback, favorite highlights and quick navigation.
+- Added admin-only dashboard metrics for total users, new users, pending approvals and compact server health.
+- Added public Web account requests that create inactive users pending administrator approval.
+- Added Admin approve/reject actions for pending Web users.
 
 ### Changed
 
-- Nothing yet.
+- Web user state now tracks explicit approval status (`approved`, `pending`, `rejected`, `disabled`) while keeping existing active/inactive behavior compatible.
+- Login now reports `Account pending approval.` only when a pending user provides the correct password.
 
 ### Fixed
 

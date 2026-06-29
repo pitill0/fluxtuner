@@ -29,6 +29,7 @@ SESSION_COOKIE_NAME = "fluxtuner_session"
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
 AUTH_REQUIRED_DETAIL = "Authentication required."
+ACCOUNT_PENDING_DETAIL = "Account pending approval."
 CSRF_HEADER_NAME = "X-FluxTuner-CSRF"
 CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
 SETUP_UNAVAILABLE_DETAIL = "First-run setup is not available."
@@ -42,6 +43,85 @@ ADMIN_USER_NOT_FOUND_DETAIL = "Web user not found."
 ADMIN_LAST_ADMIN_DETAIL = "Cannot remove the last active administrator."
 ADMIN_INVALID_USER_DETAIL = "Username and password are required."
 ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
+REGISTER_INVALID_DETAIL = "Username and password are required."
+REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
+REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
+
+
+def _ensure_web_schema(conn: Any) -> None:
+    db.create_schema(conn)
+    db.ensure_user_approval_schema(conn)
+    db.ensure_profile_user_schema(conn)
+
+
+def _server_health_payload() -> dict[str, str]:
+    return {
+        "status": "ok",
+        "app": __app_name__,
+        "version": __version__,
+        "mode": "web",
+    }
+
+
+def _admin_user_counts(conn: Any) -> dict[str, int]:
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) AS users_count,
+            SUM(CASE WHEN date(created_at) = date('now') THEN 1 ELSE 0 END)
+                AS users_created_today,
+            SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END)
+                AS users_created_7_days,
+            SUM(CASE WHEN created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END)
+                AS users_created_30_days,
+            SUM(CASE WHEN approval_status = ? THEN 1 ELSE 0 END)
+                AS pending_users_count
+        FROM users
+        """,
+        (db.APPROVAL_PENDING,),
+    ).fetchone()
+
+    return {
+        "users_count": int(row["users_count"] or 0),
+        "users_created_today": int(row["users_created_today"] or 0),
+        "users_created_7_days": int(row["users_created_7_days"] or 0),
+        "users_created_30_days": int(row["users_created_30_days"] or 0),
+        "pending_users_count": int(row["pending_users_count"] or 0),
+    }
+
+
+def _dashboard_user_payload(user_id: int, profile_name: str | None) -> dict[str, Any]:
+    favorites = load_favorites(profile_name=profile_name, user_id=user_id)
+    history = load_history(profile_name=profile_name, user_id=user_id)
+    playlists = load_playlists(profile_name=profile_name, user_id=user_id)
+    playlist_stations_count = 0
+
+    for playlist in playlists:
+        playlist_stations_count += len(
+            get_playlist_stations(
+                str(playlist["name"]),
+                profile_name=profile_name,
+                user_id=user_id,
+            )
+        )
+
+    favorite_highlights = sorted(
+        favorites,
+        key=lambda station: (
+            _safe_int(station.get("play_count")),
+            str(station.get("last_played_at") or ""),
+        ),
+        reverse=True,
+    )[:5]
+
+    return {
+        "favorites_count": len(favorites),
+        "playlists_count": len(playlists),
+        "playlist_stations_count": playlist_stations_count,
+        "history_count": len(history),
+        "recent_history": [_station_payload(station) for station in history[:5]],
+        "favorite_highlights": [_station_payload(station) for station in favorite_highlights],
+    }
 
 
 def _web_secure_cookies() -> bool:
@@ -76,6 +156,7 @@ def _public_user_payload(user: dict[str, Any]) -> dict[str, Any]:
 def _authenticated_user(request: Any) -> dict[str, Any] | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     with db.connect() as conn:
+        _ensure_web_schema(conn)
         return auth.get_session_user(conn, token)
 
 
@@ -202,6 +283,10 @@ def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "display_name": str(user["display_name"]),
         "is_admin": bool(user["is_admin"]),
         "is_active": bool(user["is_active"]),
+        "approval_status": str(user["approval_status"]),
+        "signup_note": user.get("signup_note"),
+        "reviewed_at": user.get("reviewed_at"),
+        "reviewed_by_user_id": user.get("reviewed_by_user_id"),
         "created_at": str(user["created_at"]),
         "updated_at": str(user["updated_at"]),
     }
@@ -305,18 +390,12 @@ def create_app() -> Any:
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {
-            "status": "ok",
-            "app": __app_name__,
-            "version": __version__,
-            "mode": "web",
-        }
+        return _server_health_payload()
 
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
             configured_admin_exists = _configured_admin_exists(conn)
 
         return {
@@ -342,8 +421,7 @@ def create_app() -> Any:
 
         if _setup_token_required() and not _valid_setup_token(setup_token):
             with db.connect() as conn:
-                db.create_schema(conn)
-                db.ensure_profile_user_schema(conn)
+                _ensure_web_schema(conn)
                 auth.record_login_attempt(
                     conn,
                     SETUP_RATE_LIMIT_USERNAME,
@@ -362,8 +440,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
@@ -393,10 +470,13 @@ def create_app() -> Any:
                         password_hash = ?,
                         is_admin = 1,
                         is_active = 1,
+                        approval_status = ?,
+                        reviewed_at = ?,
+                        reviewed_by_user_id = NULL,
                         updated_at = ?
                     WHERE id = ?
                     """,
-                    (password_hash, db.utc_now(), user_id),
+                    (password_hash, db.APPROVAL_APPROVED, db.utc_now(), db.utc_now(), user_id),
                 )
 
             db.ensure_default_profile(conn, user_id=user_id)
@@ -423,6 +503,47 @@ def create_app() -> Any:
             "csrf_token": _csrf_token_for_session_token(token),
         }
 
+    @app.post("/api/auth/register")
+    def register(
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, str]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        display_name = str(payload.get("display_name") or "").strip() or None
+        signup_note = str(payload.get("note") or payload.get("signup_note") or "").strip() or None
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
+
+            if db.get_user_by_username(conn, clean_username) is not None:
+                raise HTTPException(status_code=409, detail=REGISTER_USER_EXISTS_DETAIL)
+
+            user_id = db.create_pending_user(
+                conn,
+                clean_username,
+                password_hash=password_hash,
+                display_name=display_name,
+                signup_note=signup_note,
+            )
+            db.ensure_default_profile(conn, user_id=user_id)
+            conn.commit()
+
+        return {
+            "status": db.APPROVAL_PENDING,
+            "message": REGISTER_RECEIVED_MESSAGE,
+        }
+
     @app.post("/api/auth/login")
     def login(
         request: Request,
@@ -437,13 +558,12 @@ def create_app() -> Any:
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
         with db.connect() as conn:
+            _ensure_web_schema(conn)
             if auth.is_login_rate_limited(conn, username, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
             user = db.get_user_by_username(conn, username)
-            password_hash = None
-            if user is not None and bool(user["is_active"]):
-                password_hash = str(user["password_hash"] or "")
+            password_hash = str(user["password_hash"] or "") if user is not None else ""
 
             if not password_hash:
                 auth.verify_password(password, auth.DUMMY_PASSWORD_HASH)
@@ -466,10 +586,31 @@ def create_app() -> Any:
                 conn.commit()
                 raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
-            authenticated_user = user
-            if authenticated_user is None:
+            if user is None:
                 raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
+            approval_status = str(user["approval_status"])
+            if approval_status == db.APPROVAL_PENDING:
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DETAIL)
+
+            if approval_status != db.APPROVAL_APPROVED or not bool(user["is_active"]):
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            authenticated_user = user
             token = auth.create_session(
                 conn,
                 int(authenticated_user["id"]),
@@ -504,6 +645,7 @@ def create_app() -> Any:
     def me(request: Request) -> dict[str, Any]:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         with db.connect() as conn:
+            _ensure_web_schema(conn)
             user = auth.get_session_user(conn, token)
 
         if user is None:
@@ -515,13 +657,37 @@ def create_app() -> Any:
             "csrf_token": _csrf_token_for_session_token(token),
         }
 
+    @app.get("/api/dashboard")
+    def dashboard(
+        request: Request,
+        profile: str | None = Query(default=None, max_length=80),
+    ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        profile_name = effective_profile_name(profile)
+        payload: dict[str, Any] = {
+            "user": _dashboard_user_payload(int(user["id"]), profile_name),
+            "admin": None,
+        }
+
+        if bool(user["is_admin"]):
+            with db.connect() as conn:
+                _ensure_web_schema(conn)
+                payload["admin"] = {
+                    **_admin_user_counts(conn),
+                    "server": _server_health_payload(),
+                }
+
+        return payload
+
     @app.get("/api/admin/users")
     def admin_list_users(request: Request) -> dict[str, Any]:
         require_admin_user(request)
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
             users = db.list_users(conn)
 
         return {
@@ -552,8 +718,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             clean_username = db.normalize_username(username)
             if not clean_username:
@@ -598,8 +763,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             user = _admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -624,26 +788,21 @@ def create_app() -> Any:
 
     @app.post("/api/admin/users/{username}/deactivate")
     def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
-        require_admin_user(request)
+        admin_user = require_admin_user(request)
         require_csrf(request)
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             user = _admin_target_user(conn, username)
             _ensure_not_last_active_admin(conn, user)
             user_id = int(user["id"])
 
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    is_active = 0,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (db.utc_now(), user_id),
+            db.set_user_approval_status(
+                conn,
+                user_id,
+                db.APPROVAL_DISABLED,
+                reviewed_by_user_id=int(admin_user["id"]),
             )
             _revoke_user_sessions(conn, user_id)
             conn.commit()
@@ -656,26 +815,69 @@ def create_app() -> Any:
 
     @app.post("/api/admin/users/{username}/activate")
     def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
-        require_admin_user(request)
+        admin_user = require_admin_user(request)
         require_csrf(request)
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             user = _admin_target_user(conn, username)
             user_id = int(user["id"])
 
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    is_active = 1,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (db.utc_now(), user_id),
+            db.set_user_approval_status(
+                conn,
+                user_id,
+                db.APPROVAL_APPROVED,
+                reviewed_by_user_id=int(admin_user["id"]),
             )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/approve")
+    def admin_approve_user(username: str, request: Request) -> dict[str, Any]:
+        admin_user = require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+            db.set_user_approval_status(
+                conn,
+                user_id,
+                db.APPROVAL_APPROVED,
+                reviewed_by_user_id=int(admin_user["id"]),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/reject")
+    def admin_reject_user(username: str, request: Request) -> dict[str, Any]:
+        admin_user = require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            user = _admin_target_user(conn, username)
+            _ensure_not_last_active_admin(conn, user)
+            user_id = int(user["id"])
+            db.set_user_approval_status(
+                conn,
+                user_id,
+                db.APPROVAL_REJECTED,
+                reviewed_by_user_id=int(admin_user["id"]),
+            )
+            _revoke_user_sessions(conn, user_id)
             conn.commit()
 
             updated_user = _admin_target_user(conn, username)
@@ -690,8 +892,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             user = _admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -720,8 +921,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            db.create_schema(conn)
-            db.ensure_profile_user_schema(conn)
+            _ensure_web_schema(conn)
 
             user = _admin_target_user(conn, username)
             _ensure_not_last_active_admin(conn, user)

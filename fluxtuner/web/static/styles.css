@@ -14,6 +14,8 @@
   --muted: #9bb4ce;
   --accent: #6ee7d8;
   --accent-strong: #38bdf8;
+  --action-fill: #6ee7d8;
+  --action-fill-hover: #0e7490;
   --border: rgba(110, 231, 216, 0.24);
   --border-soft: rgba(110, 231, 216, 0.14);
   --shadow: rgba(0, 0, 0, 0.35);
@@ -439,8 +441,18 @@ select:focus {
 .admin-user-form button,
 .playlist-dialog-form button[type="submit"] {
   color: #04111f;
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.search-form button:not(:disabled):hover,
+.auth-form button:not(:disabled):hover,
+.setup-form button:not(:disabled):hover,
+.admin-user-form button:not(:disabled):hover,
+.playlist-dialog-form button[type="submit"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
 }
 
 .results {
@@ -499,8 +511,14 @@ select:focus {
 
 .station-actions button[data-play-station] {
   color: #04111f;
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.station-actions button[data-play-station]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
 }
 
 .station-actions [data-delete-playlist],
@@ -706,8 +724,14 @@ select:focus {
 
 .player-actions [data-player-toggle]:not(:disabled) {
   color: #04111f;
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.player-actions [data-player-toggle]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
 }
 
 .player-bar[data-state="loading"]::before {
@@ -1345,6 +1369,8 @@ footer {
   --muted: #52677d;
   --accent: #0f766e;
   --accent-strong: #0284c7;
+  --action-fill: #6ee7d8;
+  --action-fill-hover: #0e7490;
   --border: rgba(14, 116, 144, 0.24);
   --border-soft: rgba(14, 116, 144, 0.14);
   --shadow: rgba(15, 23, 42, 0.16);
@@ -1396,6 +1422,31 @@ html[data-theme="light"] .panel,
 html[data-theme="light"] .playlist-dialog {
   background: rgba(255, 255, 255, 0.78) !important;
 }
+
+html[data-theme="light"] .dashboard-metric,
+html[data-theme="light"] .dashboard-card,
+html[data-theme="light"] .station-card {
+  background: rgba(255, 255, 255, 0.86) !important;
+  border-color: rgba(14, 116, 144, 0.22) !important;
+}
+
+html[data-theme="light"] .station-meta,
+html[data-theme="light"] .station-tags,
+html[data-theme="light"] .auth-note,
+html[data-theme="light"] .register-dialog-message {
+  color: #334155 !important;
+}
+
+html[data-theme="light"] .station-meta span {
+  color: #334155 !important;
+  border-color: rgba(51, 65, 85, 0.18) !important;
+  background: rgba(226, 232, 240, 0.72) !important;
+}
+
+html[data-theme="light"] .dashboard-metric span {
+  color: #475569 !important;
+}
+
 
 .theme-toggle {
   min-width: 4.35rem !important;
@@ -1563,4 +1614,117 @@ html[data-theme="light"] .playlist-dialog-card {
   color: var(--field-text) !important;
   background: var(--field-bg) !important;
   border-color: var(--field-border) !important;
+}
+
+/* Dashboard and pending-account registration */
+.dashboard-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(9rem, 1fr));
+  gap: 0.85rem;
+}
+
+.dashboard-metric,
+.dashboard-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background: rgba(3, 7, 18, 0.22);
+}
+
+.dashboard-metric {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.dashboard-metric span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-metric strong {
+  font-size: clamp(1.55rem, 4vw, 2.45rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.dashboard-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-card .panel-heading {
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-card .results {
+  margin-top: 0;
+}
+
+.dashboard-quick-actions {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.auth-secondary-actions {
+  margin-top: 1rem;
+}
+
+.auth-secondary-actions button {
+  width: 100%;
+}
+
+.register-dialog-card {
+  width: min(42rem, calc(100vw - 2rem));
+}
+
+.register-form {
+  margin-top: 1rem;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+}
+
+.register-dialog-message {
+  grid-column: 1 / -1;
+  min-height: 1.2rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.register-form .station-actions {
+  grid-column: 1 / -1;
+}
+
+.auth-note {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.admin-users-row {
+  grid-template-columns: minmax(12rem, 1.45fr) 0.45fr 0.45fr 0.65fr minmax(18rem, 1.6fr);
+}
+
+.admin-user-actions [data-admin-user-action="reject"],
+.admin-user-actions [data-admin-user-action="deactivate"] {
+  color: var(--danger);
+  border-color: rgba(252, 165, 165, 0.3);
+  background: rgba(127, 29, 29, 0.2);
+}
+
+@media (max-width: 760px) {
+  .dashboard-grid,
+  .dashboard-sections,
+  .register-form {
+    grid-template-columns: 1fr;
+  }
 }

@@ -86,6 +86,10 @@ Implemented data model:
     - password_hash
     - is_admin
     - is_active
+    - approval_status (`approved`, `pending`, `rejected`, `disabled`)
+    - signup_note
+    - reviewed_at
+    - reviewed_by_user_id
     - created_at
     - updated_at
 
@@ -130,7 +134,8 @@ Requirements:
 - Login responses do not reveal whether the username or password was wrong.
 - Login attempts are rate-limited.
 - Users can change their password only after re-entering their current password.
-- Disabled users cannot log in.
+- Disabled, rejected and pending users cannot access the Web app.
+- Pending users only see `Account pending approval.` after providing the correct password.
 
 Preferred password hashing option:
 
@@ -234,7 +239,8 @@ Authenticated routes:
 - DELETE /api/playlists/{name}/stations
 
 Admin-only routes are implemented for Web user management. They require an
-authenticated active administrator session.
+authenticated active administrator session. Administrators can approve or reject
+pending account requests from the Admin UI/API.
 
 ## Bootstrap strategy
 

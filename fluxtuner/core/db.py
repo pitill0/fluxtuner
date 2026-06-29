@@ -19,7 +19,17 @@ from fluxtuner.paths import data_file
 DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
-SCHEMA_MIGRATION_NAME = "schema_v4"
+SCHEMA_MIGRATION_NAME = "schema_v5"
+APPROVAL_APPROVED = "approved"
+APPROVAL_PENDING = "pending"
+APPROVAL_REJECTED = "rejected"
+APPROVAL_DISABLED = "disabled"
+APPROVAL_STATUSES = {
+    APPROVAL_APPROVED,
+    APPROVAL_PENDING,
+    APPROVAL_REJECTED,
+    APPROVAL_DISABLED,
+}
 
 
 def utc_now() -> str:
@@ -41,6 +51,7 @@ def init_db(db_path: Path | None = None) -> None:
     """Create the FluxTuner SQLite schema and default user/profile if needed."""
     with connect(db_path) as conn:
         create_schema(conn)
+        ensure_user_approval_schema(conn)
         ensure_profile_user_schema(conn)
         ensure_default_user(conn)
         ensure_default_profile(conn)
@@ -70,11 +81,16 @@ def create_schema(conn: sqlite3.Connection) -> None:
             password_hash TEXT,
             is_admin INTEGER NOT NULL DEFAULT 0,
             is_active INTEGER NOT NULL DEFAULT 1,
+            approval_status TEXT NOT NULL DEFAULT 'approved',
+            signup_note TEXT,
+            reviewed_at TEXT,
+            reviewed_by_user_id INTEGER,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             CHECK (length(trim(username)) > 0),
             CHECK (is_admin IN (0, 1)),
-            CHECK (is_active IN (0, 1))
+            CHECK (is_active IN (0, 1)),
+            CHECK (approval_status IN ('approved', 'pending', 'rejected', 'disabled'))
         );
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_nocase
@@ -205,6 +221,76 @@ def create_schema(conn: sqlite3.Connection) -> None:
     )
 
 
+def _column_names(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    columns = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {str(column["name"]) for column in columns}
+
+
+def _validate_approval_status(status: str) -> str:
+    clean_status = str(status or "").strip().lower()
+    if clean_status not in APPROVAL_STATUSES:
+        raise ValueError(f"Invalid approval status: {status}")
+    return clean_status
+
+
+def active_for_approval_status(status: str) -> bool:
+    """Return whether a user with the approval status may authenticate."""
+    return _validate_approval_status(status) == APPROVAL_APPROVED
+
+
+def ensure_user_approval_schema(conn: sqlite3.Connection) -> None:
+    """Ensure web users have explicit approval-state metadata."""
+    columns = _column_names(conn, "users")
+
+    if "approval_status" not in columns:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved'"
+        )
+        columns.add("approval_status")
+
+    if "signup_note" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN signup_note TEXT")
+        columns.add("signup_note")
+
+    if "reviewed_at" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN reviewed_at TEXT")
+        columns.add("reviewed_at")
+
+    if "reviewed_by_user_id" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN reviewed_by_user_id INTEGER")
+        columns.add("reviewed_by_user_id")
+
+    conn.execute(
+        """
+        UPDATE users
+        SET approval_status = CASE
+            WHEN is_active = 1 THEN ?
+            ELSE ?
+        END
+        WHERE approval_status IS NULL OR trim(approval_status) = ''
+        """,
+        (APPROVAL_APPROVED, APPROVAL_DISABLED),
+    )
+
+    conn.execute(
+        """
+        UPDATE users
+        SET is_active = CASE
+            WHEN approval_status = ? THEN 1
+            ELSE 0
+        END
+        WHERE approval_status IN (?, ?, ?, ?)
+        """,
+        (
+            APPROVAL_APPROVED,
+            APPROVAL_APPROVED,
+            APPROVAL_PENDING,
+            APPROVAL_REJECTED,
+            APPROVAL_DISABLED,
+        ),
+    )
+
+
 def normalize_username(username: str) -> str:
     """Normalize a username for storage and lookup."""
     return username.strip()
@@ -219,6 +305,12 @@ def user_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "password_hash": (str(row["password_hash"]) if row["password_hash"] is not None else None),
         "is_admin": bool(row["is_admin"]),
         "is_active": bool(row["is_active"]),
+        "approval_status": str(row["approval_status"]),
+        "signup_note": (str(row["signup_note"]) if row["signup_note"] is not None else None),
+        "reviewed_at": (str(row["reviewed_at"]) if row["reviewed_at"] is not None else None),
+        "reviewed_by_user_id": (
+            int(row["reviewed_by_user_id"]) if row["reviewed_by_user_id"] is not None else None
+        ),
         "created_at": str(row["created_at"]),
         "updated_at": str(row["updated_at"]),
     }
@@ -242,6 +334,10 @@ def get_user_by_username(
             password_hash,
             is_admin,
             is_active,
+            approval_status,
+            signup_note,
+            reviewed_at,
+            reviewed_by_user_id,
             created_at,
             updated_at
         FROM users
@@ -264,6 +360,8 @@ def get_or_create_user(
     password_hash: str | None = None,
     is_admin: bool = False,
     is_active: bool = True,
+    approval_status: str | None = None,
+    signup_note: str | None = None,
 ) -> int:
     """Return a user id, creating the user if needed."""
     clean_username = normalize_username(username)
@@ -276,6 +374,10 @@ def get_or_create_user(
 
     now = utc_now()
     clean_display_name = _clean_text(display_name) or clean_username
+    clean_approval_status = _validate_approval_status(
+        approval_status or (APPROVAL_APPROVED if is_active else APPROVAL_DISABLED)
+    )
+    resolved_is_active = active_for_approval_status(clean_approval_status)
 
     cursor = conn.execute(
         """
@@ -285,17 +387,25 @@ def get_or_create_user(
             password_hash,
             is_admin,
             is_active,
+            approval_status,
+            signup_note,
+            reviewed_at,
+            reviewed_by_user_id,
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             clean_username,
             clean_display_name,
             password_hash,
             1 if is_admin else 0,
-            1 if is_active else 0,
+            1 if resolved_is_active else 0,
+            clean_approval_status,
+            _clean_text(signup_note),
+            None,
+            None,
             now,
             now,
         ),
@@ -313,6 +423,7 @@ def ensure_default_user(conn: sqlite3.Connection | None = None) -> int:
     if conn is None:
         with connect() as managed_conn:
             create_schema(managed_conn)
+            ensure_user_approval_schema(managed_conn)
             ensure_profile_user_schema(managed_conn)
             user_id = ensure_default_user(managed_conn)
             managed_conn.commit()
@@ -331,15 +442,69 @@ def ensure_default_user(conn: sqlite3.Connection | None = None) -> int:
         UPDATE users
         SET
             is_admin = 0,
+            approval_status = ?,
+            is_active = 1,
             updated_at = ?
         WHERE username = ?
           AND is_admin != 0
           AND (password_hash IS NULL OR password_hash = '')
         """,
-        (utc_now(), DEFAULT_USER_NAME),
+        (APPROVAL_APPROVED, utc_now(), DEFAULT_USER_NAME),
     )
 
     return user_id
+
+
+def create_pending_user(
+    conn: sqlite3.Connection,
+    username: str,
+    *,
+    password_hash: str,
+    display_name: str | None = None,
+    signup_note: str | None = None,
+) -> int:
+    """Create an inactive user pending administrator approval."""
+    return get_or_create_user(
+        conn,
+        username,
+        display_name=display_name,
+        password_hash=password_hash,
+        is_admin=False,
+        is_active=False,
+        approval_status=APPROVAL_PENDING,
+        signup_note=signup_note,
+    )
+
+
+def set_user_approval_status(
+    conn: sqlite3.Connection,
+    user_id: int,
+    status: str,
+    *,
+    reviewed_by_user_id: int | None = None,
+) -> None:
+    """Update a user's approval status and effective active flag."""
+    clean_status = _validate_approval_status(status)
+    conn.execute(
+        """
+        UPDATE users
+        SET
+            approval_status = ?,
+            is_active = ?,
+            reviewed_at = ?,
+            reviewed_by_user_id = ?,
+            updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            clean_status,
+            1 if active_for_approval_status(clean_status) else 0,
+            utc_now(),
+            reviewed_by_user_id,
+            utc_now(),
+            user_id,
+        ),
+    )
 
 
 def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -353,6 +518,10 @@ def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             password_hash,
             is_admin,
             is_active,
+            approval_status,
+            signup_note,
+            reviewed_at,
+            reviewed_by_user_id,
             created_at,
             updated_at
         FROM users
@@ -393,6 +562,7 @@ def _ensure_no_duplicate_profile_names_for_user(
 
 def ensure_profile_user_schema(conn: sqlite3.Connection) -> None:
     """Ensure profiles have user ownership and a per-user name constraint."""
+    ensure_user_approval_schema(conn)
     default_user_id = ensure_default_user(conn)
 
     if not _profile_table_has_user_id(conn):
@@ -463,6 +633,7 @@ def ensure_default_profile(
     if conn is None:
         with connect() as managed_conn:
             create_schema(managed_conn)
+            ensure_user_approval_schema(managed_conn)
             ensure_profile_user_schema(managed_conn)
             profile_id = ensure_default_profile(managed_conn, user_id=user_id)
             managed_conn.commit()

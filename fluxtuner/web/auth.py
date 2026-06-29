@@ -245,10 +245,14 @@ def get_session_user(
             password_hash,
             is_admin,
             is_active,
+            approval_status,
+            signup_note,
+            reviewed_at,
+            reviewed_by_user_id,
             created_at,
             updated_at
         FROM users
-        WHERE id = ? AND is_active = 1
+        WHERE id = ? AND is_active = 1 AND approval_status = 'approved'
         """,
         (session["user_id"],),
     ).fetchone()

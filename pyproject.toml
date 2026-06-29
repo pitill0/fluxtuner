@@ -53,16 +53,20 @@ gui = [
 web = [
     "argon2-cffi>=25.1.0,<26",
     "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
     "uvicorn[standard]>=0.30,<1",
 ]
 dev = [
     "argon2-cffi>=25.1.0,<26",
     "build>=1.2.0,<2",
+    "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
     "ruff>=0.5.0,<1",
     "pytest>=9.0.3,<10",
     "mypy>=1.14.0,<2",
     "httpx>=0.27,<1",
     "httpx2>=2.0,<3",
+    "uvicorn[standard]>=0.30,<1",
 ]
 
 [project.urls]

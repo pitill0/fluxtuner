@@ -35,7 +35,7 @@ Current model:
 
 Profile resolution order:
 
-    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user
+    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user inside the current user
     2. Persisted active profile from config
     3. Internal default profile
 
@@ -61,11 +61,12 @@ flowchart LR
     Entry --> GUI["GTK4 GUI"]
     Entry --> CLI["Legacy CLI"]
     Entry --> Web["Web mode"]
+    Web --> WebAuth["Web auth/session"]
 
     TUI --> ProfileResolution["Profile resolution"]
     GUI --> ProfileResolution
     CLI --> ProfileResolution
-    Web --> ProfileResolution
+    WebAuth --> ProfileResolution
 
     ProfileResolution --> Services["Core services"]
 
@@ -251,9 +252,9 @@ Core library APIs can resolve an optional `profile_id` or `profile_name`. When n
 explicit profile is provided, app interfaces use the persisted active profile if
 one is configured, otherwise they fall back to the internal `default` profile.
 
-Profiles are context-level separation, not user accounts. They prepare the
-storage and interface model for a future user layer without claiming user
-identity, authentication or per-user isolation today.
+Profiles are context-level separation in local CLI/TUI/GTK mode. In Web mode,
+profiles are owned by authenticated Web users and must be resolved through the
+current server-side session.
 
 Other local files remain JSON-based:
 

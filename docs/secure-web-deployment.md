@@ -76,6 +76,10 @@ FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --
 
 Do not use `false` for network-accessible deployments.
 
+For local container smoke tests over plain HTTP, set
+`FLUXTUNER_WEB_SECURE_COOKIES=false` and bind the port to `127.0.0.1`. Do not use
+that setting for shared LAN or internet deployments.
+
 ### `FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS`
 
 Controls the maximum session lifetime in seconds.

@@ -99,9 +99,9 @@ fluxtuner
 
 You can run FluxTuner directly from a tagged source archive:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.8.0.tar.gz
-    tar xvf v0.8.0.tar.gz
-    cd fluxtuner-0.8.0
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.9.0.tar.gz
+    tar xvf v0.9.0.tar.gz
+    cd fluxtuner-0.9.0
 
 Install the Python dependencies required by the terminal interface.
 
@@ -183,7 +183,7 @@ FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 
 
 This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory.
 
-See [`docs/web.md`](docs/web.md) for Web/server usage and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
+See [`docs/web.md`](docs/web.md) for Web/server usage, [`docs/container.md`](docs/container.md) for containers, and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
 
 ---
 
@@ -229,9 +229,11 @@ They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode a
 - [Usage guide](docs/usage.md)
 - [Architecture](docs/architecture.md)
 - [Web/server mode](docs/web.md)
-- [Multi-user web auth design](docs/multiuser.md)
+- [Web multi-user model](docs/multiuser.md)
 - [Secure web deployment](docs/secure-web-deployment.md)
+- [Container usage](docs/container.md)
 - [Release process](docs/release.md)
+- [Licensing details](docs/licensing.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)

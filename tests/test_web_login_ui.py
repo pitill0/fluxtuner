@@ -242,3 +242,78 @@ def test_web_css_has_light_theme() -> None:
     assert ':root[data-theme="light"]' in response.text
     assert 'html[data-theme="light"] body' in response.text
     assert ".theme-toggle" in response.text
+
+
+def test_web_static_js_hides_player_without_auth_and_resets_non_admin_view() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'playerBar.removeAttribute("hidden")' in response.text
+    assert 'playerBar.setAttribute("hidden", "")' in response.text
+    assert "showRadioBrowserView();" in response.text
+    assert "searchPanel.hidden" in response.text
+
+
+def test_web_css_has_accessible_playlist_dialog_theme() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/styles.css")
+
+    assert response.status_code == 200
+    assert "/* Final 0.9 accessibility and theme contrast polish */" in response.text
+    assert "--field-muted" in response.text
+    assert "--dialog-bg" in response.text
+    assert "input::placeholder" in response.text
+    assert 'html[data-theme="light"] .playlist-dialog-card' in response.text
+    assert ".playlist-dialog-card" in response.text
+
+
+def test_web_player_starts_hidden_until_authenticated() -> None:
+    client = TestClient(create_app())
+
+    html = client.get("/")
+    css = client.get("/static/styles.css")
+
+    assert html.status_code == 200
+    assert css.status_code == 200
+    assert 'data-player-bar aria-live="polite" hidden' in html.text
+    assert ".player-bar[hidden]" in css.text
+    assert "display: none !important;" in css.text
+
+
+def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'document.addEventListener("click"' in response.text
+    assert "appHeader.contains(event.target)" in response.text
+    assert 'event.key === "Escape"' in response.text
+
+
+def test_web_static_js_controls_player_visibility_from_auth_ui() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "function setPlayerVisible(isVisible)" in response.text
+    assert "setPlayerVisible(!setupAvailable && authenticated);" in response.text
+    assert 'playerBar.removeAttribute("hidden")' in response.text
+    assert 'playerBar.setAttribute("hidden", "")' in response.text
+
+
+def test_web_static_js_resets_search_view_on_auth_changes() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "function resetRadioBrowserView()" in response.text
+    assert 'currentView = "search";' in response.text
+    assert 'currentPlaylistName = "";' in response.text
+    assert 'setResultsHeader("Radio Browser", "Search stations");' in response.text
+    assert "resetRadioBrowserView();" in response.text

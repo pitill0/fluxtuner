@@ -1429,3 +1429,138 @@ html[data-theme="light"] .theme-toggle span::before {
     padding: 0 0.68rem !important;
   }
 }
+
+.player-bar[hidden] {
+  display: none !important;
+}
+
+/* Final 0.9 accessibility and theme contrast polish */
+
+:root {
+  --field-bg: rgba(3, 12, 24, 0.72);
+  --field-text: #edf7ff;
+  --field-muted: #a9c0d5;
+  --field-border: rgba(125, 211, 252, 0.30);
+  --field-border-focus: rgba(110, 231, 216, 0.82);
+  --help-text: #b8ccde;
+  --dialog-backdrop: rgba(3, 7, 18, 0.72);
+  --dialog-bg: linear-gradient(180deg, rgba(10, 25, 43, 0.99), rgba(4, 10, 20, 0.99));
+  --dialog-glow: rgba(110, 231, 216, 0.16);
+  --dialog-text: #edf7ff;
+  --dialog-muted: #b8ccde;
+  --dialog-shadow: rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="light"] {
+  --field-bg: rgba(255, 255, 255, 0.96);
+  --field-text: #0f1f33;
+  --field-muted: #55708b;
+  --field-border: rgba(14, 116, 144, 0.30);
+  --field-border-focus: rgba(14, 116, 144, 0.78);
+  --help-text: #47637f;
+  --dialog-backdrop: rgba(226, 239, 248, 0.74);
+  --dialog-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(239, 247, 252, 0.99));
+  --dialog-glow: rgba(14, 116, 144, 0.11);
+  --dialog-text: #102033;
+  --dialog-muted: #506b86;
+  --dialog-shadow: rgba(15, 23, 42, 0.24);
+}
+
+input,
+select,
+textarea {
+  color: var(--field-text) !important;
+  caret-color: var(--accent) !important;
+  background: var(--field-bg) !important;
+  border-color: var(--field-border) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--field-border-focus) !important;
+  box-shadow:
+    0 0 0 1px var(--field-border-focus),
+    0 0 0 0.28rem rgba(110, 231, 216, 0.16) !important;
+  outline: none !important;
+}
+
+html[data-theme="light"] input:focus,
+html[data-theme="light"] select:focus,
+html[data-theme="light"] textarea:focus {
+  box-shadow:
+    0 0 0 1px var(--field-border-focus),
+    0 0 0 0.28rem rgba(14, 116, 144, 0.12) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--field-muted) !important;
+  opacity: 1 !important;
+}
+
+select:invalid {
+  color: var(--field-muted) !important;
+}
+
+option {
+  color: var(--field-text) !important;
+  background: var(--field-bg) !important;
+}
+
+.form-help,
+.field-help,
+.help-text,
+.hint,
+.panel p,
+.dialog-help,
+small {
+  color: var(--help-text) !important;
+}
+
+.playlist-dialog {
+  color: var(--dialog-text) !important;
+  background: var(--dialog-backdrop) !important;
+  backdrop-filter: blur(0.6rem);
+}
+
+.playlist-dialog-card {
+  color: var(--dialog-text) !important;
+  border-color: var(--field-border-focus) !important;
+  background:
+    radial-gradient(circle at 0% 0%, var(--dialog-glow), transparent 16rem),
+    var(--dialog-bg) !important;
+  box-shadow:
+    0 1.5rem 5rem var(--dialog-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+}
+
+html[data-theme="light"] .playlist-dialog-card {
+  box-shadow:
+    0 1.25rem 4rem var(--dialog-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.88) inset !important;
+}
+
+.playlist-dialog h2,
+.playlist-dialog h3,
+.playlist-dialog strong {
+  color: var(--dialog-text) !important;
+}
+
+.playlist-dialog p,
+.playlist-dialog label,
+.playlist-dialog label span,
+.playlist-dialog .eyebrow,
+.playlist-dialog .muted,
+.playlist-dialog-message,
+.playlist-dialog-station {
+  color: var(--dialog-muted) !important;
+}
+
+.playlist-dialog select,
+.playlist-dialog input,
+.playlist-dialog textarea {
+  color: var(--field-text) !important;
+  background: var(--field-bg) !important;
+  border-color: var(--field-border) !important;
+}

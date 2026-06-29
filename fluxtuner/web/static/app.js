@@ -483,6 +483,30 @@ function closeMobileMenu() {
   setMobileMenuOpen(false);
 }
 
+function setPlayerVisible(isVisible) {
+  if (!playerBar) return;
+
+  if (isVisible) {
+    playerBar.removeAttribute("hidden");
+  } else {
+    playerBar.setAttribute("hidden", "");
+  }
+}
+
+function resetRadioBrowserView() {
+  showRadioBrowserView();
+  currentView = "search";
+  currentPlaylistName = "";
+  setResultsHeader("Radio Browser", "Search stations");
+
+  if (resultCountNode) {
+    resultCountNode.textContent = "";
+  }
+
+  if (resultsNode) {
+    resultsNode.innerHTML = '<p class="empty">Search Radio Browser to find internet radio stations.</p>';
+  }
+}
 
 function showRadioBrowserView() {
   if (searchPanel) {
@@ -519,6 +543,8 @@ async function navigateToPrivateView(loader) {
 
 function updateSetupUi() {
   const authenticated = Boolean(currentUser);
+
+  setPlayerVisible(!setupAvailable && authenticated);
 
   if (appContent) {
     appContent.hidden = !authenticated || setupAvailable;
@@ -635,6 +661,7 @@ async function createFirstAdmin(event) {
     csrfToken = payload.csrf_token || "";
     setupAvailable = false;
     setupRequiresToken = false;
+    resetRadioBrowserView();
     updateSetupUi();
     updateAuthUi();
     scrollToSection(searchPanel);
@@ -650,6 +677,8 @@ async function createFirstAdmin(event) {
 function updateAuthUi() {
   const authenticated = Boolean(currentUser);
 
+  setPlayerVisible(!setupAvailable && authenticated);
+
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
     authPanel.hidden = setupAvailable || authenticated;
@@ -658,6 +687,10 @@ function updateAuthUi() {
   setAppContentVisible(!setupAvailable && authenticated);
 
   const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
+
+  if (authenticated && !showAdminPanel && searchPanel && searchPanel.hidden) {
+    showRadioBrowserView();
+  }
 
   if (adminPanel && !showAdminPanel) {
     adminPanel.hidden = true;
@@ -750,6 +783,7 @@ async function loadAuthState() {
     const payload = await response.json();
     currentUser = payload.user || null;
     csrfToken = payload.csrf_token || "";
+    resetRadioBrowserView();
     updateAuthUi();
   } catch (_error) {
     currentUser = null;
@@ -791,6 +825,7 @@ async function login(event) {
     const payload = await response.json();
     currentUser = payload.user || null;
     csrfToken = payload.csrf_token || "";
+    resetRadioBrowserView();
     updateAuthUi();
   } catch (error) {
     currentUser = null;
@@ -811,6 +846,7 @@ async function logout() {
   } finally {
     stopPlayback();
     currentUser = null;
+    resetRadioBrowserView();
     updateAuthUi();
     renderAuthRequired();
   }
@@ -1728,6 +1764,19 @@ if (navToggleButton) {
     setMobileMenuOpen(!isOpen);
   });
 }
+
+document.addEventListener("click", (event) => {
+  if (!appHeader || appHeader.dataset.mobileMenuOpen !== "true") return;
+  if (event.target instanceof Node && appHeader.contains(event.target)) return;
+
+  closeMobileMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMobileMenu();
+  }
+});
 
 if (themeToggleButton) {
   themeToggleButton.addEventListener("click", toggleTheme);

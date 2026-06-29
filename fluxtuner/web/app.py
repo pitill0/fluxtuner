@@ -155,7 +155,8 @@ def _missing_web_dependency_message() -> str:
 
 
 def _read_template(name: str) -> str:
-    return resources.files("fluxtuner.web").joinpath("templates", name).read_text(encoding="utf-8")
+    template_path = resources.files("fluxtuner.web").joinpath("templates").joinpath(name)
+    return template_path.read_text(encoding="utf-8")
 
 
 def _safe_int(value: Any) -> int:

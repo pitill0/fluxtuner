@@ -9,8 +9,8 @@ The primary local library store is SQLite:
 The database stores normalized stations, profiles, favorites, playback history
 and manual playlists.
 
-FluxTuner 0.8.0 uses profile-scoped library data. Profiles are context-level
-separation inside the same FluxTuner installation. They are useful for contexts
+FluxTuner local interfaces use profile-scoped library data. Profiles are
+context-level separation inside the same FluxTuner installation. They are useful for contexts
 such as work, home, terrace, pool, focus or testing.
 
 Current model:
@@ -35,15 +35,14 @@ Current model:
 
 Profile resolution order:
 
-    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME
+    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user inside the current user
     2. Persisted active profile from config
     3. Internal default profile
 
-Profiles are not user accounts. They do not provide authentication,
-authorization, ownership, permissions or per-person isolation.
+Profiles are not user accounts in local CLI/TUI/GTK mode. Web/server mode adds
+authenticated users above profiles, so each Web user owns their own profile set.
 
-The profile layer prepares the storage and interface model for a future user
-layer. A future user/account model would add ownership above profiles:
+The Web user/account model adds ownership above profiles:
 
     user
     └── profile
@@ -62,11 +61,12 @@ flowchart LR
     Entry --> GUI["GTK4 GUI"]
     Entry --> CLI["Legacy CLI"]
     Entry --> Web["Web mode"]
+    Web --> WebAuth["Web auth/session"]
 
     TUI --> ProfileResolution["Profile resolution"]
     GUI --> ProfileResolution
     CLI --> ProfileResolution
-    Web --> ProfileResolution
+    WebAuth --> ProfileResolution
 
     ProfileResolution --> Services["Core services"]
 
@@ -252,9 +252,9 @@ Core library APIs can resolve an optional `profile_id` or `profile_name`. When n
 explicit profile is provided, app interfaces use the persisted active profile if
 one is configured, otherwise they fall back to the internal `default` profile.
 
-Profiles are context-level separation, not user accounts. They prepare the
-storage and interface model for a future user layer without claiming user
-identity, authentication or per-user isolation today.
+Profiles are context-level separation in local CLI/TUI/GTK mode. In Web mode,
+profiles are owned by authenticated Web users and must be resolved through the
+current server-side session.
 
 Other local files remain JSON-based:
 
@@ -311,3 +311,23 @@ Security-sensitive areas include:
 - ICY stream metadata parsing.
 
 See `SECURITY.md` and `docs/development.md` for validation and contribution guidance.
+
+## Web multi-user model
+
+FluxTuner 0.9.0 implements real multi-user behavior for Web/server mode only.
+CLI, TUI and GTK GUI remain local interfaces that use the local filesystem
+trust model.
+
+The web model adds authenticated users above profiles:
+
+    authenticated web user
+    └── owned profile
+        ├── favorites
+        ├── playback history
+        └── manual playlists
+
+Web API requests resolve the current user from the authenticated session.
+Profile overrides such as `?profile=work` must only select profiles owned by
+that authenticated user.
+
+See `docs/multiuser.md` for the detailed 0.9.0 design.

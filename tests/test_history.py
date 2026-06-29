@@ -1,7 +1,9 @@
+# SPDX-License-Identifier: MIT
+
 import json
 from pathlib import Path
 
-from fluxtuner.core import history
+from fluxtuner.core import db, history
 
 
 def patch_history_file(tmp_path: Path, monkeypatch) -> Path:
@@ -331,3 +333,34 @@ def test_clear_history_clears_only_requested_profile(
 
     assert [item["name"] for item in history.load_history()] == ["Default Radio"]
     assert history.load_history(profile_name="work") == []
+
+
+def test_history_is_isolated_by_user_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_history_file(tmp_path, monkeypatch)
+
+    db.init_db(history._db_path())
+
+    with db.connect(history._db_path()) as conn:
+        laura_id = db.get_or_create_user(conn, "laura")
+        guest_id = db.get_or_create_user(conn, "guest")
+        conn.commit()
+
+    history.add_history(
+        {
+            "name": "Laura Radio",
+            "url": "https://example.com/laura",
+        },
+        user_id=laura_id,
+    )
+
+    assert [item["name"] for item in history.load_history(user_id=laura_id)] == ["Laura Radio"]
+    assert history.load_history(user_id=guest_id) == []
+
+    history.clear_history(user_id=guest_id)
+    assert [item["name"] for item in history.load_history(user_id=laura_id)] == ["Laura Radio"]
+
+    history.clear_history(user_id=laura_id)
+    assert history.load_history(user_id=laura_id) == []

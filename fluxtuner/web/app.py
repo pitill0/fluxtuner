@@ -1,10 +1,16 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
+import os
 from importlib import resources
 from typing import Any
 
 from fluxtuner import __app_name__, __version__
+from fluxtuner.core import db
 from fluxtuner.core.api import search_stations_filtered
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
@@ -17,6 +23,129 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.core.profiles import resolve_effective_profile_name
+from fluxtuner.web import auth
+
+SESSION_COOKIE_NAME = "fluxtuner_session"
+AUTH_ERROR_DETAIL = "Invalid username or password."
+RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
+AUTH_REQUIRED_DETAIL = "Authentication required."
+CSRF_HEADER_NAME = "X-FluxTuner-CSRF"
+CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
+SETUP_UNAVAILABLE_DETAIL = "First-run setup is not available."
+SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
+SETUP_LOCAL_ONLY_DETAIL = "First-run setup requires local access or FLUXTUNER_WEB_SETUP_TOKEN."
+SETUP_INVALID_DETAIL = "Username and password are required."
+SETUP_RATE_LIMIT_USERNAME = "__setup__"
+ADMIN_REQUIRED_DETAIL = "Administrator access required."
+ADMIN_USER_EXISTS_DETAIL = "Web user already exists."
+ADMIN_USER_NOT_FOUND_DETAIL = "Web user not found."
+ADMIN_LAST_ADMIN_DETAIL = "Cannot remove the last active administrator."
+ADMIN_INVALID_USER_DETAIL = "Username and password are required."
+ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
+
+
+def _web_secure_cookies() -> bool:
+    value = os.getenv("FLUXTUNER_WEB_SECURE_COOKIES", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _session_cookie_max_age() -> int:
+    value = os.getenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "")
+    try:
+        max_age = int(value)
+    except ValueError:
+        return auth.DEFAULT_SESSION_MAX_AGE_SECONDS
+    return max_age if max_age > 0 else auth.DEFAULT_SESSION_MAX_AGE_SECONDS
+
+
+def _request_client_host(request: Any) -> str:
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None)
+    return auth.client_key_from_host(str(host) if host else None)
+
+
+def _public_user_payload(user: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(user["id"]),
+        "username": str(user["username"]),
+        "display_name": str(user["display_name"]),
+        "is_admin": bool(user["is_admin"]),
+    }
+
+
+def _authenticated_user(request: Any) -> dict[str, Any] | None:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    with db.connect() as conn:
+        return auth.get_session_user(conn, token)
+
+
+def _csrf_token_for_session_token(token: str | None) -> str:
+    """Return a CSRF token derived from the opaque session token."""
+    if not token:
+        return ""
+
+    return hmac.new(
+        token.encode("utf-8"),
+        b"fluxtuner-web-csrf-v1",
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _configured_admin_exists(conn: Any) -> bool:
+    """Return whether a real active web admin has been configured."""
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM users
+        WHERE
+            is_admin = 1
+            AND is_active = 1
+            AND password_hash IS NOT NULL
+            AND length(trim(password_hash)) > 0
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
+def _setup_token_required() -> bool:
+    return bool(os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip())
+
+
+def _valid_setup_token(provided_token: str) -> bool:
+    expected_token = os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip()
+    if not expected_token:
+        return True
+
+    return hmac.compare_digest(provided_token, expected_token)
+
+
+def _setup_request_is_local(request: Any) -> bool:
+    client = getattr(request, "client", None)
+    host = str(getattr(client, "host", "") or "").strip().lower()
+    return host in {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+def _set_session_cookie(response: Any, token: str) -> None:
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=_session_cookie_max_age(),
+        httponly=True,
+        secure=_web_secure_cookies(),
+        samesite="lax",
+        path="/",
+    )
+
+
+def _delete_session_cookie(response: Any) -> None:
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=_web_secure_cookies(),
+        httponly=True,
+        samesite="lax",
+    )
 
 
 def _missing_web_dependency_message() -> str:
@@ -26,7 +155,8 @@ def _missing_web_dependency_message() -> str:
 
 
 def _read_template(name: str) -> str:
-    return resources.files("fluxtuner.web").joinpath("templates", name).read_text(encoding="utf-8")
+    template_path = resources.files("fluxtuner.web").joinpath("templates").joinpath(name)
+    return template_path.read_text(encoding="utf-8")
 
 
 def _safe_int(value: Any) -> int:
@@ -65,16 +195,93 @@ def _playlist_name(payload: dict[str, Any]) -> str:
     return str(payload.get("name") or "").strip()
 
 
+def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(user["id"]),
+        "username": str(user["username"]),
+        "display_name": str(user["display_name"]),
+        "is_admin": bool(user["is_admin"]),
+        "is_active": bool(user["is_active"]),
+        "created_at": str(user["created_at"]),
+        "updated_at": str(user["updated_at"]),
+    }
+
+
+def _active_admin_count(conn: Any) -> int:
+    row = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM users
+        WHERE
+            is_admin = 1
+            AND is_active = 1
+            AND password_hash IS NOT NULL
+            AND length(trim(password_hash)) > 0
+        """
+    ).fetchone()
+    return int(row[0])
+
+
+def _revoke_user_sessions(conn: Any, user_id: int) -> None:
+    conn.execute(
+        """
+        UPDATE web_sessions
+        SET revoked_at = ?
+        WHERE user_id = ? AND revoked_at IS NULL
+        """,
+        (db.utc_now(), user_id),
+    )
+
+
+def _admin_target_user(conn: Any, username: str) -> dict[str, Any]:
+    from fastapi import HTTPException
+
+    user = db.get_user_by_username(conn, username)
+    if user is None:
+        raise HTTPException(status_code=404, detail=ADMIN_USER_NOT_FOUND_DETAIL)
+
+    return user
+
+
+def _ensure_not_last_active_admin(conn: Any, user: dict[str, Any]) -> None:
+    from fastapi import HTTPException
+
+    if not bool(user["is_admin"]) or not bool(user["is_active"]):
+        return
+
+    if _active_admin_count(conn) <= 1:
+        raise HTTPException(status_code=409, detail=ADMIN_LAST_ADMIN_DETAIL)
+
+
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import Body, FastAPI, HTTPException, Query
+        from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
+
+        globals()["Request"] = Request
+        globals()["Response"] = Response
     except ImportError as exc:
         raise RuntimeError(_missing_web_dependency_message()) from exc
 
     required_body = Body(...)
+
+    def require_csrf(request: Request) -> None:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        expected = _csrf_token_for_session_token(token)
+        provided = request.headers.get(CSRF_HEADER_NAME, "")
+
+        if not expected or not hmac.compare_digest(provided, expected):
+            raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
+
+    def require_admin_user(request: Request) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+        if not bool(user["is_admin"]):
+            raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
+        return user
 
     def effective_profile_name(profile: str | None = None) -> str | None:
         return resolve_effective_profile_name(profile)
@@ -103,6 +310,439 @@ def create_app() -> Any:
             "app": __app_name__,
             "version": __version__,
             "mode": "web",
+        }
+
+    @app.get("/api/setup/status")
+    def setup_status(request: Request) -> dict[str, Any]:
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+            configured_admin_exists = _configured_admin_exists(conn)
+
+        return {
+            "available": not configured_admin_exists,
+            "configured_admin_exists": configured_admin_exists,
+            "requires_setup_token": _setup_token_required(),
+            "local_request": _setup_request_is_local(request),
+        }
+
+    @app.post("/api/setup/create-admin")
+    def setup_create_admin(
+        request: Request,
+        response: Response,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        setup_token = str(payload.get("setup_token") or "")
+        client_key = _request_client_host(request)
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
+
+        if _setup_token_required() and not _valid_setup_token(setup_token):
+            with db.connect() as conn:
+                db.create_schema(conn)
+                db.ensure_profile_user_schema(conn)
+                auth.record_login_attempt(
+                    conn,
+                    SETUP_RATE_LIMIT_USERNAME,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+            raise HTTPException(status_code=403, detail=SETUP_VERIFICATION_ERROR_DETAIL)
+
+        if not _setup_token_required() and not _setup_request_is_local(request):
+            raise HTTPException(status_code=403, detail=SETUP_LOCAL_ONLY_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            if _configured_admin_exists(conn):
+                raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
+
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
+
+            existing_user = db.get_user_by_username(conn, clean_username)
+            if existing_user is None:
+                user_id = db.get_or_create_user(
+                    conn,
+                    clean_username,
+                    password_hash=password_hash,
+                    is_admin=True,
+                    is_active=True,
+                )
+            else:
+                user_id = int(existing_user["id"])
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET
+                        password_hash = ?,
+                        is_admin = 1,
+                        is_active = 1,
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (password_hash, db.utc_now(), user_id),
+                )
+
+            db.ensure_default_profile(conn, user_id=user_id)
+            token = auth.create_session(conn, user_id)
+            auth.record_login_attempt(
+                conn,
+                SETUP_RATE_LIMIT_USERNAME,
+                client_key,
+                success=True,
+            )
+            conn.commit()
+
+            user = auth.get_session_user(conn, token)
+
+        if user is None:
+            raise HTTPException(status_code=500, detail="Could not create setup session.")
+
+        _set_session_cookie(response, token)
+
+        return {
+            "authenticated": True,
+            "setup_complete": True,
+            "user": _public_user_payload(user),
+            "csrf_token": _csrf_token_for_session_token(token),
+        }
+
+    @app.post("/api/auth/login")
+    def login(
+        request: Request,
+        response: Response,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        client_key = _request_client_host(request)
+
+        if not username or not password:
+            raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+        with db.connect() as conn:
+            if auth.is_login_rate_limited(conn, username, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            user = db.get_user_by_username(conn, username)
+            password_hash = None
+            if user is not None and bool(user["is_active"]):
+                password_hash = str(user["password_hash"] or "")
+
+            if not password_hash:
+                auth.verify_password(password, auth.DUMMY_PASSWORD_HASH)
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            if not auth.verify_password(password, password_hash):
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            authenticated_user = user
+            if authenticated_user is None:
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            token = auth.create_session(
+                conn,
+                int(authenticated_user["id"]),
+                max_age_seconds=_session_cookie_max_age(),
+            )
+            auth.record_login_attempt(
+                conn,
+                username,
+                client_key,
+                success=True,
+            )
+            conn.commit()
+
+        _set_session_cookie(response, token)
+        return {
+            "authenticated": True,
+            "user": _public_user_payload(authenticated_user),
+            "csrf_token": _csrf_token_for_session_token(token),
+        }
+
+    @app.post("/api/auth/logout")
+    def logout(request: Request, response: Response) -> dict[str, Any]:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        with db.connect() as conn:
+            revoked = auth.revoke_session(conn, token)
+            conn.commit()
+
+        _delete_session_cookie(response)
+        return {"status": "ok", "revoked": revoked}
+
+    @app.get("/api/auth/me")
+    def me(request: Request) -> dict[str, Any]:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        with db.connect() as conn:
+            user = auth.get_session_user(conn, token)
+
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        return {
+            "authenticated": True,
+            "user": _public_user_payload(user),
+            "csrf_token": _csrf_token_for_session_token(token),
+        }
+
+    @app.get("/api/admin/users")
+    def admin_list_users(request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+            users = db.list_users(conn)
+
+        return {
+            "count": len(users),
+            "users": [_admin_user_payload(user) for user in users],
+        }
+
+    @app.post("/api/admin/users")
+    def admin_create_user(
+        request: Request,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        display_name = str(payload.get("display_name") or "").strip() or None
+        is_admin = bool(payload.get("is_admin", False))
+        is_active = bool(payload.get("is_active", True))
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
+
+            if db.get_user_by_username(conn, clean_username) is not None:
+                raise HTTPException(status_code=409, detail=ADMIN_USER_EXISTS_DETAIL)
+
+            user_id = db.get_or_create_user(
+                conn,
+                clean_username,
+                display_name=display_name,
+                password_hash=password_hash,
+                is_admin=is_admin,
+                is_active=is_active,
+            )
+            db.ensure_default_profile(conn, user_id=user_id)
+            conn.commit()
+
+            user = _admin_target_user(conn, clean_username)
+
+        return {
+            "user": _admin_user_payload(user),
+        }
+
+    @app.post("/api/admin/users/{username}/password")
+    def admin_set_user_password(
+        username: str,
+        request: Request,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        password = str(payload.get("password") or "")
+        if not password:
+            raise HTTPException(status_code=400, detail=ADMIN_MISSING_VALUE_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    password_hash = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (password_hash, db.utc_now(), user_id),
+            )
+            _revoke_user_sessions(conn, user_id)
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/deactivate")
+    def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            _ensure_not_last_active_admin(conn, user)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_active = 0,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            _revoke_user_sessions(conn, user_id)
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/activate")
+    def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_active = 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.post("/api/admin/users/{username}/admin")
+    def admin_grant_admin(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_admin = 1,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
+        }
+
+    @app.delete("/api/admin/users/{username}/admin")
+    def admin_revoke_admin(username: str, request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            db.create_schema(conn)
+            db.ensure_profile_user_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            _ensure_not_last_active_admin(conn, user)
+            user_id = int(user["id"])
+
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    is_admin = 0,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (db.utc_now(), user_id),
+            )
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, username)
+
+        return {
+            "user": _admin_user_payload(updated_user),
         }
 
     @app.get("/api/search")
@@ -134,11 +774,19 @@ def create_app() -> Any:
 
     @app.get("/api/history")
     def history(
+        request: Request,
         limit: int = Query(default=25, ge=1, le=100),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
         profile_name = effective_profile_name(profile)
-        stations = load_history(profile_name=profile_name)[:limit]
+        stations = load_history(
+            profile_name=profile_name,
+            user_id=int(user["id"]),
+        )[:limit]
 
         return {
             "count": len(stations),
@@ -147,15 +795,26 @@ def create_app() -> Any:
 
     @app.post("/api/history")
     def record_history(
+        request: Request,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        add_history(station_data, profile_name=effective_profile_name(profile))
+        add_history(
+            station_data,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -164,10 +823,18 @@ def create_app() -> Any:
 
     @app.get("/api/favorites")
     def favorites(
+        request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
         profile_name = effective_profile_name(profile)
-        stations = load_favorites(profile_name=profile_name)
+        stations = load_favorites(
+            profile_name=profile_name,
+            user_id=int(user["id"]),
+        )
 
         return {
             "count": len(stations),
@@ -176,15 +843,26 @@ def create_app() -> Any:
 
     @app.post("/api/favorites")
     def create_favorite(
+        request: Request,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
-        added = add_favorite(station_data, profile_name=effective_profile_name(profile))
+        added = add_favorite(
+            station_data,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -194,10 +872,21 @@ def create_app() -> Any:
 
     @app.delete("/api/favorites")
     def delete_favorite(
+        request: Request,
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        removed = remove_favorite(url, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
+        removed = remove_favorite(
+            url,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -207,17 +896,29 @@ def create_app() -> Any:
 
     @app.get("/api/playlists")
     def playlists(
+        request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        user_id = int(user["id"])
         profile_name = effective_profile_name(profile)
-        items = load_playlists(profile_name=profile_name)
+        items = load_playlists(profile_name=profile_name, user_id=user_id)
 
         return {
             "count": len(items),
             "playlists": [
                 {
                     "name": item["name"],
-                    "count": len(get_playlist_stations(item["name"], profile_name=profile_name)),
+                    "count": len(
+                        get_playlist_stations(
+                            item["name"],
+                            profile_name=profile_name,
+                            user_id=user_id,
+                        )
+                    ),
                 }
                 for item in items
             ],
@@ -225,14 +926,25 @@ def create_app() -> Any:
 
     @app.post("/api/playlists")
     def create_web_playlist(
+        request: Request,
         payload: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
         name = _playlist_name(payload)
         if not name:
             raise HTTPException(status_code=400, detail="Playlist name is required.")
 
-        created = create_playlist(name, profile_name=effective_profile_name(profile))
+        created = create_playlist(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -242,10 +954,21 @@ def create_app() -> Any:
 
     @app.delete("/api/playlists/{name}")
     def delete_web_playlist(
+        request: Request,
         name: str,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        removed = delete_playlist(name, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
+        removed = delete_playlist(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "status": "ok",
@@ -255,10 +978,19 @@ def create_app() -> Any:
 
     @app.get("/api/playlists/{name}/stations")
     def playlist_stations(
+        request: Request,
         name: str,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        stations = get_playlist_stations(name, profile_name=effective_profile_name(profile))
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        stations = get_playlist_stations(
+            name,
+            profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
+        )
 
         return {
             "name": name,
@@ -268,18 +1000,31 @@ def create_app() -> Any:
 
     @app.post("/api/playlists/{name}/stations")
     def add_web_station_to_playlist(
+        request: Request,
         name: str,
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
         station_data = _station_payload(station)
 
         if not station_data["url"]:
             raise HTTPException(status_code=400, detail="Station URL is required.")
 
+        user_id = int(user["id"])
         profile_name = effective_profile_name(profile)
-        add_favorite(station_data, profile_name=profile_name)
-        added = add_station_to_playlist(name, station_data, profile_name=profile_name)
+        add_favorite(station_data, profile_name=profile_name, user_id=user_id)
+        added = add_station_to_playlist(
+            name,
+            station_data,
+            profile_name=profile_name,
+            user_id=user_id,
+        )
 
         return {
             "status": "ok",
@@ -290,14 +1035,22 @@ def create_app() -> Any:
 
     @app.delete("/api/playlists/{name}/stations")
     def remove_web_station_from_playlist(
+        request: Request,
         name: str,
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+        require_csrf(request)
+
         removed = remove_station_from_playlist(
             name,
             {"url": url},
             profile_name=effective_profile_name(profile),
+            user_id=int(user["id"]),
         )
 
         return {

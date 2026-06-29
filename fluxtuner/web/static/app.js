@@ -1,13 +1,54 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
 const statusNode = document.querySelector("[data-status]");
+const healthStateNode = document.querySelector("[data-health-state]");
+const healthSummaryNode = document.querySelector("[data-health-summary]");
 const healthButton = document.querySelector("[data-health-check]");
 const searchForm = document.querySelector("[data-search-form]");
 const resultsNode = document.querySelector("[data-results]");
 const resultCountNode = document.querySelector("[data-result-count]");
 const resultsKickerNode = document.querySelector("[data-results-kicker]");
 const resultsTitleNode = document.querySelector("[data-results-title]");
+const appContent = document.querySelector("[data-app-content]");
+const searchPanel = document.querySelector("[data-search-panel]");
+const appContentNodes = document.querySelectorAll("[data-app-content]");
+const appHeader = document.querySelector("[data-app-header]");
+const navToggleButton = document.querySelector("[data-nav-toggle]");
+const themeToggleButton = document.querySelector("[data-theme-toggle]");
+const themeLabelNode = document.querySelector("[data-theme-label]");
+const navSearchButton = document.querySelector("[data-nav-search]");
+const navFavoritesButton = document.querySelector("[data-nav-favorites]");
+const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
+const navHistoryButton = document.querySelector("[data-nav-history]");
+const navAdminButton = document.querySelector("[data-nav-admin]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
+const authPanel = document.querySelector("[data-auth-panel]");
+const loginForm = document.querySelector("[data-login-form]");
+const authMessageNode = document.querySelector("[data-auth-message]");
+const authUserPanel = document.querySelector("[data-auth-user]");
+const authUsernameNode = document.querySelector("[data-auth-username]");
+const logoutButton = document.querySelector("[data-logout]");
+const privateActionNodes = document.querySelectorAll("[data-private-action]");
+const setupPanel = document.querySelector("[data-setup-panel]");
+const setupForm = document.querySelector("[data-setup-form]");
+const setupTokenField = document.querySelector("[data-setup-token-field]");
+const setupMessageNode = document.querySelector("[data-setup-message]");
+const adminPanel = document.querySelector("[data-admin-panel]");
+const adminLoadUsersButton = document.querySelector("[data-admin-load-users]");
+const adminCreateUserForm = document.querySelector("[data-admin-create-user-form]");
+const adminPasswordForm = document.querySelector("[data-admin-password-form]");
+const adminMessageNode = document.querySelector("[data-admin-message]");
+const adminUsersNode = document.querySelector("[data-admin-users]");
+const playlistDialog = document.querySelector("[data-playlist-dialog]");
+const playlistForm = document.querySelector("[data-playlist-form]");
+const playlistSelect = document.querySelector("[data-playlist-select]");
+const playlistMessageNode = document.querySelector("[data-playlist-message]");
+const playlistStationNameNode = document.querySelector("[data-playlist-station-name]");
+const playlistCancelButtons = document.querySelectorAll("[data-playlist-cancel]");
 
 const playerBar = document.querySelector("[data-player-bar]");
 const audioNode = document.querySelector("[data-audio]");
@@ -21,11 +62,44 @@ let currentStation = null;
 let recordedHistoryUrl = "";
 let currentView = "search";
 let currentPlaylistName = "";
+let currentUser = null;
+let csrfToken = "";
+let setupAvailable = false;
+let setupRequiresToken = false;
+let adminUsersLoaded = false;
+let pendingPlaylistStation = null;
+
+
+function formatHealthSummary(payload) {
+  const status = payload.status || payload.state || "ok";
+  const version = payload.version ? ` · ${payload.version}` : "";
+  const database = payload.database || payload.db || payload.storage || "";
+  const databaseText = database ? ` · ${database}` : "";
+
+  const details = `${version}${databaseText}`.trim();
+
+  return {
+    state: String(status).toUpperCase(),
+    summary: details ? `${details} · checked now` : "checked now",
+  };
+}
+
+function setHealthSummary(state, summary) {
+  if (healthStateNode) {
+    healthStateNode.textContent = state;
+  }
+
+  if (healthSummaryNode) {
+    healthSummaryNode.textContent = summary;
+  }
+}
 
 async function checkHealth() {
-  if (!statusNode) return;
+  if (statusNode) {
+    statusNode.textContent = "Checking server...";
+  }
 
-  statusNode.textContent = "Checking server...";
+  setHealthSummary("Checking", "Refreshing server status...");
 
   try {
     const response = await fetch("/api/health", {
@@ -39,11 +113,22 @@ async function checkHealth() {
     }
 
     const payload = await response.json();
-    statusNode.textContent = JSON.stringify(payload, null, 2);
+    const summary = formatHealthSummary(payload);
+
+    setHealthSummary(summary.state, summary.summary);
+
+    if (statusNode) {
+      statusNode.textContent = JSON.stringify(payload, null, 2);
+    }
   } catch (error) {
-    statusNode.textContent = `Server check failed: ${error}`;
+    setHealthSummary("Error", `Server check failed: ${error}`);
+
+    if (statusNode) {
+      statusNode.textContent = `Server check failed: ${error}`;
+    }
   }
 }
+
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => {
@@ -83,6 +168,691 @@ function setResultsHeader(kicker, title) {
   }
 }
 
+
+
+
+function clearAdminUsers() {
+  adminUsersLoaded = false;
+
+  if (adminMessageNode) {
+    adminMessageNode.textContent = "";
+  }
+
+  if (adminUsersNode) {
+    adminUsersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
+  }
+}
+
+function setAdminMessage(message) {
+  if (adminMessageNode) {
+    adminMessageNode.textContent = message || "";
+  }
+}
+
+function renderAdminUsers(users) {
+  if (!adminUsersNode) return;
+
+  if (!users.length) {
+    adminUsersNode.innerHTML = '<p class="empty">No web users found.</p>';
+    return;
+  }
+
+  adminUsersNode.innerHTML = `
+    <div class="admin-users-table" role="table" aria-label="Web users">
+      <div class="admin-users-row admin-users-head" role="row">
+        <span role="columnheader">User</span>
+        <span role="columnheader">Admin</span>
+        <span role="columnheader">Active</span>
+        <span role="columnheader">Actions</span>
+      </div>
+      ${users
+        .map((user) => {
+          const username = escapeHtml(user.username || "");
+          const displayName = escapeHtml(user.display_name || user.username || "");
+          const adminLabel = user.is_admin ? "yes" : "no";
+          const activeLabel = user.is_active ? "yes" : "no";
+
+          return `
+            <div class="admin-users-row" role="row">
+              <span role="cell">
+                <strong>${displayName}</strong>
+                <small>${username}</small>
+              </span>
+              <span role="cell">${adminLabel}</span>
+              <span role="cell">${activeLabel}</span>
+              <span class="admin-user-actions" role="cell">
+                ${
+                  user.is_active
+                    ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
+                    : `<button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>`
+                }
+                ${
+                  user.is_admin
+                    ? `<button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Remove admin</button>`
+                    : `<button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Make admin</button>`
+                }
+              </span>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+async function loadAdminUsers() {
+  if (!currentUser || !currentUser.is_admin) return;
+
+  setAdminMessage("Loading users...");
+
+  try {
+    const response = await apiFetch("/api/admin/users", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not load users.");
+    }
+
+    const payload = await response.json();
+    adminUsersLoaded = true;
+    renderAdminUsers(payload.users || []);
+    setAdminMessage(`${payload.count ?? 0} web user(s).`);
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function createAdminUser(event) {
+  event.preventDefault();
+
+  if (!adminCreateUserForm) return;
+
+  const formData = new FormData(adminCreateUserForm);
+  const username = String(formData.get("username") || "").trim();
+  const displayName = String(formData.get("display_name") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+  const isAdmin = formData.get("is_admin") === "on";
+
+  if (password !== confirmPassword) {
+    setAdminMessage("Passwords do not match.");
+    return;
+  }
+
+  setAdminMessage("Creating user...");
+
+  try {
+    const response = await apiFetch("/api/admin/users", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        display_name: displayName,
+        password,
+        is_admin: isAdmin,
+        is_active: true,
+      }),
+    });
+
+    adminCreateUserForm.reset();
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not create user.");
+    }
+
+    setAdminMessage("User created.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function setAdminUserPassword(event) {
+  event.preventDefault();
+
+  if (!adminPasswordForm) return;
+
+  const formData = new FormData(adminPasswordForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (password !== confirmPassword) {
+    setAdminMessage("Passwords do not match.");
+    return;
+  }
+
+  setAdminMessage("Updating password...");
+
+  try {
+    const response = await apiFetch(
+      `/api/admin/users/${encodeURIComponent(username)}/password`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      },
+    );
+
+    adminPasswordForm.reset();
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not update password.");
+    }
+
+    setAdminMessage("Password updated. Active sessions for that user were revoked.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function mutateAdminUser(username, action) {
+  const encodedUsername = encodeURIComponent(username);
+  const routes = {
+    activate: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/activate`,
+    },
+    deactivate: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/deactivate`,
+    },
+    "grant-admin": {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/admin`,
+    },
+    "revoke-admin": {
+      method: "DELETE",
+      url: `/api/admin/users/${encodedUsername}/admin`,
+    },
+  };
+
+  const route = routes[action];
+  if (!route) return;
+
+  setAdminMessage("Updating user...");
+
+  try {
+    const response = await apiFetch(route.url, {
+      method: route.method,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not update user.");
+    }
+
+    setAdminMessage("User updated.");
+    await loadAdminUsers();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+
+function setAppContentVisible(visible) {
+  appContentNodes.forEach((node) => {
+    node.hidden = !visible;
+  });
+}
+
+const THEME_STORAGE_KEY = "fluxtuner.theme";
+
+function systemThemePreference() {
+  if (window.matchMedia?.("(prefers-color-scheme: light)").matches) {
+    return "light";
+  }
+
+  return "dark";
+}
+
+function storedThemePreference() {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveThemePreference(theme) {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore storage failures. The selected theme still applies for this page load.
+  }
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === "light" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = nextTheme;
+  document.documentElement.style.colorScheme = nextTheme;
+
+  if (themeLabelNode) {
+    themeLabelNode.textContent = nextTheme === "light" ? "Dark" : "Light";
+  }
+
+  if (themeToggleButton) {
+    const label = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
+    themeToggleButton.setAttribute("aria-label", label);
+    themeToggleButton.title = label;
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const nextTheme = currentTheme === "light" ? "dark" : "light";
+
+  applyTheme(nextTheme);
+  saveThemePreference(nextTheme);
+}
+
+applyTheme(storedThemePreference() || systemThemePreference());
+
+function scrollToSection(node) {
+  if (!node) return;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function setMobileMenuOpen(open) {
+  if (!appHeader || !navToggleButton) return;
+
+  const nextState = open ? "true" : "false";
+  appHeader.dataset.mobileMenuOpen = nextState;
+  navToggleButton.setAttribute("aria-expanded", nextState);
+}
+
+function closeMobileMenu() {
+  setMobileMenuOpen(false);
+}
+
+function setPlayerVisible(isVisible) {
+  if (!playerBar) return;
+
+  if (isVisible) {
+    playerBar.removeAttribute("hidden");
+  } else {
+    playerBar.setAttribute("hidden", "");
+  }
+}
+
+function resetRadioBrowserView() {
+  showRadioBrowserView();
+  currentView = "search";
+  currentPlaylistName = "";
+  setResultsHeader("Radio Browser", "Search stations");
+
+  if (resultCountNode) {
+    resultCountNode.textContent = "";
+  }
+
+  if (resultsNode) {
+    resultsNode.innerHTML = '<p class="empty">Search Radio Browser to find internet radio stations.</p>';
+  }
+}
+
+function showRadioBrowserView() {
+  if (searchPanel) {
+    searchPanel.hidden = false;
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = true;
+  }
+}
+
+function showAdminView() {
+  if (searchPanel) {
+    searchPanel.hidden = true;
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = false;
+  }
+}
+
+async function navigateToPrivateView(loader) {
+  closeMobileMenu();
+  showRadioBrowserView();
+  if (!currentUser) {
+    renderAuthRequired();
+    scrollToSection(authPanel);
+    return;
+  }
+
+  await loader();
+  scrollToSection(searchPanel);
+}
+
+function updateSetupUi() {
+  const authenticated = Boolean(currentUser);
+
+  setPlayerVisible(!setupAvailable && authenticated);
+
+  if (appContent) {
+    appContent.hidden = !authenticated || setupAvailable;
+  }
+
+  if (setupPanel) {
+    setupPanel.hidden = !setupAvailable;
+  }
+
+  if (authPanel) {
+    authPanel.hidden = setupAvailable || authenticated;
+  }
+
+  setAppContentVisible(!setupAvailable && authenticated);
+
+  if (setupTokenField) {
+    setupTokenField.hidden = !setupRequiresToken;
+  }
+
+  if (setupMessageNode && setupAvailable) {
+    setupMessageNode.textContent = setupRequiresToken
+      ? "Enter the setup verification value configured on the server."
+      : "Local first-run setup is available. Create the first administrator.";
+  }
+}
+
+async function loadSetupState() {
+  try {
+    const response = await fetch("/api/setup/status", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      setupAvailable = false;
+      setupRequiresToken = false;
+      updateSetupUi();
+      await loadAuthState();
+      return;
+    }
+
+    const payload = await response.json();
+    setupAvailable = Boolean(payload.available);
+    setupRequiresToken = Boolean(payload.requires_setup_token);
+    updateSetupUi();
+
+    if (!setupAvailable) {
+      await loadAuthState();
+      return;
+    }
+
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+  } catch (_error) {
+    setupAvailable = false;
+    setupRequiresToken = false;
+    updateSetupUi();
+    await loadAuthState();
+  }
+}
+
+async function createFirstAdmin(event) {
+  event.preventDefault();
+
+  if (!setupForm || !setupMessageNode) return;
+
+  const formData = new FormData(setupForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+  const setupToken = String(formData.get("setup_token") || "");
+
+  if (password !== confirmPassword) {
+    setupMessageNode.textContent = "Passwords do not match.";
+    return;
+  }
+
+  setupMessageNode.textContent = "Creating administrator...";
+
+  try {
+    const body = {
+      username,
+      password,
+    };
+
+    if (setupRequiresToken) {
+      body.setup_token = setupToken;
+    }
+
+    const response = await fetch("/api/setup/create-admin", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    setupForm.reset();
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("Too many setup attempts. Try again later.");
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not complete first-run setup.");
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
+    setupAvailable = false;
+    setupRequiresToken = false;
+    resetRadioBrowserView();
+    updateSetupUi();
+    updateAuthUi();
+    scrollToSection(searchPanel);
+  } catch (error) {
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+    setupMessageNode.textContent = String(error);
+  }
+}
+
+
+function updateAuthUi() {
+  const authenticated = Boolean(currentUser);
+
+  setPlayerVisible(!setupAvailable && authenticated);
+
+  if (authPanel) {
+    authPanel.dataset.authenticated = authenticated ? "true" : "false";
+    authPanel.hidden = setupAvailable || authenticated;
+  }
+
+  setAppContentVisible(!setupAvailable && authenticated);
+
+  const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
+
+  if (authenticated && !showAdminPanel && searchPanel && searchPanel.hidden) {
+    showRadioBrowserView();
+  }
+
+  if (adminPanel && !showAdminPanel) {
+    adminPanel.hidden = true;
+  }
+
+  if (navAdminButton) {
+    navAdminButton.hidden = !showAdminPanel;
+  }
+
+  if (!showAdminPanel) {
+    clearAdminUsers();
+  }
+
+  if (loginForm) {
+    loginForm.hidden = authenticated;
+  }
+
+  if (authUserPanel) {
+    authUserPanel.hidden = !authenticated;
+  }
+
+  if (authUsernameNode) {
+    authUsernameNode.textContent = authenticated
+      ? `${currentUser.username} · default`
+      : "";
+  }
+
+  privateActionNodes.forEach((node) => {
+    node.disabled = !authenticated;
+  });
+
+  if (authMessageNode) {
+    authMessageNode.textContent = authenticated
+      ? "Private library tools are available."
+      : "Sign in to search, play, favorite and organize stations.";
+  }
+}
+
+function renderAuthRequired() {
+  if (resultsNode && resultCountNode) {
+    resultCountNode.textContent = "Login required.";
+    resultsNode.innerHTML =
+      '<p class="empty">Sign in to use favorites, history and playlists.</p>';
+  }
+
+  if (authMessageNode) {
+    authMessageNode.textContent = "Session expired or login required.";
+  }
+}
+
+async function apiFetch(url, options = {}) {
+  const requestOptions = { ...options };
+  const method = String(requestOptions.method || "GET").toUpperCase();
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
+    requestOptions.headers = {
+      ...(requestOptions.headers || {}),
+      "X-FluxTuner-CSRF": csrfToken,
+    };
+  }
+
+  const response = await fetch(url, requestOptions);
+
+  if (response.status === 401) {
+    csrfToken = "";
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+    renderAuthRequired();
+  }
+
+  return response;
+}
+
+async function loadAuthState() {
+  try {
+    const response = await fetch("/api/auth/me", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      currentUser = null;
+      csrfToken = "";
+      updateAuthUi();
+      return;
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
+    resetRadioBrowserView();
+    updateAuthUi();
+  } catch (_error) {
+    currentUser = null;
+    updateAuthUi();
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+
+  if (!loginForm || !authMessageNode) return;
+
+  const formData = new FormData(loginForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  authMessageNode.textContent = "Signing in...";
+
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    loginForm.reset();
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("Too many login attempts. Try again later.");
+      }
+
+      throw new Error("Invalid username or password.");
+    }
+
+    const payload = await response.json();
+    currentUser = payload.user || null;
+    csrfToken = payload.csrf_token || "";
+    resetRadioBrowserView();
+    updateAuthUi();
+  } catch (error) {
+    currentUser = null;
+    csrfToken = "";
+    updateAuthUi();
+    authMessageNode.textContent = String(error);
+  }
+}
+
+async function logout() {
+  try {
+    await apiFetch("/api/auth/logout", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+  } finally {
+    stopPlayback();
+    currentUser = null;
+    resetRadioBrowserView();
+    updateAuthUi();
+    renderAuthRequired();
+  }
+}
+
+
 function setPlayerState(state, message) {
   if (playerBar) {
     playerBar.dataset.state = state;
@@ -118,12 +888,12 @@ function updatePlayerControls() {
 
 async function recordHistory(station) {
   const url = stationUrl(station);
-  if (!url || recordedHistoryUrl === url) return;
+  if (!currentUser || !url || recordedHistoryUrl === url) return;
 
   recordedHistoryUrl = url;
 
   try {
-    const response = await fetch("/api/history", {
+    const response = await apiFetch("/api/history", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -148,7 +918,7 @@ async function addFavorite(station) {
   }
 
   try {
-    const response = await fetch("/api/favorites", {
+    const response = await apiFetch("/api/favorites", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -179,7 +949,7 @@ async function removeFavorite(station) {
   }
 
   try {
-    const response = await fetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
+    const response = await apiFetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
       method: "DELETE",
       headers: {
         Accept: "application/json",
@@ -204,28 +974,135 @@ async function removeFavorite(station) {
   }
 }
 
-async function addToPlaylist(station) {
+
+function setPlaylistDialogMessage(message) {
+  if (playlistMessageNode) {
+    playlistMessageNode.textContent = message || "";
+  }
+}
+
+function closePlaylistDialog() {
+  pendingPlaylistStation = null;
+
+  if (playlistDialog) {
+    playlistDialog.hidden = true;
+  }
+
+  if (playlistForm) {
+    playlistForm.reset();
+  }
+
+  setPlaylistDialogMessage("");
+}
+
+function renderPlaylistOptions(playlists) {
+  if (!playlistSelect) return;
+
+  const items = playlists || [];
+  const options = items
+    .map((playlist) => {
+      const name = escapeHtml(playlist.name || "");
+      const count = Number(playlist.count || 0);
+      const suffix = `${count} station${count === 1 ? "" : "s"}`;
+      return `<option value="${name}">${name} · ${suffix}</option>`;
+    })
+    .join("");
+
+  playlistSelect.innerHTML =
+    '<option value="">Choose existing playlist...</option>' +
+    options;
+}
+
+async function loadPlaylistChoices() {
+  if (!playlistSelect) return;
+
+  playlistSelect.innerHTML = '<option value="">Loading playlists...</option>';
+
+  const response = await apiFetch("/api/playlists", {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  renderPlaylistOptions(payload.playlists || []);
+
+  if (!(payload.playlists || []).length) {
+    setPlaylistDialogMessage("No playlists yet. Enter a new playlist name below.");
+  } else {
+    setPlaylistDialogMessage("Choose an existing playlist or enter a new name.");
+  }
+}
+
+async function openPlaylistDialog(station) {
   const url = stationUrl(station);
   if (!url) {
     setPlayerState("error", "This station has no URL to add to a playlist.");
     return;
   }
 
-  const playlistName = window.prompt("Playlist name:");
-  if (!playlistName || !playlistName.trim()) {
+  if (!playlistDialog || !playlistForm) {
+    setPlayerState("error", "Playlist dialog is not available.");
     return;
   }
 
+  pendingPlaylistStation = station;
+  playlistDialog.hidden = false;
+
+  if (playlistStationNameNode) {
+    playlistStationNameNode.textContent = station.name
+      ? `Station: ${station.name}`
+      : "Station selected.";
+  }
+
+  setPlaylistDialogMessage("Loading playlists...");
+
   try {
-    const response = await fetch(
-      `/api/playlists/${encodeURIComponent(playlistName.trim())}/stations`,
+    await loadPlaylistChoices();
+  } catch (error) {
+    setPlaylistDialogMessage(`Could not load playlists. ${error}`);
+  }
+
+  const firstInput = playlistDialog.querySelector("select, input, button");
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+async function submitPlaylistDialog(event) {
+  event.preventDefault();
+
+  if (!pendingPlaylistStation || !playlistForm) {
+    closePlaylistDialog();
+    return;
+  }
+
+  const formData = new FormData(playlistForm);
+  const selectedPlaylist = String(formData.get("playlist") || "").trim();
+  const newPlaylist = String(formData.get("new_playlist") || "").trim();
+  const playlistName = newPlaylist || selectedPlaylist;
+
+  if (!playlistName) {
+    setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.");
+    return;
+  }
+
+  setPlaylistDialogMessage("Adding station...");
+
+  try {
+    const response = await apiFetch(
+      `/api/playlists/${encodeURIComponent(playlistName)}/stations`,
       {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(station),
+        body: JSON.stringify(pendingPlaylistStation),
       },
     );
 
@@ -234,15 +1111,27 @@ async function addToPlaylist(station) {
     }
 
     const payload = await response.json();
+    closePlaylistDialog();
     setPlayerState(
       "idle",
       payload.added
         ? `Added to playlist "${payload.name}".`
         : `Station is already in playlist "${payload.name}".`,
     );
+
+    if (currentView === "playlists") {
+      await loadPlaylists();
+    } else if (currentView === "playlist" && currentPlaylistName === payload.name) {
+      await loadPlaylistStations(currentPlaylistName);
+    }
   } catch (error) {
-    setPlayerState("error", `Could not add station to playlist. ${error}`);
+    setPlaylistDialogMessage(`Could not add station. ${error}`);
   }
+}
+
+
+async function addToPlaylist(station) {
+  await openPlaylistDialog(station);
 }
 
 async function removeFromPlaylist(station) {
@@ -252,7 +1141,7 @@ async function removeFromPlaylist(station) {
   }
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/playlists/${encodeURIComponent(currentPlaylistName)}/stations?url=${encodeURIComponent(url)}`,
       {
         method: "DELETE",
@@ -287,7 +1176,7 @@ async function createPlaylistFromPrompt() {
   }
 
   try {
-    const response = await fetch("/api/playlists", {
+    const response = await apiFetch("/api/playlists", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -320,7 +1209,7 @@ async function deletePlaylist(name) {
   }
 
   try {
-    const response = await fetch(`/api/playlists/${encodeURIComponent(name)}`, {
+    const response = await apiFetch(`/api/playlists/${encodeURIComponent(name)}`, {
       method: "DELETE",
       headers: {
         Accept: "application/json",
@@ -458,28 +1347,28 @@ function renderStation(station) {
             : ""
         }
         ${
-          streamUrl
+          currentUser && streamUrl
             ? `<button type="button" data-add-favorite="${stationButtonPayload(
                 station,
               )}">Add favorite</button>`
             : ""
         }
         ${
-          streamUrl
+          currentUser && streamUrl
             ? `<button type="button" data-add-to-playlist="${stationButtonPayload(
                 station,
               )}">Add to playlist</button>`
             : ""
         }
         ${
-          currentView === "favorites" && streamUrl
+          currentUser && currentView === "favorites" && streamUrl
             ? `<button type="button" data-remove-favorite="${stationButtonPayload(
                 station,
               )}">Remove favorite</button>`
             : ""
         }
         ${
-          currentView === "playlist" && streamUrl
+          currentUser && currentView === "playlist" && streamUrl
             ? `<button type="button" data-remove-from-playlist="${stationButtonPayload(
                 station,
               )}">Remove from playlist</button>`
@@ -751,7 +1640,7 @@ async function loadFavorites() {
   resultsNode.innerHTML = '<p class="empty">Loading favorites...</p>';
 
   try {
-    const response = await fetch("/api/favorites", {
+    const response = await apiFetch("/api/favorites", {
       headers: {
         Accept: "application/json",
       },
@@ -778,7 +1667,7 @@ async function loadPlaylists() {
   resultsNode.innerHTML = '<p class="empty">Loading playlists...</p>';
 
   try {
-    const response = await fetch("/api/playlists", {
+    const response = await apiFetch("/api/playlists", {
       headers: {
         Accept: "application/json",
       },
@@ -805,7 +1694,7 @@ async function loadPlaylistStations(name) {
   resultsNode.innerHTML = '<p class="empty">Loading playlist stations...</p>';
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/playlists/${encodeURIComponent(name)}/stations`,
       {
         headers: {
@@ -825,8 +1714,111 @@ async function loadPlaylistStations(name) {
   }
 }
 
+if (adminLoadUsersButton) {
+  adminLoadUsersButton.addEventListener("click", loadAdminUsers);
+}
+
+if (adminCreateUserForm) {
+  adminCreateUserForm.addEventListener("submit", createAdminUser);
+}
+
+if (adminPasswordForm) {
+  adminPasswordForm.addEventListener("submit", setAdminUserPassword);
+}
+
+if (adminUsersNode) {
+  adminUsersNode.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-user-action]");
+    if (!button) return;
+    mutateAdminUser(button.dataset.adminUsername || "", button.dataset.adminUserAction || "");
+  });
+}
+
+if (playlistForm) {
+  playlistForm.addEventListener("submit", submitPlaylistDialog);
+}
+
+playlistCancelButtons.forEach((button) => {
+  button.addEventListener("click", closePlaylistDialog);
+});
+
+if (setupForm) {
+  setupForm.addEventListener("submit", createFirstAdmin);
+}
+
+if (loginForm) {
+  loginForm.addEventListener("submit", login);
+}
+
+if (logoutButton) {
+  logoutButton.addEventListener("click", logout);
+}
+
 if (healthButton) {
   healthButton.addEventListener("click", checkHealth);
+}
+
+if (navToggleButton) {
+  navToggleButton.addEventListener("click", () => {
+    const isOpen = appHeader?.dataset.mobileMenuOpen === "true";
+    setMobileMenuOpen(!isOpen);
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (!appHeader || appHeader.dataset.mobileMenuOpen !== "true") return;
+  if (event.target instanceof Node && appHeader.contains(event.target)) return;
+
+  closeMobileMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMobileMenu();
+  }
+});
+
+if (themeToggleButton) {
+  themeToggleButton.addEventListener("click", toggleTheme);
+}
+
+if (navSearchButton) {
+  navSearchButton.addEventListener("click", () => {
+    closeMobileMenu();
+    showRadioBrowserView();
+    scrollToSection(searchPanel);
+  });
+}
+
+if (navFavoritesButton) {
+  navFavoritesButton.addEventListener("click", () => navigateToPrivateView(loadFavorites));
+}
+
+if (navPlaylistsButton) {
+  navPlaylistsButton.addEventListener("click", () => navigateToPrivateView(loadPlaylists));
+}
+
+if (navHistoryButton) {
+  navHistoryButton.addEventListener("click", () => navigateToPrivateView(loadHistory));
+}
+
+if (navAdminButton) {
+  navAdminButton.addEventListener("click", async () => {
+    closeMobileMenu();
+
+    if (!currentUser || !currentUser.is_admin || !adminPanel) return;
+
+    showAdminView();
+
+    await checkHealth();
+
+    if (!adminUsersLoaded) {
+      adminUsersLoaded = true;
+      await loadAdminUsers();
+    }
+
+    scrollToSection(adminPanel);
+  });
 }
 
 if (searchForm) {
@@ -886,3 +1878,20 @@ if (audioNode) {
 }
 
 updatePlayerControls();
+
+async function initializeAuthFlow() {
+  updateSetupUi();
+  updateAuthUi();
+
+  await loadSetupState();
+
+  if (setupAvailable) {
+    updateSetupUi();
+    updateAuthUi();
+    return;
+  }
+
+  await loadAuthState();
+}
+
+initializeAuthFlow();

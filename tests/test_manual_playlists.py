@@ -1,6 +1,8 @@
+# SPDX-License-Identifier: MIT
+
 from pathlib import Path
 
-from fluxtuner.core import favorites, manual_playlists
+from fluxtuner.core import db, favorites, manual_playlists
 
 
 def patch_data_files(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
@@ -430,3 +432,55 @@ def test_playlist_counts_and_summary_are_scoped_by_profile_name(
 
     assert manual_playlists.summarize_playlist("Morning") == "• Default Radio"
     assert manual_playlists.summarize_playlist("Morning", profile_name="work") == ("• Work Radio")
+
+
+def test_manual_playlists_are_isolated_by_user_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_data_files(tmp_path, monkeypatch)
+
+    db.init_db(manual_playlists._db_path())
+
+    with db.connect(manual_playlists._db_path()) as conn:
+        laura_id = db.get_or_create_user(conn, "laura")
+        guest_id = db.get_or_create_user(conn, "guest")
+        conn.commit()
+
+    station = {
+        "name": "Shared Radio",
+        "url": "https://example.com/shared",
+    }
+
+    assert favorites.add_favorite(station, user_id=laura_id) is True
+    assert (
+        manual_playlists.add_station_to_playlist(
+            "Morning",
+            station,
+            user_id=laura_id,
+        )
+        is True
+    )
+
+    assert manual_playlists.load_playlists(user_id=guest_id) == []
+    assert manual_playlists.get_playlist_stations("Morning", user_id=guest_id) == []
+
+    assert manual_playlists.load_playlists(user_id=laura_id) == [
+        {
+            "name": "Morning",
+            "station_keys": ["https://example.com/shared"],
+        }
+    ]
+    assert [
+        item["name"]
+        for item in manual_playlists.get_playlist_stations(
+            "Morning",
+            user_id=laura_id,
+        )
+    ] == ["Shared Radio"]
+
+    assert manual_playlists.delete_playlist("Morning", user_id=guest_id) is False
+    assert manual_playlists.get_playlist("Morning", user_id=laura_id) is not None
+
+    assert manual_playlists.delete_playlist("Morning", user_id=laura_id) is True
+    assert manual_playlists.get_playlist("Morning", user_id=laura_id) is None

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 import argparse
@@ -553,9 +555,21 @@ def main() -> None:
         action="store_true",
         help="Print runtime diagnostics for paths and player backends, then exit.",
     )
+    parser.add_argument(
+        "command",
+        nargs="*",
+        help=argparse.SUPPRESS,
+    )
 
     args = parser.parse_args()
     configure_logging(verbose=args.verbose)
+
+    if args.command:
+        from fluxtuner.web.admin_cli import handle_web_user_command
+
+        if handle_web_user_command(args.command, console=console):
+            return
+        parser.error("unknown command: " + " ".join(args.command))
 
     effective_profile_name = resolve_effective_profile_name(args.profile)
 

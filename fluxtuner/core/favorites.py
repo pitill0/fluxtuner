@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 import json
@@ -93,6 +95,7 @@ def load_favorites(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     _ensure_favorites_db()
 
@@ -101,6 +104,7 @@ def load_favorites(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         return [
             normalize_favorite(item)
@@ -113,6 +117,7 @@ def save_favorites(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> None:
     _ensure_favorites_db()
 
@@ -124,6 +129,7 @@ def save_favorites(
                 conn,
                 profile_id=profile_id,
                 profile_name=profile_name,
+                user_id=user_id,
             )
             db.replace_favorites(conn, normalized, profile_id=active_profile_id)
             conn.commit()
@@ -165,6 +171,7 @@ def add_favorite(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     key = station_key(station)
     if not key:
@@ -178,6 +185,7 @@ def add_favorite(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         added = db.add_favorite_record(conn, favorite, profile_id=active_profile_id)
         conn.commit()
@@ -189,6 +197,7 @@ def remove_favorite(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     key = station_key(station)
     if not key:
@@ -201,6 +210,7 @@ def remove_favorite(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         removed = db.remove_favorite_record(conn, key, profile_id=active_profile_id)
         conn.commit()
@@ -214,6 +224,7 @@ def update_favorite(
     favorite_tags: Any = ...,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> bool:
     key = station.strip() if isinstance(station, str) else station_key(station) or ""
 
@@ -227,6 +238,7 @@ def update_favorite(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         changed = db.update_favorite_record(
             conn,
@@ -244,14 +256,17 @@ def filter_favorites_by_tag(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     clean_tag = tag.strip().lower()
     if not clean_tag:
-        return load_favorites(profile_id=profile_id, profile_name=profile_name)
+        return load_favorites(profile_id=profile_id, profile_name=profile_name, user_id=user_id)
 
     return [
         favorite
-        for favorite in load_favorites(profile_id=profile_id, profile_name=profile_name)
+        for favorite in load_favorites(
+            profile_id=profile_id, profile_name=profile_name, user_id=user_id
+        )
         if clean_tag in {item.lower() for item in favorite.get("favorite_tags", [])}
     ]
 
@@ -260,8 +275,11 @@ def all_favorite_tags(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[str]:
     tags: set[str] = set()
-    for favorite in load_favorites(profile_id=profile_id, profile_name=profile_name):
+    for favorite in load_favorites(
+        profile_id=profile_id, profile_name=profile_name, user_id=user_id
+    ):
         tags.update(favorite.get("favorite_tags", []))
     return sorted(tags, key=str.lower)

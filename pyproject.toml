@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluxtuner"
-version = "0.8.0"
+version = "0.9.0"
 description = "Modern internet radio player for terminal, desktop and web, powered by Textual, GTK and browser playback."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "MIT AND LicenseRef-FluxTuner-Web-NC"
 authors = [
     { name = "FluxTuner contributors" }
 ]
@@ -30,7 +30,6 @@ classifiers = [
     "Environment :: Console",
     "Environment :: X11 Applications :: GTK",
     "Intended Audience :: End Users/Desktop",
-    "MIT",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
@@ -52,14 +51,22 @@ gui = [
     "PyGObject>=3.46,<4",
 ]
 web = [
+    "argon2-cffi>=25.1.0,<26",
     "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
     "uvicorn[standard]>=0.30,<1",
 ]
 dev = [
+    "argon2-cffi>=25.1.0,<26",
     "build>=1.2.0,<2",
+    "fastapi>=0.115,<1",
+    "jinja2>=3.1,<4",
     "ruff>=0.5.0,<1",
     "pytest>=9.0.3,<10",
     "mypy>=1.14.0,<2",
+    "httpx>=0.27,<1",
+    "httpx2>=2.0,<3",
+    "uvicorn[standard]>=0.30,<1",
 ]
 
 [project.urls]
@@ -67,6 +74,7 @@ Homepage = "https://github.com/pitill0/fluxtuner"
 Repository = "https://github.com/pitill0/fluxtuner"
 Issues = "https://github.com/pitill0/fluxtuner/issues"
 Changelog = "https://github.com/pitill0/fluxtuner/blob/main/CHANGELOG.md"
+Licensing = "https://github.com/pitill0/fluxtuner/blob/main/docs/licensing.md"
 
 [project.scripts]
 fluxtuner = "fluxtuner.__main__:main"
@@ -90,6 +98,7 @@ fluxtuner = [
     "web/static/*.css",
     "web/static/*.js",
     "web/static/*.svg",
+    "web/static/*.png",
 ]
 
 [tool.ruff]

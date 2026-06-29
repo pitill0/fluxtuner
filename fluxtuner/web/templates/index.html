@@ -1,97 +1,354 @@
+<!--
+  SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+-->
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FluxTuner Web</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/static/app-icon.png" type="image/png">
     <link rel="stylesheet" href="/static/styles.css">
     <script src="/static/app.js" defer></script>
   </head>
   <body>
     <main class="shell">
-      <section class="hero" aria-labelledby="page-title">
-        <p class="eyebrow">Web/server mode</p>
-        <h1 id="page-title">FluxTuner Web</h1>
-        <p class="lede">
-          Search, play, favorite and organize internet radio from any browser.
-        </p>
+      <header class="app-header" data-app-header data-mobile-menu-open="false">
+        <a class="app-brand" href="/" aria-label="FluxTuner Web home">
+          <img class="app-brand-icon" src="/static/app-icon.png" alt="" aria-hidden="true">
+          <span>
+            <strong>FluxTuner Web</strong>
+            <small>Private internet radio</small>
+          </span>
+        </a>
 
-        <details class="server-tools">
-          <summary>Server tools</summary>
-
-          <div class="actions">
-            <button type="button" data-health-check>Check server</button>
-            <a href="/api/health">Open health endpoint</a>
+        <div class="app-header-actions">
+          <div class="app-user" data-auth-user hidden>
+            <span data-auth-username></span>
+            <button type="button" data-logout>Logout</button>
           </div>
 
-          <pre class="status" data-status>Server status: not checked yet.</pre>
-        </details>
-      </section>
+          <button
+            class="theme-toggle"
+            type="button"
+            data-theme-toggle
+            aria-label="Switch theme"
+            title="Switch theme"
+          >
+            <span data-theme-label>Theme</span>
+          </button>
 
-      <section class="panel" aria-labelledby="search-title">
+          <button
+            class="app-menu-toggle"
+            type="button"
+            data-nav-toggle
+            aria-controls="app-menu"
+            aria-expanded="false"
+          >
+            <span class="sr-only">Toggle navigation</span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="app-menu" id="app-menu" data-app-menu>
+          <nav class="app-nav" aria-label="Primary navigation">
+            <button type="button" data-nav-search data-private-action disabled>Search</button>
+            <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
+            <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
+            <button type="button" data-nav-history data-private-action disabled>History</button>
+            <button type="button" data-nav-admin hidden>Admin</button>
+          </nav>
+        </div>
+      </header>
+
+      <section class="panel setup-panel" data-setup-panel hidden aria-labelledby="setup-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow" data-results-kicker>Radio Browser</p>
-            <h2 id="search-title" data-results-title>Search stations</h2>
-          </div>
-
-          <div class="panel-tools">
-            <p data-result-count>No search yet.</p>
-            <button type="button" data-load-history>Load history</button>
-            <button type="button" data-load-favorites>Load favorites</button>
-            <button type="button" data-load-playlists>Load playlists</button>
+            <p class="eyebrow">First-run setup</p>
+            <h2 id="setup-title">Create the first administrator</h2>
           </div>
         </div>
 
-        <form class="search-form" data-search-form>
+        <form class="setup-form" data-setup-form>
           <label>
-            <span>Search</span>
+            <span>Admin username</span>
             <input
-              name="q"
-              type="search"
-              placeholder="Station name or genre/tag"
-              autocomplete="off"
+              name="username"
+              type="text"
+              autocomplete="username"
               required
             >
           </label>
 
           <label>
-            <span>Country</span>
+            <span>Password</span>
             <input
-              name="country"
-              type="search"
-              placeholder="Optional, e.g. Spain or ES"
-              autocomplete="off"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              required
             >
           </label>
 
           <label>
-            <span>Min kbps</span>
+            <span>Confirm password</span>
             <input
-              name="min_bitrate"
-              type="number"
-              min="0"
-              max="1000"
-              step="1"
-              value="0"
+              name="confirm_password"
+              type="password"
+              autocomplete="new-password"
+              required
             >
           </label>
 
-          <button type="submit">Search</button>
+          <label data-setup-token-field hidden>
+            <span>Setup verification</span>
+            <input
+              name="setup_token"
+              type="password"
+              autocomplete="off"
+            >
+          </label>
+
+          <button type="submit" data-setup-submit>Create administrator</button>
         </form>
 
-        <div class="results" data-results>
-          <p class="empty">Search for a station, genre or tag to see results here.</p>
-        </div>
+        <p class="setup-message" data-setup-message>
+          No administrator exists yet. Create one to finish securing FluxTuner Web.
+        </p>
       </section>
+
+      <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Private library</p>
+            <h2 id="auth-title">Sign in</h2>
+          </div>
+        </div>
+
+        <form class="auth-form" data-login-form>
+          <label>
+            <span>Username</span>
+            <input
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+            >
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
+          </label>
+
+          <button type="submit" data-login-submit>Login</button>
+        </form>
+
+        <p class="auth-message" data-auth-message>
+          Sign in to use favorites, history and playlists.
+        </p>
+      </section>
+
+      <div class="app-content" data-app-content hidden>
+              <section class="panel admin-panel" data-admin-panel hidden aria-labelledby="admin-title">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Administration</p>
+                    <h2 id="admin-title">Web users</h2>
+                  </div>
+
+                  <button type="button" data-admin-load-users>Refresh users</button>
+                </div>
+
+                <div class="admin-health" data-admin-health>
+                  <div>
+                    <p class="eyebrow">Server health</p>
+                    <strong data-health-state>Not checked yet</strong>
+                    <span data-health-summary>Open Admin to refresh server status.</span>
+                  </div>
+
+                  <button type="button" data-health-check>Refresh</button>
+
+                  <details class="admin-health-details">
+                    <summary>Details</summary>
+                    <pre class="status" data-status>Server status: not checked yet.</pre>
+                  </details>
+                </div>
+
+                <div class="admin-forms">
+                  <form class="admin-user-form" data-admin-create-user-form>
+                    <h3>Create user</h3>
+
+                    <label>
+                      <span>Username</span>
+                      <input name="username" type="text" autocomplete="off" required>
+                    </label>
+
+                    <label>
+                      <span>Display name</span>
+                      <input name="display_name" type="text" autocomplete="off">
+                    </label>
+
+                    <label>
+                      <span>Password</span>
+                      <input name="password" type="password" autocomplete="new-password" required>
+                    </label>
+
+                    <label>
+                      <span>Confirm password</span>
+                      <input name="confirm_password" type="password" autocomplete="new-password" required>
+                    </label>
+
+                    <label class="checkbox-label">
+                      <input name="is_admin" type="checkbox">
+                      <span>Administrator</span>
+                    </label>
+
+                    <button type="submit">Create user</button>
+                  </form>
+
+                  <form class="admin-user-form" data-admin-password-form>
+                    <h3>Reset password</h3>
+
+                    <label>
+                      <span>Username</span>
+                      <input name="username" type="text" autocomplete="off" required>
+                    </label>
+
+                    <label>
+                      <span>New password</span>
+                      <input name="password" type="password" autocomplete="new-password" required>
+                    </label>
+
+                    <label>
+                      <span>Confirm password</span>
+                      <input name="confirm_password" type="password" autocomplete="new-password" required>
+                    </label>
+
+                    <button type="submit">Update password</button>
+                  </form>
+                </div>
+
+                <p class="admin-message" data-admin-message></p>
+
+                <div class="admin-users" data-admin-users>
+                  <p class="empty">Admin users will appear here.</p>
+                </div>
+              </section>
+
+              <section class="panel" id="library-panel" data-search-panel aria-labelledby="search-title">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow" data-results-kicker>Radio Browser</p>
+                    <h2 id="search-title" data-results-title>Search stations</h2>
+                  </div>
+
+                  <div class="panel-tools">
+                    <p data-result-count>No search yet.</p>
+                    <button type="button" data-load-history data-private-action disabled>Load history</button>
+                    <button type="button" data-load-favorites data-private-action disabled>Load favorites</button>
+                    <button type="button" data-load-playlists data-private-action disabled>Load playlists</button>
+                  </div>
+                </div>
+
+                <form class="search-form" data-search-form>
+                  <label>
+                    <span>Search</span>
+                    <input
+                      name="q"
+                      type="search"
+                      placeholder="Station name or genre/tag"
+                      autocomplete="off"
+                      required
+                    >
+                  </label>
+
+                  <label>
+                    <span>Country</span>
+                    <input
+                      name="country"
+                      type="search"
+                      placeholder="Optional, e.g. Spain or ES"
+                      autocomplete="off"
+                    >
+                  </label>
+
+                  <label>
+                    <span>Min kbps</span>
+                    <input
+                      name="min_bitrate"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      step="1"
+                      value="0"
+                    >
+                  </label>
+
+                  <button type="submit">Search</button>
+                </form>
+
+                <div class="results" data-results>
+                  <p class="empty">Search for a station, genre or tag to see results here.</p>
+                </div>
+              </section>
+      </div>
 
       <footer>
         FluxTuner __FLUXTUNER_VERSION__
       </footer>
     </main>
 
-    <aside class="player-bar" data-player-bar aria-live="polite">
+    <section class="playlist-dialog" data-playlist-dialog hidden aria-labelledby="playlist-dialog-title">
+      <div class="playlist-dialog-card">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Playlist</p>
+            <h2 id="playlist-dialog-title">Add station to playlist</h2>
+          </div>
+
+          <button type="button" data-playlist-cancel>Cancel</button>
+        </div>
+
+        <p class="playlist-dialog-station" data-playlist-station-name></p>
+
+        <form class="playlist-dialog-form" data-playlist-form>
+          <label>
+            <span>Existing playlist</span>
+            <select name="playlist" data-playlist-select>
+              <option value="">Loading playlists...</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Or create a new playlist</span>
+            <input
+              name="new_playlist"
+              type="text"
+              autocomplete="off"
+              placeholder="New playlist name"
+            >
+          </label>
+
+          <p class="playlist-dialog-message" data-playlist-message></p>
+
+          <div class="station-actions">
+            <button type="submit">Add station</button>
+            <button type="button" data-playlist-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <aside id="player-bar" class="player-bar" data-player-bar aria-live="polite" hidden>
       <div class="player-info">
         <p class="eyebrow">Browser playback</p>
         <h2 data-player-title>Nothing playing yet</h2>

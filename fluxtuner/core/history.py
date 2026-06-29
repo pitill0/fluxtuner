@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 import json
@@ -89,6 +91,7 @@ def load_history(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     _ensure_history_db()
 
@@ -97,6 +100,7 @@ def load_history(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         return db.list_history(conn, limit=MAX_HISTORY_ITEMS, profile_id=active_profile_id)
 
@@ -106,6 +110,7 @@ def save_history(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> None:
     _ensure_history_db()
 
@@ -115,6 +120,7 @@ def save_history(
                 conn,
                 profile_id=profile_id,
                 profile_name=profile_name,
+                user_id=user_id,
             )
             db.replace_history(
                 conn,
@@ -133,6 +139,7 @@ def add_history(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> None:
     if not station.get("url"):
         return
@@ -144,6 +151,7 @@ def add_history(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         db.add_history_record(conn, station, profile_id=active_profile_id)
         conn.commit()
@@ -153,6 +161,7 @@ def clear_history(
     *,
     profile_id: int | None = None,
     profile_name: str | None = None,
+    user_id: int | None = None,
 ) -> None:
     _ensure_history_db()
 
@@ -161,6 +170,7 @@ def clear_history(
             conn,
             profile_id=profile_id,
             profile_name=profile_name,
+            user_id=user_id,
         )
         db.clear_history_records(conn, profile_id=active_profile_id)
         conn.commit()

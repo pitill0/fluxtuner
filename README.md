@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/github/v/release/pitill0/fluxtuner?include_prereleases)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-MIT%20%2B%20Web--NC-blue)
 ![TUI](https://img.shields.io/badge/TUI-Textual-purple)
 ![GUI](https://img.shields.io/badge/GUI-GTK4-blueviolet)
 ![Player](https://img.shields.io/badge/player-mpv%20%7C%20ffplay%20%7C%20mpg123%20%7C%20ogg123-orange)
@@ -38,6 +38,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
+- Use Web/server accounts with first-run admin setup, authenticated profiles, CSRF-protected mutations and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
 ---
@@ -98,9 +99,9 @@ fluxtuner
 
 You can run FluxTuner directly from a tagged source archive:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.8.0.tar.gz
-    tar xvf v0.8.0.tar.gz
-    cd fluxtuner-0.8.0
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.9.0.tar.gz
+    tar xvf v0.9.0.tar.gz
+    cd fluxtuner-0.9.0
 
 Install the Python dependencies required by the terminal interface.
 
@@ -161,7 +162,7 @@ fluxtuner --cli        # legacy numbered CLI
 
 ### Web/server mode
 
-FluxTuner includes a browser-based web/server mode for local or LAN usage, remote control and lightweight testing:
+FluxTuner includes a browser-based web/server mode with local accounts, authenticated library APIs, first-run administrator setup and browser playback:
 
 ```bash
 python -m pip install -e ".[web]"
@@ -182,7 +183,7 @@ FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 
 
 This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory.
 
-See [`docs/web.md`](docs/web.md) for details.
+See [`docs/web.md`](docs/web.md) for Web/server usage, [`docs/container.md`](docs/container.md) for containers, and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
 
 ---
 
@@ -221,14 +222,18 @@ for example:
     /api/favorites?profile=work
 
 Profiles separate favorites, manual playlists and playback history by context.
-They are not separate user accounts.
+They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode adds authenticated users that own their own profiles.
 
 ## Documentation
 
 - [Usage guide](docs/usage.md)
 - [Architecture](docs/architecture.md)
 - [Web/server mode](docs/web.md)
+- [Web multi-user model](docs/multiuser.md)
+- [Secure web deployment](docs/secure-web-deployment.md)
+- [Container usage](docs/container.md)
 - [Release process](docs/release.md)
+- [Licensing details](docs/licensing.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
@@ -237,7 +242,23 @@ They are not separate user accounts.
 
 ## License
 
-MIT
+FluxTuner uses a split licensing model:
+
+- **MIT License** for the local/core application components.
+- **FluxTuner Web Non-Commercial License** for Web/server, multi-user,
+  authentication, session, first-run setup, admin-user management, and hosted
+  service components.
+- **Commercial Web/server use requires a separate written commercial license.**
+
+The FluxTuner name, logo, icons, screenshots, project website identity, and
+branding are not licensed with the software.
+
+See:
+
+- [`LICENSE`](LICENSE)
+- [`LICENSE-WEB`](LICENSE-WEB)
+- [`TRADEMARKS.md`](TRADEMARKS.md)
+- [`docs/licensing.md`](docs/licensing.md)
 
 ---
 

@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: MIT
+#
+# FluxTuner core storage remains MIT for local application use.
+# Web/server-specific user, profile-ownership, login-attempt and session
+# storage behavior in this file is additionally governed by LICENSE-WEB
+# when used to operate, host, sell or monetize FluxTuner Web/server features.
+
 from __future__ import annotations
 
 import json
@@ -10,8 +17,9 @@ from fluxtuner.core.stations import station_key, station_name
 from fluxtuner.paths import data_file
 
 DB_FILE = data_file("fluxtuner.db")
+DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
-SCHEMA_MIGRATION_NAME = "schema_v1"
+SCHEMA_MIGRATION_NAME = "schema_v4"
 
 
 def utc_now() -> str:
@@ -30,9 +38,11 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 
 
 def init_db(db_path: Path | None = None) -> None:
-    """Create the FluxTuner SQLite schema and default profile if needed."""
+    """Create the FluxTuner SQLite schema and default user/profile if needed."""
     with connect(db_path) as conn:
         create_schema(conn)
+        ensure_profile_user_schema(conn)
+        ensure_default_user(conn)
         ensure_default_profile(conn)
         conn.execute(
             """
@@ -53,14 +63,64 @@ def create_schema(conn: sqlite3.Connection) -> None:
             applied_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT NOT NULL,
+            display_name TEXT,
+            password_hash TEXT,
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            CHECK (length(trim(username)) > 0),
+            CHECK (is_admin IN (0, 1)),
+            CHECK (is_active IN (0, 1))
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_nocase
+        ON users(lower(username));
+
         CREATE TABLE IF NOT EXISTS profiles (
             id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             CHECK (length(trim(name)) > 0)
         );
+        CREATE TABLE IF NOT EXISTS web_sessions (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            CHECK (length(trim(token_hash)) > 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_user_id
+        ON web_sessions(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_web_sessions_expires_at
+        ON web_sessions(expires_at);
+
+        CREATE TABLE IF NOT EXISTS web_login_attempts (
+            id INTEGER PRIMARY KEY,
+            normalized_username TEXT NOT NULL,
+            client_key TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 0,
+            attempted_at TEXT NOT NULL,
+            CHECK (length(trim(normalized_username)) > 0),
+            CHECK (length(trim(client_key)) > 0),
+            CHECK (success IN (0, 1))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_login_attempts_lookup
+        ON web_login_attempts(normalized_username, client_key, attempted_at);
 
         CREATE TABLE IF NOT EXISTS stations (
             id INTEGER PRIMARY KEY,
@@ -145,18 +205,277 @@ def create_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-def ensure_default_profile(conn: sqlite3.Connection | None = None) -> int:
-    """Return the default profile id, creating it when needed."""
+def normalize_username(username: str) -> str:
+    """Normalize a username for storage and lookup."""
+    return username.strip()
+
+
+def user_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    """Return a public user dictionary from a SQLite row."""
+    return {
+        "id": int(row["id"]),
+        "username": str(row["username"]),
+        "display_name": str(row["display_name"] or row["username"]),
+        "password_hash": (str(row["password_hash"]) if row["password_hash"] is not None else None),
+        "is_admin": bool(row["is_admin"]),
+        "is_active": bool(row["is_active"]),
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
+    }
+
+
+def get_user_by_username(
+    conn: sqlite3.Connection,
+    username: str,
+) -> dict[str, Any] | None:
+    """Return a user by username using case-insensitive lookup."""
+    clean_username = normalize_username(username)
+    if not clean_username:
+        return None
+
+    row = conn.execute(
+        """
+        SELECT
+            id,
+            username,
+            display_name,
+            password_hash,
+            is_admin,
+            is_active,
+            created_at,
+            updated_at
+        FROM users
+        WHERE lower(username) = lower(?)
+        """,
+        (clean_username,),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return user_from_row(row)
+
+
+def get_or_create_user(
+    conn: sqlite3.Connection,
+    username: str,
+    *,
+    display_name: str | None = None,
+    password_hash: str | None = None,
+    is_admin: bool = False,
+    is_active: bool = True,
+) -> int:
+    """Return a user id, creating the user if needed."""
+    clean_username = normalize_username(username)
+    if not clean_username:
+        raise ValueError("Username is required.")
+
+    existing = get_user_by_username(conn, clean_username)
+    if existing is not None:
+        return int(existing["id"])
+
+    now = utc_now()
+    clean_display_name = _clean_text(display_name) or clean_username
+
+    cursor = conn.execute(
+        """
+        INSERT INTO users (
+            username,
+            display_name,
+            password_hash,
+            is_admin,
+            is_active,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            clean_username,
+            clean_display_name,
+            password_hash,
+            1 if is_admin else 0,
+            1 if is_active else 0,
+            now,
+            now,
+        ),
+    )
+
+    user_id = cursor.lastrowid
+    if user_id is None:
+        raise RuntimeError("Could not create user.")
+
+    return int(user_id)
+
+
+def ensure_default_user(conn: sqlite3.Connection | None = None) -> int:
+    """Return the default web user id, creating it when needed."""
     if conn is None:
         with connect() as managed_conn:
             create_schema(managed_conn)
-            profile_id = ensure_default_profile(managed_conn)
+            ensure_profile_user_schema(managed_conn)
+            user_id = ensure_default_user(managed_conn)
+            managed_conn.commit()
+            return user_id
+
+    user_id = get_or_create_user(
+        conn,
+        DEFAULT_USER_NAME,
+        display_name="Default",
+        is_admin=False,
+        is_active=True,
+    )
+
+    conn.execute(
+        """
+        UPDATE users
+        SET
+            is_admin = 0,
+            updated_at = ?
+        WHERE username = ?
+          AND is_admin != 0
+          AND (password_hash IS NULL OR password_hash = '')
+        """,
+        (utc_now(), DEFAULT_USER_NAME),
+    )
+
+    return user_id
+
+
+def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return all known users."""
+    rows = conn.execute(
+        """
+        SELECT
+            id,
+            username,
+            display_name,
+            password_hash,
+            is_admin,
+            is_active,
+            created_at,
+            updated_at
+        FROM users
+        ORDER BY created_at ASC, id ASC
+        """
+    ).fetchall()
+
+    return [user_from_row(row) for row in rows]
+
+
+def _profile_table_has_user_id(conn: sqlite3.Connection) -> bool:
+    columns = conn.execute("PRAGMA table_info(profiles)").fetchall()
+    return any(str(column["name"]) == "user_id" for column in columns)
+
+
+def _ensure_no_duplicate_profile_names_for_user(
+    conn: sqlite3.Connection,
+    user_id: int,
+) -> None:
+    duplicates = conn.execute(
+        """
+        SELECT lower(name) AS normalized_name, COUNT(*) AS count
+        FROM profiles
+        WHERE user_id = ?
+        GROUP BY lower(name)
+        HAVING COUNT(*) > 1
+        """,
+        (user_id,),
+    ).fetchall()
+
+    if duplicates:
+        duplicate_names = ", ".join(str(row["normalized_name"]) for row in duplicates)
+        raise RuntimeError(
+            "Cannot create profile ownership index because duplicate profile "
+            f"names exist for the same user: {duplicate_names}"
+        )
+
+
+def ensure_profile_user_schema(conn: sqlite3.Connection) -> None:
+    """Ensure profiles have user ownership and a per-user name constraint."""
+    default_user_id = ensure_default_user(conn)
+
+    if not _profile_table_has_user_id(conn):
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            conn.execute(
+                """
+                CREATE TABLE profiles_new (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    display_name TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    CHECK (length(trim(name)) > 0)
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO profiles_new (
+                    id,
+                    user_id,
+                    name,
+                    display_name,
+                    created_at,
+                    updated_at
+                )
+                SELECT
+                    id,
+                    ?,
+                    name,
+                    display_name,
+                    created_at,
+                    updated_at
+                FROM profiles
+                """,
+                (default_user_id,),
+            )
+            conn.execute("DROP TABLE profiles")
+            conn.execute("ALTER TABLE profiles_new RENAME TO profiles")
+            conn.commit()
+        finally:
+            conn.execute("PRAGMA foreign_keys = ON")
+
+    _ensure_no_duplicate_profile_names_for_user(conn, default_user_id)
+
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_user_name_nocase
+        ON profiles(user_id, lower(name))
+        """
+    )
+
+    foreign_key_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if foreign_key_errors:
+        raise RuntimeError("Profile user migration left invalid foreign keys.")
+
+
+def ensure_default_profile(
+    conn: sqlite3.Connection | None = None,
+    *,
+    user_id: int | None = None,
+) -> int:
+    """Return the default profile id for a user, creating it when needed."""
+    if conn is None:
+        with connect() as managed_conn:
+            create_schema(managed_conn)
+            ensure_profile_user_schema(managed_conn)
+            profile_id = ensure_default_profile(managed_conn, user_id=user_id)
             managed_conn.commit()
             return profile_id
 
+    resolved_user_id = user_id if user_id is not None else ensure_default_user(conn)
+
     row = conn.execute(
-        "SELECT id FROM profiles WHERE name = ?",
-        (DEFAULT_PROFILE_NAME,),
+        """
+        SELECT id FROM profiles
+        WHERE user_id = ? AND lower(name) = lower(?)
+        """,
+        (resolved_user_id, DEFAULT_PROFILE_NAME),
     ).fetchone()
 
     if row is not None:
@@ -165,17 +484,23 @@ def ensure_default_profile(conn: sqlite3.Connection | None = None) -> int:
     now = utc_now()
     cursor = conn.execute(
         """
-        INSERT INTO profiles (name, display_name, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO profiles (
+            user_id,
+            name,
+            display_name,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (DEFAULT_PROFILE_NAME, "Default", now, now),
+        (resolved_user_id, DEFAULT_PROFILE_NAME, "Default", now, now),
     )
 
     created_profile_id = cursor.lastrowid
     if created_profile_id is None:
         raise RuntimeError("Could not create default profile.")
 
-    return created_profile_id
+    return int(created_profile_id)
 
 
 def get_default_profile_id() -> int:
@@ -1043,19 +1368,23 @@ def normalize_profile_name(name: str) -> str:
 def get_profile_by_name(
     conn: sqlite3.Connection,
     name: str,
+    *,
+    user_id: int | None = None,
 ) -> dict[str, Any] | None:
-    """Return a profile by name."""
+    """Return a profile by name for a user."""
     clean_name = normalize_profile_name(name)
     if not clean_name:
         return None
 
+    resolved_user_id = user_id if user_id is not None else ensure_default_user(conn)
+
     row = conn.execute(
         """
-        SELECT id, name, display_name, created_at, updated_at
+        SELECT id, user_id, name, display_name, created_at, updated_at
         FROM profiles
-        WHERE lower(name) = lower(?)
+        WHERE user_id = ? AND lower(name) = lower(?)
         """,
-        (clean_name,),
+        (resolved_user_id, clean_name),
     ).fetchone()
 
     if row is None:
@@ -1063,6 +1392,7 @@ def get_profile_by_name(
 
     return {
         "id": int(row["id"]),
+        "user_id": int(row["user_id"]),
         "name": str(row["name"]),
         "display_name": str(row["display_name"] or row["name"]),
         "created_at": str(row["created_at"]),
@@ -1075,13 +1405,16 @@ def get_or_create_profile(
     name: str,
     *,
     display_name: str | None = None,
+    user_id: int | None = None,
 ) -> int:
-    """Return a profile id, creating the profile if needed."""
+    """Return a profile id for a user, creating the profile if needed."""
     clean_name = normalize_profile_name(name)
     if not clean_name:
         raise ValueError("Profile name is required.")
 
-    existing = get_profile_by_name(conn, clean_name)
+    resolved_user_id = user_id if user_id is not None else ensure_default_user(conn)
+
+    existing = get_profile_by_name(conn, clean_name, user_id=resolved_user_id)
     if existing is not None:
         return int(existing["id"])
 
@@ -1091,14 +1424,16 @@ def get_or_create_profile(
     cursor = conn.execute(
         """
         INSERT INTO profiles (
+            user_id,
             name,
             display_name,
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         (
+            resolved_user_id,
             clean_name,
             clean_display_name,
             now,
@@ -1113,19 +1448,35 @@ def get_or_create_profile(
     return int(profile_id)
 
 
-def list_profiles(conn: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Return all known profiles."""
-    rows = conn.execute(
-        """
-        SELECT id, name, display_name, created_at, updated_at
-        FROM profiles
-        ORDER BY created_at ASC, id ASC
-        """
-    ).fetchall()
+def list_profiles(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return known profiles, optionally scoped to a user."""
+    if user_id is None:
+        rows = conn.execute(
+            """
+            SELECT id, user_id, name, display_name, created_at, updated_at
+            FROM profiles
+            ORDER BY created_at ASC, id ASC
+            """
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT id, user_id, name, display_name, created_at, updated_at
+            FROM profiles
+            WHERE user_id = ?
+            ORDER BY created_at ASC, id ASC
+            """,
+            (user_id,),
+        ).fetchall()
 
     return [
         {
             "id": int(row["id"]),
+            "user_id": int(row["user_id"]),
             "name": str(row["name"]),
             "display_name": str(row["display_name"] or row["name"]),
             "created_at": str(row["created_at"]),

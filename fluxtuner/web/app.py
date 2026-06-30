@@ -372,7 +372,7 @@ def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
         from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, Response
-        from fastapi.responses import HTMLResponse
+        from fastapi.responses import FileResponse, HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
         globals()["Request"] = Request
@@ -413,6 +413,15 @@ def create_app() -> Any:
         StaticFiles(directory=str(static_dir)),
         name="static",
     )
+
+    @app.get("/apple-touch-icon.png", include_in_schema=False)
+    def apple_touch_icon() -> FileResponse:
+        return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))
+    
+    
+    @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+    def apple_touch_icon_precomposed() -> FileResponse:
+        return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

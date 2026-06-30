@@ -417,8 +417,7 @@ def create_app() -> Any:
     @app.get("/apple-touch-icon.png", include_in_schema=False)
     def apple_touch_icon() -> FileResponse:
         return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))
-    
-    
+
     @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
     def apple_touch_icon_precomposed() -> FileResponse:
         return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))

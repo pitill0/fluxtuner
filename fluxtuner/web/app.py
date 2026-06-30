@@ -998,11 +998,16 @@ def create_app() -> Any:
 
     @app.get("/api/search")
     def search(
+        request: Request,
         q: str = Query(default="", max_length=120),
         country: str = Query(default="", max_length=80),
         min_bitrate: int = Query(default=0, ge=0, le=1000),
         limit: int = Query(default=25, ge=1, le=50),
     ) -> dict[str, Any]:
+        user = _authenticated_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
         query = q.strip()
         country_filter = country.strip() or None
         bitrate_filter = min_bitrate if min_bitrate > 0 else None

@@ -10,6 +10,7 @@ VALID_PASSWORD = "correct horse battery staple"
 
 
 PRIVATE_ENDPOINTS = [
+    ("get", "/api/search?q=rock"),
     ("get", "/api/history"),
     ("post", "/api/history"),
     ("get", "/api/favorites"),
@@ -246,3 +247,33 @@ def test_private_station_mutations_accept_resolved_http_stream_url(tmp_path, mon
     response = client.post("/api/history", json=station, headers=csrf_headers(csrf_token))
 
     assert response.status_code == 200
+
+
+def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    def fake_search_stations_filtered(**_kwargs):
+        return [
+            {
+                "name": "Alice Radio",
+                "url": "https://example.com/alice",
+                "country": "Spain",
+                "codec": "MP3",
+                "bitrate": 128,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "fluxtuner.web.app.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?q=alice")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query"] == "alice"
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Alice Radio"

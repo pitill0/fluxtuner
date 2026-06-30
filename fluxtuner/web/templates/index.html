@@ -55,6 +55,7 @@
 
         <div class="app-menu" id="app-menu" data-app-menu>
           <nav class="app-nav" aria-label="Primary navigation">
+            <button type="button" data-nav-dashboard data-private-action disabled>Dashboard</button>
             <button type="button" data-nav-search data-private-action disabled>Search</button>
             <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
             <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
@@ -79,6 +80,7 @@
               name="username"
               type="text"
               autocomplete="username"
+              maxlength="80"
               required
             >
           </label>
@@ -152,12 +154,82 @@
           <button type="submit" data-login-submit>Login</button>
         </form>
 
+        <div class="auth-secondary-actions">
+          <button type="button" data-register-open>Request access</button>
+        </div>
+
+        <p class="auth-note">
+          New accounts stay pending until an administrator approves them. No email is sent; try signing in later to check the status.
+        </p>
+
         <p class="auth-message" data-auth-message>
           Sign in to use favorites, history and playlists.
         </p>
       </section>
 
       <div class="app-content" data-app-content hidden>
+              <section class="panel dashboard-panel" data-dashboard-panel hidden aria-labelledby="dashboard-title">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Overview</p>
+                    <h2 id="dashboard-title">Dashboard</h2>
+                  </div>
+
+                  <button type="button" data-dashboard-refresh>Refresh dashboard</button>
+                </div>
+
+                <div class="dashboard-card dashboard-quick-actions">
+                  <p class="eyebrow">Quick actions</p>
+                  <div class="station-actions">
+                    <button type="button" data-dashboard-action="search">Search</button>
+                    <button type="button" data-dashboard-action="favorites">Favorites</button>
+                    <button type="button" data-dashboard-action="playlists">Playlists</button>
+                    <button type="button" data-dashboard-action="history">History</button>
+                    <button type="button" data-dashboard-action="admin" data-dashboard-admin-action hidden>Admin</button>
+                  </div>
+                </div>
+
+                <div class="dashboard-card" data-dashboard-admin hidden>
+                  <div class="panel-heading">
+                    <div>
+                      <p class="eyebrow">Administration</p>
+                      <h3>Server and users</h3>
+                    </div>
+                  </div>
+                  <div class="dashboard-grid" data-dashboard-admin-metrics></div>
+                </div>
+
+                <div class="dashboard-grid" data-dashboard-user-metrics></div>
+
+                <div class="dashboard-sections">
+                  <section class="dashboard-card">
+                    <div class="panel-heading">
+                      <div>
+                        <p class="eyebrow">Playback</p>
+                        <h3>Recently played</h3>
+                      </div>
+                    </div>
+                    <div class="results" data-dashboard-recent-history>
+                      <p class="empty">No recent playback yet.</p>
+                    </div>
+                  </section>
+
+                  <section class="dashboard-card">
+                    <div class="panel-heading">
+                      <div>
+                        <p class="eyebrow">Library</p>
+                        <h3>Favorite highlights</h3>
+                      </div>
+                    </div>
+                    <div class="results" data-dashboard-favorite-highlights>
+                      <p class="empty">No favorites yet.</p>
+                    </div>
+                  </section>
+                </div>
+
+                <p class="admin-message" data-dashboard-message></p>
+              </section>
+
               <section class="panel admin-panel" data-admin-panel hidden aria-labelledby="admin-title">
                 <div class="panel-heading">
                   <div>
@@ -189,12 +261,12 @@
 
                     <label>
                       <span>Username</span>
-                      <input name="username" type="text" autocomplete="off" required>
+                      <input name="username" type="text" autocomplete="off" maxlength="80" required>
                     </label>
 
                     <label>
                       <span>Display name</span>
-                      <input name="display_name" type="text" autocomplete="off">
+                      <input name="display_name" type="text" autocomplete="off" maxlength="120">
                     </label>
 
                     <label>
@@ -307,6 +379,52 @@
       </footer>
     </main>
 
+    <section class="playlist-dialog register-dialog" data-register-dialog hidden aria-labelledby="register-dialog-title">
+      <div class="playlist-dialog-card register-dialog-card">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Private library</p>
+            <h2 id="register-dialog-title">Request access</h2>
+          </div>
+
+          <button type="button" data-register-cancel>Cancel</button>
+        </div>
+
+        <p class="auth-note">
+          Create a pending account for this private FluxTuner server. No email is sent; try signing in later to check whether an administrator has approved it.
+        </p>
+
+        <form class="auth-form register-form" data-register-form>
+          <label>
+            <span>Username</span>
+            <input name="username" type="text" autocomplete="username" maxlength="80" required>
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="new-password" required>
+          </label>
+
+          <label>
+            <span>Display name</span>
+            <input name="display_name" type="text" autocomplete="name" maxlength="120">
+          </label>
+
+          <label>
+            <span>Note for admin</span>
+            <input name="note" type="text" autocomplete="off" maxlength="1000" placeholder="Optional">
+          </label>
+
+          <p class="register-dialog-message" data-register-message></p>
+
+          <div class="station-actions">
+            <button type="submit" data-register-submit>Request access</button>
+            <button type="button" data-register-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
     <section class="playlist-dialog" data-playlist-dialog hidden aria-labelledby="playlist-dialog-title">
       <div class="playlist-dialog-card">
         <div class="panel-heading">
@@ -334,6 +452,7 @@
               name="new_playlist"
               type="text"
               autocomplete="off"
+              maxlength="120"
               placeholder="New playlist name"
             >
           </label>

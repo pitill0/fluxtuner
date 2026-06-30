@@ -10,6 +10,7 @@ VALID_PASSWORD = "correct horse battery staple"
 
 
 PRIVATE_ENDPOINTS = [
+    ("get", "/api/search?q=rock"),
     ("get", "/api/history"),
     ("post", "/api/history"),
     ("get", "/api/favorites"),
@@ -172,7 +173,7 @@ def test_private_data_is_isolated_between_authenticated_users(tmp_path, monkeypa
         == 200
     )
 
-    assert client.post("/api/auth/logout").status_code == 200
+    assert client.post("/api/auth/logout", headers=csrf_headers(csrf_token)).status_code == 200
     csrf_token = login(client, "bob")
 
     assert client.get("/api/history").json() == {"count": 0, "stations": []}
@@ -206,3 +207,102 @@ def test_authenticated_user_can_delete_favorite_by_url(tmp_path, monkeypatch) ->
     assert delete_response.status_code == 200
     assert delete_response.json()["removed"] is True
     assert client.get("/api/favorites").json()["count"] == 0
+
+
+def test_private_station_mutations_reject_unsupported_stream_urls(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+    headers = csrf_headers(csrf_token)
+
+    bad_station = station_payload("Bad Radio", "javascript:alert(1)")
+
+    history_response = client.post("/api/history", json=bad_station, headers=headers)
+    favorite_response = client.post("/api/favorites", json=bad_station, headers=headers)
+
+    client.post("/api/playlists", json={"name": "Morning"}, headers=headers)
+    playlist_response = client.post(
+        "/api/playlists/Morning/stations",
+        json=bad_station,
+        headers=headers,
+    )
+
+    assert history_response.status_code == 400
+    assert favorite_response.status_code == 400
+    assert playlist_response.status_code == 400
+    assert history_response.json()["detail"] == "Station URL must be a valid HTTP or HTTPS URL."
+
+
+def test_private_station_mutations_accept_resolved_http_stream_url(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    station = {
+        "name": "Resolved Radio",
+        "url": "",
+        "url_resolved": "https://example.com/resolved",
+    }
+
+    response = client.post("/api/history", json=station, headers=csrf_headers(csrf_token))
+
+    assert response.status_code == 200
+
+
+def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    def fake_search_stations_filtered(**_kwargs):
+        return [
+            {
+                "name": "Alice Radio",
+                "url": "https://example.com/alice",
+                "country": "Spain",
+                "codec": "MP3",
+                "bitrate": 128,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "fluxtuner.web.app.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?q=alice")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query"] == "alice"
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Alice Radio"
+
+
+def test_web_playlist_create_rejects_oversized_name(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    response = client.post(
+        "/api/playlists",
+        json={"name": "x" * 121},
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "One or more fields exceed the maximum allowed length."
+
+
+def test_web_playlist_path_rejects_oversized_name(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    response = client.post(
+        f"/api/playlists/{'x' * 121}/stations",
+        json=station_payload("Alice Radio", "https://example.com/alice"),
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 422

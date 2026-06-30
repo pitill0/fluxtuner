@@ -38,7 +38,7 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favo
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
-- Use Web/server accounts with first-run admin setup, authenticated profiles, CSRF-protected mutations and admin user management.
+- Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
 ---
@@ -99,9 +99,9 @@ fluxtuner
 
 You can run FluxTuner directly from a tagged source archive:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v0.9.0.tar.gz
-    tar xvf v0.9.0.tar.gz
-    cd fluxtuner-0.9.0
+    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v1.0.0.tar.gz
+    tar xvf v1.0.0.tar.gz
+    cd fluxtuner-1.0.0
 
 Install the Python dependencies required by the terminal interface.
 
@@ -162,7 +162,7 @@ fluxtuner --cli        # legacy numbered CLI
 
 ### Web/server mode
 
-FluxTuner includes a browser-based web/server mode with local accounts, authenticated library APIs, first-run administrator setup and browser playback:
+FluxTuner includes a browser-based web/server mode with local accounts, pending account requests, an authenticated dashboard, first-run administrator setup, private library APIs and browser playback:
 
 ```bash
 python -m pip install -e ".[web]"
@@ -181,7 +181,13 @@ For isolated web development, testing, or containers, set a custom data director
 FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 8080
 ```
 
-This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory.
+This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory. After the first administrator is configured, new users can request access from the login screen. Requests stay pending until an administrator approves or rejects them; FluxTuner does not send email notifications, so users should try signing in later to check their status.
+
+FluxTuner treats favorites as the saved station library. Manual playlists store
+references to saved stations, so adding a station to a playlist also saves it to
+the user's favorites/library when needed. This keeps playlist export/import,
+random playback and station metadata resolution consistent across the TUI, GTK,
+CLI and Web interfaces.
 
 See [`docs/web.md`](docs/web.md) for Web/server usage, [`docs/container.md`](docs/container.md) for containers, and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
 

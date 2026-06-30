@@ -80,6 +80,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.0" date="2026-06-30">
+      <description>
+        <ul>
+          <li>Added the authenticated Web dashboard with user library metrics and admin server metrics.</li>
+          <li>Added public pending account requests with administrator approval or rejection.</li>
+          <li>Hardened Web authentication, URL handling, input validation and private search access.</li>
+          <li>Expanded CI and release checks to validate mypy across the full package.</li>
+          <li>Refined Web UI navigation, station actions and light/dark theme polish.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.9.0" date="2026-06-28">
       <description>
         <ul>

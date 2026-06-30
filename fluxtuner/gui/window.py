@@ -940,8 +940,11 @@ class MainWindow(Gtk.ApplicationWindow):
         if not hasattr(self, "add_favorite_button"):
             return
 
-        has_selection = self.selected_station is not None
-        is_favorite = bool(has_selection and self._is_favorite_station(self.selected_station))
+        selected_station = self.selected_station
+        has_selection = selected_station is not None
+        is_favorite = bool(
+            selected_station is not None and self._is_favorite_station(selected_station)
+        )
 
         self.add_favorite_button.set_sensitive(has_selection and not is_favorite)
         self.remove_favorite_button.set_sensitive(has_selection and is_favorite)
@@ -1275,6 +1278,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.usage_tracker.stop()
         with suppress(Exception):
             self.player.stop()
+        return False
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):

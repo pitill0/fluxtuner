@@ -11,7 +11,8 @@ Recommended local tools:
 - Python 3.11 or newer.
 - `pip`.
 - `venv`.
-- `mpv` and/or `ffplay` for manual playback testing.
+- `mpv` and/or `ffplay` for broad manual playback testing.
+- Optional lightweight players: `mpg123` and `ogg123`.
 - Git.
 - Optional: Flatpak tooling if you work on packaging.
 
@@ -68,7 +69,7 @@ Legacy CLI:
 python -m fluxtuner --cli
 ```
 
-Experimental GTK GUI:
+GTK GUI:
 
 ```bash
 python -m fluxtuner --gui
@@ -84,6 +85,15 @@ List available themes:
 
 ```bash
 python -m fluxtuner --list-themes
+```
+
+
+Web/server mode with isolated development data:
+
+```bash
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Run with debug logging:
@@ -106,6 +116,8 @@ FluxTuner supports external player backends such as:
 
 - `mpv`
 - `ffplay`
+- `mpg123`
+- `ogg123`
 
 Install at least one backend locally for manual playback testing.
 
@@ -123,7 +135,7 @@ sudo apt install ffmpeg
 
 `ffplay` is usually provided by FFmpeg packages.
 
-The automated test suite mocks player execution and should not require `mpv` or `ffplay` to be installed.
+The automated test suite mocks player execution and should not require external player binaries to be installed.
 
 ## Project structure
 
@@ -149,6 +161,13 @@ fluxtuner/core/
   stations.py              Station normalization helpers
   storage.py               Atomic JSON writes
   stream_metadata.py       ICY stream metadata parsing
+
+fluxtuner/web/
+  app.py                   FastAPI Web/server entry point and routes
+  auth.py                  Password hashing, sessions and Web auth helpers
+  admin_cli.py             Emergency Web user administration CLI
+  templates/               Browser UI shell
+  static/                  Web CSS, JS and static assets
 
 fluxtuner/players/
   base.py                  Player interface and errors
@@ -241,6 +260,8 @@ ruff check .
 ruff format --check .
 python -m compileall fluxtuner tests
 python -m pytest
+python -m mypy --follow-imports=skip fluxtuner/
+node --check fluxtuner/web/static/app.js
 python -m build
 pip-audit --local
 bandit -r fluxtuner -c pyproject.toml
@@ -285,6 +306,9 @@ Prefer small, focused tests that cover behavior rather than implementation detai
 
 Good candidates for tests:
 
+- Web authentication, authorization, CSRF and account approval flows.
+- User/profile isolation in Web/server mode.
+- Dashboard payload privacy for normal users and administrators.
 - URL validation.
 - Import validation.
 - Atomic persistence.
@@ -352,6 +376,7 @@ Security-sensitive areas include:
 - ICY stream metadata parsing.
 - Dependency updates.
 - Packaging and Flatpak permissions.
+- Web sessions, cookies, CSRF, account registration and administrator actions.
 
 When changing these areas:
 

@@ -177,7 +177,61 @@ Notes:
 
 ---
 
-# 8. macOS GTK notes
+# 8. Web/server mode
+
+Use an isolated data directory so the smoke test does not touch your regular
+FluxTuner library:
+
+```bash
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-smoke \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Expected first-run flow:
+
+- setup screen is shown when no administrator exists
+- first administrator can be created
+- login succeeds with the new administrator
+- dashboard loads after login
+- search works from the dashboard quick action and from the top navigation
+- playback starts in the browser
+- favorites, history and playlists are accessible only after login
+
+Account request flow:
+
+- log out
+- open Request access
+- submit a new username/password
+- the request is created as pending and does not log in automatically
+- logging in with the pending account shows `Account pending approval.`
+- log back in as admin
+- pending user appears in Admin
+- approving the user allows login
+- rejected or deactivated users cannot log in
+
+Dashboard/privacy checks:
+
+- normal users see only their own favorites, playlists and history metrics
+- normal users do not see Admin navigation or global user metrics
+- administrators see Admin, server/user metrics and pending request counts
+
+UI checks:
+
+- desktop and mobile layouts are readable
+- light and dark themes have sufficient contrast
+- Search navigation resets stale Favorites/History/Playlist results
+- Request access uses the modal flow and does not crowd the login form
+
+---
+
+# 9. macOS GTK notes
 
 Install dependencies:
 
@@ -219,7 +273,7 @@ python -m fluxtuner --gui
 
 ---
 
-# 9. Linux notes
+# 10. Linux notes
 
 ## CRUX
 
@@ -248,7 +302,7 @@ sudo dnf install mpv ffmpeg python3-gobject gtk4
 
 ---
 
-# 10. Documentation checks
+# 11. Documentation checks
 
 ```bash
 python -m fluxtuner --help
@@ -270,7 +324,7 @@ Review visually:
 
 ---
 
-# 11. Pre-commit checklist
+# 12. Pre-commit checklist
 
 Before committing:
 
@@ -293,7 +347,7 @@ Recommended manual checks:
 
 ---
 
-# 12. Suggested release smoke test
+# 13. Suggested release smoke test
 
 Before a release candidate:
 
@@ -304,6 +358,7 @@ python -m fluxtuner --help
 python -m fluxtuner --list-players
 python -m fluxtuner
 python -m fluxtuner --gui
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-smoke FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080
 ```
 
 If possible, also test:

@@ -35,7 +35,7 @@ Current model:
 
 Profile resolution order:
 
-    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user inside the current user
+    1. Explicit profile, for example CLI --profile NAME or Web ?profile=NAME inside the current user
     2. Persisted active profile from config
     3. Internal default profile
 
@@ -109,11 +109,12 @@ flowchart LR
 
 ## Frontends
 
-FluxTuner currently has three launch modes:
+FluxTuner currently has four user-facing modes:
 
 - Textual TUI, the default interface.
 - GTK4 desktop GUI.
 - Legacy numbered CLI.
+- Browser-based Web/server mode.
 
 All frontends should use shared core modules instead of duplicating station, favorite, playlist, storage or playback logic.
 
@@ -124,6 +125,7 @@ All frontends should use shared core modules instead of duplicating station, fav
 - `fluxtuner` starts the Textual TUI.
 - `fluxtuner --gui` starts the GTK4 desktop GUI.
 - `fluxtuner --cli` starts the legacy numbered CLI.
+- `fluxtuner-web` starts the browser-based Web/server mode.
 
 It also handles utility commands such as:
 
@@ -245,6 +247,13 @@ The SQLite database stores the profile-scoped library:
 - playback history
 - manual playlists
 
+Favorites are the canonical saved-station library. Manual playlists store station
+references and resolve them through the saved station/favorites model rather than
+owning an independent station copy. As a consequence, adding a station to a
+manual playlist may also save it to favorites/library when needed. This is an
+intentional compatibility choice for `1.0.0`, not an accidental Web-only side
+effect.
+
 FluxTuner stores favorites, playback history and manual playlists under an
 internal profile. The default profile is named `default`.
 
@@ -314,7 +323,7 @@ See `SECURITY.md` and `docs/development.md` for validation and contribution guid
 
 ## Web multi-user model
 
-FluxTuner 0.9.0 implements real multi-user behavior for Web/server mode only.
+FluxTuner implements real multi-user behavior for Web/server mode only.
 CLI, TUI and GTK GUI remain local interfaces that use the local filesystem
 trust model.
 
@@ -330,4 +339,9 @@ Web API requests resolve the current user from the authenticated session.
 Profile overrides such as `?profile=work` must only select profiles owned by
 that authenticated user.
 
-See `docs/multiuser.md` for the detailed 0.9.0 design.
+Public account requests are created as pending/inactive users and must be
+approved by an administrator before login succeeds. The Web dashboard shows
+per-user library metrics to normal users and additional aggregate user/server
+metrics to administrators.
+
+See `docs/multiuser.md` for the detailed Web account, profile ownership and pending-account model.

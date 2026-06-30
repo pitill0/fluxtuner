@@ -18,6 +18,7 @@ const appHeader = document.querySelector("[data-app-header]");
 const navToggleButton = document.querySelector("[data-nav-toggle]");
 const themeToggleButton = document.querySelector("[data-theme-toggle]");
 const themeLabelNode = document.querySelector("[data-theme-label]");
+const navDashboardButton = document.querySelector("[data-nav-dashboard]");
 const navSearchButton = document.querySelector("[data-nav-search]");
 const navFavoritesButton = document.querySelector("[data-nav-favorites]");
 const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
@@ -28,6 +29,11 @@ const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
 const authPanel = document.querySelector("[data-auth-panel]");
 const loginForm = document.querySelector("[data-login-form]");
+const registerOpenButton = document.querySelector("[data-register-open]");
+const registerDialog = document.querySelector("[data-register-dialog]");
+const registerCancelButtons = document.querySelectorAll("[data-register-cancel]");
+const registerForm = document.querySelector("[data-register-form]");
+const registerMessageNode = document.querySelector("[data-register-message]");
 const authMessageNode = document.querySelector("[data-auth-message]");
 const authUserPanel = document.querySelector("[data-auth-user]");
 const authUsernameNode = document.querySelector("[data-auth-username]");
@@ -37,6 +43,15 @@ const setupPanel = document.querySelector("[data-setup-panel]");
 const setupForm = document.querySelector("[data-setup-form]");
 const setupTokenField = document.querySelector("[data-setup-token-field]");
 const setupMessageNode = document.querySelector("[data-setup-message]");
+const dashboardPanel = document.querySelector("[data-dashboard-panel]");
+const dashboardRefreshButton = document.querySelector("[data-dashboard-refresh]");
+const dashboardUserMetricsNode = document.querySelector("[data-dashboard-user-metrics]");
+const dashboardRecentHistoryNode = document.querySelector("[data-dashboard-recent-history]");
+const dashboardFavoriteHighlightsNode = document.querySelector("[data-dashboard-favorite-highlights]");
+const dashboardAdminPanel = document.querySelector("[data-dashboard-admin]");
+const dashboardAdminMetricsNode = document.querySelector("[data-dashboard-admin-metrics]");
+const dashboardAdminActionButton = document.querySelector("[data-dashboard-admin-action]");
+const dashboardMessageNode = document.querySelector("[data-dashboard-message]");
 const adminPanel = document.querySelector("[data-admin-panel]");
 const adminLoadUsersButton = document.querySelector("[data-admin-load-users]");
 const adminCreateUserForm = document.querySelector("[data-admin-create-user-form]");
@@ -58,6 +73,8 @@ const playerToggleButton = document.querySelector("[data-player-toggle]");
 const playerStopButton = document.querySelector("[data-player-stop]");
 const playerOpenLink = document.querySelector("[data-player-open]");
 
+const MAX_PLAYLIST_NAME_LENGTH = 120;
+
 let currentStation = null;
 let recordedHistoryUrl = "";
 let currentView = "search";
@@ -67,6 +84,7 @@ let csrfToken = "";
 let setupAvailable = false;
 let setupRequiresToken = false;
 let adminUsersLoaded = false;
+let dashboardLoaded = false;
 let pendingPlaylistStation = null;
 
 
@@ -144,8 +162,27 @@ function escapeHtml(value) {
   });
 }
 
+function safeExternalUrl(value) {
+  const rawUrl = String(value || "").trim();
+  if (!rawUrl) return "";
+
+  if (!/^https?:\/\//i.test(rawUrl)) return "";
+
+  try {
+    const parsed = new URL(rawUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
 function stationUrl(station) {
-  return station.url_resolved || station.url || "";
+  return safeExternalUrl(station.url_resolved || station.url || "");
+}
+
+function stationHomepage(station) {
+  return safeExternalUrl(station.homepage || "");
 }
 
 function stationTags(station) {
@@ -203,6 +240,7 @@ function renderAdminUsers(users) {
         <span role="columnheader">User</span>
         <span role="columnheader">Admin</span>
         <span role="columnheader">Active</span>
+        <span role="columnheader">Status</span>
         <span role="columnheader">Actions</span>
       </div>
       ${users
@@ -211,6 +249,7 @@ function renderAdminUsers(users) {
           const displayName = escapeHtml(user.display_name || user.username || "");
           const adminLabel = user.is_admin ? "yes" : "no";
           const activeLabel = user.is_active ? "yes" : "no";
+          const approvalStatus = escapeHtml(user.approval_status || "approved");
 
           return `
             <div class="admin-users-row" role="row">
@@ -220,7 +259,14 @@ function renderAdminUsers(users) {
               </span>
               <span role="cell">${adminLabel}</span>
               <span role="cell">${activeLabel}</span>
+              <span role="cell">${approvalStatus}</span>
               <span class="admin-user-actions" role="cell">
+                ${
+                  user.approval_status === "pending"
+                    ? `<button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
+                       <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>`
+                    : ""
+                }
                 ${
                   user.is_active
                     ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
@@ -370,6 +416,14 @@ async function mutateAdminUser(username, action) {
       method: "POST",
       url: `/api/admin/users/${encodedUsername}/deactivate`,
     },
+    approve: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/approve`,
+    },
+    reject: {
+      method: "POST",
+      url: `/api/admin/users/${encodedUsername}/reject`,
+    },
     "grant-admin": {
       method: "POST",
       url: `/api/admin/users/${encodedUsername}/admin`,
@@ -402,6 +456,107 @@ async function mutateAdminUser(username, action) {
     await loadAdminUsers();
   } catch (error) {
     setAdminMessage(String(error));
+  }
+}
+
+
+function setDashboardMessage(message) {
+  if (dashboardMessageNode) {
+    dashboardMessageNode.textContent = message || "";
+  }
+}
+
+function renderDashboardMetric(label, value) {
+  return `
+    <article class="dashboard-metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
+function renderDashboardStations(node, stations, emptyMessage) {
+  if (!node) return;
+
+  if (!stations.length) {
+    node.innerHTML = `<p class="empty">${escapeHtml(emptyMessage)}</p>`;
+    return;
+  }
+
+  node.innerHTML = stations.map(renderStation).join("");
+  bindResultActions();
+}
+
+function renderDashboard(payload) {
+  const userMetrics = payload.user || {};
+  const adminMetrics = payload.admin || null;
+
+  if (dashboardUserMetricsNode) {
+    dashboardUserMetricsNode.innerHTML = [
+      renderDashboardMetric("Favorites", Number(userMetrics.favorites_count || 0)),
+      renderDashboardMetric("Playlists", Number(userMetrics.playlists_count || 0)),
+      renderDashboardMetric("Playlist stations", Number(userMetrics.playlist_stations_count || 0)),
+      renderDashboardMetric("History", Number(userMetrics.history_count || 0)),
+    ].join("");
+  }
+
+  renderDashboardStations(
+    dashboardRecentHistoryNode,
+    userMetrics.recent_history || [],
+    "No recent playback yet.",
+  );
+  renderDashboardStations(
+    dashboardFavoriteHighlightsNode,
+    userMetrics.favorite_highlights || [],
+    "No favorites yet.",
+  );
+
+  if (dashboardAdminPanel) {
+    dashboardAdminPanel.hidden = !adminMetrics;
+  }
+
+  if (dashboardAdminActionButton) {
+    dashboardAdminActionButton.hidden = !adminMetrics;
+  }
+
+  if (dashboardAdminMetricsNode && adminMetrics) {
+    dashboardAdminMetricsNode.innerHTML = [
+      renderDashboardMetric("Users", Number(adminMetrics.users_count || 0)),
+      renderDashboardMetric("New today", Number(adminMetrics.users_created_today || 0)),
+      renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0)),
+      renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0)),
+      renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0)),
+      renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown")),
+    ].join("");
+  }
+}
+
+async function loadDashboard() {
+  if (!currentUser || !dashboardPanel) return;
+
+  currentView = "dashboard";
+  currentPlaylistName = "";
+  showDashboardView();
+  setDashboardMessage("Loading dashboard...");
+
+  try {
+    const response = await apiFetch("/api/dashboard", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not load dashboard.");
+    }
+
+    const payload = await response.json();
+    renderDashboard(payload);
+    dashboardLoaded = true;
+    setDashboardMessage("Dashboard updated.");
+  } catch (error) {
+    setDashboardMessage(String(error));
   }
 }
 
@@ -513,6 +668,24 @@ function showRadioBrowserView() {
     searchPanel.hidden = false;
   }
 
+  if (dashboardPanel) {
+    dashboardPanel.hidden = true;
+  }
+
+  if (adminPanel) {
+    adminPanel.hidden = true;
+  }
+}
+
+function showDashboardView() {
+  if (searchPanel) {
+    searchPanel.hidden = true;
+  }
+
+  if (dashboardPanel) {
+    dashboardPanel.hidden = false;
+  }
+
   if (adminPanel) {
     adminPanel.hidden = true;
   }
@@ -521,6 +694,10 @@ function showRadioBrowserView() {
 function showAdminView() {
   if (searchPanel) {
     searchPanel.hidden = true;
+  }
+
+  if (dashboardPanel) {
+    dashboardPanel.hidden = true;
   }
 
   if (adminPanel) {
@@ -696,6 +873,10 @@ function updateAuthUi() {
     adminPanel.hidden = true;
   }
 
+  if (dashboardPanel && !authenticated) {
+    dashboardPanel.hidden = true;
+  }
+
   if (navAdminButton) {
     navAdminButton.hidden = !showAdminPanel;
   }
@@ -706,6 +887,10 @@ function updateAuthUi() {
 
   if (loginForm) {
     loginForm.hidden = authenticated;
+  }
+
+  if (registerDialog && authenticated) {
+    closeRegisterDialog();
   }
 
   if (authUserPanel) {
@@ -725,7 +910,7 @@ function updateAuthUi() {
   if (authMessageNode) {
     authMessageNode.textContent = authenticated
       ? "Private library tools are available."
-      : "Sign in to search, play, favorite and organize stations.";
+      : "Sign in to search, play, favorite and organize stations, or request access below.";
   }
 }
 
@@ -785,6 +970,7 @@ async function loadAuthState() {
     csrfToken = payload.csrf_token || "";
     resetRadioBrowserView();
     updateAuthUi();
+    await loadDashboard();
   } catch (_error) {
     currentUser = null;
     updateAuthUi();
@@ -819,7 +1005,8 @@ async function login(event) {
         throw new Error("Too many login attempts. Try again later.");
       }
 
-      throw new Error("Invalid username or password.");
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Invalid username or password.");
     }
 
     const payload = await response.json();
@@ -827,6 +1014,7 @@ async function login(event) {
     csrfToken = payload.csrf_token || "";
     resetRadioBrowserView();
     updateAuthUi();
+    await loadDashboard();
   } catch (error) {
     currentUser = null;
     csrfToken = "";
@@ -834,6 +1022,76 @@ async function login(event) {
     authMessageNode.textContent = String(error);
   }
 }
+
+function setRegisterMessage(message) {
+  if (registerMessageNode) {
+    registerMessageNode.textContent = message || "";
+  }
+}
+
+function openRegisterDialog() {
+  if (!registerDialog) return;
+
+  setRegisterMessage("");
+  registerDialog.hidden = false;
+
+  const firstInput = registerDialog.querySelector("input, button");
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+function closeRegisterDialog() {
+  if (!registerDialog) return;
+
+  registerDialog.hidden = true;
+  setRegisterMessage("");
+
+  if (registerForm) {
+    registerForm.reset();
+  }
+}
+
+async function registerAccount(event) {
+  event.preventDefault();
+
+  if (!registerForm || !authMessageNode) return;
+
+  const formData = new FormData(registerForm);
+  const username = String(formData.get("username") || "").trim();
+  const password = String(formData.get("password") || "");
+  const displayName = String(formData.get("display_name") || "").trim();
+  const note = String(formData.get("note") || "").trim();
+
+  setRegisterMessage("Requesting account...");
+
+  try {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+        display_name: displayName,
+        note,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || "Could not request account.");
+    }
+
+    closeRegisterDialog();
+    authMessageNode.textContent = payload.message || "Account request received.";
+  } catch (error) {
+    setRegisterMessage(String(error));
+  }
+}
+
 
 async function logout() {
   try {
@@ -1086,6 +1344,11 @@ async function submitPlaylistDialog(event) {
   const newPlaylist = String(formData.get("new_playlist") || "").trim();
   const playlistName = newPlaylist || selectedPlaylist;
 
+  if (playlistName.length > MAX_PLAYLIST_NAME_LENGTH) {
+    setPlaylistDialogMessage(`Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`);
+    return;
+  }
+
   if (!playlistName) {
     setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.");
     return;
@@ -1175,6 +1438,12 @@ async function createPlaylistFromPrompt() {
     return;
   }
 
+  const cleanPlaylistName = playlistName.trim();
+  if (cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH) {
+    setPlayerState("error", `Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`);
+    return;
+  }
+
   try {
     const response = await apiFetch("/api/playlists", {
       method: "POST",
@@ -1182,7 +1451,7 @@ async function createPlaylistFromPrompt() {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: playlistName.trim() }),
+      body: JSON.stringify({ name: cleanPlaylistName }),
     });
 
     if (!response.ok) {
@@ -1305,7 +1574,7 @@ async function togglePlayback() {
 
 function renderStation(station) {
   const streamUrl = stationUrl(station);
-  const homepage = station.homepage || "";
+  const homepage = stationHomepage(station);
   const tags = stationTags(station);
   const playCount = Number(station.play_count || 0);
   const lastPlayedAt = station.last_played_at || "";
@@ -1750,6 +2019,18 @@ if (loginForm) {
   loginForm.addEventListener("submit", login);
 }
 
+if (registerOpenButton) {
+  registerOpenButton.addEventListener("click", openRegisterDialog);
+}
+
+registerCancelButtons.forEach((button) => {
+  button.addEventListener("click", closeRegisterDialog);
+});
+
+if (registerForm) {
+  registerForm.addEventListener("submit", registerAccount);
+}
+
 if (logoutButton) {
   logoutButton.addEventListener("click", logout);
 }
@@ -1782,10 +2063,46 @@ if (themeToggleButton) {
   themeToggleButton.addEventListener("click", toggleTheme);
 }
 
+if (navDashboardButton) {
+  navDashboardButton.addEventListener("click", async () => {
+    closeMobileMenu();
+    if (!currentUser) {
+      renderAuthRequired();
+      scrollToSection(authPanel);
+      return;
+    }
+
+    await loadDashboard();
+    scrollToSection(dashboardPanel);
+  });
+}
+
+if (dashboardRefreshButton) {
+  dashboardRefreshButton.addEventListener("click", loadDashboard);
+}
+
+document.querySelectorAll("[data-dashboard-action]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const action = button.getAttribute("data-dashboard-action");
+    if (action === "search") {
+      resetRadioBrowserView();
+      scrollToSection(searchPanel);
+    } else if (action === "favorites") {
+      await navigateToPrivateView(loadFavorites);
+    } else if (action === "playlists") {
+      await navigateToPrivateView(loadPlaylists);
+    } else if (action === "history") {
+      await navigateToPrivateView(loadHistory);
+    } else if (action === "admin" && navAdminButton) {
+      navAdminButton.click();
+    }
+  });
+});
+
 if (navSearchButton) {
   navSearchButton.addEventListener("click", () => {
     closeMobileMenu();
-    showRadioBrowserView();
+    resetRadioBrowserView();
     scrollToSection(searchPanel);
   });
 }

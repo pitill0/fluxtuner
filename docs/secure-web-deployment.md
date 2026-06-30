@@ -105,8 +105,9 @@ For a fresh deployment:
 6. Start `fluxtuner-web` behind HTTPS.
 7. Open the web UI.
 8. Create the first administrator.
-9. Remove the setup token from shell history or secret notes if it was copied there.
-10. Confirm that `/api/setup/status` no longer reports setup as available.
+9. Review pending account requests from Admin before granting access.
+10. Remove the setup token from shell history or secret notes if it was copied there.
+11. Confirm that `/api/setup/status` no longer reports setup as available.
 
 Once a configured active administrator exists, the setup endpoint is no longer
 available for creating another first admin.
@@ -192,6 +193,8 @@ After deployment, verify:
 - Logout invalidates the current session.
 - Unsafe API requests require the CSRF header.
 - Non-admin users cannot access `/api/admin/users`.
+- Public account requests create pending inactive users and do not grant immediate access.
+- Pending users are not notified by email; they must try signing in later to check approval state.
 - Deactivated users cannot log in.
 - The first-run setup UI is no longer available after the first admin exists.
 - Backups can be restored into a test data directory.

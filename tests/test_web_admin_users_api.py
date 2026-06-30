@@ -11,6 +11,7 @@ from fluxtuner.web.app import (
     ADMIN_USER_NOT_FOUND_DETAIL,
     CSRF_ERROR_DETAIL,
     CSRF_HEADER_NAME,
+    FIELD_TOO_LONG_DETAIL,
     create_app,
 )
 
@@ -144,6 +145,34 @@ def test_admin_can_create_user_and_reject_duplicates(tmp_path, monkeypatch) -> N
 
     assert duplicate.status_code == 409
     assert duplicate.json() == {"detail": ADMIN_USER_EXISTS_DETAIL}
+
+
+def test_admin_create_user_rejects_oversized_names(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    csrf_token = login(client, "admin")
+
+    response = client.post(
+        "/api/admin/users",
+        json={
+            "username": "alice",
+            "password": VALID_PASSWORD,
+            "display_name": "A" * 121,
+        },
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": FIELD_TOO_LONG_DETAIL}
+
+    username_response = client.post(
+        "/api/admin/users",
+        json={"username": "u" * 81, "password": VALID_PASSWORD},
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert username_response.status_code == 400
+    assert username_response.json() == {"detail": FIELD_TOO_LONG_DETAIL}
 
 
 def test_admin_can_set_password_and_revoke_sessions(tmp_path, monkeypatch) -> None:

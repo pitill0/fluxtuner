@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from fluxtuner.core import db
 from fluxtuner.web import auth
 from fluxtuner.web.app import (
+    FIELD_TOO_LONG_DETAIL,
     SETUP_LOCAL_ONLY_DETAIL,
     SETUP_UNAVAILABLE_DETAIL,
     SETUP_VERIFICATION_ERROR_DETAIL,
@@ -63,6 +64,23 @@ def test_setup_creates_first_admin_and_session(tmp_path, monkeypatch) -> None:
     assert user["is_admin"] is True
     assert user["is_active"] is True
     assert auth.verify_password(VALID_PASSWORD, str(user["password_hash"])) is True
+
+
+def test_setup_rejects_oversized_username(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
+
+    response = client.post(
+        "/api/setup/create-admin",
+        json={
+            "username": "u" * 81,
+            "password": VALID_PASSWORD,
+            "setup_token": "setup-secret",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": FIELD_TOO_LONG_DETAIL}
 
 
 def test_setup_is_blocked_after_admin_exists(tmp_path, monkeypatch) -> None:

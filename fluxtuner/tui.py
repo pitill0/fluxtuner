@@ -215,7 +215,7 @@ class FluxTunerTUI(App[None]):
         self.restored_volume: int | None = None
         self.restored_muted: bool = False
         self.view_mode = "search"
-        self._search_task = None
+        self._search_task: asyncio.Task[None] | None = None
         self.pending_input_action: str | None = None
         self.favorite_tag_filter: str | None = None
         self.table_items: dict[str, tuple[str, Any]] = {}
@@ -1490,12 +1490,14 @@ class FluxTunerTUI(App[None]):
         muted = None
         try:
             state = self.player.get_state()
-            if isinstance(state.get("volume"), (int, float)):
-                volume = state.get("volume")
-                self.restored_volume = int(round(volume))
-            if isinstance(state.get("muted"), bool):
-                muted = state.get("muted")
-                self.restored_muted = muted
+            state_volume = state.get("volume")
+            if isinstance(state_volume, (int, float)):
+                volume = state_volume
+                self.restored_volume = int(round(state_volume))
+            state_muted = state.get("muted")
+            if isinstance(state_muted, bool):
+                muted = state_muted
+                self.restored_muted = state_muted
         except Exception:  # noqa: BLE001
             logger.debug("Could not read player state before persistence", exc_info=True)
         save_playback_state(last_station=last_station, volume=volume, muted=muted)

@@ -35,11 +35,21 @@ http://127.0.0.1:8080
 
 On first run, FluxTuner Web shows a setup wizard to create the first
 administrator. After setup, the Web UI requires login before search, playback,
-favorites, history or playlists are available.
+favorites, history, playlists or dashboard data are available.
 
-The app shell includes authenticated navigation, isolated Admin user management,
-browser playback, a compact server-health summary inside Admin, and a local
-light/dark theme preference stored as `fluxtuner.theme`.
+The app shell includes an authenticated dashboard, quick navigation, isolated
+Admin user management, browser playback, a compact server-health summary inside
+Admin, and a local light/dark theme preference stored as `fluxtuner.theme`.
+
+The dashboard shows each user their own favorite, playlist and history counts,
+recent playback and favorite highlights. Administrators also see compact global
+metrics such as total users, new users and pending approvals.
+
+Users can request an account from the login screen. Public registration never
+grants immediate access: the account is created as pending and inactive until an
+administrator approves it. FluxTuner does not send email notifications, so users
+should try signing in later; pending users with the correct password see
+`Account pending approval.`
 
 
 For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).
@@ -74,6 +84,12 @@ fluxtuner.db
 The shared database contains profile-scoped favorites, playback history, manual playlists and
 normalized station records for profile-scoped library data.
 
+Favorites are FluxTuner's saved station library. Manual playlists reference saved
+stations instead of owning a separate station copy. In Web mode, adding a station
+to a playlist also saves it to the user's favorites/library if it is not already
+there. This is intentional and matches the shared core model used by the local
+interfaces.
+
 Legacy JSON library files are still supported as migration sources, but the
 active library store is `fluxtuner.db`.
 
@@ -102,7 +118,9 @@ volume examples.
 ## Users and profiles
 
 FluxTuner Web uses local username/password accounts. Each authenticated user owns
-their Web profiles and private library data.
+their Web profiles and private library data. Account requests created from the
+login screen are pending by default and require administrator approval before
+login succeeds.
 
 Profile names are scoped to the authenticated user. API endpoints can still use a
 `?profile=NAME` override, but the selected profile must belong to the current

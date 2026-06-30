@@ -8,6 +8,7 @@ import hmac
 import os
 from importlib import resources
 from typing import Any
+from urllib.parse import urlparse
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
@@ -46,6 +47,7 @@ ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
 REGISTER_INVALID_DETAIL = "Username and password are required."
 REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
 REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
+INVALID_STATION_URL_DETAIL = "Station URL must be a valid HTTP or HTTPS URL."
 
 
 def _ensure_web_schema(conn: Any) -> None:
@@ -251,6 +253,19 @@ def _favorite_tags_payload(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _is_supported_web_url(url: str) -> bool:
+    parsed = urlparse(str(url or "").strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _require_station_stream_url(station_data: dict[str, Any]) -> None:
+    stream_url = str(station_data.get("url_resolved") or station_data.get("url") or "").strip()
+    if not _is_supported_web_url(stream_url):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=INVALID_STATION_URL_DETAIL)
 
 
 def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
@@ -1042,8 +1057,7 @@ def create_app() -> Any:
 
         station_data = _station_payload(station)
 
-        if not station_data["url"]:
-            raise HTTPException(status_code=400, detail="Station URL is required.")
+        _require_station_stream_url(station_data)
 
         add_history(
             station_data,
@@ -1090,8 +1104,7 @@ def create_app() -> Any:
 
         station_data = _station_payload(station)
 
-        if not station_data["url"]:
-            raise HTTPException(status_code=400, detail="Station URL is required.")
+        _require_station_stream_url(station_data)
 
         added = add_favorite(
             station_data,
@@ -1248,8 +1261,7 @@ def create_app() -> Any:
 
         station_data = _station_payload(station)
 
-        if not station_data["url"]:
-            raise HTTPException(status_code=400, detail="Station URL is required.")
+        _require_station_stream_url(station_data)
 
         user_id = int(user["id"])
         profile_name = effective_profile_name(profile)

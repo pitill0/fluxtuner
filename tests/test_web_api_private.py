@@ -206,3 +206,43 @@ def test_authenticated_user_can_delete_favorite_by_url(tmp_path, monkeypatch) ->
     assert delete_response.status_code == 200
     assert delete_response.json()["removed"] is True
     assert client.get("/api/favorites").json()["count"] == 0
+
+
+def test_private_station_mutations_reject_unsupported_stream_urls(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+    headers = csrf_headers(csrf_token)
+
+    bad_station = station_payload("Bad Radio", "javascript:alert(1)")
+
+    history_response = client.post("/api/history", json=bad_station, headers=headers)
+    favorite_response = client.post("/api/favorites", json=bad_station, headers=headers)
+
+    client.post("/api/playlists", json={"name": "Morning"}, headers=headers)
+    playlist_response = client.post(
+        "/api/playlists/Morning/stations",
+        json=bad_station,
+        headers=headers,
+    )
+
+    assert history_response.status_code == 400
+    assert favorite_response.status_code == 400
+    assert playlist_response.status_code == 400
+    assert history_response.json()["detail"] == "Station URL must be a valid HTTP or HTTPS URL."
+
+
+def test_private_station_mutations_accept_resolved_http_stream_url(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    station = {
+        "name": "Resolved Radio",
+        "url": "",
+        "url_resolved": "https://example.com/resolved",
+    }
+
+    response = client.post("/api/history", json=station, headers=csrf_headers(csrf_token))
+
+    assert response.status_code == 200

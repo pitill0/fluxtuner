@@ -160,8 +160,25 @@ function escapeHtml(value) {
   });
 }
 
+function safeExternalUrl(value) {
+  const rawUrl = String(value || "").trim();
+  if (!rawUrl) return "";
+
+  try {
+    const parsed = new URL(rawUrl, window.location.href);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
 function stationUrl(station) {
-  return station.url_resolved || station.url || "";
+  return safeExternalUrl(station.url_resolved || station.url || "");
+}
+
+function stationHomepage(station) {
+  return safeExternalUrl(station.homepage || "");
 }
 
 function stationTags(station) {
@@ -1542,7 +1559,7 @@ async function togglePlayback() {
 
 function renderStation(station) {
   const streamUrl = stationUrl(station);
-  const homepage = station.homepage || "";
+  const homepage = stationHomepage(station);
   const tags = stationTags(station);
   const playCount = Number(station.play_count || 0);
   const lastPlayedAt = station.last_played_at || "";

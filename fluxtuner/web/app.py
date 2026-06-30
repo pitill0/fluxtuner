@@ -419,9 +419,16 @@ def create_app() -> Any:
         if not username or not password:
             raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
 
-        if _setup_token_required() and not _valid_setup_token(setup_token):
-            with db.connect() as conn:
-                _ensure_web_schema(conn)
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+
+            if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            if _configured_admin_exists(conn):
+                raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
+
+            if _setup_token_required() and not _valid_setup_token(setup_token):
                 auth.record_login_attempt(
                     conn,
                     SETUP_RATE_LIMIT_USERNAME,
@@ -429,7 +436,7 @@ def create_app() -> Any:
                     success=False,
                 )
                 conn.commit()
-            raise HTTPException(status_code=403, detail=SETUP_VERIFICATION_ERROR_DETAIL)
+                raise HTTPException(status_code=403, detail=SETUP_VERIFICATION_ERROR_DETAIL)
 
         if not _setup_token_required() and not _setup_request_is_local(request):
             raise HTTPException(status_code=403, detail=SETUP_LOCAL_ONLY_DETAIL)
@@ -441,9 +448,6 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             _ensure_web_schema(conn)
-
-            if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
-                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
             if _configured_admin_exists(conn):
                 raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
@@ -505,15 +509,36 @@ def create_app() -> Any:
 
     @app.post("/api/auth/register")
     def register(
+        request: Request,
         payload: dict[str, Any] = required_body,
     ) -> dict[str, str]:
         username = str(payload.get("username") or "").strip()
         password = str(payload.get("password") or "")
         display_name = str(payload.get("display_name") or "").strip() or None
         signup_note = str(payload.get("note") or payload.get("signup_note") or "").strip() or None
+        client_key = _request_client_host(request)
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
+
+            if auth.is_login_rate_limited(conn, clean_username, client_key):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+            if db.get_user_by_username(conn, clean_username) is not None:
+                auth.record_login_attempt(
+                    conn,
+                    clean_username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=409, detail=REGISTER_USER_EXISTS_DETAIL)
 
         try:
             password_hash = auth.hash_password(password)
@@ -522,11 +547,14 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             _ensure_web_schema(conn)
-            clean_username = db.normalize_username(username)
-            if not clean_username:
-                raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
-
             if db.get_user_by_username(conn, clean_username) is not None:
+                auth.record_login_attempt(
+                    conn,
+                    clean_username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
                 raise HTTPException(status_code=409, detail=REGISTER_USER_EXISTS_DETAIL)
 
             user_id = db.create_pending_user(
@@ -537,6 +565,12 @@ def create_app() -> Any:
                 signup_note=signup_note,
             )
             db.ensure_default_profile(conn, user_id=user_id)
+            auth.record_login_attempt(
+                conn,
+                clean_username,
+                client_key,
+                success=True,
+            )
             conn.commit()
 
         return {
@@ -633,6 +667,7 @@ def create_app() -> Any:
 
     @app.post("/api/auth/logout")
     def logout(request: Request, response: Response) -> dict[str, Any]:
+        require_csrf(request)
         token = request.cookies.get(SESSION_COOKIE_NAME)
         with db.connect() as conn:
             revoked = auth.revoke_session(conn, token)

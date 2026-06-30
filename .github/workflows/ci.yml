@@ -52,11 +52,7 @@ jobs:
 
       - name: Run mypy
         run: |
-          mypy \
-            fluxtuner/core/search_service.py \
-            fluxtuner/core/importers.py \
-            fluxtuner/core/stations.py \
-            fluxtuner/players/security.py
+          mypy --follow-imports=skip fluxtuner/
 
       - name: Compile Python files
         run: |

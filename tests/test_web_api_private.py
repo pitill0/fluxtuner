@@ -172,7 +172,7 @@ def test_private_data_is_isolated_between_authenticated_users(tmp_path, monkeypa
         == 200
     )
 
-    assert client.post("/api/auth/logout").status_code == 200
+    assert client.post("/api/auth/logout", headers=csrf_headers(csrf_token)).status_code == 200
     csrf_token = login(client, "bob")
 
     assert client.get("/api/history").json() == {"count": 0, "stations": []}

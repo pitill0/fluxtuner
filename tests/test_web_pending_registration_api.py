@@ -9,6 +9,7 @@ from fluxtuner.web.app import (
     ADMIN_REQUIRED_DETAIL,
     CSRF_ERROR_DETAIL,
     CSRF_HEADER_NAME,
+    RATE_LIMIT_DETAIL,
     REGISTER_RECEIVED_MESSAGE,
     REGISTER_USER_EXISTS_DETAIL,
     create_app,
@@ -131,7 +132,7 @@ def test_admin_can_approve_pending_user_and_user_can_login(tmp_path, monkeypatch
     assert response.json()["user"]["approval_status"] == db.APPROVAL_APPROVED
     assert response.json()["user"]["is_active"] is True
 
-    client.post("/api/auth/logout")
+    client.post("/api/auth/logout", headers=csrf_headers(csrf_token))
     user_login = client.post(
         "/api/auth/login",
         json={"username": "alice", "password": VALID_PASSWORD},
@@ -157,7 +158,7 @@ def test_admin_can_reject_pending_user_and_login_stays_blocked(tmp_path, monkeyp
     assert response.json()["user"]["approval_status"] == db.APPROVAL_REJECTED
     assert response.json()["user"]["is_active"] is False
 
-    client.post("/api/auth/logout")
+    client.post("/api/auth/logout", headers=csrf_headers(csrf_token))
     user_login = client.post(
         "/api/auth/login",
         json={"username": "alice", "password": VALID_PASSWORD},
@@ -177,7 +178,7 @@ def test_pending_admin_actions_require_admin_and_csrf(tmp_path, monkeypatch) -> 
     assert non_admin.status_code == 403
     assert non_admin.json() == {"detail": ADMIN_REQUIRED_DETAIL}
 
-    client.post("/api/auth/logout")
+    client.post("/api/auth/logout", headers=csrf_headers(csrf_token))
     create_user("admin", is_admin=True)
     login(client, "admin")
     missing_csrf = client.post("/api/admin/users/alice/approve")
@@ -196,3 +197,23 @@ def test_public_registration_rejects_duplicate_username(tmp_path, monkeypatch) -
 
     assert response.status_code == 409
     assert response.json() == {"detail": REGISTER_USER_EXISTS_DETAIL}
+
+
+def test_public_registration_rate_limits_duplicate_requests(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+        response = client.post(
+            "/api/auth/register",
+            json={"username": "alice", "password": VALID_PASSWORD},
+        )
+        assert response.status_code == 409
+
+    blocked = client.post(
+        "/api/auth/register",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+
+    assert blocked.status_code == 429
+    assert blocked.json() == {"detail": RATE_LIMIT_DETAIL}

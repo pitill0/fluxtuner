@@ -106,7 +106,7 @@ def test_login_rejects_inactive_user(tmp_path, monkeypatch) -> None:
     assert response.json() == {"detail": AUTH_ERROR_DETAIL}
 
 
-def test_logout_revokes_session(tmp_path, monkeypatch) -> None:
+def test_logout_requires_csrf_token(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")
     login = client.post(
@@ -116,6 +116,23 @@ def test_logout_revokes_session(tmp_path, monkeypatch) -> None:
     assert login.status_code == 200
 
     logout = client.post("/api/auth/logout")
+    assert logout.status_code == 403
+
+
+def test_logout_revokes_session_with_csrf_token(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    assert login.status_code == 200
+    csrf_token = str(login.json()["csrf_token"])
+
+    logout = client.post(
+        "/api/auth/logout",
+        headers={CSRF_HEADER_NAME: csrf_token},
+    )
     assert logout.status_code == 200
     assert logout.json()["status"] == "ok"
 

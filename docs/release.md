@@ -126,6 +126,8 @@ ruff check .
 ruff format --check .
 python -m compileall fluxtuner tests
 python -m pytest
+python -m mypy --follow-imports=skip fluxtuner/
+node --check fluxtuner/web/static/app.js
 python -m build
 pip-audit --local
 bandit -r fluxtuner -c pyproject.toml
@@ -183,6 +185,8 @@ Changes include:
 - [ ] `ruff format --check .`
 - [ ] `python -m compileall fluxtuner tests`
 - [ ] `python -m pytest`
+- [ ] `python -m mypy --follow-imports=skip fluxtuner/`
+- [ ] `node --check fluxtuner/web/static/app.js`
 - [ ] `python -m build`
 - [ ] `pip-audit --local`
 - [ ] `bandit -r fluxtuner -c pyproject.toml`
@@ -298,16 +302,19 @@ Avoid force-moving published tags unless the release was never announced and no 
 Before creating or moving a release tag, run the full release gate from a clean
 working tree:
 
-    python -m ruff format --check fluxtuner tests
-    python -m ruff check fluxtuner tests
+    python -m ruff format --check .
+    python -m ruff check .
+    python -m compileall fluxtuner tests
     python -m pytest
-    python -m mypy --follow-imports=skip fluxtuner/core/profiles.py fluxtuner/core/db.py fluxtuner/core/favorites.py fluxtuner/core/history.py fluxtuner/core/manual_playlists.py fluxtuner/__main__.py
-    bandit -r fluxtuner
+    python -m mypy --follow-imports=skip fluxtuner/
+    node --check fluxtuner/web/static/app.js
+    pip-audit --local
+    bandit -r fluxtuner -c pyproject.toml
 
 Do not create the tag until all checks pass. If `ruff format --check` reports
 changes, run:
 
-    python -m ruff format fluxtuner tests
+    python -m ruff format .
 
 Then commit the formatting changes and restart the release gate before tagging.
 

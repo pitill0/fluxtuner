@@ -2,7 +2,7 @@
 
 Thanks for considering a contribution to FluxTuner.
 
-FluxTuner is a lightweight internet radio player with a Textual terminal UI, an experimental GTK GUI and modular playback backends.
+FluxTuner is a lightweight internet radio player with a Textual terminal UI, GTK GUI, browser-based Web/server mode and modular playback backends.
 
 This document explains the preferred workflow for local development, pull requests, validation and releases.
 
@@ -12,13 +12,13 @@ This document explains the preferred workflow for local development, pull reques
 
 FluxTuner aims to remain:
 
-- terminal-first, while keeping the GTK GUI useful and coherent
+- terminal-first, while keeping the GTK GUI and Web/server mode useful and coherent
 - keyboard-friendly
 - lightweight
 - themeable
 - explicit about playback backend capabilities
 - respectful of user control during playback
-- stable across both `mpv` and `ffplay`
+- stable across `mpv`, `ffplay`, `mpg123` and `ogg123` where supported
 
 When in doubt, prefer small, focused changes over broad refactors.
 
@@ -57,6 +57,7 @@ python -m fluxtuner --player mpv
 python -m fluxtuner --player ffplay
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Legacy CLI mode:
@@ -127,6 +128,8 @@ Suggested PR description format:
 - Ran `python -m ruff format --check .`
 - Ran `python -m compileall fluxtuner tests`
 - Ran `python -m pytest`
+- Ran `python -m mypy --follow-imports=skip fluxtuner/`
+- Ran `node --check fluxtuner/web/static/app.js` when Web UI JavaScript changed
 - Manual validation performed:
   - ...
 ```
@@ -184,6 +187,7 @@ Use when touching GUI, playback, favorites, history, playlists or status message
 ```bash
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Common checks:
@@ -317,6 +321,7 @@ python -m fluxtuner --player mpv
 python -m fluxtuner --player ffplay
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Then:

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-FluxTuner is a local desktop/terminal internet radio application.
+FluxTuner is a local desktop/terminal internet radio application with an optional Web/server mode.
 
 At this stage, security fixes are expected to target the latest released version and the current `main` branch. Older versions may not receive dedicated security patches unless the issue is severe and easy to backport.
 
@@ -36,6 +36,7 @@ The following areas are considered in scope:
 - Build, packaging, or release workflow issues that could affect distributed artifacts.
 - Flatpak or packaging permissions that are broader than necessary.
 - Logs that expose sensitive local paths, stream URLs, or unnecessary user data.
+- Web/server authentication, session handling, CSRF protection, account approval, administrator actions, or cross-user data isolation.
 
 The following areas are usually out of scope unless they expose a concrete security risk:
 
@@ -57,6 +58,27 @@ Security-sensitive handling expectations:
 - Logs should not expose unnecessary local paths, stream URLs, station names, or imported data contents.
 - Debug logs should be opt-in through explicit configuration such as `--verbose` or `FLUXTUNER_DEBUG`.
 - The application should fail safely when local data files are unreadable or invalid.
+
+
+## Web/server mode
+
+FluxTuner Web/server mode exposes an HTTP interface and should be treated as a
+server application when it is reachable from other devices.
+
+Security-sensitive handling expectations:
+
+- There must be no default password.
+- First-run administrator setup should be explicit and token-protected for remote deployments.
+- Passwords must be hashed with Argon2id and never stored in plaintext.
+- Session cookies should be HttpOnly, SameSite=Lax and Secure for HTTPS deployments.
+- Unsafe authenticated API mutations must require CSRF protection.
+- Public account requests must remain pending until approved by an administrator.
+- Normal users must only access their own profiles, favorites, playlists and history.
+- Normal users must not receive admin-only dashboard metrics or user lists.
+- Deactivated, rejected and pending users must not receive authenticated sessions.
+- Administrators should not be able to accidentally remove the last active configured admin path.
+
+For deployment guidance, see `docs/secure-web-deployment.md`.
 
 ## External streams
 
@@ -111,6 +133,8 @@ FluxTuner includes several hardening measures:
 - Package build validation.
 - Dependency auditing.
 - Static security analysis with Bandit.
+- Full-package mypy validation for typed regressions.
+- Web/server session, CSRF, pending-registration and admin-user tests.
 - Atomic JSON writes for local user data.
 - Validation of imported favorites and playlists.
 - Validation of stream URLs before player execution.

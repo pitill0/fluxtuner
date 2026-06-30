@@ -24,6 +24,10 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+### Documentation
+
+- Reviewed and updated 1.0 Web, multi-user, security, release and smoke-test documentation.
+
 ## [0.9.0] - 2026-06-28
 
 ### Added

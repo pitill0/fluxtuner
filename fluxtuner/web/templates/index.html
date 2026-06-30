@@ -80,6 +80,7 @@
               name="username"
               type="text"
               autocomplete="username"
+              maxlength="80"
               required
             >
           </label>
@@ -260,12 +261,12 @@
 
                     <label>
                       <span>Username</span>
-                      <input name="username" type="text" autocomplete="off" required>
+                      <input name="username" type="text" autocomplete="off" maxlength="80" required>
                     </label>
 
                     <label>
                       <span>Display name</span>
-                      <input name="display_name" type="text" autocomplete="off">
+                      <input name="display_name" type="text" autocomplete="off" maxlength="120">
                     </label>
 
                     <label>
@@ -396,7 +397,7 @@
         <form class="auth-form register-form" data-register-form>
           <label>
             <span>Username</span>
-            <input name="username" type="text" autocomplete="username" required>
+            <input name="username" type="text" autocomplete="username" maxlength="80" required>
           </label>
 
           <label>
@@ -406,12 +407,12 @@
 
           <label>
             <span>Display name</span>
-            <input name="display_name" type="text" autocomplete="name">
+            <input name="display_name" type="text" autocomplete="name" maxlength="120">
           </label>
 
           <label>
             <span>Note for admin</span>
-            <input name="note" type="text" autocomplete="off" placeholder="Optional">
+            <input name="note" type="text" autocomplete="off" maxlength="1000" placeholder="Optional">
           </label>
 
           <p class="register-dialog-message" data-register-message></p>

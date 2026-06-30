@@ -49,6 +49,10 @@ REGISTER_INVALID_DETAIL = "Username and password are required."
 REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
 REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
 INVALID_STATION_URL_DETAIL = "Station URL must be a valid HTTP or HTTPS URL."
+FIELD_TOO_LONG_DETAIL = "One or more fields exceed the maximum allowed length."
+MAX_USERNAME_LENGTH = 80
+MAX_DISPLAY_NAME_LENGTH = 120
+MAX_SIGNUP_NOTE_LENGTH = 1000
 
 
 def _ensure_web_schema(conn: Any) -> None:
@@ -243,6 +247,10 @@ def _read_template(name: str) -> str:
     return template_path.read_text(encoding="utf-8")
 
 
+def _text_too_long(value: str | None, max_length: int) -> bool:
+    return value is not None and len(value) > max_length
+
+
 def _safe_int(value: Any) -> int:
     try:
         return int(value or 0)
@@ -434,6 +442,8 @@ def create_app() -> Any:
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
+        if len(username) > MAX_USERNAME_LENGTH:
+            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
             _ensure_web_schema(conn)
@@ -536,6 +546,12 @@ def create_app() -> Any:
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
+        if (
+            len(username) > MAX_USERNAME_LENGTH
+            or _text_too_long(display_name, MAX_DISPLAY_NAME_LENGTH)
+            or _text_too_long(signup_note, MAX_SIGNUP_NOTE_LENGTH)
+        ):
+            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
             _ensure_web_schema(conn)
@@ -762,6 +778,11 @@ def create_app() -> Any:
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
+        if len(username) > MAX_USERNAME_LENGTH or _text_too_long(
+            display_name,
+            MAX_DISPLAY_NAME_LENGTH,
+        ):
+            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         try:
             password_hash = auth.hash_password(password)

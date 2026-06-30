@@ -277,3 +277,32 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     assert payload["query"] == "alice"
     assert payload["count"] == 1
     assert payload["stations"][0]["name"] == "Alice Radio"
+
+
+def test_web_playlist_create_rejects_oversized_name(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    response = client.post(
+        "/api/playlists",
+        json={"name": "x" * 121},
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "One or more fields exceed the maximum allowed length."
+
+
+def test_web_playlist_path_rejects_oversized_name(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+
+    response = client.post(
+        f"/api/playlists/{'x' * 121}/stations",
+        json=station_payload("Alice Radio", "https://example.com/alice"),
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 422

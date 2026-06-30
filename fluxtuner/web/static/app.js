@@ -73,6 +73,8 @@ const playerToggleButton = document.querySelector("[data-player-toggle]");
 const playerStopButton = document.querySelector("[data-player-stop]");
 const playerOpenLink = document.querySelector("[data-player-open]");
 
+const MAX_PLAYLIST_NAME_LENGTH = 120;
+
 let currentStation = null;
 let recordedHistoryUrl = "";
 let currentView = "search";
@@ -164,8 +166,10 @@ function safeExternalUrl(value) {
   const rawUrl = String(value || "").trim();
   if (!rawUrl) return "";
 
+  if (!/^https?:\/\//i.test(rawUrl)) return "";
+
   try {
-    const parsed = new URL(rawUrl, window.location.href);
+    const parsed = new URL(rawUrl);
     if (!["http:", "https:"].includes(parsed.protocol)) return "";
     return parsed.href;
   } catch {
@@ -1340,6 +1344,11 @@ async function submitPlaylistDialog(event) {
   const newPlaylist = String(formData.get("new_playlist") || "").trim();
   const playlistName = newPlaylist || selectedPlaylist;
 
+  if (playlistName.length > MAX_PLAYLIST_NAME_LENGTH) {
+    setPlaylistDialogMessage(`Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`);
+    return;
+  }
+
   if (!playlistName) {
     setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.");
     return;
@@ -1429,6 +1438,12 @@ async function createPlaylistFromPrompt() {
     return;
   }
 
+  const cleanPlaylistName = playlistName.trim();
+  if (cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH) {
+    setPlayerState("error", `Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`);
+    return;
+  }
+
   try {
     const response = await apiFetch("/api/playlists", {
       method: "POST",
@@ -1436,7 +1451,7 @@ async function createPlaylistFromPrompt() {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: playlistName.trim() }),
+      body: JSON.stringify({ name: cleanPlaylistName }),
     });
 
     if (!response.ok) {

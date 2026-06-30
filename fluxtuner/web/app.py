@@ -50,9 +50,11 @@ REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
 REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
 INVALID_STATION_URL_DETAIL = "Station URL must be a valid HTTP or HTTPS URL."
 FIELD_TOO_LONG_DETAIL = "One or more fields exceed the maximum allowed length."
+PLAYLIST_REQUIRED_DETAIL = "Playlist name is required."
 MAX_USERNAME_LENGTH = 80
 MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
+MAX_PLAYLIST_NAME_LENGTH = 120
 
 
 def _ensure_web_schema(conn: Any) -> None:
@@ -300,6 +302,10 @@ def _playlist_name(payload: dict[str, Any]) -> str:
     return str(payload.get("name") or "").strip()
 
 
+def _playlist_name_too_long(name: str) -> bool:
+    return len(name) > MAX_PLAYLIST_NAME_LENGTH
+
+
 def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": int(user["id"]),
@@ -365,7 +371,7 @@ def _ensure_not_last_active_admin(conn: Any, user: dict[str, Any]) -> None:
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
+        from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, Response
         from fastapi.responses import HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
@@ -1213,7 +1219,9 @@ def create_app() -> Any:
 
         name = _playlist_name(payload)
         if not name:
-            raise HTTPException(status_code=400, detail="Playlist name is required.")
+            raise HTTPException(status_code=400, detail=PLAYLIST_REQUIRED_DETAIL)
+        if _playlist_name_too_long(name):
+            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         created = create_playlist(
             name,
@@ -1230,7 +1238,7 @@ def create_app() -> Any:
     @app.delete("/api/playlists/{name}")
     def delete_web_playlist(
         request: Request,
-        name: str,
+        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
@@ -1254,7 +1262,7 @@ def create_app() -> Any:
     @app.get("/api/playlists/{name}/stations")
     def playlist_stations(
         request: Request,
-        name: str,
+        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
         user = _authenticated_user(request)
@@ -1276,7 +1284,7 @@ def create_app() -> Any:
     @app.post("/api/playlists/{name}/stations")
     def add_web_station_to_playlist(
         request: Request,
-        name: str,
+        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
@@ -1310,7 +1318,7 @@ def create_app() -> Any:
     @app.delete("/api/playlists/{name}/stations")
     def remove_web_station_from_playlist(
         request: Request,
-        name: str,
+        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:

@@ -414,13 +414,17 @@ def create_app() -> Any:
         name="static",
     )
 
-    @app.get("/apple-touch-icon.png", include_in_schema=False)
+    @app.api_route("/apple-touch-icon.png", methods=["GET", "HEAD"], include_in_schema=False)
     def apple_touch_icon() -> FileResponse:
-        return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))
+        return FileResponse(str(static_dir.joinpath("icons").joinpath("apple-touch-icon.png")))
 
-    @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+    @app.api_route(
+        "/apple-touch-icon-precomposed.png",
+        methods=["GET", "HEAD"],
+        include_in_schema=False,
+    )
     def apple_touch_icon_precomposed() -> FileResponse:
-        return FileResponse(str(static_dir.joinpath("icons/apple-touch-icon.png")))
+        return FileResponse(str(static_dir.joinpath("icons").joinpath("apple-touch-icon.png")))
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:

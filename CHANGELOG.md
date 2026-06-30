@@ -10,6 +10,20 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+## [1.0.0] - 2026-06-30
+
+### Added
+
 - Added a Web dashboard with user library metrics, recent playback, favorite highlights and quick navigation.
 - Added admin-only dashboard metrics for total users, new users, pending approvals and compact server health.
 - Added public Web account requests that create inactive users pending administrator approval.
@@ -19,14 +33,22 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Web user state now tracks explicit approval status (`approved`, `pending`, `rejected`, `disabled`) while keeping existing active/inactive behavior compatible.
 - Login now reports `Account pending approval.` only when a pending user provides the correct password.
+- Full-package mypy validation is now part of the release quality gate and CI workflow.
+- Station action links in the Web UI now use button-style presentation for visual consistency.
 
-### Fixed
+### Security
 
-- Nothing yet.
+- Hardened Web authentication flows by requiring CSRF protection for logout.
+- Hardened public account registration, setup and admin user creation with input size limits and safer rate-limit boundaries.
+- Restricted Web search to authenticated sessions in private server mode.
+- Restricted station stream URLs accepted by Web library mutations to absolute `http` or `https` URLs.
+- Hardened Web client handling of external station and homepage URLs.
+- Added explicit playlist name length limits across Web API routes and client-side validation.
 
 ### Documentation
 
 - Reviewed and updated 1.0 Web, multi-user, security, release and smoke-test documentation.
+- Clarified that favorites act as the saved-station library used by manual playlists in the 1.0 data model.
 
 ## [0.9.0] - 2026-06-28
 

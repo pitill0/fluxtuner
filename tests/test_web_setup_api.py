@@ -20,6 +20,7 @@ def make_client(tmp_path, monkeypatch) -> TestClient:
     monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
     return TestClient(create_app())
 
+
 def test_setup_status_is_available_without_configured_admin(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
 
@@ -28,6 +29,7 @@ def test_setup_status_is_available_without_configured_admin(tmp_path, monkeypatc
     assert response.status_code == 200
     assert response.json()["available"] is True
     assert response.json()["configured_admin_exists"] is False
+
 
 def test_setup_creates_first_admin_and_session(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -63,6 +65,7 @@ def test_setup_creates_first_admin_and_session(tmp_path, monkeypatch) -> None:
     assert user["is_active"] is True
     assert auth.verify_password(VALID_PASSWORD, str(user["password_hash"])) is True
 
+
 def test_setup_rejects_oversized_username(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
@@ -78,6 +81,7 @@ def test_setup_rejects_oversized_username(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": FIELD_TOO_LONG_DETAIL}
+
 
 def test_setup_is_blocked_after_admin_exists(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -105,6 +109,7 @@ def test_setup_is_blocked_after_admin_exists(tmp_path, monkeypatch) -> None:
     assert second.status_code == 403
     assert second.json() == {"detail": SETUP_UNAVAILABLE_DETAIL}
 
+
 def test_setup_requires_configured_token_when_env_is_set(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
@@ -128,6 +133,7 @@ def test_setup_requires_configured_token_when_env_is_set(tmp_path, monkeypatch) 
 
     assert user is None
 
+
 def test_setup_without_env_token_is_local_only(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     monkeypatch.delenv("FLUXTUNER_WEB_SETUP_TOKEN", raising=False)
@@ -143,6 +149,7 @@ def test_setup_without_env_token_is_local_only(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 403
     assert response.json() == {"detail": SETUP_LOCAL_ONLY_DETAIL}
+
 
 def test_setup_rejects_weak_password(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -165,6 +172,7 @@ def test_setup_rejects_weak_password(tmp_path, monkeypatch) -> None:
         user = db.get_user_by_username(conn, "alice")
 
     assert user is None
+
 
 def test_setup_status_unavailable_after_admin_exists(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)

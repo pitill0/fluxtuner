@@ -22,7 +22,7 @@ def test_web_static_js_sanitizes_external_station_urls() -> None:
 
     assert response.status_code == 200
     assert "function safeExternalUrl(value)" in response.text
-    assert '/^https?:\\/\\//i.test(rawUrl)' in response.text
+    assert "/^https?:\\/\\//i.test(rawUrl)" in response.text
     assert '["http:", "https:"].includes(parsed.protocol)' in response.text
     assert "function stationHomepage(station)" in response.text
     assert "const homepage = stationHomepage(station);" in response.text

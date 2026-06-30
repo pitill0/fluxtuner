@@ -58,6 +58,7 @@ def login(client: TestClient, username: str, password: str = VALID_PASSWORD) -> 
 def csrf_headers(csrf_token: str) -> dict[str, str]:
     return {CSRF_HEADER_NAME: csrf_token}
 
+
 def test_admin_can_list_users_without_hashes(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -80,6 +81,7 @@ def test_admin_can_list_users_without_hashes(tmp_path, monkeypatch) -> None:
     )
     assert create_response.status_code == 200
 
+
 def test_non_admin_cannot_access_admin_users(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")
@@ -97,6 +99,7 @@ def test_non_admin_cannot_access_admin_users(tmp_path, monkeypatch) -> None:
     assert response.status_code == 403
     assert response.json() == {"detail": ADMIN_REQUIRED_DETAIL}
 
+
 def test_admin_mutations_require_csrf(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -109,6 +112,7 @@ def test_admin_mutations_require_csrf(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 403
     assert response.json() == {"detail": CSRF_ERROR_DETAIL}
+
 
 def test_admin_can_create_user_and_reject_duplicates(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -142,6 +146,7 @@ def test_admin_can_create_user_and_reject_duplicates(tmp_path, monkeypatch) -> N
     assert duplicate.status_code == 409
     assert duplicate.json() == {"detail": ADMIN_USER_EXISTS_DETAIL}
 
+
 def test_admin_create_user_rejects_oversized_names(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -169,6 +174,7 @@ def test_admin_create_user_rejects_oversized_names(tmp_path, monkeypatch) -> Non
     assert username_response.status_code == 400
     assert username_response.json() == {"detail": FIELD_TOO_LONG_DETAIL}
 
+
 def test_admin_can_set_password_and_revoke_sessions(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -192,6 +198,7 @@ def test_admin_can_set_password_and_revoke_sessions(tmp_path, monkeypatch) -> No
         assert user is not None
         assert auth.verify_password(OTHER_PASSWORD, str(user["password_hash"])) is True
         assert auth.get_session(conn, old_token) is None
+
 
 def test_admin_can_deactivate_and_activate_user(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -222,6 +229,7 @@ def test_admin_can_deactivate_and_activate_user(tmp_path, monkeypatch) -> None:
     assert activate.status_code == 200
     assert activate.json()["user"]["is_active"] is True
 
+
 def test_admin_can_grant_and_revoke_admin_role(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -242,6 +250,7 @@ def test_admin_can_grant_and_revoke_admin_role(tmp_path, monkeypatch) -> None:
     assert revoke.status_code == 200
     assert revoke.json()["user"]["is_admin"] is False
 
+
 def test_last_active_admin_cannot_be_deactivated_or_demoted(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -261,6 +270,7 @@ def test_last_active_admin_cannot_be_deactivated_or_demoted(tmp_path, monkeypatc
     assert demote.status_code == 409
     assert demote.json() == {"detail": ADMIN_LAST_ADMIN_DETAIL}
 
+
 def test_admin_user_missing_returns_404(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("admin", is_admin=True)
@@ -273,6 +283,7 @@ def test_admin_user_missing_returns_404(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": ADMIN_USER_NOT_FOUND_DETAIL}
+
 
 def test_admin_resetting_own_password_revokes_current_session(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
@@ -289,6 +300,7 @@ def test_admin_resetting_own_password_revokes_current_session(tmp_path, monkeypa
 
     me = client.get("/api/auth/me")
     assert me.status_code == 401
+
 
 def test_admin_deactivating_self_revokes_current_session_when_another_admin_exists(
     tmp_path,

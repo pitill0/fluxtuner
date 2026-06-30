@@ -38,6 +38,7 @@ SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
 SETUP_LOCAL_ONLY_DETAIL = "First-run setup requires local access or FLUXTUNER_WEB_SETUP_TOKEN."
 SETUP_INVALID_DETAIL = "Username and password are required."
 SETUP_RATE_LIMIT_USERNAME = "__setup__"
+REGISTER_RATE_LIMIT_USERNAME = "__register__"
 ADMIN_REQUIRED_DETAIL = "Administrator access required."
 ADMIN_USER_EXISTS_DETAIL = "Web user already exists."
 ADMIN_USER_NOT_FOUND_DETAIL = "Web user not found."
@@ -542,13 +543,13 @@ def create_app() -> Any:
             if not clean_username:
                 raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
 
-            if auth.is_login_rate_limited(conn, clean_username, client_key):
+            if auth.is_login_rate_limited(conn, REGISTER_RATE_LIMIT_USERNAME, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
             if db.get_user_by_username(conn, clean_username) is not None:
                 auth.record_login_attempt(
                     conn,
-                    clean_username,
+                    REGISTER_RATE_LIMIT_USERNAME,
                     client_key,
                     success=False,
                 )
@@ -565,7 +566,7 @@ def create_app() -> Any:
             if db.get_user_by_username(conn, clean_username) is not None:
                 auth.record_login_attempt(
                     conn,
-                    clean_username,
+                    REGISTER_RATE_LIMIT_USERNAME,
                     client_key,
                     success=False,
                 )
@@ -582,9 +583,9 @@ def create_app() -> Any:
             db.ensure_default_profile(conn, user_id=user_id)
             auth.record_login_attempt(
                 conn,
-                clean_username,
+                REGISTER_RATE_LIMIT_USERNAME,
                 client_key,
-                success=True,
+                success=False,
             )
             conn.commit()
 

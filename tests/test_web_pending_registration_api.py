@@ -217,3 +217,50 @@ def test_public_registration_rate_limits_duplicate_requests(tmp_path, monkeypatc
 
     assert blocked.status_code == 429
     assert blocked.json() == {"detail": RATE_LIMIT_DETAIL}
+
+
+def test_duplicate_registration_attempts_do_not_rate_limit_login(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    for _ in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+        response = client.post(
+            "/api/auth/register",
+            json={"username": "alice", "password": VALID_PASSWORD},
+        )
+        assert response.status_code == 409
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+
+    assert login_response.status_code == 200
+
+
+def test_public_registration_rate_limit_is_client_wide(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    for index in range(auth.MAX_FAILED_LOGIN_ATTEMPTS):
+        response = client.post(
+            "/api/auth/register",
+            json={
+                "username": f"pending-{index}",
+                "password": VALID_PASSWORD,
+            },
+        )
+        assert response.status_code == 200
+
+    blocked = client.post(
+        "/api/auth/register",
+        json={"username": "pending-blocked", "password": VALID_PASSWORD},
+    )
+
+    assert blocked.status_code == 429
+    assert blocked.json() == {"detail": RATE_LIMIT_DETAIL}

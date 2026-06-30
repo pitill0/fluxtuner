@@ -1,0 +1,25 @@
+{
+  "name": "FluxTuner Web",
+  "short_name": "FluxTuner",
+  "description": "Private self-hosted internet radio",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090d14",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "/static/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "music",
+    "entertainment"

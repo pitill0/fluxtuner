@@ -208,6 +208,12 @@ Authorization rule:
 
     session user -> owned profiles -> favorites/history/playlists
 
+Within that boundary, favorites act as the user's saved station library. Manual
+playlists reference saved stations, so adding a station to a playlist can also
+save it to that user's favorites/library. This does not cross user boundaries:
+the saved station and playlist entry remain scoped to the authenticated user's
+profile.
+
 Any attempt to access another user's profile must return a generic 404 or 403
 without leaking whether that profile exists.
 

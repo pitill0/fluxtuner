@@ -183,6 +183,12 @@ FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 
 
 This keeps web playback history, favorites and playlists separate from your regular FluxTuner data directory. After the first administrator is configured, new users can request access from the login screen. Requests stay pending until an administrator approves or rejects them; FluxTuner does not send email notifications, so users should try signing in later to check their status.
 
+FluxTuner treats favorites as the saved station library. Manual playlists store
+references to saved stations, so adding a station to a playlist also saves it to
+the user's favorites/library when needed. This keeps playlist export/import,
+random playback and station metadata resolution consistent across the TUI, GTK,
+CLI and Web interfaces.
+
 See [`docs/web.md`](docs/web.md) for Web/server usage, [`docs/container.md`](docs/container.md) for containers, and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for network-accessible deployments.
 
 ---

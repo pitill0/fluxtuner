@@ -230,6 +230,12 @@ Default locations:
 The library database stores favorites, playback history, manual playlists and
 normalized station records for profile-scoped library data.
 
+Favorites are the saved-station library used by all FluxTuner frontends. Manual
+playlists reference saved stations; adding a station to a playlist can therefore
+also save it to favorites/library if it is not already present. This keeps
+playlist resolution, exports and compatibility checks consistent across the TUI,
+GTK, CLI and Web modes.
+
 Legacy library JSON files are still supported as migration sources:
 
 - `~/.local/share/fluxtuner/favorites.json`

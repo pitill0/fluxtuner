@@ -247,6 +247,13 @@ The SQLite database stores the profile-scoped library:
 - playback history
 - manual playlists
 
+Favorites are the canonical saved-station library. Manual playlists store station
+references and resolve them through the saved station/favorites model rather than
+owning an independent station copy. As a consequence, adding a station to a
+manual playlist may also save it to favorites/library when needed. This is an
+intentional compatibility choice for `1.0.0`, not an accidental Web-only side
+effect.
+
 FluxTuner stores favorites, playback history and manual playlists under an
 internal profile. The default profile is named `default`.
 

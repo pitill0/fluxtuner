@@ -84,6 +84,12 @@ fluxtuner.db
 The shared database contains profile-scoped favorites, playback history, manual playlists and
 normalized station records for profile-scoped library data.
 
+Favorites are FluxTuner's saved station library. Manual playlists reference saved
+stations instead of owning a separate station copy. In Web mode, adding a station
+to a playlist also saves it to the user's favorites/library if it is not already
+there. This is intentional and matches the shared core model used by the local
+interfaces.
+
 Legacy JSON library files are still supported as migration sources, but the
 active library store is `fluxtuner.db`.
 

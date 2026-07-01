@@ -1470,6 +1470,37 @@ async function logout() {
 }
 
 
+function updateMediaSessionState(state) {
+  if (!("mediaSession" in navigator)) return;
+
+  if (state === "playing" || state === "loading") {
+    navigator.mediaSession.playbackState = "playing";
+  } else if (state === "paused") {
+    navigator.mediaSession.playbackState = "paused";
+  } else {
+    navigator.mediaSession.playbackState = "none";
+  }
+}
+
+function updateMediaSessionMetadata(station) {
+  if (!("mediaSession" in navigator)) return;
+
+  if (!station) {
+    navigator.mediaSession.metadata = null;
+    return;
+  }
+
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: station.name || "Unknown station",
+      artist: "FluxTuner Web",
+      album: "Internet radio",
+    });
+  } catch (_error) {
+    // MediaMetadata is optional even when mediaSession exists.
+  }
+}
+
 function setPlayerState(state, message) {
   if (playerBar) {
     playerBar.dataset.state = state;
@@ -1478,14 +1509,16 @@ function setPlayerState(state, message) {
   if (playerStatusNode) {
     playerStatusNode.textContent = message;
   }
+
+  updateMediaSessionState(state);
 }
 
 function updatePlayerControls() {
   if (!audioNode || !playerToggleButton || !playerStopButton) return;
 
-  const hasSource = Boolean(audioNode.currentSrc || audioNode.src);
-  playerToggleButton.disabled = !hasSource;
-  playerStopButton.disabled = !hasSource;
+  const hasStream = Boolean(currentStation && stationUrl(currentStation));
+  playerToggleButton.disabled = !hasStream;
+  playerStopButton.disabled = !hasStream;
 
   if (audioNode.paused) {
     playerToggleButton.textContent = "Resume";
@@ -1494,7 +1527,6 @@ function updatePlayerControls() {
   }
 
   if (playerOpenLink) {
-    const hasStream = Boolean(currentStation && stationUrl(currentStation));
     playerOpenLink.hidden = !hasStream;
 
     if (!hasStream) {
@@ -1862,6 +1894,16 @@ async function deletePlaylist(name) {
   }
 }
 
+function loadAudioStream(streamUrl) {
+  if (!audioNode) return;
+
+  audioNode.pause();
+  audioNode.removeAttribute("src");
+  audioNode.load();
+  audioNode.src = streamUrl;
+  audioNode.load();
+}
+
 async function playStation(station) {
   if (!audioNode || !playerTitleNode || !playerOpenLink) return;
 
@@ -1876,9 +1918,10 @@ async function playStation(station) {
   playerTitleNode.textContent = station.name || "Unknown station";
   playerOpenLink.href = streamUrl;
   playerOpenLink.hidden = false;
+  updateMediaSessionMetadata(station);
 
   setPlayerState("loading", "Loading stream...");
-  audioNode.src = streamUrl;
+  loadAudioStream(streamUrl);
 
   try {
     await audioNode.play();
@@ -1906,29 +1949,54 @@ function stopPlayback() {
   playerTitleNode.textContent = "Nothing playing yet";
   playerOpenLink.hidden = true;
   playerOpenLink.removeAttribute("href");
+  updateMediaSessionMetadata(null);
 
   setPlayerState("idle", "Idle");
   updatePlayerControls();
+}
+
+async function startCurrentStationPlayback() {
+  if (!audioNode || !currentStation) return;
+
+  const streamUrl = stationUrl(currentStation);
+  if (!streamUrl) {
+    setPlayerState("error", "This station has no playable stream URL.");
+    updatePlayerControls();
+    return;
+  }
+
+  updateMediaSessionMetadata(currentStation);
+  loadAudioStream(streamUrl);
+
+  try {
+    await audioNode.play();
+    setPlayerState("playing", "Playing in browser.");
+    await recordHistory(currentStation);
+  } catch (error) {
+    try {
+      loadAudioStream(streamUrl);
+      await audioNode.play();
+      setPlayerState("playing", "Playing in browser.");
+      await recordHistory(currentStation);
+    } catch (_retryError) {
+      setPlayerState("error", `Could not restart playback. ${error}`);
+    }
+  } finally {
+    updatePlayerControls();
+  }
 }
 
 async function togglePlayback() {
   if (!audioNode || !currentStation) return;
 
   if (audioNode.paused) {
-    try {
-      setPlayerState("loading", "Resuming stream...");
-      await audioNode.play();
-      setPlayerState("playing", "Playing in browser.");
-      await recordHistory(currentStation);
-    } catch (error) {
-      setPlayerState("error", `Could not resume playback. ${error}`);
-    }
+    setPlayerState("loading", "Starting stream...");
+    await startCurrentStationPlayback();
   } else {
     audioNode.pause();
     setPlayerState("paused", "Paused.");
+    updatePlayerControls();
   }
-
-  updatePlayerControls();
 }
 
 function renderStation(station) {
@@ -2539,6 +2607,30 @@ if (loadFavoritesButton) {
 if (loadPlaylistsButton) {
   loadPlaylistsButton.addEventListener("click", loadPlaylists);
 }
+
+function setupMediaSessionHandlers() {
+  if (!("mediaSession" in navigator)) return;
+
+  try {
+    navigator.mediaSession.setActionHandler("play", () => {
+      if (currentStation) {
+        void startCurrentStationPlayback();
+      }
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      if (audioNode && currentStation && !audioNode.paused) {
+        audioNode.pause();
+        setPlayerState("paused", "Paused.");
+        updatePlayerControls();
+      }
+    });
+    navigator.mediaSession.setActionHandler("stop", stopPlayback);
+  } catch (_error) {
+    // Some browsers expose mediaSession without supporting all handlers.
+  }
+}
+
+setupMediaSessionHandlers();
 
 if (playerToggleButton) {
   playerToggleButton.addEventListener("click", togglePlayback);

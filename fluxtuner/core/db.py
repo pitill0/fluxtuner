@@ -624,10 +624,10 @@ def upsert_pending_password_change_request(
         (user_id, password_hash, clean_note, ACCOUNT_CHANGE_PENDING, now, expires_at),
     )
 
-    request_id = cursor.lastrowid
-    if request_id is None:
+    inserted_request_id = cursor.lastrowid
+    if inserted_request_id is None:
         raise RuntimeError("Could not create password change request.")
-    return int(request_id)
+    return int(inserted_request_id)
 
 
 def list_password_change_requests(

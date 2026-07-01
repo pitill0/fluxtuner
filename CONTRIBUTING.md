@@ -129,6 +129,8 @@ Suggested PR description format:
 - Ran `python -m compileall fluxtuner tests`
 - Ran `python -m pytest`
 - Ran `python -m mypy --follow-imports=skip fluxtuner/`
+- Ran `pip-audit --local`
+- Ran `bandit -r fluxtuner -c pyproject.toml`
 - Ran `node --check fluxtuner/web/static/app.js` when Web UI JavaScript changed
 - Manual validation performed:
   - ...
@@ -137,6 +139,13 @@ Suggested PR description format:
 ---
 
 ## Required checks
+
+For a full local release-quality gate, run:
+
+```bash
+make gate
+```
+
 
 Run these before opening a pull request:
 

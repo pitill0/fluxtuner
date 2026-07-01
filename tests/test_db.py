@@ -41,6 +41,7 @@ def test_init_db_creates_expected_tables(
             "stations",
             "users",
             "web_login_attempts",
+            "web_password_change_requests",
             "web_sessions",
         }
 

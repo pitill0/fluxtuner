@@ -27,6 +27,7 @@ const navAdminButton = document.querySelector("[data-nav-admin]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
+const publicEntrySection = document.querySelector("[data-public-entry]");
 const authPanel = document.querySelector("[data-auth-panel]");
 const loginForm = document.querySelector("[data-login-form]");
 const registerOpenButton = document.querySelector("[data-register-open]");
@@ -40,6 +41,9 @@ const passwordChangeCancelButtons = document.querySelectorAll("[data-password-ch
 const passwordChangeForm = document.querySelector("[data-password-change-form]");
 const passwordChangeMessageNode = document.querySelector("[data-password-change-message]");
 const authMessageNode = document.querySelector("[data-auth-message]");
+const publicStatsSection = document.querySelector("[data-public-stats]");
+const publicStatsContentNode = document.querySelector("[data-public-stats-content]");
+const publicStatsMessageNode = document.querySelector("[data-public-stats-message]");
 const authUserPanel = document.querySelector("[data-auth-user]");
 const authUsernameNode = document.querySelector("[data-auth-username]");
 const logoutButton = document.querySelector("[data-logout]");
@@ -94,6 +98,11 @@ let setupRequiresToken = false;
 let adminUsersLoaded = false;
 let dashboardLoaded = false;
 let pendingPlaylistStation = null;
+let publicStatsLoaded = false;
+let publicStatsLoading = false;
+let startingPlayback = false;
+let softPausingPlayback = false;
+let stoppingPlayback = false;
 
 
 function formatHealthSummary(payload) {
@@ -213,7 +222,108 @@ function setResultsHeader(kicker, title) {
   }
 }
 
+function formatPublicStatCount(value, singular, plural) {
+  const count = Number(value || 0);
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 
+function renderPublicStatTile(value, singular, plural) {
+  const count = Number(value || 0);
+  const label = count === 1 ? singular : plural;
+  return `
+    <article class="public-stat-tile">
+      <strong>${escapeHtml(String(count))}</strong>
+      <span>${escapeHtml(label)}</span>
+    </article>
+  `;
+}
+
+function renderPublicStats(payload) {
+  if (!publicStatsContentNode) return;
+
+  const topStations = Array.isArray(payload?.top_stations)
+    ? payload.top_stations.slice(0, 3)
+    : [];
+  const totals = payload?.totals || {};
+  const plays = Number(totals.plays || 0);
+  const favorites = Number(totals.favorites || 0);
+  const playlists = Number(totals.playlists || 0);
+
+  if (!topStations.length && !plays && !favorites && !playlists) {
+    publicStatsContentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
+    return;
+  }
+
+  const topStationsMarkup = topStations.length
+    ? `
+      <ol class="public-stats-list">
+        ${topStations
+          .map((station) => {
+            const name = escapeHtml(station.name || "Unknown station");
+            const playCount = formatPublicStatCount(station.play_count, "play", "plays");
+            return `
+              <li>
+                <span>${name}</span>
+                <strong>${escapeHtml(playCount)}</strong>
+              </li>
+            `;
+          })
+          .join("")}
+      </ol>
+    `
+    : '<p class="empty">No top stations yet.</p>';
+
+  publicStatsContentNode.innerHTML = `
+    <section class="public-stats-card public-stats-top" aria-labelledby="public-stats-most-played-title">
+      <div class="public-stats-card-heading">
+        <p class="eyebrow">Most played</p>
+        <h3 id="public-stats-most-played-title">Top stations</h3>
+      </div>
+      ${topStationsMarkup}
+    </section>
+    <div class="public-stats-totals" aria-label="Public activity totals">
+      ${renderPublicStatTile(plays, "play", "plays")}
+      ${renderPublicStatTile(favorites, "saved station", "saved stations")}
+      ${renderPublicStatTile(playlists, "playlist", "playlists")}
+    </div>
+  `;
+}
+
+async function loadPublicStats(force = false) {
+  if (!publicStatsContentNode || publicStatsLoading) return;
+  if (publicStatsLoaded && !force) return;
+
+  publicStatsLoading = true;
+  if (publicStatsMessageNode) {
+    publicStatsMessageNode.textContent = "Loading server activity...";
+  }
+
+  try {
+    const response = await fetch("/api/public/stats", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    renderPublicStats(payload);
+    publicStatsLoaded = true;
+    if (publicStatsMessageNode) {
+      publicStatsMessageNode.textContent = "";
+    }
+  } catch (_error) {
+    publicStatsContentNode.innerHTML = '<p class="empty">Public activity is unavailable.</p>';
+    if (publicStatsMessageNode) {
+      publicStatsMessageNode.textContent = "";
+    }
+  } finally {
+    publicStatsLoading = false;
+  }
+}
 
 
 function clearAdminUsers() {
@@ -782,6 +892,25 @@ function setMobileMenuOpen(open) {
   navToggleButton.setAttribute("aria-expanded", nextState);
 }
 
+function closeOpenDialog() {
+  if (playlistDialog && !playlistDialog.hidden) {
+    closePlaylistDialog();
+    return true;
+  }
+
+  if (registerDialog && !registerDialog.hidden) {
+    closeRegisterDialog();
+    return true;
+  }
+
+  if (passwordChangeDialog && !passwordChangeDialog.hidden) {
+    closePasswordChangeDialog();
+    return true;
+  }
+
+  return false;
+}
+
 function closeMobileMenu() {
   setMobileMenuOpen(false);
 }
@@ -1004,9 +1133,21 @@ function updateAuthUi() {
 
   setPlayerVisible(!setupAvailable && authenticated);
 
+  if (publicEntrySection) {
+    publicEntrySection.hidden = setupAvailable || authenticated;
+  }
+
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
     authPanel.hidden = setupAvailable || authenticated;
+  }
+
+  if (publicStatsSection) {
+    publicStatsSection.hidden = setupAvailable || authenticated;
+  }
+
+  if (!setupAvailable && !authenticated) {
+    loadPublicStats();
   }
 
   setAppContentVisible(!setupAvailable && authenticated);
@@ -1055,9 +1196,8 @@ function updateAuthUi() {
   });
 
   if (authMessageNode) {
-    authMessageNode.textContent = authenticated
-      ? "Private library tools are available."
-      : "Sign in to search, play, favorite and organize stations, or request access below.";
+    authMessageNode.hidden = !authenticated;
+    authMessageNode.textContent = authenticated ? "Private library tools are available." : "";
   }
 }
 
@@ -1325,12 +1465,44 @@ async function logout() {
   } finally {
     stopPlayback();
     currentUser = null;
+    publicStatsLoaded = false;
     resetRadioBrowserView();
     updateAuthUi();
     renderAuthRequired();
   }
 }
 
+
+function updateMediaSessionState(state) {
+  if (!("mediaSession" in navigator)) return;
+
+  if (state === "playing" || state === "loading") {
+    navigator.mediaSession.playbackState = "playing";
+  } else if (state === "paused" || currentStation) {
+    navigator.mediaSession.playbackState = "paused";
+  } else {
+    navigator.mediaSession.playbackState = "none";
+  }
+}
+
+function updateMediaSessionMetadata(station) {
+  if (!("mediaSession" in navigator)) return;
+
+  if (!station) {
+    navigator.mediaSession.metadata = null;
+    return;
+  }
+
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: station.name || "Unknown station",
+      artist: "FluxTuner Web",
+      album: "Internet radio",
+    });
+  } catch (_error) {
+    // MediaMetadata is optional even when mediaSession exists.
+  }
+}
 
 function setPlayerState(state, message) {
   if (playerBar) {
@@ -1340,26 +1512,62 @@ function setPlayerState(state, message) {
   if (playerStatusNode) {
     playerStatusNode.textContent = message;
   }
+
+  updateMediaSessionState(state);
+}
+
+function setMediaSessionMetadata(station) {
+  if (!("mediaSession" in navigator) || !("MediaMetadata" in window) || !station) return;
+
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: station.name || station.custom_name || "Unknown station",
+    artist: "FluxTuner Web",
+    album: "Internet radio",
+  });
+}
+
+function clearMediaSessionMetadata() {
+  if (!("mediaSession" in navigator)) return;
+
+  navigator.mediaSession.metadata = null;
+  navigator.mediaSession.playbackState = "none";
+}
+
+function updateMediaSessionState(state) {
+  if (!("mediaSession" in navigator)) return;
+
+  if (currentStation) {
+    setMediaSessionMetadata(currentStation);
+  }
+
+  if (state === "playing" || state === "loading") {
+    navigator.mediaSession.playbackState = "playing";
+  } else if (state === "paused" || currentStation) {
+    navigator.mediaSession.playbackState = "paused";
+  } else {
+    navigator.mediaSession.playbackState = "none";
+  }
 }
 
 function updatePlayerControls() {
   if (!audioNode || !playerToggleButton || !playerStopButton) return;
 
-  const hasSource = Boolean(audioNode.currentSrc || audioNode.src);
-  playerToggleButton.disabled = !hasSource;
-  playerStopButton.disabled = !hasSource;
+  const hasStream = Boolean(currentStation && stationUrl(currentStation));
+  playerToggleButton.disabled = !hasStream;
+  playerStopButton.disabled = !hasStream;
 
-  if (audioNode.paused) {
+  if (audioNode.paused || playerBar?.dataset.state === "loading") {
     playerToggleButton.textContent = "Resume";
   } else {
     playerToggleButton.textContent = "Pause";
   }
 
   if (playerOpenLink) {
-    const hasStream = Boolean(currentStation && stationUrl(currentStation));
     playerOpenLink.hidden = !hasStream;
 
-    if (!hasStream) {
+    if (hasStream) {
+      playerOpenLink.href = stationUrl(currentStation);
+    } else {
       playerOpenLink.removeAttribute("href");
     }
   }
@@ -1724,6 +1932,159 @@ async function deletePlaylist(name) {
   }
 }
 
+function loadAudioStream(streamUrl) {
+  if (!audioNode) return;
+
+  audioNode.pause();
+  audioNode.removeAttribute("src");
+  audioNode.load();
+  audioNode.src = streamUrl;
+  audioNode.load();
+}
+
+function waitForAudioPlaybackStart(timeoutMs = 3000) {
+  if (!audioNode) return Promise.resolve(false);
+
+  if (!audioNode.paused && audioNode.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (started) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      audioNode.removeEventListener("playing", handlePlaying);
+      audioNode.removeEventListener("canplay", handlePlaying);
+      audioNode.removeEventListener("error", handleFailure);
+      audioNode.removeEventListener("pause", handleFailure);
+      resolve(started);
+    };
+
+    const handlePlaying = () => finish(true);
+    const handleFailure = () => finish(false);
+    const timeoutId = window.setTimeout(() => finish(false), timeoutMs);
+
+    audioNode.addEventListener("playing", handlePlaying, { once: true });
+    audioNode.addEventListener("canplay", handlePlaying, { once: true });
+    audioNode.addEventListener("error", handleFailure, { once: true });
+    audioNode.addEventListener("pause", handleFailure, { once: true });
+  });
+}
+
+async function attemptCurrentStationPlayback(streamUrl) {
+  if (!audioNode) return false;
+
+  loadAudioStream(streamUrl);
+  await audioNode.play();
+  return waitForAudioPlaybackStart();
+}
+
+function clearAudioSource() {
+  if (!audioNode) return;
+
+  audioNode.pause();
+  audioNode.removeAttribute("src");
+  audioNode.load();
+}
+
+function waitForAudioPlaybackStart(timeoutMs = 4500) {
+  if (!audioNode) return Promise.reject(new Error("Audio element is unavailable."));
+
+  return new Promise((resolve, reject) => {
+    let timeoutId = 0;
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      audioNode.removeEventListener("playing", handleStarted);
+      audioNode.removeEventListener("canplay", handleStarted);
+      audioNode.removeEventListener("error", handleError);
+    };
+
+    const handleStarted = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleError = () => {
+      cleanup();
+      reject(new Error("stream failed to start after reload"));
+    };
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("stream did not start after reload"));
+    }, timeoutMs);
+
+    audioNode.addEventListener("playing", handleStarted, { once: true });
+    audioNode.addEventListener("canplay", handleStarted, { once: true });
+    audioNode.addEventListener("error", handleError, { once: true });
+  });
+}
+
+async function attemptCurrentStationPlayback(streamUrl) {
+  if (!audioNode) return;
+
+  clearAudioSource();
+  audioNode.src = streamUrl;
+  audioNode.load();
+
+  const playbackStarted = waitForAudioPlaybackStart();
+  await audioNode.play();
+  await playbackStarted;
+}
+
+async function startCurrentStationPlayback(message = "Loading stream...") {
+  if (!audioNode || !currentStation) return;
+
+  const streamUrl = stationUrl(currentStation);
+  if (!streamUrl) {
+    setPlayerState("error", "This station has no playable stream URL.");
+    updatePlayerControls();
+    return;
+  }
+
+  startingPlayback = true;
+  setMediaSessionMetadata(currentStation);
+  setPlayerState("loading", message);
+  updatePlayerControls();
+
+  try {
+    try {
+      await attemptCurrentStationPlayback(streamUrl);
+    } catch (_firstError) {
+      await attemptCurrentStationPlayback(streamUrl);
+    }
+
+    setPlayerState("playing", "Playing in browser.");
+    await recordHistory(currentStation);
+  } catch (error) {
+    audioNode.pause();
+    setPlayerState(
+      "error",
+      `Browser playback failed. Try opening the stream directly. ${error}`,
+    );
+  } finally {
+    startingPlayback = false;
+    updatePlayerControls();
+  }
+}
+
+function pauseCurrentStationPlayback(message = "Paused.") {
+  if (!audioNode || !currentStation) return;
+
+  softPausingPlayback = true;
+  audioNode.pause();
+  setMediaSessionMetadata(currentStation);
+  setPlayerState("paused", message);
+  updatePlayerControls();
+  window.setTimeout(() => {
+    softPausingPlayback = false;
+  }, 0);
+}
+
 async function playStation(station) {
   if (!audioNode || !playerTitleNode || !playerOpenLink) return;
 
@@ -1739,29 +2100,14 @@ async function playStation(station) {
   playerOpenLink.href = streamUrl;
   playerOpenLink.hidden = false;
 
-  setPlayerState("loading", "Loading stream...");
-  audioNode.src = streamUrl;
-
-  try {
-    await audioNode.play();
-    setPlayerState("playing", "Playing in browser.");
-    await recordHistory(station);
-  } catch (error) {
-    setPlayerState(
-      "error",
-      `Browser playback failed. Try opening the stream directly. ${error}`,
-    );
-  }
-
-  updatePlayerControls();
+  await startCurrentStationPlayback("Loading stream...");
 }
 
 function stopPlayback() {
   if (!audioNode || !playerTitleNode || !playerOpenLink) return;
 
-  audioNode.pause();
-  audioNode.removeAttribute("src");
-  audioNode.load();
+  stoppingPlayback = true;
+  clearAudioSource();
 
   currentStation = null;
   recordedHistoryUrl = "";
@@ -1769,28 +2115,22 @@ function stopPlayback() {
   playerOpenLink.hidden = true;
   playerOpenLink.removeAttribute("href");
 
+  clearMediaSessionMetadata();
   setPlayerState("idle", "Idle");
   updatePlayerControls();
+  window.setTimeout(() => {
+    stoppingPlayback = false;
+  }, 0);
 }
 
 async function togglePlayback() {
   if (!audioNode || !currentStation) return;
 
-  if (audioNode.paused) {
-    try {
-      setPlayerState("loading", "Resuming stream...");
-      await audioNode.play();
-      setPlayerState("playing", "Playing in browser.");
-      await recordHistory(currentStation);
-    } catch (error) {
-      setPlayerState("error", `Could not resume playback. ${error}`);
-    }
+  if (audioNode.paused || playerBar?.dataset.state === "loading") {
+    await startCurrentStationPlayback("Resuming stream...");
   } else {
-    audioNode.pause();
-    setPlayerState("paused", "Paused.");
+    pauseCurrentStationPlayback("Paused.");
   }
-
-  updatePlayerControls();
 }
 
 function renderStation(station) {
@@ -1866,12 +2206,12 @@ function renderStation(station) {
         }
         ${
           streamUrl
-            ? `<a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
+            ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
             : ""
         }
         ${
           homepage
-            ? `<a href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
+            ? `<a class="station-external-link" href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
             : ""
         }
       </div>
@@ -2299,6 +2639,10 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (closeOpenDialog()) {
+      return;
+    }
+
     closeMobileMenu();
   }
 });
@@ -2398,6 +2742,28 @@ if (loadPlaylistsButton) {
   loadPlaylistsButton.addEventListener("click", loadPlaylists);
 }
 
+function setupMediaSessionHandlers() {
+  if (!("mediaSession" in navigator)) return;
+
+  try {
+    navigator.mediaSession.setActionHandler("play", () => {
+      if (currentStation) {
+        void startCurrentStationPlayback("Starting stream from system controls...");
+      }
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      pauseCurrentStationPlayback();
+    });
+    navigator.mediaSession.setActionHandler("stop", () => {
+      pauseCurrentStationPlayback("Playback paused by system controls.");
+    });
+  } catch (_error) {
+    // Some browsers expose mediaSession without supporting all handlers.
+  }
+}
+
+setupMediaSessionHandlers();
+
 if (playerToggleButton) {
   playerToggleButton.addEventListener("click", togglePlayback);
 }
@@ -2407,10 +2773,15 @@ if (playerStopButton) {
 }
 
 if (audioNode) {
-  audioNode.addEventListener("playing", () => {
-    setPlayerState("playing", "Playing in browser.");
+  audioNode.addEventListener("play", () => {
+    if (currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback) {
+      startCurrentStationPlayback("Restarting live stream...");
+    }
+  });
 
+  audioNode.addEventListener("playing", () => {
     if (currentStation) {
+      setPlayerState("playing", "Playing in browser.");
       recordHistory(currentStation);
     }
 
@@ -2418,7 +2789,8 @@ if (audioNode) {
   });
 
   audioNode.addEventListener("pause", () => {
-    if (currentStation) {
+    if (currentStation && !startingPlayback && !stoppingPlayback) {
+      setMediaSessionMetadata(currentStation);
       setPlayerState("paused", "Paused.");
     }
     updatePlayerControls();
@@ -2438,7 +2810,22 @@ if (audioNode) {
   });
 }
 
+if ("mediaSession" in navigator) {
+  navigator.mediaSession.setActionHandler("play", () => {
+    startCurrentStationPlayback("Starting stream from system controls...");
+  });
+
+  navigator.mediaSession.setActionHandler("pause", () => {
+    pauseCurrentStationPlayback("Playback paused by system controls.");
+  });
+
+  navigator.mediaSession.setActionHandler("stop", () => {
+    pauseCurrentStationPlayback("Playback stopped by system controls.");
+  });
+}
+
 updatePlayerControls();
+
 
 async function initializeAuthFlow() {
   updateSetupUi();

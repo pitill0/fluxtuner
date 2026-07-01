@@ -20,6 +20,29 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.3] - 2026-07-01
+
+### Added
+
+- Added anonymous public Web activity stats under the login screen.
+- Added a public Web stats endpoint with aggregate play, favorite and playlist counts.
+- Added visible Web password requirements to setup, access request and password change forms.
+
+### Changed
+
+- Polished the public Web entry experience with a clearer intro, compact login card and improved stats layout.
+- Improved Web button styling across dark and light themes.
+- Improved mobile live-stream handling by treating external media controls as soft pauses and restarting live streams when playback resumes.
+
+### Fixed
+
+- Fixed public Web dialog Escape handling and hover contrast regressions.
+- Fixed Web login form spacing so username, password and submit controls do not overlap.
+
+### Security
+
+- Public stats expose only anonymous aggregate counts and top station names, without users, profiles, stream URLs, IPs or timestamps.
+
 ## [1.0.2] - 2026-07-01
 
 ### Added

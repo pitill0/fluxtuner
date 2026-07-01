@@ -37,3 +37,54 @@ def test_web_static_js_limits_playlist_names_client_side() -> None:
     assert "const MAX_PLAYLIST_NAME_LENGTH = 120;" in response.text
     assert "playlistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
     assert "cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
+
+
+def test_web_static_js_keeps_station_available_after_media_pause() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert (
+        "const hasStream = Boolean(currentStation && stationUrl(currentStation));" in response.text
+    )
+    assert "playerToggleButton.disabled = !hasStream;" in response.text
+    assert "function pauseCurrentStationPlayback" in response.text
+    assert "function stopPlayback()" in response.text
+    assert "currentStation = null;" in response.text
+    assert "async function startCurrentStationPlayback(" in response.text
+    assert "function loadAudioStream(streamUrl)" in response.text
+    assert 'audioNode.removeAttribute("src");' in response.text
+    assert "audioNode.currentSrc" not in response.text
+    assert 'audioNode.addEventListener("pause"' in response.text
+
+
+def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "function updateMediaSessionMetadata(station)" in response.text
+    assert "navigator.mediaSession.metadata" in response.text
+    assert "new MediaMetadata" in response.text
+    assert "function setupMediaSessionHandlers()" in response.text
+    assert 'navigator.mediaSession.setActionHandler("play"' in response.text
+    assert 'navigator.mediaSession.setActionHandler("pause"' in response.text
+    assert 'navigator.mediaSession.setActionHandler("stop"' in response.text
+    assert 'pauseCurrentStationPlayback("Playback paused by system controls.");' in response.text
+    assert 'navigator.mediaSession.setActionHandler("stop", stopPlayback)' not in response.text
+
+
+def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "function waitForAudioPlaybackStart" in response.text
+    assert "function attemptCurrentStationPlayback" in response.text
+    assert 'startCurrentStationPlayback("Starting stream from system controls...")' in response.text
+    assert "stream did not start after reload" in response.text
+    assert 'navigator.mediaSession.playbackState = "paused";' in response.text
+    assert 'navigator.mediaSession.playbackState = "none";' in response.text

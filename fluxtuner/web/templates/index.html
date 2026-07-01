@@ -103,7 +103,8 @@
               type="password"
               autocomplete="new-password"
               required
-            >
+             minlength="15">
+              <small class="field-help">Password must be at least 15 characters.</small>
           </label>
 
           <label>
@@ -113,7 +114,7 @@
               type="password"
               autocomplete="new-password"
               required
-            >
+             minlength="15">
           </label>
 
           <label data-setup-token-field hidden>
@@ -133,50 +134,85 @@
         </p>
       </section>
 
-      <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
+      <section class="public-entry" data-public-entry aria-label="FluxTuner Web access">
+        <section class="panel public-intro-panel" aria-labelledby="public-intro-title">
+          <div>
+            <p class="eyebrow">Self-hosted radio</p>
+            <h1 id="public-intro-title">Your private listening space</h1>
+          </div>
+
+          <p class="public-intro-copy">
+            Search, save, organize and stream internet radio from your own curated library.
+            FluxTuner Web keeps the experience private while making shared listening easy at home.
+          </p>
+
+          <div class="public-intro-points" aria-label="FluxTuner Web highlights">
+            <span>Browser playback</span>
+            <span>Personal favorites</span>
+            <span>Private playlists</span>
+          </div>
+        </section>
+
+        <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Private library</p>
+              <h2 id="auth-title">Sign in</h2>
+            </div>
+          </div>
+
+          <form class="auth-form" data-login-form>
+            <label>
+              <span>Username</span>
+              <input
+                name="username"
+                type="text"
+                autocomplete="username"
+                required
+              >
+            </label>
+
+            <label>
+              <span>Password</span>
+              <input
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+              >
+            </label>
+
+            <button type="submit" data-login-submit>Login</button>
+          </form>
+
+          <div class="auth-secondary-actions">
+            <button type="button" data-register-open>Request access</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" data-password-change-open>Forgot password?</button>
+          </div>
+
+          <p class="auth-note">
+            Access is approved by an administrator. No email notifications are sent.
+          </p>
+
+          <p class="auth-message" data-auth-message hidden></p>
+        </section>
+      </section>
+
+      <section class="panel public-stats-panel" data-public-stats hidden aria-labelledby="public-stats-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Private library</p>
-            <h2 id="auth-title">Sign in</h2>
+            <p class="eyebrow">Server activity</p>
+            <h2 id="public-stats-title">Public stats</h2>
+            <p>Anonymous aggregate listening stats from this FluxTuner Web server.</p>
           </div>
         </div>
 
-        <form class="auth-form" data-login-form>
-          <label>
-            <span>Username</span>
-            <input
-              name="username"
-              type="text"
-              autocomplete="username"
-              required
-            >
-          </label>
-
-          <label>
-            <span>Password</span>
-            <input
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-            >
-          </label>
-
-          <button type="submit" data-login-submit>Login</button>
-        </form>
-
-        <div class="auth-secondary-actions">
-          <button type="button" data-register-open>Request access</button>
-          <button type="button" data-password-change-open>Forgot password?</button>
+        <div class="public-stats-content" data-public-stats-content>
+          <p class="empty">Loading public activity...</p>
         </div>
 
-        <p class="auth-note">
-          New accounts stay pending until an administrator approves them. No email is sent; try signing in later to check the status.
-        </p>
-
-        <p class="auth-message" data-auth-message>
-          Sign in to use favorites, history and playlists.
-        </p>
+        <p class="public-stats-message" data-public-stats-message></p>
       </section>
 
       <div class="app-content" data-app-content hidden>
@@ -283,12 +319,13 @@
 
                     <label>
                       <span>Password</span>
-                      <input name="password" type="password" autocomplete="new-password" required>
+                      <input name="password" type="password" autocomplete="new-password" required minlength="15">
+              <small class="field-help">Password must be at least 15 characters.</small>
                     </label>
 
                     <label>
                       <span>Confirm password</span>
-                      <input name="confirm_password" type="password" autocomplete="new-password" required>
+                      <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
                     </label>
 
                     <label class="checkbox-label">
@@ -309,12 +346,13 @@
 
                     <label>
                       <span>New password</span>
-                      <input name="password" type="password" autocomplete="new-password" required>
+                      <input name="password" type="password" autocomplete="new-password" required minlength="15">
+                      <small class="field-help">Password must be at least 15 characters.</small>
                     </label>
 
                     <label>
                       <span>Confirm password</span>
-                      <input name="confirm_password" type="password" autocomplete="new-password" required>
+                      <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
                     </label>
 
                     <button type="submit">Update password</button>
@@ -411,7 +449,6 @@
             <p class="eyebrow">Account recovery</p>
             <h2 id="password-change-dialog-title">Request password change</h2>
           </div>
-          <button type="button" data-password-change-cancel>Cancel</button>
         </div>
 
         <p class="auth-note">
@@ -426,12 +463,13 @@
 
           <label>
             <span>New password</span>
-            <input name="new_password" type="password" autocomplete="new-password" required>
+            <input name="new_password" type="password" autocomplete="new-password" required minlength="15">
+              <small class="field-help">Password must be at least 15 characters.</small>
           </label>
 
           <label>
             <span>Confirm password</span>
-            <input name="confirm_password" type="password" autocomplete="new-password" required>
+            <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
           </label>
 
           <label>
@@ -457,7 +495,6 @@
             <h2 id="register-dialog-title">Request access</h2>
           </div>
 
-          <button type="button" data-register-cancel>Cancel</button>
         </div>
 
         <p class="auth-note">
@@ -472,7 +509,8 @@
 
           <label>
             <span>Password</span>
-            <input name="password" type="password" autocomplete="new-password" required>
+            <input name="password" type="password" autocomplete="new-password" required minlength="15">
+              <small class="field-help">Password must be at least 15 characters.</small>
           </label>
 
           <label>

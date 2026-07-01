@@ -480,6 +480,12 @@ def create_app() -> Any:
     def health() -> dict[str, str]:
         return _server_health_payload()
 
+    @app.get("/api/public/stats")
+    def public_stats() -> dict[str, Any]:
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            return db.public_activity_stats(conn)
+
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
         with db.connect() as conn:

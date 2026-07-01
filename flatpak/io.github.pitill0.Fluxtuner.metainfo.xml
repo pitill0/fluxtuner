@@ -80,6 +80,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.3" date="2026-07-01">
+      <description>
+        <ul>
+          <li>Added anonymous public Web activity stats under the login screen.</li>
+          <li>Polished the public Web entry experience, login layout and Web button styling.</li>
+          <li>Improved mobile live-stream handling for external media controls.</li>
+          <li>Added visible Web password requirements to setup, access request and password change forms.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.2" date="2026-07-01">
       <description>
         <ul>

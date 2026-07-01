@@ -898,9 +898,8 @@ function updateAuthUi() {
   }
 
   if (authUsernameNode) {
-    authUsernameNode.textContent = authenticated
-      ? `${currentUser.username} · default`
-      : "";
+    const displayName = currentUser?.display_name || currentUser?.username || "User";
+    authUsernameNode.textContent = authenticated ? displayName : "";
   }
 
   privateActionNodes.forEach((node) => {

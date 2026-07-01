@@ -1762,3 +1762,109 @@ html[data-theme="light"] .playlist-dialog-card {
     grid-template-columns: 1fr;
   }
 }
+
+/* FluxTuner Web 1.0.1 family QA polish */
+
+.player-bar {
+  border-color: rgba(110, 231, 216, 0.56) !important;
+  border-radius: 1.25rem !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.22), transparent 14rem),
+    linear-gradient(180deg, rgba(14, 35, 60, 0.99), rgba(4, 11, 23, 0.99)) !important;
+  box-shadow:
+    0 1.35rem 4rem rgba(0, 0, 0, 0.72),
+    0 0 2rem rgba(110, 231, 216, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+  backdrop-filter: blur(1rem) !important;
+}
+
+.player-bar h2 {
+  font-size: 1.06rem !important;
+}
+
+.player-bar p {
+  font-weight: 750 !important;
+}
+
+.player-actions a {
+  display: inline-flex !important;
+  min-height: 2.1rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid rgba(110, 231, 216, 0.28) !important;
+  border-radius: 999px !important;
+  padding: 0 0.72rem !important;
+  color: var(--text) !important;
+  background: rgba(15, 35, 59, 0.72) !important;
+  font: inherit !important;
+  font-size: 0.82rem !important;
+  font-weight: 850 !important;
+  text-decoration: none !important;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease !important;
+}
+
+.player-actions a:hover {
+  border-color: rgba(110, 231, 216, 0.72) !important;
+  color: var(--accent) !important;
+  transform: translateY(-1px) !important;
+}
+
+.player-bar[data-state="playing"] {
+  border-color: rgba(110, 231, 216, 0.78) !important;
+  box-shadow:
+    0 1.35rem 4rem rgba(0, 0, 0, 0.72),
+    0 0 2.2rem rgba(110, 231, 216, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+}
+
+.player-bar[data-state="loading"] {
+  border-color: rgba(250, 204, 21, 0.58) !important;
+}
+
+.player-bar[data-state="error"] {
+  border-color: rgba(252, 165, 165, 0.62) !important;
+}
+
+.playlist-dialog {
+  align-items: start !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.playlist-dialog-card {
+  max-height: calc(100dvh - (var(--page-inline) * 2)) !important;
+  overflow-y: auto !important;
+}
+
+html[data-theme="light"] .player-actions a {
+  border-color: rgba(14, 116, 144, 0.22) !important;
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="light"] .player-actions a:hover {
+  border-color: rgba(14, 116, 144, 0.52) !important;
+  color: var(--accent) !important;
+}
+
+@media (max-width: 42rem) {
+  .playlist-dialog {
+    display: grid !important;
+    place-items: start stretch !important;
+    padding: 0.75rem !important;
+  }
+
+  .playlist-dialog-card {
+    width: 100% !important;
+    max-height: calc(100dvh - 1.5rem) !important;
+    padding: 1rem !important;
+  }
+
+  .register-dialog-card {
+    margin-block: 0 !important;
+  }
+}

@@ -27,6 +27,7 @@ const navAdminButton = document.querySelector("[data-nav-admin]");
 const loadHistoryButton = document.querySelector("[data-load-history]");
 const loadFavoritesButton = document.querySelector("[data-load-favorites]");
 const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
+const publicEntrySection = document.querySelector("[data-public-entry]");
 const authPanel = document.querySelector("[data-auth-panel]");
 const loginForm = document.querySelector("[data-login-form]");
 const registerOpenButton = document.querySelector("[data-register-open]");
@@ -223,6 +224,17 @@ function formatPublicStatCount(value, singular, plural) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function renderPublicStatTile(value, singular, plural) {
+  const count = Number(value || 0);
+  const label = count === 1 ? singular : plural;
+  return `
+    <article class="public-stat-tile">
+      <strong>${escapeHtml(String(count))}</strong>
+      <span>${escapeHtml(label)}</span>
+    </article>
+  `;
+}
+
 function renderPublicStats(payload) {
   if (!publicStatsContentNode) return;
 
@@ -246,7 +258,12 @@ function renderPublicStats(payload) {
           .map((station) => {
             const name = escapeHtml(station.name || "Unknown station");
             const playCount = formatPublicStatCount(station.play_count, "play", "plays");
-            return `<li><span>${name}</span><strong>${escapeHtml(playCount)}</strong></li>`;
+            return `
+              <li>
+                <span>${name}</span>
+                <strong>${escapeHtml(playCount)}</strong>
+              </li>
+            `;
           })
           .join("")}
       </ol>
@@ -262,9 +279,9 @@ function renderPublicStats(payload) {
       ${topStationsMarkup}
     </section>
     <div class="public-stats-totals" aria-label="Public activity totals">
-      <span>${escapeHtml(formatPublicStatCount(plays, "play", "plays"))}</span>
-      <span>${escapeHtml(formatPublicStatCount(favorites, "saved station", "saved stations"))}</span>
-      <span>${escapeHtml(formatPublicStatCount(playlists, "playlist", "playlists"))}</span>
+      ${renderPublicStatTile(plays, "play", "plays")}
+      ${renderPublicStatTile(favorites, "saved station", "saved stations")}
+      ${renderPublicStatTile(playlists, "playlist", "playlists")}
     </div>
   `;
 }
@@ -872,6 +889,25 @@ function setMobileMenuOpen(open) {
   navToggleButton.setAttribute("aria-expanded", nextState);
 }
 
+function closeOpenDialog() {
+  if (playlistDialog && !playlistDialog.hidden) {
+    closePlaylistDialog();
+    return true;
+  }
+
+  if (registerDialog && !registerDialog.hidden) {
+    closeRegisterDialog();
+    return true;
+  }
+
+  if (passwordChangeDialog && !passwordChangeDialog.hidden) {
+    closePasswordChangeDialog();
+    return true;
+  }
+
+  return false;
+}
+
 function closeMobileMenu() {
   setMobileMenuOpen(false);
 }
@@ -1094,6 +1130,10 @@ function updateAuthUi() {
 
   setPlayerVisible(!setupAvailable && authenticated);
 
+  if (publicEntrySection) {
+    publicEntrySection.hidden = setupAvailable || authenticated;
+  }
+
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
     authPanel.hidden = setupAvailable || authenticated;
@@ -1153,9 +1193,8 @@ function updateAuthUi() {
   });
 
   if (authMessageNode) {
-    authMessageNode.textContent = authenticated
-      ? "Private library tools are available."
-      : "Sign in to search, play, favorite and organize stations, or request access below.";
+    authMessageNode.hidden = !authenticated;
+    authMessageNode.textContent = authenticated ? "Private library tools are available." : "";
   }
 }
 

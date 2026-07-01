@@ -2068,3 +2068,345 @@ html[data-theme="light"] .password-change-dialog .register-form .station-actions
     max-height: calc(100dvh - 6rem - env(safe-area-inset-top)) !important;
   }
 }
+
+/* FluxTuner Web 1.0.3 clean public entry and button polish */
+
+.public-entry {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.95fr) minmax(24rem, 1.15fr);
+  gap: 1rem;
+  width: min(72rem, 100%);
+  margin-inline: auto;
+  align-items: stretch;
+}
+
+.public-intro-panel,
+.public-entry .auth-panel,
+.public-stats-panel {
+  width: 100%;
+}
+
+.public-intro-panel {
+  display: grid;
+  align-content: center;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.public-intro-panel h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.1rem, 6vw, 4.3rem);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+}
+
+.public-intro-copy {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.public-intro-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.public-intro-points span {
+  border: 1px solid rgba(110, 231, 216, 0.2);
+  border-radius: 999px;
+  padding: 0.36rem 0.65rem;
+  color: var(--muted);
+  background: rgba(15, 35, 59, 0.38);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.public-entry .auth-panel {
+  max-width: none;
+}
+
+.public-entry .auth-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.public-entry .auth-form label,
+.public-entry .auth-form input {
+  min-width: 0;
+}
+
+.public-entry .auth-form input {
+  width: 100%;
+}
+
+.public-entry .auth-form button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-width: 7.5rem;
+}
+
+.public-entry .auth-note,
+.public-entry .auth-message {
+  font-size: 0.9rem;
+}
+
+.public-entry .auth-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.85rem;
+  color: var(--muted);
+}
+
+.public-entry .auth-secondary-actions button {
+  width: auto;
+  min-height: 2.05rem;
+  border-color: transparent;
+  padding: 0 0.35rem;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.public-entry .auth-secondary-actions button:not(:disabled):hover {
+  border-color: rgba(110, 231, 216, 0.36);
+  color: var(--accent);
+  background: rgba(110, 231, 216, 0.08);
+}
+
+.public-entry .auth-form button[type="submit"],
+.register-dialog .auth-form button[type="submit"],
+.password-change-dialog .auth-form button[type="submit"] {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.public-entry .auth-form button[type="submit"]:not(:disabled):hover,
+.register-dialog .auth-form button[type="submit"]:not(:disabled):hover,
+.password-change-dialog .auth-form button[type="submit"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+.register-dialog .station-actions button[type="button"],
+.password-change-dialog .station-actions button[type="button"] {
+  color: var(--muted);
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 35, 59, 0.36);
+}
+
+.register-dialog .station-actions button[type="button"]:not(:disabled):hover,
+.password-change-dialog .station-actions button[type="button"]:not(:disabled):hover {
+  color: var(--text);
+  border-color: rgba(110, 231, 216, 0.38);
+  background: rgba(110, 231, 216, 0.1);
+}
+
+.public-stats-panel {
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.public-stats-panel .panel-heading {
+  align-items: end;
+  margin-bottom: 0.15rem;
+}
+
+.public-stats-panel .panel-heading p:not(.eyebrow) {
+  max-width: 36rem;
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.public-stats-content {
+  grid-template-columns: minmax(0, 1.45fr) minmax(14rem, 0.55fr);
+  align-items: stretch;
+  gap: 0.85rem;
+}
+
+.public-stats-card,
+.public-stats-totals {
+  min-height: 100%;
+}
+
+.public-stats-card {
+  background: rgba(3, 7, 18, 0.16);
+}
+
+.public-stats-list {
+  gap: 0.35rem;
+  padding-left: 0;
+  list-style: none;
+  counter-reset: public-stats-rank;
+}
+
+.public-stats-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: baseline;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0.62rem 0 0;
+  counter-increment: public-stats-rank;
+}
+
+.public-stats-list li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.public-stats-list li::before {
+  content: counter(public-stats-rank) ".";
+  color: var(--accent);
+  font-weight: 950;
+}
+
+.public-stats-list span,
+.public-stats-list strong {
+  display: inline;
+}
+
+.public-stats-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.public-stats-list strong {
+  justify-self: end;
+  margin-top: 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.public-stats-totals {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
+  gap: 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background: rgba(3, 7, 18, 0.16);
+}
+
+.public-stat-tile {
+  display: grid;
+  gap: 0.12rem;
+  justify-items: center;
+  border: 1px solid rgba(110, 231, 216, 0.18);
+  border-radius: 1rem;
+  padding: 0.85rem 0.7rem;
+  background: rgba(15, 35, 59, 0.38);
+  text-align: center;
+}
+
+.public-stat-tile strong {
+  color: var(--text);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.public-stat-tile span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .public-intro-points span,
+html[data-theme="light"] .public-stat-tile {
+  border-color: rgba(8, 145, 178, 0.22);
+  background: rgba(236, 254, 255, 0.78);
+}
+
+html[data-theme="light"] .public-entry .auth-secondary-actions button:not(:disabled):hover {
+  border-color: rgba(8, 145, 178, 0.32);
+  color: var(--accent);
+  background: rgba(236, 254, 255, 0.82);
+}
+
+html[data-theme="light"] .public-entry .auth-form button[type="submit"],
+html[data-theme="light"] .register-dialog .auth-form button[type="submit"],
+html[data-theme="light"] .password-change-dialog .auth-form button[type="submit"] {
+  color: #ffffff;
+  border-color: #0891b2;
+  background: #0891b2;
+}
+
+html[data-theme="light"] .public-entry .auth-form button[type="submit"]:not(:disabled):hover,
+html[data-theme="light"] .register-dialog .auth-form button[type="submit"]:not(:disabled):hover,
+html[data-theme="light"] .password-change-dialog .auth-form button[type="submit"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: #0e7490;
+  background: #0e7490;
+}
+
+html[data-theme="light"] .register-dialog .station-actions button[type="button"],
+html[data-theme="light"] .password-change-dialog .station-actions button[type="button"] {
+  color: var(--muted);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+html[data-theme="light"] .register-dialog .station-actions button[type="button"]:not(:disabled):hover,
+html[data-theme="light"] .password-change-dialog .station-actions button[type="button"]:not(:disabled):hover {
+  color: var(--text);
+  border-color: rgba(8, 145, 178, 0.28);
+  background: rgba(236, 254, 255, 0.86);
+}
+
+html[data-theme="light"] .public-stats-totals {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 920px) {
+  .public-entry,
+  .public-stats-content {
+    grid-template-columns: 1fr;
+  }
+
+  .public-intro-panel h1 {
+    max-width: 18ch;
+  }
+
+  .public-stats-totals {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .public-entry .auth-form {
+    grid-template-columns: 1fr;
+  }
+
+  .public-entry .auth-form button[type="submit"] {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .public-stats-list li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .public-stats-list strong {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .public-stats-totals {
+    grid-template-columns: 1fr;
+  }
+}

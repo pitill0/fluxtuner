@@ -1866,12 +1866,12 @@ function renderStation(station) {
         }
         ${
           streamUrl
-            ? `<a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
+            ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
             : ""
         }
         ${
           homepage
-            ? `<a href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
+            ? `<a class="station-external-link" href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
             : ""
         }
       </div>

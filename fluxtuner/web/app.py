@@ -62,6 +62,7 @@ ACCOUNT_CHANGE_INVALID_DETAIL = "Username and new password are required."
 ACCOUNT_CHANGE_RECEIVED_MESSAGE = "If the account exists, the password change request was recorded."
 ACCOUNT_CHANGE_NOT_FOUND_DETAIL = "Password change request not found."
 ACCOUNT_CHANGE_NOT_PENDING_DETAIL = "Password change request is not pending."
+ACCOUNT_CHANGE_PENDING_DETAIL = "Password change request pending approval."
 ACCOUNT_CHANGE_EXPIRED_DETAIL = "Password change request has expired."
 
 
@@ -716,14 +717,17 @@ def create_app() -> Any:
                 user is not None
                 and bool(user["is_active"])
                 and str(user["approval_status"]) == db.APPROVAL_APPROVED
+                and not bool(user["is_admin"])
             ):
+                user_id = int(user["id"])
                 db.upsert_pending_password_change_request(
                     conn,
-                    int(user["id"]),
+                    user_id,
                     password_hash=password_hash,
                     note=note,
                     expires_at=_password_change_expires_at(),
                 )
+                _revoke_user_sessions(conn, user_id)
 
             auth.record_login_attempt(
                 conn,
@@ -790,6 +794,16 @@ def create_app() -> Any:
                 )
                 conn.commit()
                 raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DETAIL)
+
+            if db.user_has_pending_password_change_request(conn, int(user["id"])):
+                auth.record_login_attempt(
+                    conn,
+                    username,
+                    client_key,
+                    success=False,
+                )
+                conn.commit()
+                raise HTTPException(status_code=403, detail=ACCOUNT_CHANGE_PENDING_DETAIL)
 
             if approval_status != db.APPROVAL_APPROVED or not bool(user["is_active"]):
                 auth.record_login_attempt(

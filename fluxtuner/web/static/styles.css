@@ -1868,3 +1868,17 @@ html[data-theme="light"] .player-actions a:hover {
     margin-block: 0 !important;
   }
 }
+
+/* 1.0.1 mobile hidden-state hotfix */
+
+.playlist-dialog[hidden],
+.register-dialog[hidden],
+.app-user[hidden],
+.app-content[hidden],
+.auth-panel[hidden],
+.setup-panel[hidden],
+.dashboard-panel[hidden],
+.admin-panel[hidden],
+.panel[hidden] {
+  display: none !important;
+}

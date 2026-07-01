@@ -10,6 +10,20 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+## [1.0.2] - 2026-07-01
+
+### Added
+
 - Added Web password change requests for private server deployments.
 - Added a public password change request form where users choose a new password that only becomes active after administrator approval.
 - Added admin UI actions to approve or reject pending password change requests.

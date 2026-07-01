@@ -254,10 +254,13 @@ function renderPublicStats(payload) {
     : '<p class="empty">No top stations yet.</p>';
 
   publicStatsContentNode.innerHTML = `
-    <div class="public-stats-top">
-      <p class="eyebrow">Most played</p>
+    <section class="public-stats-card public-stats-top" aria-labelledby="public-stats-most-played-title">
+      <div class="public-stats-card-heading">
+        <p class="eyebrow">Most played</p>
+        <h3 id="public-stats-most-played-title">Top stations</h3>
+      </div>
       ${topStationsMarkup}
-    </div>
+    </section>
     <div class="public-stats-totals" aria-label="Public activity totals">
       <span>${escapeHtml(formatPublicStatCount(plays, "play", "plays"))}</span>
       <span>${escapeHtml(formatPublicStatCount(favorites, "saved station", "saved stations"))}</span>

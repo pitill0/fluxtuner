@@ -10,6 +10,7 @@ def test_web_index_includes_public_stats_card() -> None:
 
     assert response.status_code == 200
     assert "data-public-stats" in response.text
+    assert "public-stats-panel" in response.text
     assert "data-public-stats-content" in response.text
     assert "data-public-stats-message" in response.text
     assert "Server activity" in response.text
@@ -34,6 +35,7 @@ def test_web_static_css_styles_public_stats() -> None:
     response = client.get("/static/styles.css")
 
     assert response.status_code == 200
+    assert ".public-stats-panel" in response.text
     assert ".public-stats-card" in response.text
     assert ".public-stats-list" in response.text
     assert ".public-stats-totals" in response.text

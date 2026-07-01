@@ -300,14 +300,24 @@ function renderAdminUsers(users) {
 }
 
 
-function formatAdminTimestamp(value) {
+function formatDisplayDateTime(value) {
   const text = String(value || "").trim();
   if (!text) return "unknown";
 
-  const parsed = new Date(text.endsWith("Z") ? text : `${text}Z`);
+  let normalized = text.includes("T") ? text : text.replace(" ", "T");
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  if (!hasTimezone) normalized = `${normalized}Z`;
+
+  const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return escapeHtml(text);
 
-  return escapeHtml(parsed.toLocaleString());
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const hour = String(parsed.getHours()).padStart(2, "0");
+  const minute = String(parsed.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
 function renderPasswordChangeRequests(requests) {
@@ -334,8 +344,8 @@ function renderPasswordChangeRequests(requests) {
           const username = escapeHtml(request.username || "");
           const displayName = escapeHtml(request.display_name || request.username || "");
           const note = escapeHtml(request.note || "No note provided.");
-          const createdAt = formatAdminTimestamp(request.created_at);
-          const expiresAt = formatAdminTimestamp(request.expires_at);
+          const createdAt = formatDisplayDateTime(request.created_at);
+          const expiresAt = formatDisplayDateTime(request.expires_at);
 
           return `
             <div class="admin-users-row password-change-request-row" role="row">
@@ -1788,7 +1798,7 @@ function renderStation(station) {
   const homepage = stationHomepage(station);
   const tags = stationTags(station);
   const playCount = Number(station.play_count || 0);
-  const lastPlayedAt = station.last_played_at || "";
+  const lastPlayedAt = formatDisplayDateTime(station.last_played_at);
   const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
 
   return `
@@ -1813,8 +1823,8 @@ function renderStation(station) {
       }
 
       ${
-        lastPlayedAt
-          ? `<p class="station-tags">Last played: ${escapeHtml(lastPlayedAt)}</p>`
+        lastPlayedAt !== "unknown"
+          ? `<p class="station-tags">Last played: ${lastPlayedAt}</p>`
           : ""
       }
 

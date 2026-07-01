@@ -2299,6 +2299,10 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    if (closeOpenDialog()) {
+      return;
+    }
+
     closeMobileMenu();
   }
 });

@@ -1930,16 +1930,33 @@ html[data-theme="light"] .player-actions a:hover {
   max-height: calc(100dvh - 6.75rem - env(safe-area-inset-top)) !important;
 }
 
-html[data-theme="light"] .password-change-dialog .auth-form button {
-  border-color: rgba(14, 116, 144, 0.22) !important;
-  color: var(--text) !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+/* Secondary dialog actions stay quieter than submit, but keep readable hover states. */
+.register-dialog .register-form .station-actions button[type="button"],
+.password-change-dialog .register-form .station-actions button[type="button"] {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  color: var(--muted) !important;
+  background: rgba(15, 23, 42, 0.34) !important;
 }
 
-html[data-theme="light"] .password-change-dialog .auth-form button:not(:disabled):hover {
+.register-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover,
+.password-change-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover {
+  border-color: rgba(110, 231, 216, 0.58) !important;
+  color: var(--text) !important;
+  background: rgba(15, 35, 59, 0.62) !important;
+}
+
+html[data-theme="light"] .register-dialog .register-form .station-actions button[type="button"],
+html[data-theme="light"] .password-change-dialog .register-form .station-actions button[type="button"] {
+  border-color: rgba(100, 116, 139, 0.24) !important;
+  color: #475569 !important;
+  background: rgba(248, 250, 252, 0.82) !important;
+}
+
+html[data-theme="light"] .register-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover,
+html[data-theme="light"] .password-change-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover {
   border-color: rgba(14, 116, 144, 0.52) !important;
-  color: var(--accent) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.96) !important;
 }
 
 @media (max-width: 42rem) {

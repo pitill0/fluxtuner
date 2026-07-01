@@ -54,13 +54,34 @@ PLAYLIST_REQUIRED_DETAIL = "Playlist name is required."
 MAX_USERNAME_LENGTH = 80
 MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
+MAX_ACCOUNT_CHANGE_NOTE_LENGTH = 1000
 MAX_PLAYLIST_NAME_LENGTH = 120
+ACCOUNT_CHANGE_REQUEST_MAX_AGE_SECONDS = 60 * 60 * 24
+ACCOUNT_CHANGE_RATE_LIMIT_KEY = "__password_change__"
+ACCOUNT_CHANGE_INVALID_DETAIL = "Username and new password are required."
+ACCOUNT_CHANGE_RECEIVED_MESSAGE = "If the account exists, the password change request was recorded."
+ACCOUNT_CHANGE_NOT_FOUND_DETAIL = "Password change request not found."
+ACCOUNT_CHANGE_NOT_PENDING_DETAIL = "Password change request is not pending."
+ACCOUNT_CHANGE_EXPIRED_DETAIL = "Password change request has expired."
 
 
 def _ensure_web_schema(conn: Any) -> None:
     db.create_schema(conn)
     db.ensure_user_approval_schema(conn)
     db.ensure_profile_user_schema(conn)
+
+
+def _password_change_expires_at() -> str:
+    return auth.encode_datetime(
+        auth.utc_now() + auth.timedelta(seconds=ACCOUNT_CHANGE_REQUEST_MAX_AGE_SECONDS)
+    )
+
+
+def _password_change_is_expired(request_payload: dict[str, Any]) -> bool:
+    try:
+        return auth.parse_datetime(str(request_payload["expires_at"])) <= auth.utc_now()
+    except (KeyError, TypeError, ValueError):
+        return True
 
 
 def _server_health_payload() -> dict[str, str]:
@@ -89,6 +110,14 @@ def _admin_user_counts(conn: Any) -> dict[str, int]:
         """,
         (db.APPROVAL_PENDING,),
     ).fetchone()
+    password_change_row = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM web_password_change_requests
+        WHERE status = ?
+        """,
+        (db.ACCOUNT_CHANGE_PENDING,),
+    ).fetchone()
 
     return {
         "users_count": int(row["users_count"] or 0),
@@ -96,6 +125,7 @@ def _admin_user_counts(conn: Any) -> dict[str, int]:
         "users_created_7_days": int(row["users_created_7_days"] or 0),
         "users_created_30_days": int(row["users_created_30_days"] or 0),
         "pending_users_count": int(row["pending_users_count"] or 0),
+        "pending_password_change_requests_count": int(password_change_row[0] or 0),
     }
 
 
@@ -319,6 +349,21 @@ def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "reviewed_by_user_id": user.get("reviewed_by_user_id"),
         "created_at": str(user["created_at"]),
         "updated_at": str(user["updated_at"]),
+    }
+
+
+def _admin_password_change_request_payload(request_payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(request_payload["id"]),
+        "user_id": int(request_payload["user_id"]),
+        "username": str(request_payload["username"]),
+        "display_name": str(request_payload["display_name"]),
+        "note": request_payload.get("note"),
+        "status": str(request_payload["status"]),
+        "created_at": str(request_payload["created_at"]),
+        "expires_at": str(request_payload["expires_at"]),
+        "resolved_at": request_payload.get("resolved_at"),
+        "resolved_by_user_id": request_payload.get("resolved_by_user_id"),
     }
 
 
@@ -628,6 +673,68 @@ def create_app() -> Any:
             "message": REGISTER_RECEIVED_MESSAGE,
         }
 
+    @app.post("/api/auth/password-change-requests")
+    def request_password_change(
+        request: Request,
+        payload: dict[str, Any] = required_body,
+    ) -> dict[str, str]:
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("new_password") or payload.get("password") or "")
+        note = str(payload.get("note") or "").strip() or None
+        client_key = _request_client_host(request)
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
+        if len(username) > MAX_USERNAME_LENGTH or _text_too_long(
+            note,
+            MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
+        ):
+            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            clean_username = db.normalize_username(username)
+            if not clean_username:
+                raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
+
+            if auth.is_login_rate_limited(
+                conn,
+                ACCOUNT_CHANGE_RATE_LIMIT_KEY,
+                client_key,
+            ):
+                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
+
+        try:
+            password_hash = auth.hash_password(password)
+        except auth.PasswordValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            user = db.get_user_by_username(conn, clean_username)
+            if (
+                user is not None
+                and bool(user["is_active"])
+                and str(user["approval_status"]) == db.APPROVAL_APPROVED
+            ):
+                db.upsert_pending_password_change_request(
+                    conn,
+                    int(user["id"]),
+                    password_hash=password_hash,
+                    note=note,
+                    expires_at=_password_change_expires_at(),
+                )
+
+            auth.record_login_attempt(
+                conn,
+                ACCOUNT_CHANGE_RATE_LIMIT_KEY,
+                client_key,
+                success=False,
+            )
+            conn.commit()
+
+        return {"message": ACCOUNT_CHANGE_RECEIVED_MESSAGE}
+
     @app.post("/api/auth/login")
     def login(
         request: Request,
@@ -766,6 +873,97 @@ def create_app() -> Any:
                 }
 
         return payload
+
+    @app.get("/api/admin/password-change-requests")
+    def admin_list_password_change_requests(request: Request) -> dict[str, Any]:
+        require_admin_user(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            requests = db.list_password_change_requests(conn)
+
+        return {
+            "count": len(requests),
+            "requests": [
+                _admin_password_change_request_payload(request_payload)
+                for request_payload in requests
+            ],
+        }
+
+    @app.post("/api/admin/password-change-requests/{request_id}/approve")
+    def admin_approve_password_change_request(
+        request: Request,
+        request_id: int = Path(..., ge=1),
+    ) -> dict[str, Any]:
+        admin_user = require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            request_payload = db.get_password_change_request(conn, request_id)
+            if request_payload is None:
+                raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
+            if str(request_payload["status"]) != db.ACCOUNT_CHANGE_PENDING:
+                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL)
+            if _password_change_is_expired(request_payload):
+                db.set_password_change_request_status(
+                    conn,
+                    request_id,
+                    db.ACCOUNT_CHANGE_EXPIRED,
+                    resolved_by_user_id=int(admin_user["id"]),
+                )
+                conn.commit()
+                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_EXPIRED_DETAIL)
+
+            user_id = int(request_payload["user_id"])
+            conn.execute(
+                """
+                UPDATE users
+                SET
+                    password_hash = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (str(request_payload["password_hash"]), db.utc_now(), user_id),
+            )
+            db.set_password_change_request_status(
+                conn,
+                request_id,
+                db.ACCOUNT_CHANGE_APPROVED,
+                resolved_by_user_id=int(admin_user["id"]),
+            )
+            _revoke_user_sessions(conn, user_id)
+            conn.commit()
+
+            updated_user = _admin_target_user(conn, str(request_payload["username"]))
+
+        return {"user": _admin_user_payload(updated_user)}
+
+    @app.post("/api/admin/password-change-requests/{request_id}/reject")
+    def admin_reject_password_change_request(
+        request: Request,
+        request_id: int = Path(..., ge=1),
+    ) -> dict[str, str]:
+        admin_user = require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+            request_payload = db.get_password_change_request(conn, request_id)
+            if request_payload is None:
+                raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
+            if str(request_payload["status"]) != db.ACCOUNT_CHANGE_PENDING:
+                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL)
+
+            db.set_password_change_request_status(
+                conn,
+                request_id,
+                db.ACCOUNT_CHANGE_REJECTED,
+                resolved_by_user_id=int(admin_user["id"]),
+            )
+            conn.commit()
+
+        return {"status": db.ACCOUNT_CHANGE_REJECTED}
 
     @app.get("/api/admin/users")
     def admin_list_users(request: Request) -> dict[str, Any]:

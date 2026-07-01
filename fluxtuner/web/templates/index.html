@@ -167,6 +167,7 @@
 
         <div class="auth-secondary-actions">
           <button type="button" data-register-open>Request access</button>
+          <button type="button" data-password-change-open>Forgot password?</button>
         </div>
 
         <p class="auth-note">
@@ -322,6 +323,19 @@
 
                 <p class="admin-message" data-admin-message></p>
 
+                <div class="admin-password-change-requests">
+                  <div class="panel-heading">
+                    <div>
+                      <p class="eyebrow">Recovery</p>
+                      <h3>Password change requests</h3>
+                    </div>
+                  </div>
+
+                  <div class="admin-users" data-admin-password-change-requests>
+                    <p class="empty">Password change requests will appear here.</p>
+                  </div>
+                </div>
+
                 <div class="admin-users" data-admin-users>
                   <p class="empty">Admin users will appear here.</p>
                 </div>
@@ -389,6 +403,51 @@
         FluxTuner __FLUXTUNER_VERSION__
       </footer>
     </main>
+
+    <section class="playlist-dialog password-change-dialog" data-password-change-dialog hidden aria-labelledby="password-change-dialog-title">
+      <div class="playlist-dialog-card register-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Account recovery</p>
+            <h2 id="password-change-dialog-title">Request password change</h2>
+          </div>
+          <button type="button" data-password-change-cancel>Cancel</button>
+        </div>
+
+        <p class="auth-note">
+          Choose a new password. It will only become active if an administrator approves the request.
+        </p>
+
+        <form class="auth-form register-form" data-password-change-form>
+          <label>
+            <span>Username</span>
+            <input name="username" type="text" autocomplete="username" maxlength="80" required>
+          </label>
+
+          <label>
+            <span>New password</span>
+            <input name="new_password" type="password" autocomplete="new-password" required>
+          </label>
+
+          <label>
+            <span>Confirm password</span>
+            <input name="confirm_password" type="password" autocomplete="new-password" required>
+          </label>
+
+          <label>
+            <span>Note for admin</span>
+            <input name="note" type="text" maxlength="500" autocomplete="off" placeholder="Optional context for the administrator">
+          </label>
+
+          <p class="register-dialog-message" data-password-change-message></p>
+
+          <div class="station-actions">
+            <button type="submit" data-password-change-submit>Request password change</button>
+            <button type="button" data-password-change-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
 
     <section class="playlist-dialog register-dialog" data-register-dialog hidden aria-labelledby="register-dialog-title">
       <div class="playlist-dialog-card register-dialog-card">

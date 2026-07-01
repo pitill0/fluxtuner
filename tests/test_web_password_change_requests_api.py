@@ -6,6 +6,7 @@ from fluxtuner.core import db
 from fluxtuner.web import auth
 from fluxtuner.web.app import (
     ACCOUNT_CHANGE_EXPIRED_DETAIL,
+    ACCOUNT_CHANGE_PENDING_DETAIL,
     ACCOUNT_CHANGE_RECEIVED_MESSAGE,
     ADMIN_REQUIRED_DETAIL,
     CSRF_ERROR_DETAIL,
@@ -109,6 +110,54 @@ def test_public_password_change_request_is_generic_for_unknown_user(
         requests = db.list_password_change_requests(conn)
 
     assert requests == []
+
+
+def test_public_password_change_request_locks_user_until_admin_review(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+
+    with db.connect() as conn:
+        old_token = auth.create_session(conn, user_id)
+        conn.commit()
+
+    response = request_password_change(client, "alice")
+
+    assert response.status_code == 200
+
+    old_login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    assert old_login.status_code == 403
+    assert old_login.json() == {"detail": ACCOUNT_CHANGE_PENDING_DETAIL}
+
+    with db.connect() as conn:
+        assert auth.get_session(conn, old_token) is None
+
+
+def test_public_password_change_request_does_not_lock_admin_accounts(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+
+    response = request_password_change(client, "admin")
+
+    assert response.status_code == 200
+    assert response.json() == {"message": ACCOUNT_CHANGE_RECEIVED_MESSAGE}
+
+    with db.connect() as conn:
+        assert db.list_password_change_requests(conn) == []
+
+    admin_login = client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": VALID_PASSWORD},
+    )
+    assert admin_login.status_code == 200
 
 
 def test_public_password_change_request_replaces_existing_pending_request(

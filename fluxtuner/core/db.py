@@ -675,6 +675,27 @@ def list_password_change_requests(
     return [password_change_request_from_row(row) for row in rows]
 
 
+def user_has_pending_password_change_request(
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    now: str | None = None,
+) -> bool:
+    """Return whether an active pending password change request locks login."""
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM web_password_change_requests
+        WHERE user_id = ?
+          AND status = ?
+          AND expires_at > ?
+        LIMIT 1
+        """,
+        (user_id, ACCOUNT_CHANGE_PENDING, now or utc_now()),
+    ).fetchone()
+    return row is not None
+
+
 def get_password_change_request(
     conn: sqlite3.Connection,
     request_id: int,

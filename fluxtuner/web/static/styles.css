@@ -1716,6 +1716,16 @@ html[data-theme="light"] .playlist-dialog-card {
   width: 100%;
 }
 
+.admin-password-change-requests {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.password-change-request-row {
+  grid-template-columns: minmax(12rem, 1.25fr) minmax(9rem, 0.9fr) minmax(9rem, 0.9fr) minmax(14rem, 1.3fr) minmax(10rem, 1fr);
+}
+
 .register-dialog-card {
   width: min(42rem, calc(100vw - 2rem));
 }
@@ -1749,7 +1759,8 @@ html[data-theme="light"] .playlist-dialog-card {
 }
 
 .admin-user-actions [data-admin-user-action="reject"],
-.admin-user-actions [data-admin-user-action="deactivate"] {
+.admin-user-actions [data-admin-user-action="deactivate"],
+.admin-user-actions [data-admin-password-change-action="reject"] {
   color: var(--danger);
   border-color: rgba(252, 165, 165, 0.3);
   background: rgba(127, 29, 29, 0.2);
@@ -1873,6 +1884,7 @@ html[data-theme="light"] .player-actions a:hover {
 
 .playlist-dialog[hidden],
 .register-dialog[hidden],
+.password-change-dialog[hidden],
 .app-user[hidden],
 .app-content[hidden],
 .auth-panel[hidden],
@@ -1881,4 +1893,37 @@ html[data-theme="light"] .player-actions a:hover {
 .admin-panel[hidden],
 .panel[hidden] {
   display: none !important;
+}
+
+
+/* 1.0.2 password-change and floating-header polish */
+
+.playlist-dialog {
+  padding-block-start: calc(5.75rem + env(safe-area-inset-top)) !important;
+}
+
+.playlist-dialog-card {
+  max-height: calc(100dvh - 6.75rem - env(safe-area-inset-top)) !important;
+}
+
+html[data-theme="light"] .password-change-dialog .auth-form button {
+  border-color: rgba(14, 116, 144, 0.22) !important;
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="light"] .password-change-dialog .auth-form button:not(:disabled):hover {
+  border-color: rgba(14, 116, 144, 0.52) !important;
+  color: var(--accent) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+@media (max-width: 42rem) {
+  .playlist-dialog {
+    padding: calc(5.25rem + env(safe-area-inset-top)) 0.75rem 0.75rem !important;
+  }
+
+  .playlist-dialog-card {
+    max-height: calc(100dvh - 6rem - env(safe-area-inset-top)) !important;
+  }
 }

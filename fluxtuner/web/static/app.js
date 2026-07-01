@@ -34,6 +34,11 @@ const registerDialog = document.querySelector("[data-register-dialog]");
 const registerCancelButtons = document.querySelectorAll("[data-register-cancel]");
 const registerForm = document.querySelector("[data-register-form]");
 const registerMessageNode = document.querySelector("[data-register-message]");
+const passwordChangeOpenButton = document.querySelector("[data-password-change-open]");
+const passwordChangeDialog = document.querySelector("[data-password-change-dialog]");
+const passwordChangeCancelButtons = document.querySelectorAll("[data-password-change-cancel]");
+const passwordChangeForm = document.querySelector("[data-password-change-form]");
+const passwordChangeMessageNode = document.querySelector("[data-password-change-message]");
 const authMessageNode = document.querySelector("[data-auth-message]");
 const authUserPanel = document.querySelector("[data-auth-user]");
 const authUsernameNode = document.querySelector("[data-auth-username]");
@@ -58,6 +63,9 @@ const adminCreateUserForm = document.querySelector("[data-admin-create-user-form
 const adminPasswordForm = document.querySelector("[data-admin-password-form]");
 const adminMessageNode = document.querySelector("[data-admin-message]");
 const adminUsersNode = document.querySelector("[data-admin-users]");
+const adminPasswordChangeRequestsNode = document.querySelector(
+  "[data-admin-password-change-requests]",
+);
 const playlistDialog = document.querySelector("[data-playlist-dialog]");
 const playlistForm = document.querySelector("[data-playlist-form]");
 const playlistSelect = document.querySelector("[data-playlist-select]");
@@ -218,6 +226,11 @@ function clearAdminUsers() {
   if (adminUsersNode) {
     adminUsersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
   }
+
+  if (adminPasswordChangeRequestsNode) {
+    adminPasswordChangeRequestsNode.innerHTML =
+      '<p class="empty">Password change requests will appear here.</p>';
+  }
 }
 
 function setAdminMessage(message) {
@@ -286,6 +299,126 @@ function renderAdminUsers(users) {
   `;
 }
 
+
+function formatAdminTimestamp(value) {
+  const text = String(value || "").trim();
+  if (!text) return "unknown";
+
+  const parsed = new Date(text.endsWith("Z") ? text : `${text}Z`);
+  if (Number.isNaN(parsed.getTime())) return escapeHtml(text);
+
+  return escapeHtml(parsed.toLocaleString());
+}
+
+function renderPasswordChangeRequests(requests) {
+  if (!adminPasswordChangeRequestsNode) return;
+
+  if (!requests.length) {
+    adminPasswordChangeRequestsNode.innerHTML =
+      '<p class="empty">No pending password change requests.</p>';
+    return;
+  }
+
+  adminPasswordChangeRequestsNode.innerHTML = `
+    <div class="admin-users-table password-change-requests-table" role="table" aria-label="Password change requests">
+      <div class="admin-users-row password-change-request-row admin-users-head" role="row">
+        <span role="columnheader">User</span>
+        <span role="columnheader">Created</span>
+        <span role="columnheader">Expires</span>
+        <span role="columnheader">Note</span>
+        <span role="columnheader">Actions</span>
+      </div>
+      ${requests
+        .map((request) => {
+          const id = Number(request.id || 0);
+          const username = escapeHtml(request.username || "");
+          const displayName = escapeHtml(request.display_name || request.username || "");
+          const note = escapeHtml(request.note || "No note provided.");
+          const createdAt = formatAdminTimestamp(request.created_at);
+          const expiresAt = formatAdminTimestamp(request.expires_at);
+
+          return `
+            <div class="admin-users-row password-change-request-row" role="row">
+              <span role="cell">
+                <strong>${displayName}</strong>
+                <small>${username}</small>
+              </span>
+              <span role="cell">${createdAt}</span>
+              <span role="cell">${expiresAt}</span>
+              <span role="cell"><small>${note}</small></span>
+              <span class="admin-user-actions" role="cell">
+                <button type="button" data-admin-password-change-action="approve" data-request-id="${id}">Approve</button>
+                <button type="button" data-admin-password-change-action="reject" data-request-id="${id}">Reject</button>
+              </span>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+async function loadPasswordChangeRequests({ silent = false } = {}) {
+  if (!currentUser || !currentUser.is_admin || !adminPasswordChangeRequestsNode) return;
+
+  if (!silent) {
+    setAdminMessage("Loading password change requests...");
+  }
+
+  try {
+    const response = await apiFetch("/api/admin/password-change-requests", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not load password change requests.");
+    }
+
+    const payload = await response.json();
+    renderPasswordChangeRequests(payload.requests || []);
+
+    if (!silent) {
+      setAdminMessage(`${payload.count ?? 0} password change request(s).`);
+    }
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
+async function mutatePasswordChangeRequest(requestId, action) {
+  const id = Number(requestId || 0);
+  if (!id || !["approve", "reject"].includes(action)) return;
+
+  setAdminMessage("Updating password change request...");
+
+  try {
+    const response = await apiFetch(`/api/admin/password-change-requests/${id}/${action}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Could not update password change request.");
+    }
+
+    setAdminMessage(
+      action === "approve"
+        ? "Password change approved. Active sessions for that user were revoked."
+        : "Password change request rejected.",
+    );
+    await loadPasswordChangeRequests({ silent: true });
+    await loadDashboard();
+  } catch (error) {
+    setAdminMessage(String(error));
+  }
+}
+
 async function loadAdminUsers() {
   if (!currentUser || !currentUser.is_admin) return;
 
@@ -306,6 +439,7 @@ async function loadAdminUsers() {
     const payload = await response.json();
     adminUsersLoaded = true;
     renderAdminUsers(payload.users || []);
+    await loadPasswordChangeRequests({ silent: true });
     setAdminMessage(`${payload.count ?? 0} web user(s).`);
   } catch (error) {
     setAdminMessage(String(error));
@@ -526,6 +660,10 @@ function renderDashboard(payload) {
       renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0)),
       renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0)),
       renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0)),
+      renderDashboardMetric(
+        "Password changes",
+        Number(adminMetrics.pending_password_change_requests_count || 0),
+      ),
       renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown")),
     ].join("");
   }
@@ -1019,6 +1157,80 @@ async function login(event) {
     csrfToken = "";
     updateAuthUi();
     authMessageNode.textContent = String(error);
+  }
+}
+
+
+function setPasswordChangeMessage(message) {
+  if (passwordChangeMessageNode) {
+    passwordChangeMessageNode.textContent = message || "";
+  }
+}
+
+function openPasswordChangeDialog() {
+  if (!passwordChangeDialog) return;
+
+  setPasswordChangeMessage("");
+  passwordChangeDialog.hidden = false;
+
+  const firstInput = passwordChangeDialog.querySelector("input, button");
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+function closePasswordChangeDialog() {
+  if (!passwordChangeDialog) return;
+
+  passwordChangeDialog.hidden = true;
+  setPasswordChangeMessage("");
+
+  if (passwordChangeForm) {
+    passwordChangeForm.reset();
+  }
+}
+
+async function requestPasswordChange(event) {
+  event.preventDefault();
+
+  if (!passwordChangeForm || !authMessageNode) return;
+
+  const formData = new FormData(passwordChangeForm);
+  const username = String(formData.get("username") || "").trim();
+  const newPassword = String(formData.get("new_password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+  const note = String(formData.get("note") || "").trim();
+
+  if (newPassword !== confirmPassword) {
+    setPasswordChangeMessage("Passwords do not match.");
+    return;
+  }
+
+  setPasswordChangeMessage("Requesting password change...");
+
+  try {
+    const response = await fetch("/api/auth/password-change-requests", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        new_password: newPassword,
+        note,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || "Could not request password change.");
+    }
+
+    closePasswordChangeDialog();
+    authMessageNode.textContent = payload.message || "Password change request received.";
+  } catch (error) {
+    setPasswordChangeMessage(String(error));
   }
 }
 
@@ -2002,6 +2214,17 @@ if (adminUsersNode) {
   });
 }
 
+if (adminPasswordChangeRequestsNode) {
+  adminPasswordChangeRequestsNode.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-admin-password-change-action]");
+    if (!button) return;
+    mutatePasswordChangeRequest(
+      button.dataset.requestId || "",
+      button.dataset.adminPasswordChangeAction || "",
+    );
+  });
+}
+
 if (playlistForm) {
   playlistForm.addEventListener("submit", submitPlaylistDialog);
 }
@@ -2020,6 +2243,18 @@ if (loginForm) {
 
 if (registerOpenButton) {
   registerOpenButton.addEventListener("click", openRegisterDialog);
+}
+
+if (passwordChangeOpenButton) {
+  passwordChangeOpenButton.addEventListener("click", openPasswordChangeDialog);
+}
+
+passwordChangeCancelButtons.forEach((button) => {
+  button.addEventListener("click", closePasswordChangeDialog);
+});
+
+if (passwordChangeForm) {
+  passwordChangeForm.addEventListener("submit", requestPasswordChange);
 }
 
 registerCancelButtons.forEach((button) => {

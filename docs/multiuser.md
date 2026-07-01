@@ -297,6 +297,21 @@ Web user CLI commands:
 
 First-user bootstrap must be explicit.
 
+## Web UX notes
+
+FluxTuner Web 1.0.1 improves the private-server browser experience without
+changing the authentication model or storage format:
+
+- The authenticated header displays the user's display name when available.
+- The persistent player bar has stronger visual contrast and clearer playback state.
+- The external stream action is styled consistently with the rest of the player controls.
+- Register and playlist dialogs are scrollable on small mobile screens.
+- Hidden dialogs and authenticated header controls remain hidden until the current
+  session state makes them visible.
+
+Password change requests and public read-only server stats are planned for future
+releases.
+
 ## Container and deployment requirements
 
 Container mode should be secure by default.

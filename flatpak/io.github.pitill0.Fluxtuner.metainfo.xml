@@ -80,6 +80,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.1" date="2026-06-30">
+      <description>
+        <ul>
+          <li>Improved the FluxTuner Web player bar visibility, contrast and playback state.</li>
+          <li>Styled the external stream action consistently with the Web player controls.</li>
+          <li>Show display names in the authenticated Web header when available.</li>
+          <li>Made Web register and playlist dialogs scrollable on small mobile screens.</li>
+          <li>Fixed hidden Web dialogs and authenticated header controls appearing incorrectly on mobile.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.0" date="2026-06-30">
       <description>
         <ul>

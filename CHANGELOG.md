@@ -20,6 +20,24 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.1] - 2026-06-30
+
+### Changed
+
+- Improved the Web player bar contrast, spacing and active playback visibility.
+- Styled the external stream action consistently with the rest of the Web controls.
+- The authenticated header now shows the user's display name when available instead of the internal username.
+- Register and playlist dialogs are now scrollable on small mobile screens.
+
+### Fixed
+
+- Fixed hidden Web dialogs and authenticated header controls being displayed incorrectly on mobile.
+
+### Notes
+
+- This is a Web UX polish release based on early real-world private-server usage.
+- No storage migration or authentication model change is required.
+
 ## [1.0.0] - 2026-06-30
 
 ### Added

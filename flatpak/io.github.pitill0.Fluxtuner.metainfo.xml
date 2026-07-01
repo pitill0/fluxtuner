@@ -80,6 +80,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.2" date="2026-07-01">
+      <description>
+        <ul>
+          <li>Added Web password change requests for private server deployments.</li>
+          <li>Added an administrator approval flow for pending password change requests.</li>
+          <li>Prevented non-admin users with pending password change requests from logging in with the old password.</li>
+          <li>Revoked active sessions for non-admin users when a password change request is created.</li>
+          <li>Standardized visible Web timestamps as YYYY-MM-DD HH:mm in the user's local browser time.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.1" date="2026-06-30">
       <description>
         <ul>

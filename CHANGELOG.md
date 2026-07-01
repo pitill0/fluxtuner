@@ -20,6 +20,26 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.2] - 2026-07-01
+
+### Added
+
+- Added Web password change requests for private server deployments.
+- Added a public password change request form where users choose a new password that only becomes active after administrator approval.
+- Added admin UI actions to approve or reject pending password change requests.
+
+### Changed
+
+- Non-admin users with a pending password change request are prevented from logging in with the old password until the request is resolved.
+- Active sessions for non-admin users are revoked when a password change request is created.
+- Standardized visible Web timestamps as `YYYY-MM-DD HH:mm` in the user's local browser time.
+
+### Security
+
+- Password change requests store only password hashes, never plaintext passwords.
+- Public password change requests use a generic response to avoid revealing whether an account exists.
+- Administrator accounts are not blocked through the public password change request flow; admin recovery remains a CLI/manual operation.
+
 ## [1.0.1] - 2026-06-30
 
 ### Changed

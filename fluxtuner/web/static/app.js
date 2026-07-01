@@ -40,6 +40,9 @@ const passwordChangeCancelButtons = document.querySelectorAll("[data-password-ch
 const passwordChangeForm = document.querySelector("[data-password-change-form]");
 const passwordChangeMessageNode = document.querySelector("[data-password-change-message]");
 const authMessageNode = document.querySelector("[data-auth-message]");
+const publicStatsSection = document.querySelector("[data-public-stats]");
+const publicStatsContentNode = document.querySelector("[data-public-stats-content]");
+const publicStatsMessageNode = document.querySelector("[data-public-stats-message]");
 const authUserPanel = document.querySelector("[data-auth-user]");
 const authUsernameNode = document.querySelector("[data-auth-username]");
 const logoutButton = document.querySelector("[data-logout]");
@@ -94,6 +97,8 @@ let setupRequiresToken = false;
 let adminUsersLoaded = false;
 let dashboardLoaded = false;
 let pendingPlaylistStation = null;
+let publicStatsLoaded = false;
+let publicStatsLoading = false;
 
 
 function formatHealthSummary(payload) {
@@ -213,7 +218,89 @@ function setResultsHeader(kicker, title) {
   }
 }
 
+function formatPublicStatCount(value, singular, plural) {
+  const count = Number(value || 0);
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 
+function renderPublicStats(payload) {
+  if (!publicStatsContentNode) return;
+
+  const topStations = Array.isArray(payload?.top_stations)
+    ? payload.top_stations.slice(0, 3)
+    : [];
+  const totals = payload?.totals || {};
+  const plays = Number(totals.plays || 0);
+  const favorites = Number(totals.favorites || 0);
+  const playlists = Number(totals.playlists || 0);
+
+  if (!topStations.length && !plays && !favorites && !playlists) {
+    publicStatsContentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
+    return;
+  }
+
+  const topStationsMarkup = topStations.length
+    ? `
+      <ol class="public-stats-list">
+        ${topStations
+          .map((station) => {
+            const name = escapeHtml(station.name || "Unknown station");
+            const playCount = formatPublicStatCount(station.play_count, "play", "plays");
+            return `<li><span>${name}</span><strong>${escapeHtml(playCount)}</strong></li>`;
+          })
+          .join("")}
+      </ol>
+    `
+    : '<p class="empty">No top stations yet.</p>';
+
+  publicStatsContentNode.innerHTML = `
+    <div class="public-stats-top">
+      <p class="eyebrow">Most played</p>
+      ${topStationsMarkup}
+    </div>
+    <div class="public-stats-totals" aria-label="Public activity totals">
+      <span>${escapeHtml(formatPublicStatCount(plays, "play", "plays"))}</span>
+      <span>${escapeHtml(formatPublicStatCount(favorites, "saved station", "saved stations"))}</span>
+      <span>${escapeHtml(formatPublicStatCount(playlists, "playlist", "playlists"))}</span>
+    </div>
+  `;
+}
+
+async function loadPublicStats(force = false) {
+  if (!publicStatsContentNode || publicStatsLoading) return;
+  if (publicStatsLoaded && !force) return;
+
+  publicStatsLoading = true;
+  if (publicStatsMessageNode) {
+    publicStatsMessageNode.textContent = "Loading server activity...";
+  }
+
+  try {
+    const response = await fetch("/api/public/stats", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    renderPublicStats(payload);
+    publicStatsLoaded = true;
+    if (publicStatsMessageNode) {
+      publicStatsMessageNode.textContent = "";
+    }
+  } catch (_error) {
+    publicStatsContentNode.innerHTML = '<p class="empty">Public activity is unavailable.</p>';
+    if (publicStatsMessageNode) {
+      publicStatsMessageNode.textContent = "";
+    }
+  } finally {
+    publicStatsLoading = false;
+  }
+}
 
 
 function clearAdminUsers() {
@@ -1009,6 +1096,14 @@ function updateAuthUi() {
     authPanel.hidden = setupAvailable || authenticated;
   }
 
+  if (publicStatsSection) {
+    publicStatsSection.hidden = setupAvailable || authenticated;
+  }
+
+  if (!setupAvailable && !authenticated) {
+    loadPublicStats();
+  }
+
   setAppContentVisible(!setupAvailable && authenticated);
 
   const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
@@ -1325,6 +1420,7 @@ async function logout() {
   } finally {
     stopPlayback();
     currentUser = null;
+    publicStatsLoaded = false;
     resetRadioBrowserView();
     updateAuthUi();
     renderAuthRequired();

@@ -1778,6 +1778,102 @@ html[data-theme="light"] .playlist-dialog-card {
   line-height: 1.55;
 }
 
+.public-stats-card {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background: rgba(3, 7, 18, 0.2);
+}
+
+.public-stats-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.public-stats-heading h3 {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+}
+
+.public-stats-content {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.public-stats-top {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.public-stats-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.public-stats-list li {
+  padding-left: 0.2rem;
+}
+
+.public-stats-list li::marker {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.public-stats-list span,
+.public-stats-list strong {
+  display: block;
+}
+
+.public-stats-list span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.public-stats-list strong {
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.public-stats-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.public-stats-totals span {
+  border: 1px solid rgba(110, 231, 216, 0.2);
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  color: var(--muted);
+  background: rgba(15, 35, 59, 0.38);
+  font-size: 0.83rem;
+  font-weight: 800;
+}
+
+.public-stats-message {
+  min-height: 1.2rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+html[data-theme="light"] .public-stats-card {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+html[data-theme="light"] .public-stats-totals span {
+  border-color: rgba(8, 145, 178, 0.22);
+  background: rgba(236, 254, 255, 0.8);
+}
+
 .admin-users-row {
   grid-template-columns: minmax(12rem, 1.45fr) 0.45fr 0.45fr 0.65fr minmax(18rem, 1.6fr);
 }

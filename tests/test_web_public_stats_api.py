@@ -66,6 +66,7 @@ def test_public_stats_are_available_without_authentication(tmp_path, monkeypatch
             "plays": 0,
             "favorites": 0,
             "playlists": 0,
+            "users": 0,
         },
     }
 
@@ -106,6 +107,7 @@ def test_public_stats_return_only_anonymous_aggregates(tmp_path, monkeypatch) ->
         "plays": 2,
         "favorites": 1,
         "playlists": 1,
+        "users": 1,
     }
 
     serialized = str(payload)
@@ -141,3 +143,29 @@ def test_public_stats_limit_top_stations_to_three(tmp_path, monkeypatch) -> None
         "Radio 1",
     ]
     assert payload["totals"]["plays"] == 10
+    assert payload["totals"]["users"] == 1
+
+
+def test_public_stats_count_only_active_approved_users(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    with db.connect() as conn:
+        db.create_pending_user(
+            conn,
+            "pending",
+            password_hash=auth.hash_password(VALID_PASSWORD),
+        )
+        disabled_id = db.get_or_create_user(
+            conn,
+            "disabled",
+            password_hash=auth.hash_password(VALID_PASSWORD),
+        )
+        db.set_user_approval_status(conn, disabled_id, db.APPROVAL_DISABLED)
+        db.get_or_create_user(conn, "legacy-no-password")
+        conn.commit()
+
+    response = client.get("/api/public/stats")
+
+    assert response.status_code == 200
+    assert response.json()["totals"]["users"] == 1

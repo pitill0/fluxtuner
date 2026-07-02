@@ -18,6 +18,7 @@ def test_web_index_includes_public_stats_card() -> None:
     assert "Your private listening space" in response.text
     assert "Server activity" in response.text
     assert "Public stats" in response.text
+    assert "Anonymous aggregate usage and listening stats" in response.text
 
 
 def test_web_static_js_loads_public_stats() -> None:
@@ -31,6 +32,7 @@ def test_web_static_js_loads_public_stats() -> None:
     assert "renderPublicStats" in response.text
     assert "renderPublicStatTile" in response.text
     assert "No public activity yet." in response.text
+    assert '"user", "users"' in response.text
 
 
 def test_web_static_css_styles_public_stats() -> None:

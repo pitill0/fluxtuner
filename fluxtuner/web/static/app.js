@@ -248,8 +248,9 @@ function renderPublicStats(payload) {
   const plays = Number(totals.plays || 0);
   const favorites = Number(totals.favorites || 0);
   const playlists = Number(totals.playlists || 0);
+  const users = Number(totals.users || 0);
 
-  if (!topStations.length && !plays && !favorites && !playlists) {
+  if (!topStations.length && !plays && !favorites && !playlists && !users) {
     publicStatsContentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
     return;
   }
@@ -285,6 +286,7 @@ function renderPublicStats(payload) {
       ${renderPublicStatTile(plays, "play", "plays")}
       ${renderPublicStatTile(favorites, "saved station", "saved stations")}
       ${renderPublicStatTile(playlists, "playlist", "playlists")}
+      ${renderPublicStatTile(users, "user", "users")}
     </div>
   `;
 }

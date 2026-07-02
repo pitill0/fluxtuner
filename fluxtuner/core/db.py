@@ -983,7 +983,15 @@ def public_activity_stats(
         SELECT
             COALESCE(SUM(history_entries.play_count), 0) AS plays_count,
             (SELECT COUNT(*) FROM favorites) AS favorites_count,
-            (SELECT COUNT(*) FROM playlists) AS playlists_count
+            (SELECT COUNT(*) FROM playlists) AS playlists_count,
+            (
+                SELECT COUNT(*)
+                FROM users
+                WHERE is_active = 1
+                  AND approval_status = 'approved'
+                  AND password_hash IS NOT NULL
+                  AND trim(password_hash) != ''
+            ) AS users_count
         FROM history_entries
         """
     ).fetchone()
@@ -1000,6 +1008,7 @@ def public_activity_stats(
             "plays": _safe_int(totals_row["plays_count"]),
             "favorites": _safe_int(totals_row["favorites_count"]),
             "playlists": _safe_int(totals_row["playlists_count"]),
+            "users": _safe_int(totals_row["users_count"]),
         },
     }
 

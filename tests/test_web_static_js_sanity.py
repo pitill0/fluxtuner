@@ -160,6 +160,8 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "data-admin-panel" in html_response.text
     assert "data-player-debug-panel" in html_response.text
     assert "data-player-debug-summary" in html_response.text
+    assert "data-player-debug-enable" in html_response.text
+    assert "Enable player debug on this browser" in html_response.text
     assert "data-player-debug-toggle" in html_response.text
     assert "data-player-debug-copy" in html_response.text
     assert "data-player-debug-clear" in html_response.text
@@ -176,12 +178,16 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
         in js_response.text
     )
     assert "function playerDebugSnapshot(details = {})" in js_response.text
+    assert "function applyPlayerDebugState(enabled, persist = true)" in js_response.text
+    assert "function updatePlayerDebugPanelVisibility()" in js_response.text
     assert "function renderPlayerDebugPanel()" in js_response.text
     assert "function copyPlayerDebugLog()" in js_response.text
     assert "function downloadPlayerDebugLog()" in js_response.text
     assert "function clearPlayerDebugLog()" in js_response.text
     assert "function togglePlayerDebugDetails()" in js_response.text
-    assert "playerDebugPanel.hidden = !playerDebugEnabled" in js_response.text
+    assert "playerDebugPanel.hidden = !showAdminDebug;" in js_response.text
+    assert "playerDebugEnableInput.checked = playerDebugEnabled;" in js_response.text
+    assert "applyPlayerDebugState(playerDebugEnableInput.checked);" in js_response.text
     assert "playerDebugEvents.length > PLAYER_DEBUG_EVENT_LIMIT" in js_response.text
     assert "showPlayerDebugExport(payload);" in js_response.text
     assert "playerDebugExportNode.select();" in js_response.text
@@ -199,6 +205,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "Player debug log download started:" in js_response.text
 
     assert ".player-debug-panel" in css_response.text
+    assert ".player-debug-enable" in css_response.text
     assert ".player-debug-actions" in css_response.text
     assert ".player-debug-export" in css_response.text
     assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_response.text

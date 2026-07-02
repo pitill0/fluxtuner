@@ -1437,6 +1437,27 @@ footer {
     rgba(3, 8, 20, 0.28) !important;
 }
 
+
+.player-debug-enable {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  margin-top: 0.65rem !important;
+  color: var(--text-muted) !important;
+  font-size: 0.86rem !important;
+}
+
+.player-debug-enable input {
+  width: 1rem !important;
+  height: 1rem !important;
+  accent-color: var(--accent) !important;
+}
+
+.player-debug-actions button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.48 !important;
+}
+
 .player-debug-actions {
   display: flex !important;
   flex-wrap: wrap !important;

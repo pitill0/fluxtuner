@@ -307,13 +307,17 @@
                   <div>
                     <p class="eyebrow">Player debug</p>
                     <strong>Playback diagnostics</strong>
-                    <span data-player-debug-summary>Debug logging is enabled.</span>
+                    <span data-player-debug-summary>Debug logging is disabled.</span>
+                    <label class="player-debug-enable">
+                      <input type="checkbox" data-player-debug-enable />
+                      <span>Enable player debug on this browser</span>
+                    </label>
                   </div>
 
                   <div class="player-debug-actions">
                     <button type="button" data-player-debug-toggle>Show</button>
                     <button type="button" data-player-debug-copy>Copy</button>
-                    <button type="button" data-player-debug-download>Download log</button>
+                    <button type="button" data-player-debug-download>Download</button>
                     <button type="button" data-player-debug-clear>Clear</button>
                   </div>
 

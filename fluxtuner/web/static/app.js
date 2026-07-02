@@ -86,6 +86,7 @@ const playerStopButton = document.querySelector("[data-player-stop]");
 const playerOpenLink = document.querySelector("[data-player-open]");
 const playerDebugPanel = document.querySelector("[data-player-debug-panel]");
 const playerDebugSummaryNode = document.querySelector("[data-player-debug-summary]");
+const playerDebugEnableInput = document.querySelector("[data-player-debug-enable]");
 const playerDebugToggleButton = document.querySelector("[data-player-debug-toggle]");
 const playerDebugCopyButton = document.querySelector("[data-player-debug-copy]");
 const playerDebugClearButton = document.querySelector("[data-player-debug-clear]");
@@ -120,36 +121,97 @@ let playerDebugEnabled = false;
 let playerDebugEvents = [];
 
 
+function applyPlayerDebugState(enabled, persist = true) {
+  playerDebugEnabled = Boolean(enabled);
+
+  try {
+    if (persist) {
+      if (playerDebugEnabled) {
+        window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1");
+      } else {
+        window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY);
+      }
+    }
+  } catch (_error) {
+    // localStorage may be unavailable in private browsing or restricted contexts.
+  }
+
+  if (playerDebugEnableInput) {
+    playerDebugEnableInput.checked = playerDebugEnabled;
+  }
+
+  if (!playerDebugEnabled && playerDebugDetailsNode) {
+    playerDebugDetailsNode.open = false;
+  }
+
+  if (playerDebugToggleButton) {
+    playerDebugToggleButton.textContent =
+      playerDebugDetailsNode?.open && playerDebugEnabled ? "Hide" : "Show";
+    playerDebugToggleButton.disabled = !playerDebugEnabled;
+  }
+
+  if (playerDebugCopyButton) {
+    playerDebugCopyButton.disabled = !playerDebugEnabled;
+  }
+
+  if (playerDebugDownloadButton) {
+    playerDebugDownloadButton.disabled = !playerDebugEnabled;
+  }
+
+  if (playerDebugClearButton) {
+    playerDebugClearButton.disabled = !playerDebugEnabled;
+  }
+
+  if (playerDebugExportNode && !playerDebugEnabled) {
+    playerDebugExportNode.value = "";
+    playerDebugExportNode.hidden = true;
+  }
+
+  renderPlayerDebugPanel();
+}
+
+function updatePlayerDebugPanelVisibility() {
+  if (!playerDebugPanel) return;
+
+  const showAdminDebug = Boolean(currentUser?.is_admin) && !setupAvailable;
+  playerDebugPanel.hidden = !showAdminDebug;
+
+  if (showAdminDebug) {
+    renderPlayerDebugPanel();
+  }
+}
+
 function initializePlayerDebug() {
+  let enabled = false;
+
   try {
     const params = new URLSearchParams(window.location.search);
     const requestedDebug = params.get(PLAYER_DEBUG_QUERY_KEY);
 
     if (requestedDebug === "1") {
-      window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1");
+      enabled = true;
     } else if (requestedDebug === "0") {
-      window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY);
+      enabled = false;
+    } else {
+      enabled = window.localStorage.getItem(PLAYER_DEBUG_STORAGE_KEY) === "1";
     }
 
-    playerDebugEnabled =
-      window.localStorage.getItem(PLAYER_DEBUG_STORAGE_KEY) === "1";
+    applyPlayerDebugState(enabled, requestedDebug !== null);
   } catch (_error) {
     playerDebugEnabled = false;
-  }
-
-  if (playerDebugPanel) {
-    playerDebugPanel.hidden = !playerDebugEnabled;
+    applyPlayerDebugState(false, false);
   }
 
   if (playerDebugEnabled) {
     console.info(
       "[FluxTuner player]",
       "debug enabled",
-      { disableWith: `?${PLAYER_DEBUG_QUERY_KEY}=0` },
+      {
+        disableWith: `?${PLAYER_DEBUG_QUERY_KEY}=0`,
+        adminToggle: "Admin > Player debug",
+      },
     );
   }
-
-  renderPlayerDebugPanel();
 }
 
 function audioDebugSnapshot() {
@@ -220,15 +282,32 @@ function playerDebugPayload() {
 }
 
 function renderPlayerDebugPanel() {
-  if (!playerDebugEnabled || !playerDebugPanel) return;
+  if (!playerDebugPanel) return;
 
-  playerDebugPanel.hidden = false;
+  if (playerDebugEnableInput) {
+    playerDebugEnableInput.checked = playerDebugEnabled;
+  }
 
   if (playerDebugSummaryNode) {
     const count = playerDebugEvents.length;
-    playerDebugSummaryNode.textContent = count
-      ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
-      : "Debug logging is enabled.";
+    playerDebugSummaryNode.textContent = playerDebugEnabled
+      ? count
+        ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
+        : "Debug logging is enabled."
+      : "Debug logging is disabled.";
+  }
+
+  if (!playerDebugEnabled) {
+    if (playerDebugSnapshotNode) {
+      playerDebugSnapshotNode.textContent =
+        "Enable player debug to capture playback diagnostics.";
+    }
+
+    if (playerDebugLogNode) {
+      playerDebugLogNode.textContent = "No player events captured while debug is disabled.";
+    }
+
+    return;
   }
 
   if (playerDebugSnapshotNode) {
@@ -1468,6 +1547,8 @@ function updateAuthUi() {
   if (navAdminButton) {
     navAdminButton.hidden = !showAdminPanel;
   }
+
+  updatePlayerDebugPanelVisibility();
 
   if (!showAdminPanel) {
     clearAdminUsers();
@@ -3036,6 +3117,13 @@ if (playerToggleButton) {
 
 if (playerStopButton) {
   playerStopButton.addEventListener("click", stopPlayback);
+}
+
+if (playerDebugEnableInput) {
+  playerDebugEnableInput.addEventListener("change", () => {
+    applyPlayerDebugState(playerDebugEnableInput.checked);
+    logPlayerEvent("player-debug-toggle", { enabled: playerDebugEnabled });
+  });
 }
 
 if (audioNode) {

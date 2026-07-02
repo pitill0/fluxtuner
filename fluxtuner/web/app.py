@@ -43,6 +43,7 @@ ADMIN_REQUIRED_DETAIL = "Administrator access required."
 ADMIN_USER_EXISTS_DETAIL = "Web user already exists."
 ADMIN_USER_NOT_FOUND_DETAIL = "Web user not found."
 ADMIN_LAST_ADMIN_DETAIL = "Cannot remove the last active administrator."
+ADMIN_SELF_DELETE_DETAIL = "Administrators cannot delete their own account."
 ADMIN_INVALID_USER_DETAIL = "Username and password are required."
 ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
 REGISTER_INVALID_DETAIL = "Username and password are required."
@@ -1145,6 +1146,28 @@ def create_app() -> Any:
         return {
             "user": _admin_user_payload(updated_user),
         }
+
+    @app.delete("/api/admin/users/{username}")
+    def admin_delete_user(username: str, request: Request) -> Response:
+        admin_user = require_admin_user(request)
+        require_csrf(request)
+
+        with db.connect() as conn:
+            _ensure_web_schema(conn)
+
+            user = _admin_target_user(conn, username)
+            user_id = int(user["id"])
+
+            if user_id == int(admin_user["id"]):
+                raise HTTPException(status_code=400, detail=ADMIN_SELF_DELETE_DETAIL)
+
+            _ensure_not_last_active_admin(conn, user)
+            deleted = db.delete_user(conn, user_id)
+            if not deleted:
+                raise HTTPException(status_code=404, detail=ADMIN_USER_NOT_FOUND_DETAIL)
+            conn.commit()
+
+        return Response(status_code=204)
 
     @app.post("/api/admin/users/{username}/approve")
     def admin_approve_user(username: str, request: Request) -> dict[str, Any]:

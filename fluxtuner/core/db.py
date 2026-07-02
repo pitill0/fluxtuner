@@ -774,6 +774,23 @@ def list_users(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return [user_from_row(row) for row in rows]
 
 
+def delete_user(conn: sqlite3.Connection, user_id: int) -> bool:
+    """Delete a user and all owned web data.
+
+    Foreign keys cascade profiles, sessions, favorites, playlists, playlist stations,
+    history entries and password-change requests owned by the user. Requests that
+    were resolved by this user keep their audit trail with a NULL resolver.
+    """
+    cursor = conn.execute(
+        """
+        DELETE FROM users
+        WHERE id = ?
+        """,
+        (user_id,),
+    )
+    return cursor.rowcount > 0
+
+
 def _profile_table_has_user_id(conn: sqlite3.Connection) -> bool:
     columns = conn.execute("PRAGMA table_info(profiles)").fetchall()
     return any(str(column["name"]) == "user_id" for column in columns)

@@ -7,6 +7,7 @@ from fluxtuner.web import auth
 from fluxtuner.web.app import (
     ADMIN_LAST_ADMIN_DETAIL,
     ADMIN_REQUIRED_DETAIL,
+    ADMIN_SELF_DELETE_DETAIL,
     ADMIN_USER_EXISTS_DETAIL,
     ADMIN_USER_NOT_FOUND_DETAIL,
     CSRF_ERROR_DETAIL,
@@ -112,6 +113,11 @@ def test_admin_mutations_require_csrf(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 403
     assert response.json() == {"detail": CSRF_ERROR_DETAIL}
+
+    delete_response = client.delete("/api/admin/users/admin")
+
+    assert delete_response.status_code == 403
+    assert delete_response.json() == {"detail": CSRF_ERROR_DETAIL}
 
 
 def test_admin_can_create_user_and_reject_duplicates(tmp_path, monkeypatch) -> None:
@@ -321,3 +327,134 @@ def test_admin_deactivating_self_revokes_current_session_when_another_admin_exis
 
     me = client.get("/api/auth/me")
     assert me.status_code == 401
+
+
+def _sample_station(name: str = "Sample Radio") -> dict[str, object]:
+    return {
+        "stationuuid": f"{name.lower().replace(' ', '-')}-uuid",
+        "name": name,
+        "url": f"https://example.com/{name.lower().replace(' ', '-')}.mp3",
+        "url_resolved": f"https://example.com/{name.lower().replace(' ', '-')}.mp3",
+        "homepage": "https://example.com",
+        "favicon": "",
+        "country": "Spain",
+        "countrycode": "ES",
+        "language": "Spanish",
+        "tags": "test",
+        "codec": "MP3",
+        "bitrate": 128,
+    }
+
+
+def test_admin_can_delete_user_and_related_data(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    alice_id = create_user("alice")
+    csrf_token = login(client, "admin")
+
+    with db.connect() as conn:
+        profile_id = db.ensure_default_profile(conn, user_id=alice_id)
+        old_token = auth.create_session(conn, alice_id)
+        station = _sample_station()
+        assert db.add_favorite_record(conn, station, profile_id=profile_id) is True
+        db.add_history_record(conn, station, profile_id=profile_id)
+        assert db.create_playlist_record(conn, "Morning", profile_id=profile_id) is True
+        assert (
+            db.add_station_to_playlist_record(
+                conn,
+                "Morning",
+                station,
+                profile_id=profile_id,
+            )
+            is True
+        )
+        db.upsert_pending_password_change_request(
+            conn,
+            alice_id,
+            password_hash=auth.hash_password(OTHER_PASSWORD),
+            expires_at="2999-01-01T00:00:00+00:00",
+        )
+        conn.commit()
+
+    response = client.delete(
+        "/api/admin/users/alice",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    with db.connect() as conn:
+        assert db.get_user_by_username(conn, "alice") is None
+        assert auth.get_session(conn, old_token) is None
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM profiles WHERE user_id = ?",
+                (alice_id,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM web_sessions WHERE user_id = ?",
+                (alice_id,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM web_password_change_requests WHERE user_id = ?",
+                (alice_id,),
+            ).fetchone()[0]
+            == 0
+        )
+        assert conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM history_entries").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM playlists").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM playlist_stations").fetchone()[0] == 0
+
+
+def test_non_admin_cannot_delete_user(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    create_user("bob")
+    csrf_token = login(client, "alice")
+
+    response = client.delete(
+        "/api/admin/users/bob",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": ADMIN_REQUIRED_DETAIL}
+
+
+def test_admin_delete_missing_user_returns_404(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    csrf_token = login(client, "admin")
+
+    response = client.delete(
+        "/api/admin/users/missing",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": ADMIN_USER_NOT_FOUND_DETAIL}
+
+
+def test_admin_cannot_delete_self(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("admin", is_admin=True)
+    csrf_token = login(client, "admin")
+
+    response = client.delete(
+        "/api/admin/users/admin",
+        headers=csrf_headers(csrf_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": ADMIN_SELF_DELETE_DETAIL}
+
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200

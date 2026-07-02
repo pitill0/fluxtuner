@@ -84,8 +84,19 @@ const playerStatusNode = document.querySelector("[data-player-status]");
 const playerToggleButton = document.querySelector("[data-player-toggle]");
 const playerStopButton = document.querySelector("[data-player-stop]");
 const playerOpenLink = document.querySelector("[data-player-open]");
+const playerDebugPanel = document.querySelector("[data-player-debug-panel]");
+const playerDebugSummaryNode = document.querySelector("[data-player-debug-summary]");
+const playerDebugToggleButton = document.querySelector("[data-player-debug-toggle]");
+const playerDebugCopyButton = document.querySelector("[data-player-debug-copy]");
+const playerDebugClearButton = document.querySelector("[data-player-debug-clear]");
+const playerDebugDownloadButton = document.querySelector("[data-player-debug-download]");
+const playerDebugDetailsNode = document.querySelector("[data-player-debug-details]");
+const playerDebugSnapshotNode = document.querySelector("[data-player-debug-snapshot]");
+const playerDebugLogNode = document.querySelector("[data-player-debug-log]");
+const playerDebugExportNode = document.querySelector("[data-player-debug-export]");
 
 const MAX_PLAYLIST_NAME_LENGTH = 120;
+const PLAYER_DEBUG_EVENT_LIMIT = 80;
 const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";
 const PLAYER_DEBUG_QUERY_KEY = "player_debug";
 
@@ -106,6 +117,7 @@ let startingPlayback = false;
 let softPausingPlayback = false;
 let stoppingPlayback = false;
 let playerDebugEnabled = false;
+let playerDebugEvents = [];
 
 
 function initializePlayerDebug() {
@@ -125,6 +137,10 @@ function initializePlayerDebug() {
     playerDebugEnabled = false;
   }
 
+  if (playerDebugPanel) {
+    playerDebugPanel.hidden = !playerDebugEnabled;
+  }
+
   if (playerDebugEnabled) {
     console.info(
       "[FluxTuner player]",
@@ -132,6 +148,8 @@ function initializePlayerDebug() {
       { disableWith: `?${PLAYER_DEBUG_QUERY_KEY}=0` },
     );
   }
+
+  renderPlayerDebugPanel();
 }
 
 function audioDebugSnapshot() {
@@ -162,10 +180,8 @@ function mediaSessionDebugSnapshot() {
   }
 }
 
-function logPlayerEvent(eventName, details = {}) {
-  if (!playerDebugEnabled) return;
-
-  console.debug("[FluxTuner player]", eventName, {
+function playerDebugSnapshot(details = {}) {
+  return {
     state: playerBar?.dataset.state || "",
     station: currentStation
       ? {
@@ -182,7 +198,150 @@ function logPlayerEvent(eventName, details = {}) {
     mediaSession: mediaSessionDebugSnapshot(),
     visibilityState: document.visibilityState || "",
     details,
-  });
+  };
+}
+
+function playerDebugPayload() {
+  const lines = [
+    "FluxTuner player debug log",
+    "",
+    "Current snapshot:",
+    JSON.stringify(playerDebugSnapshot(), null, 2),
+    "",
+    "Recent events:",
+  ];
+
+  for (const entry of playerDebugEvents) {
+    lines.push(`[${entry.timestamp}] ${entry.eventName}`);
+    lines.push(JSON.stringify(entry.snapshot, null, 2));
+  }
+
+  return lines.join("\n");
+}
+
+function renderPlayerDebugPanel() {
+  if (!playerDebugEnabled || !playerDebugPanel) return;
+
+  playerDebugPanel.hidden = false;
+
+  if (playerDebugSummaryNode) {
+    const count = playerDebugEvents.length;
+    playerDebugSummaryNode.textContent = count
+      ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
+      : "Debug logging is enabled.";
+  }
+
+  if (playerDebugSnapshotNode) {
+    playerDebugSnapshotNode.textContent = JSON.stringify(playerDebugSnapshot(), null, 2);
+  }
+
+  if (playerDebugLogNode) {
+    playerDebugLogNode.textContent = playerDebugEvents.length
+      ? playerDebugEvents
+          .map(
+            (entry) =>
+              `[${entry.timestamp}] ${entry.eventName}\n${JSON.stringify(entry.snapshot, null, 2)}`,
+          )
+          .join("\n\n")
+      : "No player events yet.";
+  }
+}
+
+function setPlayerDebugSummary(message) {
+  if (playerDebugSummaryNode) {
+    playerDebugSummaryNode.textContent = message;
+  }
+}
+
+function showPlayerDebugExport(payload) {
+  if (!playerDebugExportNode) return;
+
+  playerDebugExportNode.value = payload;
+  playerDebugExportNode.hidden = false;
+  playerDebugExportNode.focus();
+  playerDebugExportNode.select();
+}
+
+async function copyPlayerDebugLog() {
+  if (!playerDebugEnabled) return;
+
+  const payload = playerDebugPayload();
+  showPlayerDebugExport(payload);
+
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard API unavailable");
+    }
+
+    await navigator.clipboard.writeText(payload);
+    setPlayerDebugSummary("Player debug log copied to clipboard and shown below.");
+  } catch (_error) {
+    setPlayerDebugSummary("Clipboard unavailable. Select and copy the log below, or use Download log.");
+  }
+}
+
+function downloadPlayerDebugLog() {
+  if (!playerDebugEnabled) return;
+
+  const payload = playerDebugPayload();
+  showPlayerDebugExport(payload);
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `fluxtuner-player-debug-${timestamp}.txt`;
+  const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  setPlayerDebugSummary(`Player debug log download started: ${filename}`);
+}
+
+function clearPlayerDebugLog() {
+  playerDebugEvents = [];
+
+  if (playerDebugExportNode) {
+    playerDebugExportNode.value = "";
+    playerDebugExportNode.hidden = true;
+  }
+
+  renderPlayerDebugPanel();
+}
+
+function togglePlayerDebugDetails() {
+  if (!playerDebugDetailsNode) return;
+
+  playerDebugDetailsNode.open = !playerDebugDetailsNode.open;
+
+  if (playerDebugToggleButton) {
+    playerDebugToggleButton.textContent = playerDebugDetailsNode.open ? "Hide" : "Show";
+  }
+
+  renderPlayerDebugPanel();
+}
+
+function logPlayerEvent(eventName, details = {}) {
+  if (!playerDebugEnabled) return;
+
+  const entry = {
+    timestamp: new Date().toISOString(),
+    eventName,
+    snapshot: playerDebugSnapshot(details),
+  };
+
+  playerDebugEvents.push(entry);
+  if (playerDebugEvents.length > PLAYER_DEBUG_EVENT_LIMIT) {
+    playerDebugEvents = playerDebugEvents.slice(-PLAYER_DEBUG_EVENT_LIMIT);
+  }
+
+  console.debug("[FluxTuner player]", eventName, entry.snapshot);
+  renderPlayerDebugPanel();
 }
 
 initializePlayerDebug();
@@ -2709,6 +2868,22 @@ if (logoutButton) {
 
 if (healthButton) {
   healthButton.addEventListener("click", checkHealth);
+}
+
+if (playerDebugToggleButton) {
+  playerDebugToggleButton.addEventListener("click", togglePlayerDebugDetails);
+}
+
+if (playerDebugCopyButton) {
+  playerDebugCopyButton.addEventListener("click", copyPlayerDebugLog);
+}
+
+if (playerDebugClearButton) {
+  playerDebugClearButton.addEventListener("click", clearPlayerDebugLog);
+}
+
+if (playerDebugDownloadButton) {
+  playerDebugDownloadButton.addEventListener("click", downloadPlayerDebugLog);
 }
 
 if (navToggleButton) {

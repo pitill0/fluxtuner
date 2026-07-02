@@ -144,3 +144,54 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
     assert "networkState: audioNode.networkState" in response.text
     assert 'currentSrc: audioNode["currentSrc"] || ""' in response.text
     assert "errorCode: audioNode.error?.code || null" in response.text
+
+
+def test_web_static_js_has_admin_player_debug_panel() -> None:
+    client = TestClient(create_app())
+
+    js_response = client.get("/static/app.js")
+    html_response = client.get("/")
+    css_response = client.get("/static/styles.css")
+
+    assert js_response.status_code == 200
+    assert html_response.status_code == 200
+    assert css_response.status_code == 200
+
+    assert "data-admin-panel" in html_response.text
+    assert "data-player-debug-panel" in html_response.text
+    assert "data-player-debug-summary" in html_response.text
+    assert "data-player-debug-toggle" in html_response.text
+    assert "data-player-debug-copy" in html_response.text
+    assert "data-player-debug-clear" in html_response.text
+    assert "data-player-debug-download" in html_response.text
+    assert "data-player-debug-snapshot" in html_response.text
+    assert "data-player-debug-log" in html_response.text
+    assert "data-player-debug-export" in html_response.text
+    assert "Playback diagnostics" in html_response.text
+
+    assert "const PLAYER_DEBUG_EVENT_LIMIT = 80;" in js_response.text
+    assert (
+        'const playerDebugPanel = document.querySelector("[data-player-debug-panel]");'
+        in js_response.text
+    )
+    assert "function playerDebugSnapshot(details = {})" in js_response.text
+    assert "function renderPlayerDebugPanel()" in js_response.text
+    assert "function copyPlayerDebugLog()" in js_response.text
+    assert "function downloadPlayerDebugLog()" in js_response.text
+    assert "function clearPlayerDebugLog()" in js_response.text
+    assert "function togglePlayerDebugDetails()" in js_response.text
+    assert "playerDebugPanel.hidden = !playerDebugEnabled" in js_response.text
+    assert "playerDebugEvents.length > PLAYER_DEBUG_EVENT_LIMIT" in js_response.text
+    assert "showPlayerDebugExport(payload);" in js_response.text
+    assert "playerDebugExportNode.select();" in js_response.text
+    assert (
+        "Clipboard unavailable. Select and copy the log below, or use Download log."
+        in js_response.text
+    )
+    assert 'new Blob([payload], { type: "text/plain;charset=utf-8" })' in js_response.text
+    assert "link.download = filename;" in js_response.text
+    assert "Player debug log download started:" in js_response.text
+
+    assert ".player-debug-panel" in css_response.text
+    assert ".player-debug-actions" in css_response.text
+    assert ".player-debug-export" in css_response.text

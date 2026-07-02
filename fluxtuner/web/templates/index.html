@@ -303,6 +303,34 @@
                   </details>
                 </div>
 
+                <div class="admin-health player-debug-panel" data-player-debug-panel hidden>
+                  <div>
+                    <p class="eyebrow">Player debug</p>
+                    <strong>Playback diagnostics</strong>
+                    <span data-player-debug-summary>Debug logging is enabled.</span>
+                  </div>
+
+                  <div class="player-debug-actions">
+                    <button type="button" data-player-debug-toggle>Show</button>
+                    <button type="button" data-player-debug-copy>Copy</button>
+                    <button type="button" data-player-debug-download>Download log</button>
+                    <button type="button" data-player-debug-clear>Clear</button>
+                  </div>
+
+                  <details class="admin-health-details" data-player-debug-details>
+                    <summary>Details</summary>
+                    <pre class="status" data-player-debug-snapshot>No player snapshot yet.</pre>
+                    <pre class="status" data-player-debug-log>No player events yet.</pre>
+                    <textarea
+                      class="player-debug-export"
+                      data-player-debug-export
+                      readonly
+                      hidden
+                      aria-label="Player debug log export"
+                    ></textarea>
+                  </details>
+                </div>
+
                 <div class="admin-forms">
                   <form class="admin-user-form" data-admin-create-user-form>
                     <h3>Create user</h3>

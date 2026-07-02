@@ -39,7 +39,8 @@ favorites, history, playlists or dashboard data are available.
 
 The app shell includes an authenticated dashboard, quick navigation, isolated
 Admin user management, browser playback, a compact server-health summary inside
-Admin, and a local light/dark theme preference stored as `fluxtuner.theme`.
+Admin, an admin-only opt-in player debug panel, and a local light/dark theme
+preference stored as `fluxtuner.theme`.
 
 The dashboard shows each user their own favorite, playlist and history counts,
 recent playback and favorite highlights. Administrators also see compact global
@@ -65,6 +66,13 @@ tablets, or any other device on your network with a modern browser.
 Some streams may still fail because of browser codec support, CORS, mixed-content
 rules, or the way a radio station exposes its stream. When that happens, the
 interface keeps a direct stream URL as a fallback.
+
+FluxTuner Web keeps the current station available after pause so `Resume` can
+restart a live stream cleanly. Mobile lock-screen and status-bar controls are
+mediated by the browser and operating system, so their persistence can vary by
+platform, especially after a paused stream sits in the background. Administrator
+sessions can enable the local player debug panel from Admin to inspect playback,
+Media Session and page-lifecycle events when diagnosing browser-specific issues.
 
 ## Shared FluxTuner data
 

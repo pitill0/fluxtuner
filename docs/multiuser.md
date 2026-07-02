@@ -264,8 +264,11 @@ Authenticated routes:
 
 Admin-only routes are implemented for Web user management. They require an
 authenticated active administrator session. Administrators can create users,
-reset passwords, activate/deactivate users, grant/revoke admin access, and
-approve or reject pending account requests from the Admin UI/API.
+reset passwords, activate/deactivate users, grant/revoke admin access, approve
+or reject pending account requests, and delete users from the Admin UI/API.
+Destructive user deletion is kept in a danger zone, requires strong confirmation,
+is CSRF-protected, blocks self-delete, and removes related Web sessions,
+favorites, playlists, history and password change requests.
 
 ## Bootstrap strategy
 
@@ -309,8 +312,9 @@ changing the authentication model or storage format:
 - Hidden dialogs and authenticated header controls remain hidden until the current
   session state makes them visible.
 
-Password change requests and public read-only server stats are planned for future
-releases.
+Password change requests and public read-only server stats are implemented for
+private server deployments. Public stats remain anonymous aggregate counts only;
+they do not expose usernames, stream URLs, IP addresses or detailed timestamps.
 
 ## Container and deployment requirements
 

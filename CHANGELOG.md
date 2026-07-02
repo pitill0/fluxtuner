@@ -20,6 +20,33 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.4] - 2026-07-02
+
+### Added
+
+- Added an admin-only user deletion API that removes the user and related Web sessions, favorites, playlists, history and password change requests.
+- Added a compact Admin user danger zone with strong confirmation for deleting a user and all related data.
+- Added the total number of approved Web users to anonymous public stats.
+- Added an admin-only opt-in Web player debug panel with event snapshots, copy/export controls and downloadable logs for mobile playback diagnostics.
+
+### Changed
+
+- Deduplicated Web player and Media Session logic so browser, mobile and external media controls use a single playback flow.
+- Improved the Admin player debug panel layout on mobile so it no longer widens the page.
+- Kept external Media Session stop actions conservative by pausing and preserving the current station instead of clearing playback state.
+
+### Fixed
+
+- Fixed admin user management lacking a real destructive-delete path for removing stale or test accounts.
+- Fixed Web player Media Session handlers being registered through overlapping paths, which could cause inconsistent playback behavior after search, pause, resume or external controls.
+- Fixed public stats copy and rendering so anonymous platform usage can include user count without exposing usernames, sessions, IP addresses or timestamps.
+
+### Security
+
+- User deletion remains admin-only, CSRF-protected and blocks self-delete.
+- Public user stats expose only an anonymous aggregate count of approved active users with passwords configured.
+- Player debug logging is local, opt-in and admin-facing; it is intended for diagnostics and can be disabled per browser.
+
 ## [1.0.3] - 2026-07-01
 
 ### Added

@@ -204,7 +204,7 @@ Expected first-run flow:
 - playback starts in the browser
 - favorites, history and playlists are accessible only after login
 
-Account request flow:
+Account request and admin user flow:
 
 - log out
 - open Request access
@@ -215,6 +215,10 @@ Account request flow:
 - pending user appears in Admin
 - approving the user allows login
 - rejected or deactivated users cannot log in
+- user deletion is available only from the Admin danger zone
+- cancelling or mistyping the delete confirmation keeps the user intact
+- deleting a non-current test user removes the user from Admin and does not
+  affect the current administrator session
 
 Dashboard/privacy checks:
 
@@ -228,6 +232,9 @@ UI checks:
 - light and dark themes have sufficient contrast
 - Search navigation resets stale Favorites/History/Playlist results
 - Request access uses the modal flow and does not crowd the login form
+- public stats remain anonymous and show aggregate platform counts only
+- Admin Player debug can be enabled on the current browser, remains responsive
+  on mobile, exports logs, and can be disabled again without affecting playback
 
 ---
 

@@ -52,6 +52,8 @@ The Web user/account model adds ownership above profiles:
 
 FluxTuner is organized around a small set of frontends that share core services, user data and playback backends.
 
+For post-`v1.0.4` maintenance and larger internal cleanup, see [`docs/refactor-roadmap.md`](refactor-roadmap.md).
+
 ## Overview
 
 ```mermaid

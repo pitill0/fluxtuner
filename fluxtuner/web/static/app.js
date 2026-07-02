@@ -298,7 +298,7 @@ function downloadPlayerDebugLog() {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   setPlayerDebugSummary(`Player debug log download started: ${filename}`);
 }
@@ -3020,7 +3020,7 @@ function setupMediaSessionHandlers() {
       pauseCurrentStationPlayback();
     });
     navigator.mediaSession.setActionHandler("stop", () => {
-      logPlayerEvent("media-session-stop");
+      logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });
       pauseCurrentStationPlayback("Playback paused by system controls.");
     });
   } catch (_error) {

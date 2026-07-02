@@ -164,6 +164,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "data-player-debug-copy" in html_response.text
     assert "data-player-debug-clear" in html_response.text
     assert "data-player-debug-download" in html_response.text
+    assert "Download" in html_response.text
     assert "data-player-debug-snapshot" in html_response.text
     assert "data-player-debug-log" in html_response.text
     assert "data-player-debug-export" in html_response.text
@@ -190,8 +191,14 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     )
     assert 'new Blob([payload], { type: "text/plain;charset=utf-8" })' in js_response.text
     assert "link.download = filename;" in js_response.text
+    assert "window.setTimeout(() => URL.revokeObjectURL(url), 1000);" in js_response.text
+    assert (
+        'logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });'
+        in js_response.text
+    )
     assert "Player debug log download started:" in js_response.text
 
     assert ".player-debug-panel" in css_response.text
     assert ".player-debug-actions" in css_response.text
     assert ".player-debug-export" in css_response.text
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_response.text

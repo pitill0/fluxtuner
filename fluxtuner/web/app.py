@@ -25,6 +25,13 @@ from fluxtuner.core.manual_playlists import (
 )
 from fluxtuner.core.profiles import resolve_effective_profile_name
 from fluxtuner.web import auth
+from fluxtuner.web.payloads import (
+    admin_password_change_request_payload,
+    admin_user_payload,
+    public_user_payload,
+    safe_int,
+    station_payload,
+)
 
 SESSION_COOKIE_NAME = "fluxtuner_session"
 AUTH_ERROR_DETAIL = "Invalid username or password."
@@ -149,7 +156,7 @@ def _dashboard_user_payload(user_id: int, profile_name: str | None) -> dict[str,
     favorite_highlights = sorted(
         favorites,
         key=lambda station: (
-            _safe_int(station.get("play_count")),
+            safe_int(station.get("play_count")),
             str(station.get("last_played_at") or ""),
         ),
         reverse=True,
@@ -160,8 +167,8 @@ def _dashboard_user_payload(user_id: int, profile_name: str | None) -> dict[str,
         "playlists_count": len(playlists),
         "playlist_stations_count": playlist_stations_count,
         "history_count": len(history),
-        "recent_history": [_station_payload(station) for station in history[:5]],
-        "favorite_highlights": [_station_payload(station) for station in favorite_highlights],
+        "recent_history": [station_payload(station) for station in history[:5]],
+        "favorite_highlights": [station_payload(station) for station in favorite_highlights],
     }
 
 
@@ -184,14 +191,6 @@ def _request_client_host(request: Any) -> str:
     host = getattr(client, "host", None)
     return auth.client_key_from_host(str(host) if host else None)
 
-
-def _public_user_payload(user: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": int(user["id"]),
-        "username": str(user["username"]),
-        "display_name": str(user["display_name"]),
-        "is_admin": bool(user["is_admin"]),
-    }
 
 
 def _authenticated_user(request: Any) -> dict[str, Any] | None:
@@ -285,17 +284,6 @@ def _text_too_long(value: str | None, max_length: int) -> bool:
     return value is not None and len(value) > max_length
 
 
-def _safe_int(value: Any) -> int:
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _favorite_tags_payload(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _is_supported_web_url(url: str) -> bool:
@@ -311,24 +299,6 @@ def _require_station_stream_url(station_data: dict[str, Any]) -> None:
         raise HTTPException(status_code=400, detail=INVALID_STATION_URL_DETAIL)
 
 
-def _station_payload(station: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": str(station.get("name") or "Unknown station"),
-        "url": str(station.get("url") or ""),
-        "url_resolved": str(station.get("url_resolved") or station.get("url") or ""),
-        "country": str(station.get("country") or "Unknown"),
-        "countrycode": str(station.get("countrycode") or ""),
-        "tags": str(station.get("tags") or ""),
-        "codec": str(station.get("codec") or ""),
-        "bitrate": _safe_int(station.get("bitrate")),
-        "homepage": str(station.get("homepage") or ""),
-        "language": str(station.get("language") or ""),
-        "last_played_at": str(station.get("last_played_at") or ""),
-        "play_count": _safe_int(station.get("play_count")),
-        "custom_name": str(station.get("custom_name") or ""),
-        "favorite_tags": _favorite_tags_payload(station.get("favorite_tags")),
-    }
-
 
 def _playlist_name(payload: dict[str, Any]) -> str:
     return str(payload.get("name") or "").strip()
@@ -338,35 +308,6 @@ def _playlist_name_too_long(name: str) -> bool:
     return len(name) > MAX_PLAYLIST_NAME_LENGTH
 
 
-def _admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": int(user["id"]),
-        "username": str(user["username"]),
-        "display_name": str(user["display_name"]),
-        "is_admin": bool(user["is_admin"]),
-        "is_active": bool(user["is_active"]),
-        "approval_status": str(user["approval_status"]),
-        "signup_note": user.get("signup_note"),
-        "reviewed_at": user.get("reviewed_at"),
-        "reviewed_by_user_id": user.get("reviewed_by_user_id"),
-        "created_at": str(user["created_at"]),
-        "updated_at": str(user["updated_at"]),
-    }
-
-
-def _admin_password_change_request_payload(request_payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": int(request_payload["id"]),
-        "user_id": int(request_payload["user_id"]),
-        "username": str(request_payload["username"]),
-        "display_name": str(request_payload["display_name"]),
-        "note": request_payload.get("note"),
-        "status": str(request_payload["status"]),
-        "created_at": str(request_payload["created_at"]),
-        "expires_at": str(request_payload["expires_at"]),
-        "resolved_at": request_payload.get("resolved_at"),
-        "resolved_by_user_id": request_payload.get("resolved_by_user_id"),
-    }
 
 
 def _active_admin_count(conn: Any) -> int:
@@ -600,7 +541,7 @@ def create_app() -> Any:
         return {
             "authenticated": True,
             "setup_complete": True,
-            "user": _public_user_payload(user),
+            "user": public_user_payload(user),
             "csrf_token": _csrf_token_for_session_token(token),
         }
 
@@ -839,7 +780,7 @@ def create_app() -> Any:
         _set_session_cookie(response, token)
         return {
             "authenticated": True,
-            "user": _public_user_payload(authenticated_user),
+            "user": public_user_payload(authenticated_user),
             "csrf_token": _csrf_token_for_session_token(token),
         }
 
@@ -866,7 +807,7 @@ def create_app() -> Any:
 
         return {
             "authenticated": True,
-            "user": _public_user_payload(user),
+            "user": public_user_payload(user),
             "csrf_token": _csrf_token_for_session_token(token),
         }
 
@@ -906,7 +847,7 @@ def create_app() -> Any:
         return {
             "count": len(requests),
             "requests": [
-                _admin_password_change_request_payload(request_payload)
+                admin_password_change_request_payload(request_payload)
                 for request_payload in requests
             ],
         }
@@ -958,7 +899,7 @@ def create_app() -> Any:
 
             updated_user = _admin_target_user(conn, str(request_payload["username"]))
 
-        return {"user": _admin_user_payload(updated_user)}
+        return {"user": admin_user_payload(updated_user)}
 
     @app.post("/api/admin/password-change-requests/{request_id}/reject")
     def admin_reject_password_change_request(
@@ -996,7 +937,7 @@ def create_app() -> Any:
 
         return {
             "count": len(users),
-            "users": [_admin_user_payload(user) for user in users],
+            "users": [admin_user_payload(user) for user in users],
         }
 
     @app.post("/api/admin/users")
@@ -1050,7 +991,7 @@ def create_app() -> Any:
             user = _admin_target_user(conn, clean_username)
 
         return {
-            "user": _admin_user_payload(user),
+            "user": admin_user_payload(user),
         }
 
     @app.post("/api/admin/users/{username}/password")
@@ -1092,7 +1033,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.post("/api/admin/users/{username}/deactivate")
@@ -1119,7 +1060,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.post("/api/admin/users/{username}/activate")
@@ -1144,7 +1085,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.delete("/api/admin/users/{username}")
@@ -1189,7 +1130,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.post("/api/admin/users/{username}/reject")
@@ -1214,7 +1155,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.post("/api/admin/users/{username}/admin")
@@ -1243,7 +1184,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.delete("/api/admin/users/{username}/admin")
@@ -1273,7 +1214,7 @@ def create_app() -> Any:
             updated_user = _admin_target_user(conn, username)
 
         return {
-            "user": _admin_user_payload(updated_user),
+            "user": admin_user_payload(updated_user),
         }
 
     @app.get("/api/search")
@@ -1305,7 +1246,7 @@ def create_app() -> Any:
             "min_bitrate": min_bitrate,
             "limit": limit,
             "count": len(stations),
-            "stations": [_station_payload(station) for station in stations],
+            "stations": [station_payload(station) for station in stations],
         }
 
     @app.get("/api/history")
@@ -1326,7 +1267,7 @@ def create_app() -> Any:
 
         return {
             "count": len(stations),
-            "stations": [_station_payload(station) for station in stations],
+            "stations": [station_payload(station) for station in stations],
         }
 
     @app.post("/api/history")
@@ -1341,7 +1282,7 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        station_data = _station_payload(station)
+        station_data = station_payload(station)
 
         _require_station_stream_url(station_data)
 
@@ -1373,7 +1314,7 @@ def create_app() -> Any:
 
         return {
             "count": len(stations),
-            "stations": [_station_payload(station) for station in stations],
+            "stations": [station_payload(station) for station in stations],
         }
 
     @app.post("/api/favorites")
@@ -1388,7 +1329,7 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        station_data = _station_payload(station)
+        station_data = station_payload(station)
 
         _require_station_stream_url(station_data)
 
@@ -1531,7 +1472,7 @@ def create_app() -> Any:
         return {
             "name": name,
             "count": len(stations),
-            "stations": [_station_payload(station) for station in stations],
+            "stations": [station_payload(station) for station in stations],
         }
 
     @app.post("/api/playlists/{name}/stations")
@@ -1547,7 +1488,7 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        station_data = _station_payload(station)
+        station_data = station_payload(station)
 
         _require_station_stream_url(station_data)
 

@@ -93,3 +93,54 @@ def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
     assert "stream did not start after reload" in response.text
     assert 'navigator.mediaSession.playbackState = "paused";' in response.text
     assert 'navigator.mediaSession.playbackState = "none";' in response.text
+
+
+def test_web_static_js_has_opt_in_player_debug_logging() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";' in response.text
+    assert 'const PLAYER_DEBUG_QUERY_KEY = "player_debug";' in response.text
+    assert "function initializePlayerDebug()" in response.text
+    assert "function logPlayerEvent(eventName, details = {})" in response.text
+    assert "params.get(PLAYER_DEBUG_QUERY_KEY)" in response.text
+    assert 'window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1")' in response.text
+    assert "window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY)" in response.text
+    assert 'console.debug("[FluxTuner player]"' in response.text
+
+
+def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    for event_name in [
+        "media-session-play",
+        "media-session-pause",
+        "media-session-stop",
+        "audio-play",
+        "audio-playing",
+        "audio-pause",
+        "audio-waiting",
+        "audio-error",
+        "document-visibilitychange",
+        "window-pagehide",
+        "window-pageshow",
+        "window-online",
+        "window-offline",
+    ]:
+        assert event_name in response.text
+
+    assert (
+        '["abort", "canplay", "emptied", "ended", "loadstart", "stalled", "suspend"]'
+        in response.text
+    )
+    assert "function audioDebugSnapshot()" in response.text
+    assert "function mediaSessionDebugSnapshot()" in response.text
+    assert "readyState: audioNode.readyState" in response.text
+    assert "networkState: audioNode.networkState" in response.text
+    assert 'currentSrc: audioNode["currentSrc"] || ""' in response.text
+    assert "errorCode: audioNode.error?.code || null" in response.text

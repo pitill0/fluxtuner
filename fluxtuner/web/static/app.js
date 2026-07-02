@@ -373,6 +373,10 @@ function renderAdminUsers(users) {
           const adminLabel = user.is_admin ? "yes" : "no";
           const activeLabel = user.is_active ? "yes" : "no";
           const approvalStatus = escapeHtml(user.approval_status || "approved");
+          const isCurrentUser = currentUser?.username === user.username;
+          const deleteAction = isCurrentUser
+            ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
+            : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}">Delete user and all data</button>`;
 
           return `
             <div class="admin-users-row" role="row">
@@ -384,22 +388,33 @@ function renderAdminUsers(users) {
               <span role="cell">${activeLabel}</span>
               <span role="cell">${approvalStatus}</span>
               <span class="admin-user-actions" role="cell">
-                ${
-                  user.approval_status === "pending"
-                    ? `<button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
-                       <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>`
-                    : ""
-                }
-                ${
-                  user.is_active
-                    ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
-                    : `<button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>`
-                }
-                ${
-                  user.is_admin
-                    ? `<button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Remove admin</button>`
-                    : `<button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Make admin</button>`
-                }
+                <span class="admin-user-actions-normal">
+                  ${
+                    user.approval_status === "pending"
+                      ? `<button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
+                         <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>`
+                      : ""
+                  }
+                  ${
+                    user.is_active
+                      ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
+                      : `<button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>`
+                  }
+                  ${
+                    user.is_admin
+                      ? `<button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Remove admin</button>`
+                      : `<button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Make admin</button>`
+                  }
+                </span>
+                <details class="admin-user-danger-zone">
+                  <summary>Danger zone</summary>
+                  <div>
+                    <strong>Permanent delete</strong>
+                    <small>Removes the user, sessions, favorites, playlists, history, and pending password requests.</small>
+                    ${deleteAction}
+                    <small class="admin-user-danger-feedback" data-admin-user-danger-feedback></small>
+                  </div>
+                </details>
               </span>
             </div>
           `;
@@ -659,7 +674,17 @@ async function setAdminUserPassword(event) {
   }
 }
 
-async function mutateAdminUser(username, action) {
+function setAdminUserDangerFeedback(button, message) {
+  const feedbackNode = button
+    ?.closest(".admin-user-danger-zone")
+    ?.querySelector("[data-admin-user-danger-feedback]");
+
+  if (feedbackNode) {
+    feedbackNode.textContent = message || "";
+  }
+}
+
+async function mutateAdminUser(username, action, button = null) {
   const encodedUsername = encodeURIComponent(username);
   const routes = {
     activate: {
@@ -686,12 +711,35 @@ async function mutateAdminUser(username, action) {
       method: "DELETE",
       url: `/api/admin/users/${encodedUsername}/admin`,
     },
+    delete: {
+      method: "DELETE",
+      url: `/api/admin/users/${encodedUsername}`,
+    },
   };
 
   const route = routes[action];
   if (!route) return;
 
-  setAdminMessage("Updating user...");
+  if (action === "delete") {
+    const expectedConfirmation = `DELETE ${username}`;
+    const confirmation = window.prompt(
+      `This permanently deletes ${username} and all related data. Type "${expectedConfirmation}" to continue.`,
+    );
+
+    if (confirmation !== expectedConfirmation) {
+      const message = confirmation === null
+        ? "User deletion cancelled."
+        : `Confirmation did not match. Type exactly: ${expectedConfirmation}`;
+      setAdminMessage(message);
+      setAdminUserDangerFeedback(button, message);
+      return;
+    }
+  }
+
+  setAdminMessage(action === "delete" ? "Deleting user..." : "Updating user...");
+  if (action === "delete") {
+    setAdminUserDangerFeedback(button, "Deleting user...");
+  }
 
   try {
     const response = await apiFetch(route.url, {
@@ -706,10 +754,17 @@ async function mutateAdminUser(username, action) {
       throw new Error(payload.detail || "Could not update user.");
     }
 
-    setAdminMessage("User updated.");
+    setAdminMessage(action === "delete" ? "User deleted." : "User updated.");
+    if (action === "delete") {
+      setAdminUserDangerFeedback(button, "User deleted.");
+    }
     await loadAdminUsers();
+    await loadDashboard();
   } catch (error) {
     setAdminMessage(String(error));
+    if (action === "delete") {
+      setAdminUserDangerFeedback(button, String(error));
+    }
   }
 }
 
@@ -2560,7 +2615,11 @@ if (adminUsersNode) {
   adminUsersNode.addEventListener("click", (event) => {
     const button = event.target.closest("[data-admin-user-action]");
     if (!button) return;
-    mutateAdminUser(button.dataset.adminUsername || "", button.dataset.adminUserAction || "");
+    mutateAdminUser(
+      button.dataset.adminUsername || "",
+      button.dataset.adminUserAction || "",
+      button,
+    );
   });
 }
 

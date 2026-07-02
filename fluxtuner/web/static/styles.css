@@ -661,9 +661,49 @@ select:focus {
 }
 
 .admin-user-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-user-actions-normal {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.admin-user-danger-zone {
+  max-width: 22rem;
+  border: 1px solid rgba(248, 113, 113, 0.36);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(15, 23, 42, 0.18));
+}
+
+.admin-user-danger-zone summary {
+  cursor: pointer;
+  color: #fecaca;
+  font-size: 0.85rem;
+  font-weight: 850;
+}
+
+.admin-user-danger-zone div {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.admin-user-danger-zone strong {
+  color: var(--text);
+}
+
+.admin-user-danger-note,
+.admin-user-danger-feedback {
+  margin-top: 0;
+}
+
+.admin-user-danger-feedback {
+  color: #fecaca;
+  font-weight: 750;
 }
 
 .playlist-dialog {
@@ -1883,11 +1923,38 @@ html[data-theme="light"] .public-stats-totals span {
 }
 
 .admin-user-actions [data-admin-user-action="reject"],
-.admin-user-actions [data-admin-user-action="deactivate"],
 .admin-user-actions [data-admin-password-change-action="reject"] {
   color: var(--danger);
   border-color: rgba(252, 165, 165, 0.3);
   background: rgba(127, 29, 29, 0.2);
+}
+
+.admin-user-actions [data-admin-user-action="deactivate"] {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(120, 53, 15, 0.22);
+}
+
+.admin-user-actions [data-admin-user-action="delete"] {
+  color: #fee2e2;
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(153, 27, 27, 0.42);
+}
+
+html[data-theme="light"] .admin-user-danger-zone {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.9), rgba(255, 247, 237, 0.72));
+}
+
+html[data-theme="light"] .admin-user-danger-zone summary,
+html[data-theme="light"] .admin-user-danger-feedback {
+  color: #991b1b;
+}
+
+html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate"] {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(254, 243, 199, 0.82);
 }
 
 @media (max-width: 760px) {

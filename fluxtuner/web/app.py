@@ -8,7 +8,13 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
-from fluxtuner.web import admin_actions, auth, library, password_change_actions
+from fluxtuner.web import (
+    admin_actions,
+    auth,
+    library,
+    password_change_actions,
+    registration_actions,
+)
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
@@ -29,7 +35,6 @@ from fluxtuner.web.validation import (
     playlist_name,
     playlist_name_too_long,
     station_stream_url,
-    text_too_long,
 )
 
 AUTH_ERROR_DETAIL = "Invalid username or password."
@@ -42,11 +47,11 @@ SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
 SETUP_LOCAL_ONLY_DETAIL = "First-run setup requires local access or FLUXTUNER_WEB_SETUP_TOKEN."
 SETUP_INVALID_DETAIL = "Username and password are required."
 SETUP_RATE_LIMIT_USERNAME = "__setup__"
-REGISTER_RATE_LIMIT_USERNAME = "__register__"
+REGISTER_RATE_LIMIT_USERNAME = registration_actions.REGISTER_RATE_LIMIT_USERNAME
 ADMIN_REQUIRED_DETAIL = "Administrator access required."
-REGISTER_INVALID_DETAIL = "Username and password are required."
-REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
-REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
+REGISTER_INVALID_DETAIL = registration_actions.REGISTER_INVALID_DETAIL
+REGISTER_USER_EXISTS_DETAIL = registration_actions.REGISTER_USER_EXISTS_DETAIL
+REGISTER_RECEIVED_MESSAGE = registration_actions.REGISTER_RECEIVED_MESSAGE
 INVALID_STATION_URL_DETAIL = "Station URL must be a valid HTTP or HTTPS URL."
 FIELD_TOO_LONG_DETAIL = "One or more fields exceed the maximum allowed length."
 PLAYLIST_REQUIRED_DETAIL = "Playlist name is required."
@@ -270,77 +275,18 @@ def create_app() -> Any:
         request: Request,
         payload: dict[str, Any] = required_body,
     ) -> dict[str, str]:
-        username = str(payload.get("username") or "").strip()
-        password = str(payload.get("password") or "")
-        display_name = str(payload.get("display_name") or "").strip() or None
-        signup_note = str(payload.get("note") or payload.get("signup_note") or "").strip() or None
-        client_key = web_setup.request_client_host(request)
-
-        if not username or not password:
-            raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
-        if (
-            len(username) > MAX_USERNAME_LENGTH
-            or text_too_long(display_name, MAX_DISPLAY_NAME_LENGTH)
-            or text_too_long(signup_note, MAX_SIGNUP_NOTE_LENGTH)
-        ):
-            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
-
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            clean_username = db.normalize_username(username)
-            if not clean_username:
-                raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
-
-            if auth.is_login_rate_limited(conn, REGISTER_RATE_LIMIT_USERNAME, client_key):
-                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
-
-            if db.get_user_by_username(conn, clean_username) is not None:
-                auth.record_login_attempt(
-                    conn,
-                    REGISTER_RATE_LIMIT_USERNAME,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=409, detail=REGISTER_USER_EXISTS_DETAIL)
-
-        try:
-            password_hash = auth.hash_password(password)
-        except auth.PasswordValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            if db.get_user_by_username(conn, clean_username) is not None:
-                auth.record_login_attempt(
-                    conn,
-                    REGISTER_RATE_LIMIT_USERNAME,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=409, detail=REGISTER_USER_EXISTS_DETAIL)
-
-            user_id = db.create_pending_user(
+            return registration_actions.register_payload(
                 conn,
-                clean_username,
-                password_hash=password_hash,
-                display_name=display_name,
-                signup_note=signup_note,
+                payload,
+                client_key=web_setup.request_client_host(request),
+                max_username_length=MAX_USERNAME_LENGTH,
+                max_display_name_length=MAX_DISPLAY_NAME_LENGTH,
+                max_signup_note_length=MAX_SIGNUP_NOTE_LENGTH,
+                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
+                rate_limit_detail=RATE_LIMIT_DETAIL,
             )
-            db.ensure_default_profile(conn, user_id=user_id)
-            auth.record_login_attempt(
-                conn,
-                REGISTER_RATE_LIMIT_USERNAME,
-                client_key,
-                success=False,
-            )
-            conn.commit()
-
-        return {
-            "status": db.APPROVAL_PENDING,
-            "message": REGISTER_RECEIVED_MESSAGE,
-        }
 
     @app.post("/api/auth/password-change-requests")
     def request_password_change(

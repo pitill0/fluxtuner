@@ -8,18 +8,7 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
-from fluxtuner.core.api import search_stations_filtered
-from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
-from fluxtuner.core.history import add_history, load_history
-from fluxtuner.core.manual_playlists import (
-    add_station_to_playlist,
-    create_playlist,
-    delete_playlist,
-    get_playlist_stations,
-    load_playlists,
-    remove_station_from_playlist,
-)
-from fluxtuner.web import auth, password_changes
+from fluxtuner.web import auth, library, password_changes
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
@@ -972,25 +961,12 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        query = q.strip()
-        country_filter = country.strip() or None
-        bitrate_filter = min_bitrate if min_bitrate > 0 else None
-
-        stations = search_stations_filtered(
-            query=query,
-            country=country_filter,
-            min_bitrate=bitrate_filter,
+        return library.search_payload(
+            query=q,
+            country=country,
+            min_bitrate=min_bitrate,
             limit=limit,
         )
-
-        return {
-            "query": query,
-            "country": country_filter or "",
-            "min_bitrate": min_bitrate,
-            "limit": limit,
-            "count": len(stations),
-            "stations": [station_payload(station) for station in stations],
-        }
 
     @app.get("/api/history")
     def history(
@@ -1002,16 +978,11 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        profile_name = web_context.effective_profile_name(profile)
-        stations = load_history(
-            profile_name=profile_name,
+        return library.history_payload(
             user_id=int(user["id"]),
-        )[:limit]
-
-        return {
-            "count": len(stations),
-            "stations": [station_payload(station) for station in stations],
-        }
+            profile_name=web_context.effective_profile_name(profile),
+            limit=limit,
+        )
 
     @app.post("/api/history")
     def record_history(
@@ -1029,16 +1000,11 @@ def create_app() -> Any:
 
         _require_station_stream_url(station_data)
 
-        add_history(
+        return library.record_history_payload(
             station_data,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "station": station_data,
-        }
 
     @app.get("/api/favorites")
     def favorites(
@@ -1049,16 +1015,10 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        profile_name = web_context.effective_profile_name(profile)
-        stations = load_favorites(
-            profile_name=profile_name,
+        return library.favorites_payload(
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "count": len(stations),
-            "stations": [station_payload(station) for station in stations],
-        }
 
     @app.post("/api/favorites")
     def create_favorite(
@@ -1076,17 +1036,11 @@ def create_app() -> Any:
 
         _require_station_stream_url(station_data)
 
-        added = add_favorite(
+        return library.create_favorite_payload(
             station_data,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "added": added,
-            "station": station_data,
-        }
 
     @app.delete("/api/favorites")
     def delete_favorite(
@@ -1100,17 +1054,11 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        removed = remove_favorite(
+        return library.delete_favorite_payload(
             url,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "removed": removed,
-            "url": url,
-        }
 
     @app.get("/api/playlists")
     def playlists(
@@ -1121,26 +1069,10 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        user_id = int(user["id"])
-        profile_name = web_context.effective_profile_name(profile)
-        items = load_playlists(profile_name=profile_name, user_id=user_id)
-
-        return {
-            "count": len(items),
-            "playlists": [
-                {
-                    "name": item["name"],
-                    "count": len(
-                        get_playlist_stations(
-                            item["name"],
-                            profile_name=profile_name,
-                            user_id=user_id,
-                        )
-                    ),
-                }
-                for item in items
-            ],
-        }
+        return library.playlists_payload(
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
+        )
 
     @app.post("/api/playlists")
     def create_web_playlist(
@@ -1160,17 +1092,11 @@ def create_app() -> Any:
         if playlist_name_too_long(name):
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
-        created = create_playlist(
+        return library.create_playlist_payload(
             name,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "created": created,
-            "name": name,
-        }
 
     @app.delete("/api/playlists/{name}")
     def delete_web_playlist(
@@ -1184,17 +1110,11 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        removed = delete_playlist(
+        return library.delete_playlist_payload(
             name,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "removed": removed,
-            "name": name,
-        }
 
     @app.get("/api/playlists/{name}/stations")
     def playlist_stations(
@@ -1206,17 +1126,11 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        stations = get_playlist_stations(
+        return library.playlist_stations_payload(
             name,
-            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "name": name,
-            "count": len(stations),
-            "stations": [station_payload(station) for station in stations],
-        }
 
     @app.post("/api/playlists/{name}/stations")
     def add_web_station_to_playlist(
@@ -1235,22 +1149,12 @@ def create_app() -> Any:
 
         _require_station_stream_url(station_data)
 
-        user_id = int(user["id"])
-        profile_name = web_context.effective_profile_name(profile)
-        add_favorite(station_data, profile_name=profile_name, user_id=user_id)
-        added = add_station_to_playlist(
+        return library.add_station_to_playlist_payload(
             name,
             station_data,
-            profile_name=profile_name,
-            user_id=user_id,
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "added": added,
-            "name": name,
-            "station": station_data,
-        }
 
     @app.delete("/api/playlists/{name}/stations")
     def remove_web_station_from_playlist(
@@ -1265,19 +1169,12 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        removed = remove_station_from_playlist(
+        return library.remove_station_from_playlist_payload(
             name,
-            {"url": url},
-            profile_name=web_context.effective_profile_name(profile),
+            url,
             user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
         )
-
-        return {
-            "status": "ok",
-            "removed": removed,
-            "name": name,
-            "url": url,
-        }
 
     return app
 

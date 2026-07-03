@@ -267,7 +267,7 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "fluxtuner.web.app.search_stations_filtered",
+        "fluxtuner.web.library.search_stations_filtered",
         fake_search_stations_filtered,
     )
 

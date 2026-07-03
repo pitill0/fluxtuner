@@ -54,6 +54,7 @@ def search(
     country: str = Query(default="", max_length=80),
     min_bitrate: int = Query(default=0, ge=0, le=1000),
     limit: int = Query(default=25, ge=1, le=50),
+    debug: bool = Query(default=False),
 ) -> dict[str, Any]:
     _require_authenticated_user(request)
 
@@ -62,6 +63,7 @@ def search(
         country=country,
         min_bitrate=min_bitrate,
         limit=limit,
+        debug=debug,
     )
 
 

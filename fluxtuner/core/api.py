@@ -156,6 +156,151 @@ def _station_bitrate(station: dict[str, Any]) -> int:
         return 0
 
 
+def _empty_search_debug(
+    *,
+    query: str,
+    country: str | None,
+    min_bitrate: int | None,
+    limit: int,
+) -> dict[str, Any]:
+    return {
+        "query": query,
+        "country": country or "",
+        "min_bitrate": min_bitrate,
+        "limit": limit,
+        "api_limit": 0,
+        "cache_hit": False,
+        "name_results": 0,
+        "tag_results": 0,
+        "country_results": 0,
+        "fallback_name_results": 0,
+        "fallback_tag_results": 0,
+        "fallback_country_results": 0,
+        "raw_results": 0,
+        "deduped_results": 0,
+        "country_filtered_results": 0,
+        "bitrate_filtered_results": 0,
+        "returned_results": 0,
+    }
+
+
+def _filtered_search_result(
+    *,
+    query: str,
+    country: str | None = None,
+    min_bitrate: int | None = None,
+    limit: int = 50,
+    use_cache: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    query = (query or "").strip()
+    country = country.strip() if country else None
+
+    if min_bitrate is not None:
+        min_bitrate = max(0, int(min_bitrate))
+
+    debug = _empty_search_debug(
+        query=query,
+        country=country,
+        min_bitrate=min_bitrate,
+        limit=limit,
+    )
+
+    if not query and not country and min_bitrate is None:
+        logger.debug("Skipping search because no filters were provided")
+        return [], debug
+
+    cache_key = make_search_key(query, country, min_bitrate, limit)
+    if use_cache:
+        cached_results = get_cached_search(cache_key)
+        if cached_results is not None:
+            logger.debug("Returning %s cached search result(s)", len(cached_results))
+            debug["cache_hit"] = True
+            debug["returned_results"] = len(cached_results)
+            return cached_results, debug
+
+    api_limit = max(limit * 4, 200)
+    debug["api_limit"] = api_limit
+    api_country, api_countrycode = _country_api_filters(country)
+
+    raw_batches: list[tuple[str, list[dict[str, Any]]]] = []
+
+    def add_batch(source: str, items: list[dict[str, Any]]) -> None:
+        debug[f"{source}_results"] = len(items)
+        debug["raw_results"] += len(items)
+        raw_batches.append((source, items))
+
+    if query:
+        add_batch(
+            "name",
+            search_stations(
+                name=query,
+                country=api_country,
+                countrycode=api_countrycode,
+                limit=api_limit,
+            ),
+        )
+        add_batch(
+            "tag",
+            search_stations(
+                tag=query,
+                country=api_country,
+                countrycode=api_countrycode,
+                limit=api_limit,
+            ),
+        )
+
+        # If the API country filter was too strict, fallback to a broad search
+        # and apply the country filter locally.
+        if country and not any(items for _, items in raw_batches):
+            add_batch("fallback_name", search_stations(name=query, limit=api_limit))
+            add_batch("fallback_tag", search_stations(tag=query, limit=api_limit))
+    else:
+        add_batch(
+            "country",
+            search_stations(
+                country=api_country,
+                countrycode=api_countrycode,
+                limit=api_limit,
+            ),
+        )
+
+        if country and not any(items for _, items in raw_batches):
+            add_batch("fallback_country", search_stations(limit=api_limit))
+
+    results: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for _, items in raw_batches:
+        for item in items:
+            station = normalize_station(item)
+            url = station_key(station)
+            if not url or url in seen_urls:
+                debug["deduped_results"] += 1
+                continue
+            if not _matches_country(station, country):
+                debug["country_filtered_results"] += 1
+                continue
+            if min_bitrate is not None and _station_bitrate(station) < min_bitrate:
+                debug["bitrate_filtered_results"] += 1
+                continue
+
+            seen_urls.add(url)
+            results.append(station)
+
+            if len(results) >= limit:
+                break
+        if len(results) >= limit:
+            break
+
+    if use_cache:
+        set_cached_search(cache_key, results)
+
+    logger.debug("Search returned %s filtered result(s)", len(results))
+
+    debug["returned_results"] = len(results)
+    return results, debug
+
+
 def search_stations_filtered(
     query: str,
     country: str | None = None,
@@ -176,92 +321,28 @@ def search_stations_filtered(
     Bitrate is applied locally after fetching a larger candidate set so that a
     high minimum bitrate does not accidentally hide valid results.
     """
-    query = (query or "").strip()
-    country = country.strip() if country else None
-
-    if min_bitrate is not None:
-        min_bitrate = max(0, int(min_bitrate))
-
-    if not query and not country and min_bitrate is None:
-        logger.debug("Skipping search because no filters were provided")
-        return []
-
-    cache_key = make_search_key(query, country, min_bitrate, limit)
-    if use_cache:
-        cached_results = get_cached_search(cache_key)
-        if cached_results is not None:
-            logger.debug("Returning %s cached search result(s)", len(cached_results))
-            return cached_results
-
-    api_limit = max(limit * 4, 200)
-    api_country, api_countrycode = _country_api_filters(country)
-
-    raw_batches: list[list[dict[str, Any]]] = []
-
-    if query:
-        raw_batches.extend(
-            [
-                search_stations(
-                    name=query,
-                    country=api_country,
-                    countrycode=api_countrycode,
-                    limit=api_limit,
-                ),
-                search_stations(
-                    tag=query,
-                    country=api_country,
-                    countrycode=api_countrycode,
-                    limit=api_limit,
-                ),
-            ]
-        )
-
-        # If the API country filter was too strict, fallback to a broad search
-        # and apply the country filter locally.
-        if country and not any(raw_batches):
-            raw_batches.extend(
-                [
-                    search_stations(name=query, limit=api_limit),
-                    search_stations(tag=query, limit=api_limit),
-                ]
-            )
-    else:
-        raw_batches.append(
-            search_stations(
-                country=api_country,
-                countrycode=api_countrycode,
-                limit=api_limit,
-            )
-        )
-
-        if country and not any(raw_batches):
-            raw_batches.append(search_stations(limit=api_limit))
-
-    results: list[dict[str, Any]] = []
-    seen_urls: set[str] = set()
-
-    for items in raw_batches:
-        for item in items:
-            station = normalize_station(item)
-            url = station_key(station)
-            if not url or url in seen_urls:
-                continue
-            if not _matches_country(station, country):
-                continue
-            if min_bitrate is not None and _station_bitrate(station) < min_bitrate:
-                continue
-
-            seen_urls.add(url)
-            results.append(station)
-
-            if len(results) >= limit:
-                break
-        if len(results) >= limit:
-            break
-
-    if use_cache:
-        set_cached_search(cache_key, results)
-
-    logger.debug("Search returned %s filtered result(s)", len(results))
-
+    results, _debug = _filtered_search_result(
+        query=query,
+        country=country,
+        min_bitrate=min_bitrate,
+        limit=limit,
+        use_cache=use_cache,
+    )
     return results
+
+
+def search_stations_filtered_debug(
+    query: str,
+    country: str | None = None,
+    min_bitrate: int | None = None,
+    limit: int = 50,
+    use_cache: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Search stations and return internal count metadata for diagnostics."""
+    return _filtered_search_result(
+        query=query,
+        country=country,
+        min_bitrate=min_bitrate,
+        limit=limit,
+        use_cache=use_cache,
+    )

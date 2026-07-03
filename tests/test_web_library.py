@@ -48,6 +48,58 @@ def test_search_payload_normalizes_filters(monkeypatch) -> None:
     assert payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_search_payload_can_include_debug_metadata(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_search_stations_filtered_debug(**kwargs):
+        seen.update(kwargs)
+        return (
+            [
+                {
+                    "name": "Tag Radio",
+                    "url": "https://example.com/tag",
+                    "tags": "rock",
+                }
+            ],
+            {
+                "query": "rock",
+                "name_results": 1,
+                "tag_results": 1,
+                "returned_results": 1,
+            },
+        )
+
+    monkeypatch.setattr(
+        library,
+        "search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
+    )
+
+    payload = library.search_payload(
+        query=" rock ",
+        country=" ",
+        min_bitrate=0,
+        limit=25,
+        debug=True,
+    )
+
+    assert seen == {
+        "query": "rock",
+        "country": None,
+        "min_bitrate": None,
+        "limit": 25,
+        "use_cache": False,
+    }
+    assert payload["count"] == 1
+    assert payload["stations"][0]["tags"] == "rock"
+    assert payload["debug"] == {
+        "query": "rock",
+        "name_results": 1,
+        "tag_results": 1,
+        "returned_results": 1,
+    }
+
+
 def test_search_payload_omits_empty_optional_filters(monkeypatch) -> None:
     seen: dict[str, object] = {}
 

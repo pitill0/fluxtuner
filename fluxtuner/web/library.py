@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fluxtuner.core.api import search_stations_filtered
+from fluxtuner.core.api import search_stations_filtered, search_stations_filtered_debug
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.manual_playlists import (
@@ -24,19 +24,30 @@ def search_payload(
     country: str,
     min_bitrate: int,
     limit: int,
+    debug: bool = False,
 ) -> dict[str, Any]:
     normalized_query = query.strip()
     country_filter = country.strip() or None
     bitrate_filter = min_bitrate if min_bitrate > 0 else None
 
-    stations = search_stations_filtered(
-        query=normalized_query,
-        country=country_filter,
-        min_bitrate=bitrate_filter,
-        limit=limit,
-    )
+    debug_info: dict[str, Any] | None = None
+    if debug:
+        stations, debug_info = search_stations_filtered_debug(
+            query=normalized_query,
+            country=country_filter,
+            min_bitrate=bitrate_filter,
+            limit=limit,
+            use_cache=False,
+        )
+    else:
+        stations = search_stations_filtered(
+            query=normalized_query,
+            country=country_filter,
+            min_bitrate=bitrate_filter,
+            limit=limit,
+        )
 
-    return {
+    payload = {
         "query": normalized_query,
         "country": country_filter or "",
         "min_bitrate": min_bitrate,
@@ -44,6 +55,10 @@ def search_payload(
         "count": len(stations),
         "stations": [station_payload(station) for station in stations],
     }
+    if debug_info is not None:
+        payload["debug"] = debug_info
+
+    return payload
 
 
 def history_payload(*, user_id: int, profile_name: str | None, limit: int) -> dict[str, Any]:

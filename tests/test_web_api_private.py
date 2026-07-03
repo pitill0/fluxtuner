@@ -280,6 +280,47 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     assert payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_authenticated_user_can_request_search_debug_metadata(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    def fake_search_stations_filtered_debug(**_kwargs):
+        return (
+            [
+                {
+                    "name": "Rock Tag",
+                    "url": "https://example.com/rock-tag",
+                    "tags": "rock",
+                }
+            ],
+            {
+                "query": "rock",
+                "name_results": 0,
+                "tag_results": 1,
+                "returned_results": 1,
+            },
+        )
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
+    )
+
+    response = client.get("/api/search?q=rock&debug=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Rock Tag"
+    assert payload["debug"] == {
+        "query": "rock",
+        "name_results": 0,
+        "tag_results": 1,
+        "returned_results": 1,
+    }
+
+
 def test_web_playlist_create_rejects_oversized_name(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")

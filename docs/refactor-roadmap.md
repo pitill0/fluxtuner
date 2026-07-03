@@ -13,9 +13,11 @@ reason about, test and extend while keeping releases small and reversible.
 
 Several interface modules carry many responsibilities at once:
 
-- `fluxtuner/web/app.py` owns FastAPI app creation, auth guards, setup,
-  dashboard, admin user management, password-change requests, search, history,
-  favorites, playlists and station payload shaping.
+- `fluxtuner/web/app.py` previously owned FastAPI app creation, auth guards,
+  setup, dashboard, admin user management, password-change requests, search,
+  history, favorites, playlists and station payload shaping. The first Web
+  refactor pass has reduced it to composition/bootstrap plus a small set of
+  setup, dashboard and health endpoints.
 - `fluxtuner/web/static/app.js` owns navigation, auth, admin UI, dashboard,
   Radio Browser search, favorites, playlists, browser playback, Media Session
   integration, player debugging and theme/mobile shell behaviour.
@@ -69,6 +71,40 @@ adapters/
 The repository does not need to adopt these exact directory names immediately.
 The first step is to introduce seams and move code only when it reduces risk.
 
+## Web refactor status after v1.0.4
+
+The first Web refactor phase is complete. `fluxtuner/web/app.py` is now kept as
+the FastAPI composition/bootstrap layer: app creation, static/template wiring,
+health, setup, dashboard and router inclusion.
+
+Current Web routers:
+
+- `fluxtuner/web/routes/public.py` for public API endpoints.
+- `fluxtuner/web/routes/auth.py` for register, login, logout, session and
+  password-change request endpoints.
+- `fluxtuner/web/routes/library.py` for search, history, favorites and
+  playlists.
+- `fluxtuner/web/routes/admin.py` for admin users and password-change review
+  endpoints.
+
+Extracted Web helper/action modules:
+
+- `payloads.py`, `validation.py`, `security.py`, `setup.py`;
+- `context.py`, `guards.py`, `dashboard.py`, `library.py`;
+- `admin_users.py`, `admin_actions.py`;
+- `password_changes.py`, `password_change_actions.py`;
+- `registration_actions.py`.
+
+Packaging note: new Web subpackages must be included in the setuptools package
+list. The router package is currently listed as `fluxtuner.web.routes` in
+`pyproject.toml`; keep this in mind when adding new package directories.
+
+Recommended next branches should stay separate:
+
+- search quality/debugging;
+- `fluxtuner/core/db.py` domain split;
+- Web JavaScript module boundaries for `fluxtuner/web/static/app.js`.
+
 ## Proposed incremental phases
 
 ### Phase 1: Audit and safety rails
@@ -79,9 +115,11 @@ The first step is to introduce seams and move code only when it reduces risk.
 - Document current module responsibilities and known seams.
 - Avoid feature work in the same commits as structural moves.
 
-### Phase 2: Extract Web API service helpers
+### Phase 2: Extract Web API helpers and routers
 
-Start with pure or nearly pure operations currently embedded in
+Status: completed for the first Web refactor pass.
+
+The completed pass moved pure or nearly pure operations out of
 `fluxtuner/web/app.py`:
 
 - admin user payload/count helpers;
@@ -90,14 +128,9 @@ Start with pure or nearly pure operations currently embedded in
 - station payload shaping;
 - playlist/favorite/history request validation.
 
-Candidate destination:
-
-```text
-fluxtuner/web/services.py
-```
-
-This keeps Web licensing boundaries clear while reducing `app.py` size without
-changing the external API.
+The final shape uses focused helper/action modules plus FastAPI routers instead
+of one broad `services.py` module. This keeps Web licensing boundaries clear
+while reducing `app.py` size without changing the external API.
 
 ### Phase 3: Split storage by domain without changing SQLite
 
@@ -159,13 +192,14 @@ cache/worker design:
 - frontend polling with conservative intervals;
 - safe Media Session metadata updates when available.
 
-## Suggested first PRs after v1.0.4
+## Completed first Web refactor PRs after v1.0.4
 
 1. `docs: add architecture refactor roadmap`
-2. `web: extract admin payload helpers`
-3. `web: extract dashboard/public stats helpers`
-4. `web: extract station payload helpers`
-5. `web: add player controller design notes`
+2. Web helper/action extraction for payloads, validation, security, setup,
+   dashboard, context, guards, library, admin users/actions, registration and
+   password-change flows.
+3. Web router extraction for public, auth, library and admin API endpoints.
+4. Packaging update for the `fluxtuner.web.routes` package.
 
-Each PR should be small enough to review manually and should not change user
-visible behaviour unless explicitly stated.
+Future structural PRs should remain small enough to review manually and should
+not change user-visible behaviour unless explicitly stated.

@@ -8,7 +8,6 @@ import hmac
 import os
 from importlib import resources
 from typing import Any
-from urllib.parse import urlparse
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
@@ -31,6 +30,13 @@ from fluxtuner.web.payloads import (
     public_user_payload,
     safe_int,
     station_payload,
+)
+from fluxtuner.web.validation import (
+    is_supported_web_url,
+    playlist_name,
+    playlist_name_too_long,
+    station_stream_url,
+    text_too_long,
 )
 
 SESSION_COOKIE_NAME = "fluxtuner_session"
@@ -192,7 +198,6 @@ def _request_client_host(request: Any) -> str:
     return auth.client_key_from_host(str(host) if host else None)
 
 
-
 def _authenticated_user(request: Any) -> dict[str, Any] | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     with db.connect() as conn:
@@ -280,34 +285,11 @@ def _read_template(name: str) -> str:
     return template_path.read_text(encoding="utf-8")
 
 
-def _text_too_long(value: str | None, max_length: int) -> bool:
-    return value is not None and len(value) > max_length
-
-
-
-
-def _is_supported_web_url(url: str) -> bool:
-    parsed = urlparse(str(url or "").strip())
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
-
-
 def _require_station_stream_url(station_data: dict[str, Any]) -> None:
-    stream_url = str(station_data.get("url_resolved") or station_data.get("url") or "").strip()
-    if not _is_supported_web_url(stream_url):
+    if not is_supported_web_url(station_stream_url(station_data)):
         from fastapi import HTTPException
 
         raise HTTPException(status_code=400, detail=INVALID_STATION_URL_DETAIL)
-
-
-
-def _playlist_name(payload: dict[str, Any]) -> str:
-    return str(payload.get("name") or "").strip()
-
-
-def _playlist_name_too_long(name: str) -> bool:
-    return len(name) > MAX_PLAYLIST_NAME_LENGTH
-
-
 
 
 def _active_admin_count(conn: Any) -> int:
@@ -560,8 +542,8 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
         if (
             len(username) > MAX_USERNAME_LENGTH
-            or _text_too_long(display_name, MAX_DISPLAY_NAME_LENGTH)
-            or _text_too_long(signup_note, MAX_SIGNUP_NOTE_LENGTH)
+            or text_too_long(display_name, MAX_DISPLAY_NAME_LENGTH)
+            or text_too_long(signup_note, MAX_SIGNUP_NOTE_LENGTH)
         ):
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
@@ -634,7 +616,7 @@ def create_app() -> Any:
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
-        if len(username) > MAX_USERNAME_LENGTH or _text_too_long(
+        if len(username) > MAX_USERNAME_LENGTH or text_too_long(
             note,
             MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
         ):
@@ -956,7 +938,7 @@ def create_app() -> Any:
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
-        if len(username) > MAX_USERNAME_LENGTH or _text_too_long(
+        if len(username) > MAX_USERNAME_LENGTH or text_too_long(
             display_name,
             MAX_DISPLAY_NAME_LENGTH,
         ):
@@ -1411,10 +1393,10 @@ def create_app() -> Any:
 
         require_csrf(request)
 
-        name = _playlist_name(payload)
+        name = playlist_name(payload)
         if not name:
             raise HTTPException(status_code=400, detail=PLAYLIST_REQUIRED_DETAIL)
-        if _playlist_name_too_long(name):
+        if playlist_name_too_long(name):
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         created = create_playlist(

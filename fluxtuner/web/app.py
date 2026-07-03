@@ -20,8 +20,8 @@ from fluxtuner.core.manual_playlists import (
     load_playlists,
     remove_station_from_playlist,
 )
-from fluxtuner.core.profiles import resolve_effective_profile_name
 from fluxtuner.web import auth, password_changes
+from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import setup as web_setup
 from fluxtuner.web.admin_users import (
@@ -88,19 +88,6 @@ ACCOUNT_CHANGE_PENDING_DETAIL = password_changes.ACCOUNT_CHANGE_PENDING_DETAIL
 ACCOUNT_CHANGE_EXPIRED_DETAIL = password_changes.ACCOUNT_CHANGE_EXPIRED_DETAIL
 
 
-def _ensure_web_schema(conn: Any) -> None:
-    db.create_schema(conn)
-    db.ensure_user_approval_schema(conn)
-    db.ensure_profile_user_schema(conn)
-
-
-def _authenticated_user(request: Any) -> dict[str, Any] | None:
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    with db.connect() as conn:
-        _ensure_web_schema(conn)
-        return auth.get_session_user(conn, token)
-
-
 def _missing_web_dependency_message() -> str:
     return (
         'FluxTuner Web dependencies are not installed. Install them with: pip install -e ".[web]"'
@@ -142,15 +129,12 @@ def create_app() -> Any:
             raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
 
     def require_admin_user(request: Request) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
         if not bool(user["is_admin"]):
             raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
         return user
-
-    def effective_profile_name(profile: str | None = None) -> str | None:
-        return resolve_effective_profile_name(profile)
 
     app = FastAPI(
         title=f"{__app_name__} Web",
@@ -188,13 +172,13 @@ def create_app() -> Any:
     @app.get("/api/public/stats")
     def public_stats() -> dict[str, Any]:
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             return db.public_activity_stats(conn)
 
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             admin_exists = web_setup.configured_admin_exists(conn)
 
         return {
@@ -221,7 +205,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
@@ -248,7 +232,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             if web_setup.configured_admin_exists(conn):
                 raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
@@ -329,7 +313,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             clean_username = db.normalize_username(username)
             if not clean_username:
                 raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
@@ -353,7 +337,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             if db.get_user_by_username(conn, clean_username) is not None:
                 auth.record_login_attempt(
                     conn,
@@ -404,7 +388,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             clean_username = db.normalize_username(username)
             if not clean_username:
                 raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
@@ -422,7 +406,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             user = db.get_user_by_username(conn, clean_username)
             if (
                 user is not None
@@ -464,7 +448,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             if auth.is_login_rate_limited(conn, username, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
@@ -562,7 +546,7 @@ def create_app() -> Any:
     def me(request: Request) -> dict[str, Any]:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             user = auth.get_session_user(conn, token)
 
         if user is None:
@@ -579,11 +563,11 @@ def create_app() -> Any:
         request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        profile_name = effective_profile_name(profile)
+        profile_name = web_context.effective_profile_name(profile)
         payload: dict[str, Any] = {
             "user": web_dashboard.dashboard_user_payload(int(user["id"]), profile_name),
             "admin": None,
@@ -591,7 +575,7 @@ def create_app() -> Any:
 
         if bool(user["is_admin"]):
             with db.connect() as conn:
-                _ensure_web_schema(conn)
+                web_context.ensure_web_schema(conn)
                 payload["admin"] = {
                     **web_dashboard.admin_user_counts(conn),
                     "server": web_dashboard.server_health_payload(),
@@ -604,7 +588,7 @@ def create_app() -> Any:
         require_admin_user(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             requests = db.list_password_change_requests(conn)
 
         return {
@@ -624,7 +608,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             request_payload = db.get_password_change_request(conn, request_id)
             if request_payload is None:
                 raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
@@ -673,7 +657,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             request_payload = db.get_password_change_request(conn, request_id)
             if request_payload is None:
                 raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
@@ -695,7 +679,7 @@ def create_app() -> Any:
         require_admin_user(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             users = db.list_users(conn)
 
         return {
@@ -731,7 +715,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             clean_username = db.normalize_username(username)
             if not clean_username:
@@ -776,7 +760,7 @@ def create_app() -> Any:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -805,7 +789,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             ensure_not_last_active_admin(conn, user)
@@ -832,7 +816,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -857,7 +841,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -879,7 +863,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             user = admin_target_user(conn, username)
             user_id = int(user["id"])
             db.set_user_approval_status(
@@ -902,7 +886,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
             user = admin_target_user(conn, username)
             ensure_not_last_active_admin(conn, user)
             user_id = int(user["id"])
@@ -927,7 +911,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             user_id = int(user["id"])
@@ -956,7 +940,7 @@ def create_app() -> Any:
         require_csrf(request)
 
         with db.connect() as conn:
-            _ensure_web_schema(conn)
+            web_context.ensure_web_schema(conn)
 
             user = admin_target_user(conn, username)
             ensure_not_last_active_admin(conn, user)
@@ -988,7 +972,7 @@ def create_app() -> Any:
         min_bitrate: int = Query(default=0, ge=0, le=1000),
         limit: int = Query(default=25, ge=1, le=50),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1018,11 +1002,11 @@ def create_app() -> Any:
         limit: int = Query(default=25, ge=1, le=100),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        profile_name = effective_profile_name(profile)
+        profile_name = web_context.effective_profile_name(profile)
         stations = load_history(
             profile_name=profile_name,
             user_id=int(user["id"]),
@@ -1039,7 +1023,7 @@ def create_app() -> Any:
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1051,7 +1035,7 @@ def create_app() -> Any:
 
         add_history(
             station_data,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1065,11 +1049,11 @@ def create_app() -> Any:
         request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
-        profile_name = effective_profile_name(profile)
+        profile_name = web_context.effective_profile_name(profile)
         stations = load_favorites(
             profile_name=profile_name,
             user_id=int(user["id"]),
@@ -1086,7 +1070,7 @@ def create_app() -> Any:
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1098,7 +1082,7 @@ def create_app() -> Any:
 
         added = add_favorite(
             station_data,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1114,7 +1098,7 @@ def create_app() -> Any:
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1122,7 +1106,7 @@ def create_app() -> Any:
 
         removed = remove_favorite(
             url,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1137,12 +1121,12 @@ def create_app() -> Any:
         request: Request,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         user_id = int(user["id"])
-        profile_name = effective_profile_name(profile)
+        profile_name = web_context.effective_profile_name(profile)
         items = load_playlists(profile_name=profile_name, user_id=user_id)
 
         return {
@@ -1168,7 +1152,7 @@ def create_app() -> Any:
         payload: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1182,7 +1166,7 @@ def create_app() -> Any:
 
         created = create_playlist(
             name,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1198,7 +1182,7 @@ def create_app() -> Any:
         name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1206,7 +1190,7 @@ def create_app() -> Any:
 
         removed = delete_playlist(
             name,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1222,13 +1206,13 @@ def create_app() -> Any:
         name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
         stations = get_playlist_stations(
             name,
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 
@@ -1245,7 +1229,7 @@ def create_app() -> Any:
         station: dict[str, Any] = required_body,
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1256,7 +1240,7 @@ def create_app() -> Any:
         _require_station_stream_url(station_data)
 
         user_id = int(user["id"])
-        profile_name = effective_profile_name(profile)
+        profile_name = web_context.effective_profile_name(profile)
         add_favorite(station_data, profile_name=profile_name, user_id=user_id)
         added = add_station_to_playlist(
             name,
@@ -1279,7 +1263,7 @@ def create_app() -> Any:
         url: str = Query(..., min_length=1, max_length=4096),
         profile: str | None = Query(default=None, max_length=80),
     ) -> dict[str, Any]:
-        user = _authenticated_user(request)
+        user = web_context.authenticated_user(request)
         if user is None:
             raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
@@ -1288,7 +1272,7 @@ def create_app() -> Any:
         removed = remove_station_from_playlist(
             name,
             {"url": url},
-            profile_name=effective_profile_name(profile),
+            profile_name=web_context.effective_profile_name(profile),
             user_id=int(user["id"]),
         )
 

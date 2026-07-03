@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import hmac
 import os
 from importlib import resources
@@ -31,6 +30,14 @@ from fluxtuner.web.payloads import (
     safe_int,
     station_payload,
 )
+from fluxtuner.web.security import (
+    CSRF_HEADER_NAME,
+    SESSION_COOKIE_NAME,
+    csrf_token_for_session_token,
+    delete_session_cookie,
+    session_cookie_max_age,
+    set_session_cookie,
+)
 from fluxtuner.web.validation import (
     is_supported_web_url,
     playlist_name,
@@ -39,12 +46,10 @@ from fluxtuner.web.validation import (
     text_too_long,
 )
 
-SESSION_COOKIE_NAME = "fluxtuner_session"
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
 AUTH_REQUIRED_DETAIL = "Authentication required."
 ACCOUNT_PENDING_DETAIL = "Account pending approval."
-CSRF_HEADER_NAME = "X-FluxTuner-CSRF"
 CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
 SETUP_UNAVAILABLE_DETAIL = "First-run setup is not available."
 SETUP_VERIFICATION_ERROR_DETAIL = "Setup verification failed."
@@ -178,20 +183,6 @@ def _dashboard_user_payload(user_id: int, profile_name: str | None) -> dict[str,
     }
 
 
-def _web_secure_cookies() -> bool:
-    value = os.getenv("FLUXTUNER_WEB_SECURE_COOKIES", "true").strip().lower()
-    return value not in {"0", "false", "no", "off"}
-
-
-def _session_cookie_max_age() -> int:
-    value = os.getenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "")
-    try:
-        max_age = int(value)
-    except ValueError:
-        return auth.DEFAULT_SESSION_MAX_AGE_SECONDS
-    return max_age if max_age > 0 else auth.DEFAULT_SESSION_MAX_AGE_SECONDS
-
-
 def _request_client_host(request: Any) -> str:
     client = getattr(request, "client", None)
     host = getattr(client, "host", None)
@@ -203,18 +194,6 @@ def _authenticated_user(request: Any) -> dict[str, Any] | None:
     with db.connect() as conn:
         _ensure_web_schema(conn)
         return auth.get_session_user(conn, token)
-
-
-def _csrf_token_for_session_token(token: str | None) -> str:
-    """Return a CSRF token derived from the opaque session token."""
-    if not token:
-        return ""
-
-    return hmac.new(
-        token.encode("utf-8"),
-        b"fluxtuner-web-csrf-v1",
-        hashlib.sha256,
-    ).hexdigest()
 
 
 def _configured_admin_exists(conn: Any) -> bool:
@@ -250,28 +229,6 @@ def _setup_request_is_local(request: Any) -> bool:
     client = getattr(request, "client", None)
     host = str(getattr(client, "host", "") or "").strip().lower()
     return host in {"127.0.0.1", "::1", "localhost", "testclient"}
-
-
-def _set_session_cookie(response: Any, token: str) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=token,
-        max_age=_session_cookie_max_age(),
-        httponly=True,
-        secure=_web_secure_cookies(),
-        samesite="lax",
-        path="/",
-    )
-
-
-def _delete_session_cookie(response: Any) -> None:
-    response.delete_cookie(
-        key=SESSION_COOKIE_NAME,
-        path="/",
-        secure=_web_secure_cookies(),
-        httponly=True,
-        samesite="lax",
-    )
 
 
 def _missing_web_dependency_message() -> str:
@@ -354,7 +311,7 @@ def create_app() -> Any:
 
     def require_csrf(request: Request) -> None:
         token = request.cookies.get(SESSION_COOKIE_NAME)
-        expected = _csrf_token_for_session_token(token)
+        expected = csrf_token_for_session_token(token)
         provided = request.headers.get(CSRF_HEADER_NAME, "")
 
         if not expected or not hmac.compare_digest(provided, expected):
@@ -518,13 +475,13 @@ def create_app() -> Any:
         if user is None:
             raise HTTPException(status_code=500, detail="Could not create setup session.")
 
-        _set_session_cookie(response, token)
+        set_session_cookie(response, token)
 
         return {
             "authenticated": True,
             "setup_complete": True,
             "user": public_user_payload(user),
-            "csrf_token": _csrf_token_for_session_token(token),
+            "csrf_token": csrf_token_for_session_token(token),
         }
 
     @app.post("/api/auth/register")
@@ -749,7 +706,7 @@ def create_app() -> Any:
             token = auth.create_session(
                 conn,
                 int(authenticated_user["id"]),
-                max_age_seconds=_session_cookie_max_age(),
+                max_age_seconds=session_cookie_max_age(),
             )
             auth.record_login_attempt(
                 conn,
@@ -759,11 +716,11 @@ def create_app() -> Any:
             )
             conn.commit()
 
-        _set_session_cookie(response, token)
+        set_session_cookie(response, token)
         return {
             "authenticated": True,
             "user": public_user_payload(authenticated_user),
-            "csrf_token": _csrf_token_for_session_token(token),
+            "csrf_token": csrf_token_for_session_token(token),
         }
 
     @app.post("/api/auth/logout")
@@ -774,7 +731,7 @@ def create_app() -> Any:
             revoked = auth.revoke_session(conn, token)
             conn.commit()
 
-        _delete_session_cookie(response)
+        delete_session_cookie(response)
         return {"status": "ok", "revoked": revoked}
 
     @app.get("/api/auth/me")
@@ -790,7 +747,7 @@ def create_app() -> Any:
         return {
             "authenticated": True,
             "user": public_user_payload(user),
-            "csrf_token": _csrf_token_for_session_token(token),
+            "csrf_token": csrf_token_for_session_token(token),
         }
 
     @app.get("/api/dashboard")

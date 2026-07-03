@@ -21,7 +21,7 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.core.profiles import resolve_effective_profile_name
-from fluxtuner.web import auth
+from fluxtuner.web import auth, password_changes
 from fluxtuner.web import setup as web_setup
 from fluxtuner.web.admin_users import (
     ADMIN_USER_NOT_FOUND_DETAIL,
@@ -79,33 +79,19 @@ MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
 MAX_ACCOUNT_CHANGE_NOTE_LENGTH = 1000
 MAX_PLAYLIST_NAME_LENGTH = 120
-ACCOUNT_CHANGE_REQUEST_MAX_AGE_SECONDS = 60 * 60 * 24
-ACCOUNT_CHANGE_RATE_LIMIT_KEY = "__password_change__"
-ACCOUNT_CHANGE_INVALID_DETAIL = "Username and new password are required."
-ACCOUNT_CHANGE_RECEIVED_MESSAGE = "If the account exists, the password change request was recorded."
-ACCOUNT_CHANGE_NOT_FOUND_DETAIL = "Password change request not found."
-ACCOUNT_CHANGE_NOT_PENDING_DETAIL = "Password change request is not pending."
-ACCOUNT_CHANGE_PENDING_DETAIL = "Password change request pending approval."
-ACCOUNT_CHANGE_EXPIRED_DETAIL = "Password change request has expired."
+ACCOUNT_CHANGE_RATE_LIMIT_KEY = password_changes.ACCOUNT_CHANGE_RATE_LIMIT_KEY
+ACCOUNT_CHANGE_INVALID_DETAIL = password_changes.ACCOUNT_CHANGE_INVALID_DETAIL
+ACCOUNT_CHANGE_RECEIVED_MESSAGE = password_changes.ACCOUNT_CHANGE_RECEIVED_MESSAGE
+ACCOUNT_CHANGE_NOT_FOUND_DETAIL = password_changes.ACCOUNT_CHANGE_NOT_FOUND_DETAIL
+ACCOUNT_CHANGE_NOT_PENDING_DETAIL = password_changes.ACCOUNT_CHANGE_NOT_PENDING_DETAIL
+ACCOUNT_CHANGE_PENDING_DETAIL = password_changes.ACCOUNT_CHANGE_PENDING_DETAIL
+ACCOUNT_CHANGE_EXPIRED_DETAIL = password_changes.ACCOUNT_CHANGE_EXPIRED_DETAIL
 
 
 def _ensure_web_schema(conn: Any) -> None:
     db.create_schema(conn)
     db.ensure_user_approval_schema(conn)
     db.ensure_profile_user_schema(conn)
-
-
-def _password_change_expires_at() -> str:
-    return auth.encode_datetime(
-        auth.utc_now() + auth.timedelta(seconds=ACCOUNT_CHANGE_REQUEST_MAX_AGE_SECONDS)
-    )
-
-
-def _password_change_is_expired(request_payload: dict[str, Any]) -> bool:
-    try:
-        return auth.parse_datetime(str(request_payload["expires_at"])) <= auth.utc_now()
-    except (KeyError, TypeError, ValueError):
-        return True
 
 
 def _server_health_payload() -> dict[str, str]:
@@ -529,7 +515,7 @@ def create_app() -> Any:
                     user_id,
                     password_hash=password_hash,
                     note=note,
-                    expires_at=_password_change_expires_at(),
+                    expires_at=password_changes.password_change_expires_at(),
                 )
                 revoke_user_sessions(conn, user_id)
 
@@ -723,7 +709,7 @@ def create_app() -> Any:
                 raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
             if str(request_payload["status"]) != db.ACCOUNT_CHANGE_PENDING:
                 raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL)
-            if _password_change_is_expired(request_payload):
+            if password_changes.password_change_is_expired(request_payload):
                 db.set_password_change_request_status(
                     conn,
                     request_id,

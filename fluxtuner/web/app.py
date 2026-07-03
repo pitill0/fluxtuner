@@ -8,15 +8,12 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
-from fluxtuner.web import admin_actions, auth, library, password_changes
+from fluxtuner.web import admin_actions, auth, library, password_change_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
-from fluxtuner.web.admin_users import admin_target_user, revoke_user_sessions
 from fluxtuner.web.payloads import (
-    admin_password_change_request_payload,
-    admin_user_payload,
     public_user_payload,
     station_payload,
 )
@@ -58,13 +55,13 @@ MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
 MAX_ACCOUNT_CHANGE_NOTE_LENGTH = 1000
 MAX_PLAYLIST_NAME_LENGTH = 120
-ACCOUNT_CHANGE_RATE_LIMIT_KEY = password_changes.ACCOUNT_CHANGE_RATE_LIMIT_KEY
-ACCOUNT_CHANGE_INVALID_DETAIL = password_changes.ACCOUNT_CHANGE_INVALID_DETAIL
-ACCOUNT_CHANGE_RECEIVED_MESSAGE = password_changes.ACCOUNT_CHANGE_RECEIVED_MESSAGE
-ACCOUNT_CHANGE_NOT_FOUND_DETAIL = password_changes.ACCOUNT_CHANGE_NOT_FOUND_DETAIL
-ACCOUNT_CHANGE_NOT_PENDING_DETAIL = password_changes.ACCOUNT_CHANGE_NOT_PENDING_DETAIL
-ACCOUNT_CHANGE_PENDING_DETAIL = password_changes.ACCOUNT_CHANGE_PENDING_DETAIL
-ACCOUNT_CHANGE_EXPIRED_DETAIL = password_changes.ACCOUNT_CHANGE_EXPIRED_DETAIL
+ACCOUNT_CHANGE_RATE_LIMIT_KEY = password_change_actions.ACCOUNT_CHANGE_RATE_LIMIT_KEY
+ACCOUNT_CHANGE_INVALID_DETAIL = password_change_actions.ACCOUNT_CHANGE_INVALID_DETAIL
+ACCOUNT_CHANGE_RECEIVED_MESSAGE = password_change_actions.ACCOUNT_CHANGE_RECEIVED_MESSAGE
+ACCOUNT_CHANGE_NOT_FOUND_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_FOUND_DETAIL
+ACCOUNT_CHANGE_NOT_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_PENDING_DETAIL
+ACCOUNT_CHANGE_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_PENDING_DETAIL
+ACCOUNT_CHANGE_EXPIRED_DETAIL = password_change_actions.ACCOUNT_CHANGE_EXPIRED_DETAIL
 
 
 def _missing_web_dependency_message() -> str:
@@ -350,65 +347,17 @@ def create_app() -> Any:
         request: Request,
         payload: dict[str, Any] = required_body,
     ) -> dict[str, str]:
-        username = str(payload.get("username") or "").strip()
-        password = str(payload.get("new_password") or payload.get("password") or "")
-        note = str(payload.get("note") or "").strip() or None
-        client_key = web_setup.request_client_host(request)
-
-        if not username or not password:
-            raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
-        if len(username) > MAX_USERNAME_LENGTH or text_too_long(
-            note,
-            MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
-        ):
-            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
-
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            clean_username = db.normalize_username(username)
-            if not clean_username:
-                raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
-
-            if auth.is_login_rate_limited(
+            return password_change_actions.request_password_change_payload(
                 conn,
-                ACCOUNT_CHANGE_RATE_LIMIT_KEY,
-                client_key,
-            ):
-                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
-
-        try:
-            password_hash = auth.hash_password(password)
-        except auth.PasswordValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            user = db.get_user_by_username(conn, clean_username)
-            if (
-                user is not None
-                and bool(user["is_active"])
-                and str(user["approval_status"]) == db.APPROVAL_APPROVED
-                and not bool(user["is_admin"])
-            ):
-                user_id = int(user["id"])
-                db.upsert_pending_password_change_request(
-                    conn,
-                    user_id,
-                    password_hash=password_hash,
-                    note=note,
-                    expires_at=password_changes.password_change_expires_at(),
-                )
-                revoke_user_sessions(conn, user_id)
-
-            auth.record_login_attempt(
-                conn,
-                ACCOUNT_CHANGE_RATE_LIMIT_KEY,
-                client_key,
-                success=False,
+                payload,
+                client_key=web_setup.request_client_host(request),
+                max_username_length=MAX_USERNAME_LENGTH,
+                max_note_length=MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
+                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
+                rate_limit_detail=RATE_LIMIT_DETAIL,
             )
-            conn.commit()
-
-        return {"message": ACCOUNT_CHANGE_RECEIVED_MESSAGE}
 
     @app.post("/api/auth/login")
     def login(
@@ -565,15 +514,7 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            requests = db.list_password_change_requests(conn)
-
-        return {
-            "count": len(requests),
-            "requests": [
-                admin_password_change_request_payload(request_payload)
-                for request_payload in requests
-            ],
-        }
+            return password_change_actions.list_password_change_requests_payload(conn)
 
     @app.post("/api/admin/password-change-requests/{request_id}/approve")
     def admin_approve_password_change_request(
@@ -585,44 +526,11 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            request_payload = db.get_password_change_request(conn, request_id)
-            if request_payload is None:
-                raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
-            if str(request_payload["status"]) != db.ACCOUNT_CHANGE_PENDING:
-                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL)
-            if password_changes.password_change_is_expired(request_payload):
-                db.set_password_change_request_status(
-                    conn,
-                    request_id,
-                    db.ACCOUNT_CHANGE_EXPIRED,
-                    resolved_by_user_id=int(admin_user["id"]),
-                )
-                conn.commit()
-                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_EXPIRED_DETAIL)
-
-            user_id = int(request_payload["user_id"])
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    password_hash = ?,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (str(request_payload["password_hash"]), db.utc_now(), user_id),
-            )
-            db.set_password_change_request_status(
+            return password_change_actions.approve_password_change_request_payload(
                 conn,
                 request_id,
-                db.ACCOUNT_CHANGE_APPROVED,
                 resolved_by_user_id=int(admin_user["id"]),
             )
-            revoke_user_sessions(conn, user_id)
-            conn.commit()
-
-            updated_user = admin_target_user(conn, str(request_payload["username"]))
-
-        return {"user": admin_user_payload(updated_user)}
 
     @app.post("/api/admin/password-change-requests/{request_id}/reject")
     def admin_reject_password_change_request(
@@ -634,21 +542,11 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            request_payload = db.get_password_change_request(conn, request_id)
-            if request_payload is None:
-                raise HTTPException(status_code=404, detail=ACCOUNT_CHANGE_NOT_FOUND_DETAIL)
-            if str(request_payload["status"]) != db.ACCOUNT_CHANGE_PENDING:
-                raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL)
-
-            db.set_password_change_request_status(
+            return password_change_actions.reject_password_change_request_payload(
                 conn,
                 request_id,
-                db.ACCOUNT_CHANGE_REJECTED,
                 resolved_by_user_id=int(admin_user["id"]),
             )
-            conn.commit()
-
-        return {"status": db.ACCOUNT_CHANGE_REJECTED}
 
     @app.get("/api/admin/users")
     def admin_list_users(request: Request) -> dict[str, Any]:

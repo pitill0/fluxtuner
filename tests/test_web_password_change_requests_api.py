@@ -5,14 +5,16 @@ from fastapi.testclient import TestClient
 from fluxtuner.core import db
 from fluxtuner.web import auth
 from fluxtuner.web.app import (
+    ADMIN_REQUIRED_DETAIL,
+    CSRF_ERROR_DETAIL,
+    create_app,
+)
+from fluxtuner.web.password_changes import (
     ACCOUNT_CHANGE_EXPIRED_DETAIL,
     ACCOUNT_CHANGE_PENDING_DETAIL,
     ACCOUNT_CHANGE_RECEIVED_MESSAGE,
-    ADMIN_REQUIRED_DETAIL,
-    CSRF_ERROR_DETAIL,
-    CSRF_HEADER_NAME,
-    create_app,
 )
+from fluxtuner.web.security import CSRF_HEADER_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
 NEW_PASSWORD = "another correct horse battery staple"

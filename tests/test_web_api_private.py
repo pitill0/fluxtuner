@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 
 from fluxtuner.core import db, favorites, history, manual_playlists
 from fluxtuner.web import auth
-from fluxtuner.web.app import CSRF_ERROR_DETAIL, CSRF_HEADER_NAME, create_app
+from fluxtuner.web.app import CSRF_ERROR_DETAIL, create_app
+from fluxtuner.web.security import CSRF_HEADER_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
 
@@ -266,7 +267,7 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(
-        "fluxtuner.web.app.search_stations_filtered",
+        "fluxtuner.web.library.search_stations_filtered",
         fake_search_stations_filtered,
     )
 

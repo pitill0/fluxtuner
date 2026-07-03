@@ -8,17 +8,12 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
-from fluxtuner.web import auth, library, password_changes
+from fluxtuner.web import admin_actions, auth, library, password_changes
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
-from fluxtuner.web.admin_users import (
-    ADMIN_USER_NOT_FOUND_DETAIL,
-    admin_target_user,
-    ensure_not_last_active_admin,
-    revoke_user_sessions,
-)
+from fluxtuner.web.admin_users import admin_target_user, revoke_user_sessions
 from fluxtuner.web.payloads import (
     admin_password_change_request_payload,
     admin_user_payload,
@@ -52,10 +47,6 @@ SETUP_INVALID_DETAIL = "Username and password are required."
 SETUP_RATE_LIMIT_USERNAME = "__setup__"
 REGISTER_RATE_LIMIT_USERNAME = "__register__"
 ADMIN_REQUIRED_DETAIL = "Administrator access required."
-ADMIN_USER_EXISTS_DETAIL = "Web user already exists."
-ADMIN_SELF_DELETE_DETAIL = "Administrators cannot delete their own account."
-ADMIN_INVALID_USER_DETAIL = "Username and password are required."
-ADMIN_MISSING_VALUE_DETAIL = "Missing required value."
 REGISTER_INVALID_DETAIL = "Username and password are required."
 REGISTER_USER_EXISTS_DETAIL = "Username is unavailable."
 REGISTER_RECEIVED_MESSAGE = "Account request received. Try signing in later after approval."
@@ -665,12 +656,7 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            users = db.list_users(conn)
-
-        return {
-            "count": len(users),
-            "users": [admin_user_payload(user) for user in users],
-        }
+            return admin_actions.list_users_payload(conn)
 
     @app.post("/api/admin/users")
     def admin_create_user(
@@ -680,51 +666,15 @@ def create_app() -> Any:
         require_admin_user(request)
         require_csrf(request)
 
-        username = str(payload.get("username") or "").strip()
-        password = str(payload.get("password") or "")
-        display_name = str(payload.get("display_name") or "").strip() or None
-        is_admin = bool(payload.get("is_admin", False))
-        is_active = bool(payload.get("is_active", True))
-
-        if not username or not password:
-            raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
-        if len(username) > MAX_USERNAME_LENGTH or text_too_long(
-            display_name,
-            MAX_DISPLAY_NAME_LENGTH,
-        ):
-            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
-
-        try:
-            password_hash = auth.hash_password(password)
-        except auth.PasswordValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            clean_username = db.normalize_username(username)
-            if not clean_username:
-                raise HTTPException(status_code=400, detail=ADMIN_INVALID_USER_DETAIL)
-
-            if db.get_user_by_username(conn, clean_username) is not None:
-                raise HTTPException(status_code=409, detail=ADMIN_USER_EXISTS_DETAIL)
-
-            user_id = db.get_or_create_user(
+            return admin_actions.create_user_payload(
                 conn,
-                clean_username,
-                display_name=display_name,
-                password_hash=password_hash,
-                is_admin=is_admin,
-                is_active=is_active,
+                payload,
+                max_username_length=MAX_USERNAME_LENGTH,
+                max_display_name_length=MAX_DISPLAY_NAME_LENGTH,
+                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
             )
-            db.ensure_default_profile(conn, user_id=user_id)
-            conn.commit()
-
-            user = admin_target_user(conn, clean_username)
-
-        return {
-            "user": admin_user_payload(user),
-        }
 
     @app.post("/api/admin/users/{username}/password")
     def admin_set_user_password(
@@ -735,38 +685,9 @@ def create_app() -> Any:
         require_admin_user(request)
         require_csrf(request)
 
-        password = str(payload.get("password") or "")
-        if not password:
-            raise HTTPException(status_code=400, detail=ADMIN_MISSING_VALUE_DETAIL)
-
-        try:
-            password_hash = auth.hash_password(password)
-        except auth.PasswordValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            user_id = int(user["id"])
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    password_hash = ?,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (password_hash, db.utc_now(), user_id),
-            )
-            revoke_user_sessions(conn, user_id)
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
+            return admin_actions.set_user_password_payload(conn, username, payload)
 
     @app.post("/api/admin/users/{username}/deactivate")
     def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
@@ -775,25 +696,14 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            ensure_not_last_active_admin(conn, user)
-            user_id = int(user["id"])
-
-            db.set_user_approval_status(
+            return admin_actions.set_user_approval_payload(
                 conn,
-                user_id,
-                db.APPROVAL_DISABLED,
+                username,
+                approval_status=db.APPROVAL_DISABLED,
                 reviewed_by_user_id=int(admin_user["id"]),
+                revoke_sessions=True,
+                protect_last_admin=True,
             )
-            revoke_user_sessions(conn, user_id)
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.post("/api/admin/users/{username}/activate")
     def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
@@ -802,23 +712,14 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            user_id = int(user["id"])
-
-            db.set_user_approval_status(
+            return admin_actions.set_user_approval_payload(
                 conn,
-                user_id,
-                db.APPROVAL_APPROVED,
+                username,
+                approval_status=db.APPROVAL_APPROVED,
                 reviewed_by_user_id=int(admin_user["id"]),
+                revoke_sessions=False,
+                protect_last_admin=False,
             )
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.delete("/api/admin/users/{username}")
     def admin_delete_user(username: str, request: Request) -> Response:
@@ -827,18 +728,7 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            user_id = int(user["id"])
-
-            if user_id == int(admin_user["id"]):
-                raise HTTPException(status_code=400, detail=ADMIN_SELF_DELETE_DETAIL)
-
-            ensure_not_last_active_admin(conn, user)
-            deleted = db.delete_user(conn, user_id)
-            if not deleted:
-                raise HTTPException(status_code=404, detail=ADMIN_USER_NOT_FOUND_DETAIL)
-            conn.commit()
+            admin_actions.delete_user(conn, username, admin_user_id=int(admin_user["id"]))
 
         return Response(status_code=204)
 
@@ -849,21 +739,14 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            user = admin_target_user(conn, username)
-            user_id = int(user["id"])
-            db.set_user_approval_status(
+            return admin_actions.set_user_approval_payload(
                 conn,
-                user_id,
-                db.APPROVAL_APPROVED,
+                username,
+                approval_status=db.APPROVAL_APPROVED,
                 reviewed_by_user_id=int(admin_user["id"]),
+                revoke_sessions=False,
+                protect_last_admin=False,
             )
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.post("/api/admin/users/{username}/reject")
     def admin_reject_user(username: str, request: Request) -> dict[str, Any]:
@@ -872,23 +755,14 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-            user = admin_target_user(conn, username)
-            ensure_not_last_active_admin(conn, user)
-            user_id = int(user["id"])
-            db.set_user_approval_status(
+            return admin_actions.set_user_approval_payload(
                 conn,
-                user_id,
-                db.APPROVAL_REJECTED,
+                username,
+                approval_status=db.APPROVAL_REJECTED,
                 reviewed_by_user_id=int(admin_user["id"]),
+                revoke_sessions=True,
+                protect_last_admin=True,
             )
-            revoke_user_sessions(conn, user_id)
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.post("/api/admin/users/{username}/admin")
     def admin_grant_admin(username: str, request: Request) -> dict[str, Any]:
@@ -897,27 +771,12 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            user_id = int(user["id"])
-
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    is_admin = 1,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (db.utc_now(), user_id),
+            return admin_actions.set_user_admin_payload(
+                conn,
+                username,
+                is_admin=True,
+                protect_last_admin=False,
             )
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.delete("/api/admin/users/{username}/admin")
     def admin_revoke_admin(username: str, request: Request) -> dict[str, Any]:
@@ -926,28 +785,12 @@ def create_app() -> Any:
 
         with db.connect() as conn:
             web_context.ensure_web_schema(conn)
-
-            user = admin_target_user(conn, username)
-            ensure_not_last_active_admin(conn, user)
-            user_id = int(user["id"])
-
-            conn.execute(
-                """
-                UPDATE users
-                SET
-                    is_admin = 0,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (db.utc_now(), user_id),
+            return admin_actions.set_user_admin_payload(
+                conn,
+                username,
+                is_admin=False,
+                protect_last_admin=True,
             )
-            conn.commit()
-
-            updated_user = admin_target_user(conn, username)
-
-        return {
-            "user": admin_user_payload(updated_user),
-        }
 
     @app.get("/api/search")
     def search(

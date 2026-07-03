@@ -4,11 +4,10 @@ from fastapi.testclient import TestClient
 
 from fluxtuner.core import db
 from fluxtuner.web import auth
+from fluxtuner.web.admin_actions import ADMIN_SELF_DELETE_DETAIL, ADMIN_USER_EXISTS_DETAIL
 from fluxtuner.web.admin_users import ADMIN_LAST_ADMIN_DETAIL, ADMIN_USER_NOT_FOUND_DETAIL
 from fluxtuner.web.app import (
     ADMIN_REQUIRED_DETAIL,
-    ADMIN_SELF_DELETE_DETAIL,
-    ADMIN_USER_EXISTS_DETAIL,
     CSRF_ERROR_DETAIL,
     FIELD_TOO_LONG_DETAIL,
     create_app,

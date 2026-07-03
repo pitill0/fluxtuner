@@ -9,7 +9,6 @@ from typing import Any
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db
 from fluxtuner.web import (
-    admin_actions,
     auth,
     password_change_actions,
     registration_actions,
@@ -73,10 +72,11 @@ def _read_template(name: str) -> str:
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
-        from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, Response
+        from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
         from fastapi.responses import FileResponse, HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
+        from fluxtuner.web.routes import admin as admin_routes
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import public as public_routes
 
@@ -135,6 +135,7 @@ def create_app() -> Any:
 
     app.include_router(public_routes.router)
     app.include_router(library_routes.router)
+    app.include_router(admin_routes.router)
 
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
@@ -436,188 +437,6 @@ def create_app() -> Any:
                 }
 
         return payload
-
-    @app.get("/api/admin/password-change-requests")
-    def admin_list_password_change_requests(request: Request) -> dict[str, Any]:
-        require_admin_user(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return password_change_actions.list_password_change_requests_payload(conn)
-
-    @app.post("/api/admin/password-change-requests/{request_id}/approve")
-    def admin_approve_password_change_request(
-        request: Request,
-        request_id: int = Path(..., ge=1),
-    ) -> dict[str, Any]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return password_change_actions.approve_password_change_request_payload(
-                conn,
-                request_id,
-                resolved_by_user_id=int(admin_user["id"]),
-            )
-
-    @app.post("/api/admin/password-change-requests/{request_id}/reject")
-    def admin_reject_password_change_request(
-        request: Request,
-        request_id: int = Path(..., ge=1),
-    ) -> dict[str, str]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return password_change_actions.reject_password_change_request_payload(
-                conn,
-                request_id,
-                resolved_by_user_id=int(admin_user["id"]),
-            )
-
-    @app.get("/api/admin/users")
-    def admin_list_users(request: Request) -> dict[str, Any]:
-        require_admin_user(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.list_users_payload(conn)
-
-    @app.post("/api/admin/users")
-    def admin_create_user(
-        request: Request,
-        payload: dict[str, Any] = required_body,
-    ) -> dict[str, Any]:
-        require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.create_user_payload(
-                conn,
-                payload,
-                max_username_length=MAX_USERNAME_LENGTH,
-                max_display_name_length=MAX_DISPLAY_NAME_LENGTH,
-                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
-            )
-
-    @app.post("/api/admin/users/{username}/password")
-    def admin_set_user_password(
-        username: str,
-        request: Request,
-        payload: dict[str, Any] = required_body,
-    ) -> dict[str, Any]:
-        require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_password_payload(conn, username, payload)
-
-    @app.post("/api/admin/users/{username}/deactivate")
-    def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_approval_payload(
-                conn,
-                username,
-                approval_status=db.APPROVAL_DISABLED,
-                reviewed_by_user_id=int(admin_user["id"]),
-                revoke_sessions=True,
-                protect_last_admin=True,
-            )
-
-    @app.post("/api/admin/users/{username}/activate")
-    def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_approval_payload(
-                conn,
-                username,
-                approval_status=db.APPROVAL_APPROVED,
-                reviewed_by_user_id=int(admin_user["id"]),
-                revoke_sessions=False,
-                protect_last_admin=False,
-            )
-
-    @app.delete("/api/admin/users/{username}")
-    def admin_delete_user(username: str, request: Request) -> Response:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            admin_actions.delete_user(conn, username, admin_user_id=int(admin_user["id"]))
-
-        return Response(status_code=204)
-
-    @app.post("/api/admin/users/{username}/approve")
-    def admin_approve_user(username: str, request: Request) -> dict[str, Any]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_approval_payload(
-                conn,
-                username,
-                approval_status=db.APPROVAL_APPROVED,
-                reviewed_by_user_id=int(admin_user["id"]),
-                revoke_sessions=False,
-                protect_last_admin=False,
-            )
-
-    @app.post("/api/admin/users/{username}/reject")
-    def admin_reject_user(username: str, request: Request) -> dict[str, Any]:
-        admin_user = require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_approval_payload(
-                conn,
-                username,
-                approval_status=db.APPROVAL_REJECTED,
-                reviewed_by_user_id=int(admin_user["id"]),
-                revoke_sessions=True,
-                protect_last_admin=True,
-            )
-
-    @app.post("/api/admin/users/{username}/admin")
-    def admin_grant_admin(username: str, request: Request) -> dict[str, Any]:
-        require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_admin_payload(
-                conn,
-                username,
-                is_admin=True,
-                protect_last_admin=False,
-            )
-
-    @app.delete("/api/admin/users/{username}/admin")
-    def admin_revoke_admin(username: str, request: Request) -> dict[str, Any]:
-        require_admin_user(request)
-        require_csrf(request)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return admin_actions.set_user_admin_payload(
-                conn,
-                username,
-                is_admin=False,
-                protect_last_admin=True,
-            )
 
     return app
 

@@ -94,6 +94,8 @@ def create_app() -> Any:
         from fastapi.responses import FileResponse, HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
+        from fluxtuner.web.routes import public as public_routes
+
         globals()["Request"] = Request
         globals()["Response"] = Response
     except ImportError as exc:
@@ -147,11 +149,7 @@ def create_app() -> Any:
     def health() -> dict[str, str]:
         return web_dashboard.server_health_payload()
 
-    @app.get("/api/public/stats")
-    def public_stats() -> dict[str, Any]:
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return db.public_activity_stats(conn)
+    app.include_router(public_routes.router)
 
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:

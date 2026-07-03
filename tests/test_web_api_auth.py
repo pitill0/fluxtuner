@@ -6,10 +6,9 @@ from fluxtuner.core import db
 from fluxtuner.web import auth
 from fluxtuner.web.app import (
     AUTH_ERROR_DETAIL,
-    CSRF_HEADER_NAME,
-    SESSION_COOKIE_NAME,
     create_app,
 )
+from fluxtuner.web.security import CSRF_HEADER_NAME, SESSION_COOKIE_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
 

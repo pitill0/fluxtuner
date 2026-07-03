@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hmac
 from importlib import resources
 from typing import Any
 
@@ -23,6 +22,7 @@ from fluxtuner.core.manual_playlists import (
 from fluxtuner.web import auth, password_changes
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
+from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
 from fluxtuner.web.admin_users import (
     ADMIN_USER_NOT_FOUND_DETAIL,
@@ -37,7 +37,6 @@ from fluxtuner.web.payloads import (
     station_payload,
 )
 from fluxtuner.web.security import (
-    CSRF_HEADER_NAME,
     SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
     delete_session_cookie,
@@ -121,20 +120,17 @@ def create_app() -> Any:
     required_body = Body(...)
 
     def require_csrf(request: Request) -> None:
-        token = request.cookies.get(SESSION_COOKIE_NAME)
-        expected = csrf_token_for_session_token(token)
-        provided = request.headers.get(CSRF_HEADER_NAME, "")
-
-        if not expected or not hmac.compare_digest(provided, expected):
-            raise HTTPException(status_code=403, detail=CSRF_ERROR_DETAIL)
+        web_guards.require_csrf(
+            request,
+            csrf_error_detail=CSRF_ERROR_DETAIL,
+        )
 
     def require_admin_user(request: Request) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-        if not bool(user["is_admin"]):
-            raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
-        return user
+        return web_guards.require_admin_user(
+            request,
+            auth_required_detail=AUTH_REQUIRED_DETAIL,
+            admin_required_detail=ADMIN_REQUIRED_DETAIL,
+        )
 
     app = FastAPI(
         title=f"{__app_name__} Web",

@@ -10,10 +10,10 @@ from fluxtuner.web.app import (
     ADMIN_SELF_DELETE_DETAIL,
     ADMIN_USER_EXISTS_DETAIL,
     CSRF_ERROR_DETAIL,
-    CSRF_HEADER_NAME,
     FIELD_TOO_LONG_DETAIL,
     create_app,
 )
+from fluxtuner.web.security import CSRF_HEADER_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
 OTHER_PASSWORD = "another correct horse battery staple"

@@ -7,7 +7,6 @@ from fluxtuner.web import auth
 from fluxtuner.web.app import (
     ADMIN_REQUIRED_DETAIL,
     CSRF_ERROR_DETAIL,
-    CSRF_HEADER_NAME,
     create_app,
 )
 from fluxtuner.web.password_changes import (
@@ -15,6 +14,7 @@ from fluxtuner.web.password_changes import (
     ACCOUNT_CHANGE_PENDING_DETAIL,
     ACCOUNT_CHANGE_RECEIVED_MESSAGE,
 )
+from fluxtuner.web.security import CSRF_HEADER_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
 NEW_PASSWORD = "another correct horse battery staple"

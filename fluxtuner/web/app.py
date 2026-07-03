@@ -11,7 +11,6 @@ from fluxtuner.core import db
 from fluxtuner.web import (
     admin_actions,
     auth,
-    library,
     password_change_actions,
     registration_actions,
 )
@@ -19,22 +18,13 @@ from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
-from fluxtuner.web.payloads import (
-    public_user_payload,
-    station_payload,
-)
+from fluxtuner.web.payloads import public_user_payload
 from fluxtuner.web.security import (
     SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
     delete_session_cookie,
     session_cookie_max_age,
     set_session_cookie,
-)
-from fluxtuner.web.validation import (
-    is_supported_web_url,
-    playlist_name,
-    playlist_name_too_long,
-    station_stream_url,
 )
 
 AUTH_ERROR_DETAIL = "Invalid username or password."
@@ -80,13 +70,6 @@ def _read_template(name: str) -> str:
     return template_path.read_text(encoding="utf-8")
 
 
-def _require_station_stream_url(station_data: dict[str, Any]) -> None:
-    if not is_supported_web_url(station_stream_url(station_data)):
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=400, detail=INVALID_STATION_URL_DETAIL)
-
-
 def create_app() -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
@@ -94,6 +77,7 @@ def create_app() -> Any:
         from fastapi.responses import FileResponse, HTMLResponse
         from fastapi.staticfiles import StaticFiles
 
+        from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import public as public_routes
 
         globals()["Request"] = Request
@@ -150,6 +134,7 @@ def create_app() -> Any:
         return web_dashboard.server_health_payload()
 
     app.include_router(public_routes.router)
+    app.include_router(library_routes.router)
 
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
@@ -633,233 +618,6 @@ def create_app() -> Any:
                 is_admin=False,
                 protect_last_admin=True,
             )
-
-    @app.get("/api/search")
-    def search(
-        request: Request,
-        q: str = Query(default="", max_length=120),
-        country: str = Query(default="", max_length=80),
-        min_bitrate: int = Query(default=0, ge=0, le=1000),
-        limit: int = Query(default=25, ge=1, le=50),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return library.search_payload(
-            query=q,
-            country=country,
-            min_bitrate=min_bitrate,
-            limit=limit,
-        )
-
-    @app.get("/api/history")
-    def history(
-        request: Request,
-        limit: int = Query(default=25, ge=1, le=100),
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return library.history_payload(
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-            limit=limit,
-        )
-
-    @app.post("/api/history")
-    def record_history(
-        request: Request,
-        station: dict[str, Any] = required_body,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        station_data = station_payload(station)
-
-        _require_station_stream_url(station_data)
-
-        return library.record_history_payload(
-            station_data,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.get("/api/favorites")
-    def favorites(
-        request: Request,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return library.favorites_payload(
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.post("/api/favorites")
-    def create_favorite(
-        request: Request,
-        station: dict[str, Any] = required_body,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        station_data = station_payload(station)
-
-        _require_station_stream_url(station_data)
-
-        return library.create_favorite_payload(
-            station_data,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.delete("/api/favorites")
-    def delete_favorite(
-        request: Request,
-        url: str = Query(..., min_length=1, max_length=4096),
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        return library.delete_favorite_payload(
-            url,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.get("/api/playlists")
-    def playlists(
-        request: Request,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return library.playlists_payload(
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.post("/api/playlists")
-    def create_web_playlist(
-        request: Request,
-        payload: dict[str, Any] = required_body,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        name = playlist_name(payload)
-        if not name:
-            raise HTTPException(status_code=400, detail=PLAYLIST_REQUIRED_DETAIL)
-        if playlist_name_too_long(name):
-            raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
-
-        return library.create_playlist_payload(
-            name,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.delete("/api/playlists/{name}")
-    def delete_web_playlist(
-        request: Request,
-        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        return library.delete_playlist_payload(
-            name,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.get("/api/playlists/{name}/stations")
-    def playlist_stations(
-        request: Request,
-        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return library.playlist_stations_payload(
-            name,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.post("/api/playlists/{name}/stations")
-    def add_web_station_to_playlist(
-        request: Request,
-        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
-        station: dict[str, Any] = required_body,
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        station_data = station_payload(station)
-
-        _require_station_stream_url(station_data)
-
-        return library.add_station_to_playlist_payload(
-            name,
-            station_data,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
-
-    @app.delete("/api/playlists/{name}/stations")
-    def remove_web_station_from_playlist(
-        request: Request,
-        name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
-        url: str = Query(..., min_length=1, max_length=4096),
-        profile: str | None = Query(default=None, max_length=80),
-    ) -> dict[str, Any]:
-        user = web_context.authenticated_user(request)
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        require_csrf(request)
-
-        return library.remove_station_from_playlist_payload(
-            name,
-            url,
-            user_id=int(user["id"]),
-            profile_name=web_context.effective_profile_name(profile),
-        )
 
     return app
 

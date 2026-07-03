@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import hmac
-import os
 from importlib import resources
 from typing import Any
 
@@ -23,6 +22,7 @@ from fluxtuner.core.manual_playlists import (
 )
 from fluxtuner.core.profiles import resolve_effective_profile_name
 from fluxtuner.web import auth
+from fluxtuner.web import setup as web_setup
 from fluxtuner.web.payloads import (
     admin_password_change_request_payload,
     admin_user_payload,
@@ -183,52 +183,11 @@ def _dashboard_user_payload(user_id: int, profile_name: str | None) -> dict[str,
     }
 
 
-def _request_client_host(request: Any) -> str:
-    client = getattr(request, "client", None)
-    host = getattr(client, "host", None)
-    return auth.client_key_from_host(str(host) if host else None)
-
-
 def _authenticated_user(request: Any) -> dict[str, Any] | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     with db.connect() as conn:
         _ensure_web_schema(conn)
         return auth.get_session_user(conn, token)
-
-
-def _configured_admin_exists(conn: Any) -> bool:
-    """Return whether a real active web admin has been configured."""
-    row = conn.execute(
-        """
-        SELECT 1
-        FROM users
-        WHERE
-            is_admin = 1
-            AND is_active = 1
-            AND password_hash IS NOT NULL
-            AND length(trim(password_hash)) > 0
-        LIMIT 1
-        """
-    ).fetchone()
-    return row is not None
-
-
-def _setup_token_required() -> bool:
-    return bool(os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip())
-
-
-def _valid_setup_token(provided_token: str) -> bool:
-    expected_token = os.getenv("FLUXTUNER_WEB_SETUP_TOKEN", "").strip()
-    if not expected_token:
-        return True
-
-    return hmac.compare_digest(provided_token, expected_token)
-
-
-def _setup_request_is_local(request: Any) -> bool:
-    client = getattr(request, "client", None)
-    host = str(getattr(client, "host", "") or "").strip().lower()
-    return host in {"127.0.0.1", "::1", "localhost", "testclient"}
 
 
 def _missing_web_dependency_message() -> str:
@@ -371,13 +330,13 @@ def create_app() -> Any:
     def setup_status(request: Request) -> dict[str, Any]:
         with db.connect() as conn:
             _ensure_web_schema(conn)
-            configured_admin_exists = _configured_admin_exists(conn)
+            admin_exists = web_setup.configured_admin_exists(conn)
 
         return {
-            "available": not configured_admin_exists,
-            "configured_admin_exists": configured_admin_exists,
-            "requires_setup_token": _setup_token_required(),
-            "local_request": _setup_request_is_local(request),
+            "available": not admin_exists,
+            "configured_admin_exists": admin_exists,
+            "requires_setup_token": web_setup.setup_token_required(),
+            "local_request": web_setup.setup_request_is_local(request),
         }
 
     @app.post("/api/setup/create-admin")
@@ -389,7 +348,7 @@ def create_app() -> Any:
         username = str(payload.get("username") or "").strip()
         password = str(payload.get("password") or "")
         setup_token = str(payload.get("setup_token") or "")
-        client_key = _request_client_host(request)
+        client_key = web_setup.request_client_host(request)
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=SETUP_INVALID_DETAIL)
@@ -402,10 +361,10 @@ def create_app() -> Any:
             if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
-            if _configured_admin_exists(conn):
+            if web_setup.configured_admin_exists(conn):
                 raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
 
-            if _setup_token_required() and not _valid_setup_token(setup_token):
+            if web_setup.setup_token_required() and not web_setup.valid_setup_token(setup_token):
                 auth.record_login_attempt(
                     conn,
                     SETUP_RATE_LIMIT_USERNAME,
@@ -415,7 +374,7 @@ def create_app() -> Any:
                 conn.commit()
                 raise HTTPException(status_code=403, detail=SETUP_VERIFICATION_ERROR_DETAIL)
 
-        if not _setup_token_required() and not _setup_request_is_local(request):
+        if not web_setup.setup_token_required() and not web_setup.setup_request_is_local(request):
             raise HTTPException(status_code=403, detail=SETUP_LOCAL_ONLY_DETAIL)
 
         try:
@@ -426,7 +385,7 @@ def create_app() -> Any:
         with db.connect() as conn:
             _ensure_web_schema(conn)
 
-            if _configured_admin_exists(conn):
+            if web_setup.configured_admin_exists(conn):
                 raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
 
             clean_username = db.normalize_username(username)
@@ -493,7 +452,7 @@ def create_app() -> Any:
         password = str(payload.get("password") or "")
         display_name = str(payload.get("display_name") or "").strip() or None
         signup_note = str(payload.get("note") or payload.get("signup_note") or "").strip() or None
-        client_key = _request_client_host(request)
+        client_key = web_setup.request_client_host(request)
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=REGISTER_INVALID_DETAIL)
@@ -569,7 +528,7 @@ def create_app() -> Any:
         username = str(payload.get("username") or "").strip()
         password = str(payload.get("new_password") or payload.get("password") or "")
         note = str(payload.get("note") or "").strip() or None
-        client_key = _request_client_host(request)
+        client_key = web_setup.request_client_host(request)
 
         if not username or not password:
             raise HTTPException(status_code=400, detail=ACCOUNT_CHANGE_INVALID_DETAIL)
@@ -634,7 +593,7 @@ def create_app() -> Any:
     ) -> dict[str, Any]:
         username = str(payload.get("username") or "").strip()
         password = str(payload.get("password") or "")
-        client_key = _request_client_host(request)
+        client_key = web_setup.request_client_host(request)
 
         if not username or not password:
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)

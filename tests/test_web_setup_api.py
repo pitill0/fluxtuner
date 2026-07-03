@@ -137,7 +137,7 @@ def test_setup_requires_configured_token_when_env_is_set(tmp_path, monkeypatch) 
 def test_setup_without_env_token_is_local_only(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     monkeypatch.delenv("FLUXTUNER_WEB_SETUP_TOKEN", raising=False)
-    monkeypatch.setattr("fluxtuner.web.app._setup_request_is_local", lambda _request: False)
+    monkeypatch.setattr("fluxtuner.web.setup.setup_request_is_local", lambda _request: False)
 
     response = client.post(
         "/api/setup/create-admin",

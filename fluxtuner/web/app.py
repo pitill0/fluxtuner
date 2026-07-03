@@ -19,10 +19,7 @@ from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
 from fluxtuner.web.payloads import public_user_payload
 from fluxtuner.web.security import (
-    SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
-    delete_session_cookie,
-    session_cookie_max_age,
     set_session_cookie,
 )
 
@@ -77,6 +74,7 @@ def create_app() -> Any:
         from fastapi.staticfiles import StaticFiles
 
         from fluxtuner.web.routes import admin as admin_routes
+        from fluxtuner.web.routes import auth as auth_routes
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import public as public_routes
 
@@ -134,6 +132,7 @@ def create_app() -> Any:
         return web_dashboard.server_health_payload()
 
     app.include_router(public_routes.router)
+    app.include_router(auth_routes.router)
     app.include_router(library_routes.router)
     app.include_router(admin_routes.router)
 
@@ -250,165 +249,6 @@ def create_app() -> Any:
         return {
             "authenticated": True,
             "setup_complete": True,
-            "user": public_user_payload(user),
-            "csrf_token": csrf_token_for_session_token(token),
-        }
-
-    @app.post("/api/auth/register")
-    def register(
-        request: Request,
-        payload: dict[str, Any] = required_body,
-    ) -> dict[str, str]:
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return registration_actions.register_payload(
-                conn,
-                payload,
-                client_key=web_setup.request_client_host(request),
-                max_username_length=MAX_USERNAME_LENGTH,
-                max_display_name_length=MAX_DISPLAY_NAME_LENGTH,
-                max_signup_note_length=MAX_SIGNUP_NOTE_LENGTH,
-                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
-                rate_limit_detail=RATE_LIMIT_DETAIL,
-            )
-
-    @app.post("/api/auth/password-change-requests")
-    def request_password_change(
-        request: Request,
-        payload: dict[str, Any] = required_body,
-    ) -> dict[str, str]:
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            return password_change_actions.request_password_change_payload(
-                conn,
-                payload,
-                client_key=web_setup.request_client_host(request),
-                max_username_length=MAX_USERNAME_LENGTH,
-                max_note_length=MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
-                field_too_long_detail=FIELD_TOO_LONG_DETAIL,
-                rate_limit_detail=RATE_LIMIT_DETAIL,
-            )
-
-    @app.post("/api/auth/login")
-    def login(
-        request: Request,
-        response: Response,
-        payload: dict[str, Any] = required_body,
-    ) -> dict[str, Any]:
-        username = str(payload.get("username") or "").strip()
-        password = str(payload.get("password") or "")
-        client_key = web_setup.request_client_host(request)
-
-        if not username or not password:
-            raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
-
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            if auth.is_login_rate_limited(conn, username, client_key):
-                raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
-
-            user = db.get_user_by_username(conn, username)
-            password_hash = str(user["password_hash"] or "") if user is not None else ""
-
-            if not password_hash:
-                auth.verify_password(password, auth.DUMMY_PASSWORD_HASH)
-                auth.record_login_attempt(
-                    conn,
-                    username,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
-
-            if not auth.verify_password(password, password_hash):
-                auth.record_login_attempt(
-                    conn,
-                    username,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
-
-            if user is None:
-                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
-
-            approval_status = str(user["approval_status"])
-            if approval_status == db.APPROVAL_PENDING:
-                auth.record_login_attempt(
-                    conn,
-                    username,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DETAIL)
-
-            if db.user_has_pending_password_change_request(conn, int(user["id"])):
-                auth.record_login_attempt(
-                    conn,
-                    username,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=403, detail=ACCOUNT_CHANGE_PENDING_DETAIL)
-
-            if approval_status != db.APPROVAL_APPROVED or not bool(user["is_active"]):
-                auth.record_login_attempt(
-                    conn,
-                    username,
-                    client_key,
-                    success=False,
-                )
-                conn.commit()
-                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
-
-            authenticated_user = user
-            token = auth.create_session(
-                conn,
-                int(authenticated_user["id"]),
-                max_age_seconds=session_cookie_max_age(),
-            )
-            auth.record_login_attempt(
-                conn,
-                username,
-                client_key,
-                success=True,
-            )
-            conn.commit()
-
-        set_session_cookie(response, token)
-        return {
-            "authenticated": True,
-            "user": public_user_payload(authenticated_user),
-            "csrf_token": csrf_token_for_session_token(token),
-        }
-
-    @app.post("/api/auth/logout")
-    def logout(request: Request, response: Response) -> dict[str, Any]:
-        require_csrf(request)
-        token = request.cookies.get(SESSION_COOKIE_NAME)
-        with db.connect() as conn:
-            revoked = auth.revoke_session(conn, token)
-            conn.commit()
-
-        delete_session_cookie(response)
-        return {"status": "ok", "revoked": revoked}
-
-    @app.get("/api/auth/me")
-    def me(request: Request) -> dict[str, Any]:
-        token = request.cookies.get(SESSION_COOKIE_NAME)
-        with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-            user = auth.get_session_user(conn, token)
-
-        if user is None:
-            raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
-
-        return {
-            "authenticated": True,
             "user": public_user_payload(user),
             "csrf_token": csrf_token_for_session_token(token),
         }

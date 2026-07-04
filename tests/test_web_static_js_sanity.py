@@ -199,17 +199,23 @@ def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
 def test_web_static_js_has_opt_in_player_debug_logging() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/player-debug.js")
 
-    assert response.status_code == 200
-    assert 'const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";' in response.text
-    assert 'const PLAYER_DEBUG_QUERY_KEY = "player_debug";' in response.text
-    assert "function initializePlayerDebug()" in response.text
-    assert "function logPlayerEvent(eventName, details = {})" in response.text
-    assert "params.get(PLAYER_DEBUG_QUERY_KEY)" in response.text
-    assert 'window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1")' in response.text
-    assert "window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY)" in response.text
-    assert 'console.debug("[FluxTuner player]"' in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createPlayerDebugController } from "/static/js/player-debug.js";'
+        in app_response.text
+    )
+    assert 'const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";' in module_response.text
+    assert 'const PLAYER_DEBUG_QUERY_KEY = "player_debug";' in module_response.text
+    assert "function initialize()" in module_response.text
+    assert "function logEvent(eventName, details = {})" in module_response.text
+    assert "params.get(PLAYER_DEBUG_QUERY_KEY)" in module_response.text
+    assert 'window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1")' in module_response.text
+    assert "window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY)" in module_response.text
+    assert 'console.debug("[FluxTuner player]"' in module_response.text
 
 
 def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None:
@@ -251,10 +257,12 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     client = TestClient(create_app())
 
     js_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/player-debug.js")
     html_response = client.get("/")
     css_response = client.get("/static/styles.css")
 
     assert js_response.status_code == 200
+    assert module_response.status_code == 200
     assert html_response.status_code == 200
     assert css_response.status_code == 200
 
@@ -273,37 +281,37 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "data-player-debug-export" in html_response.text
     assert "Playback diagnostics" in html_response.text
 
-    assert "const PLAYER_DEBUG_EVENT_LIMIT = 80;" in js_response.text
+    assert "const PLAYER_DEBUG_EVENT_LIMIT = 80;" in module_response.text
     assert (
         'const playerDebugPanel = document.querySelector("[data-player-debug-panel]");'
         in js_response.text
     )
     assert "function playerDebugSnapshot(details = {})" in js_response.text
-    assert "function applyPlayerDebugState(enabled, persist = true)" in js_response.text
-    assert "function updatePlayerDebugPanelVisibility()" in js_response.text
-    assert "function renderPlayerDebugPanel()" in js_response.text
-    assert "function copyPlayerDebugLog()" in js_response.text
-    assert "function downloadPlayerDebugLog()" in js_response.text
-    assert "function clearPlayerDebugLog()" in js_response.text
-    assert "function togglePlayerDebugDetails()" in js_response.text
-    assert "playerDebugPanel.hidden = !showAdminDebug;" in js_response.text
-    assert "playerDebugEnableInput.checked = playerDebugEnabled;" in js_response.text
-    assert "applyPlayerDebugState(playerDebugEnableInput.checked);" in js_response.text
-    assert "playerDebugEvents.length > PLAYER_DEBUG_EVENT_LIMIT" in js_response.text
-    assert "showPlayerDebugExport(payload);" in js_response.text
-    assert "playerDebugExportNode.select();" in js_response.text
+    assert "function applyState(nextEnabled, persist = true)" in module_response.text
+    assert "function updateVisibility()" in module_response.text
+    assert "function render()" in module_response.text
+    assert "function copyLog()" in module_response.text
+    assert "function downloadLog()" in module_response.text
+    assert "function clearLog()" in module_response.text
+    assert "function toggleDetails()" in module_response.text
+    assert "panel.hidden = !showAdminDebug;" in module_response.text
+    assert "enableInput.checked = enabled;" in module_response.text
+    assert "playerDebugController.applyState(playerDebugEnableInput.checked);" in js_response.text
+    assert "events.length > PLAYER_DEBUG_EVENT_LIMIT" in module_response.text
+    assert "showExport(data);" in module_response.text
+    assert "exportNode.select();" in module_response.text
     assert (
         "Clipboard unavailable. Select and copy the log below, or use Download log."
-        in js_response.text
+        in module_response.text
     )
-    assert 'new Blob([payload], { type: "text/plain;charset=utf-8" })' in js_response.text
-    assert "link.download = filename;" in js_response.text
-    assert "window.setTimeout(() => URL.revokeObjectURL(url), 1000);" in js_response.text
+    assert 'new Blob([data], { type: "text/plain;charset=utf-8" })' in module_response.text
+    assert "link.download = filename;" in module_response.text
+    assert "window.setTimeout(() => URL.revokeObjectURL(url), 1000);" in module_response.text
     assert (
         'logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });'
         in js_response.text
     )
-    assert "Player debug log download started:" in js_response.text
+    assert "Player debug log download started:" in module_response.text
 
     assert ".player-debug-panel" in css_response.text
     assert ".player-debug-enable" in css_response.text

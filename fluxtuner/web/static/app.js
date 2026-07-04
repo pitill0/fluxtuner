@@ -5,6 +5,7 @@
 import { createApiFetch } from "/static/js/api.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createHealthController } from "/static/js/health.js";
+import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createThemeController } from "/static/js/theme.js";
 import {
@@ -110,10 +111,6 @@ const playerDebugLogNode = document.querySelector("[data-player-debug-log]");
 const playerDebugExportNode = document.querySelector("[data-player-debug-export]");
 
 const MAX_PLAYLIST_NAME_LENGTH = 120;
-const PLAYER_DEBUG_EVENT_LIMIT = 80;
-const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";
-const PLAYER_DEBUG_QUERY_KEY = "player_debug";
-
 let currentStation = null;
 let recordedHistoryUrl = "";
 let currentView = "search";
@@ -128,315 +125,6 @@ let pendingPlaylistStation = null;
 let startingPlayback = false;
 let softPausingPlayback = false;
 let stoppingPlayback = false;
-let playerDebugEnabled = false;
-let playerDebugEvents = [];
-
-
-function applyPlayerDebugState(enabled, persist = true) {
-  playerDebugEnabled = Boolean(enabled);
-
-  try {
-    if (persist) {
-      if (playerDebugEnabled) {
-        window.localStorage.setItem(PLAYER_DEBUG_STORAGE_KEY, "1");
-      } else {
-        window.localStorage.removeItem(PLAYER_DEBUG_STORAGE_KEY);
-      }
-    }
-  } catch (_error) {
-    // localStorage may be unavailable in private browsing or restricted contexts.
-  }
-
-  if (playerDebugEnableInput) {
-    playerDebugEnableInput.checked = playerDebugEnabled;
-  }
-
-  if (!playerDebugEnabled && playerDebugDetailsNode) {
-    playerDebugDetailsNode.open = false;
-  }
-
-  if (playerDebugToggleButton) {
-    playerDebugToggleButton.textContent =
-      playerDebugDetailsNode?.open && playerDebugEnabled ? "Hide" : "Show";
-    playerDebugToggleButton.disabled = !playerDebugEnabled;
-  }
-
-  if (playerDebugCopyButton) {
-    playerDebugCopyButton.disabled = !playerDebugEnabled;
-  }
-
-  if (playerDebugDownloadButton) {
-    playerDebugDownloadButton.disabled = !playerDebugEnabled;
-  }
-
-  if (playerDebugClearButton) {
-    playerDebugClearButton.disabled = !playerDebugEnabled;
-  }
-
-  if (playerDebugExportNode && !playerDebugEnabled) {
-    playerDebugExportNode.value = "";
-    playerDebugExportNode.hidden = true;
-  }
-
-  renderPlayerDebugPanel();
-}
-
-function updatePlayerDebugPanelVisibility() {
-  if (!playerDebugPanel) return;
-
-  const showAdminDebug = Boolean(currentUser?.is_admin) && !setupAvailable;
-  playerDebugPanel.hidden = !showAdminDebug;
-
-  if (showAdminDebug) {
-    renderPlayerDebugPanel();
-  }
-}
-
-function initializePlayerDebug() {
-  let enabled = false;
-
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const requestedDebug = params.get(PLAYER_DEBUG_QUERY_KEY);
-
-    if (requestedDebug === "1") {
-      enabled = true;
-    } else if (requestedDebug === "0") {
-      enabled = false;
-    } else {
-      enabled = window.localStorage.getItem(PLAYER_DEBUG_STORAGE_KEY) === "1";
-    }
-
-    applyPlayerDebugState(enabled, requestedDebug !== null);
-  } catch (_error) {
-    playerDebugEnabled = false;
-    applyPlayerDebugState(false, false);
-  }
-
-  if (playerDebugEnabled) {
-    console.info(
-      "[FluxTuner player]",
-      "debug enabled",
-      {
-        disableWith: `?${PLAYER_DEBUG_QUERY_KEY}=0`,
-        adminToggle: "Admin > Player debug",
-      },
-    );
-  }
-}
-
-function audioDebugSnapshot() {
-  if (!audioNode) return null;
-
-  return {
-    paused: audioNode.paused,
-    ended: audioNode.ended,
-    readyState: audioNode.readyState,
-    networkState: audioNode.networkState,
-    currentSrc: audioNode["currentSrc"] || "",
-    src: audioNode.getAttribute("src") || "",
-    errorCode: audioNode.error?.code || null,
-    errorMessage: audioNode.error?.message || "",
-  };
-}
-
-function mediaSessionDebugSnapshot() {
-  if (!("mediaSession" in navigator)) return null;
-
-  try {
-    return {
-      playbackState: navigator.mediaSession.playbackState || "",
-      hasMetadata: Boolean(navigator.mediaSession.metadata),
-    };
-  } catch (_error) {
-    return { unavailable: true };
-  }
-}
-
-function playerDebugSnapshot(details = {}) {
-  return {
-    state: playerBar?.dataset.state || "",
-    station: currentStation
-      ? {
-          name: currentStation.name || currentStation.custom_name || "",
-          url: stationUrl(currentStation),
-        }
-      : null,
-    flags: {
-      startingPlayback,
-      softPausingPlayback,
-      stoppingPlayback,
-    },
-    audio: audioDebugSnapshot(),
-    mediaSession: mediaSessionDebugSnapshot(),
-    visibilityState: document.visibilityState || "",
-    details,
-  };
-}
-
-function playerDebugPayload() {
-  const lines = [
-    "FluxTuner player debug log",
-    "",
-    "Current snapshot:",
-    JSON.stringify(playerDebugSnapshot(), null, 2),
-    "",
-    "Recent events:",
-  ];
-
-  for (const entry of playerDebugEvents) {
-    lines.push(`[${entry.timestamp}] ${entry.eventName}`);
-    lines.push(JSON.stringify(entry.snapshot, null, 2));
-  }
-
-  return lines.join("\n");
-}
-
-function renderPlayerDebugPanel() {
-  if (!playerDebugPanel) return;
-
-  if (playerDebugEnableInput) {
-    playerDebugEnableInput.checked = playerDebugEnabled;
-  }
-
-  if (playerDebugSummaryNode) {
-    const count = playerDebugEvents.length;
-    playerDebugSummaryNode.textContent = playerDebugEnabled
-      ? count
-        ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
-        : "Debug logging is enabled."
-      : "Debug logging is disabled.";
-  }
-
-  if (!playerDebugEnabled) {
-    if (playerDebugSnapshotNode) {
-      playerDebugSnapshotNode.textContent =
-        "Enable player debug to capture playback diagnostics.";
-    }
-
-    if (playerDebugLogNode) {
-      playerDebugLogNode.textContent = "No player events captured while debug is disabled.";
-    }
-
-    return;
-  }
-
-  if (playerDebugSnapshotNode) {
-    playerDebugSnapshotNode.textContent = JSON.stringify(playerDebugSnapshot(), null, 2);
-  }
-
-  if (playerDebugLogNode) {
-    playerDebugLogNode.textContent = playerDebugEvents.length
-      ? playerDebugEvents
-          .map(
-            (entry) =>
-              `[${entry.timestamp}] ${entry.eventName}\n${JSON.stringify(entry.snapshot, null, 2)}`,
-          )
-          .join("\n\n")
-      : "No player events yet.";
-  }
-}
-
-function setPlayerDebugSummary(message) {
-  if (playerDebugSummaryNode) {
-    playerDebugSummaryNode.textContent = message;
-  }
-}
-
-function showPlayerDebugExport(payload) {
-  if (!playerDebugExportNode) return;
-
-  playerDebugExportNode.value = payload;
-  playerDebugExportNode.hidden = false;
-  playerDebugExportNode.focus();
-  playerDebugExportNode.select();
-}
-
-async function copyPlayerDebugLog() {
-  if (!playerDebugEnabled) return;
-
-  const payload = playerDebugPayload();
-  showPlayerDebugExport(payload);
-
-  try {
-    if (!navigator.clipboard?.writeText) {
-      throw new Error("Clipboard API unavailable");
-    }
-
-    await navigator.clipboard.writeText(payload);
-    setPlayerDebugSummary("Player debug log copied to clipboard and shown below.");
-  } catch (_error) {
-    setPlayerDebugSummary("Clipboard unavailable. Select and copy the log below, or use Download log.");
-  }
-}
-
-function downloadPlayerDebugLog() {
-  if (!playerDebugEnabled) return;
-
-  const payload = playerDebugPayload();
-  showPlayerDebugExport(payload);
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `fluxtuner-player-debug-${timestamp}.txt`;
-  const blob = new Blob([payload], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = filename;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-  setPlayerDebugSummary(`Player debug log download started: ${filename}`);
-}
-
-function clearPlayerDebugLog() {
-  playerDebugEvents = [];
-
-  if (playerDebugExportNode) {
-    playerDebugExportNode.value = "";
-    playerDebugExportNode.hidden = true;
-  }
-
-  renderPlayerDebugPanel();
-}
-
-function togglePlayerDebugDetails() {
-  if (!playerDebugDetailsNode) return;
-
-  playerDebugDetailsNode.open = !playerDebugDetailsNode.open;
-
-  if (playerDebugToggleButton) {
-    playerDebugToggleButton.textContent = playerDebugDetailsNode.open ? "Hide" : "Show";
-  }
-
-  renderPlayerDebugPanel();
-}
-
-function logPlayerEvent(eventName, details = {}) {
-  if (!playerDebugEnabled) return;
-
-  const entry = {
-    timestamp: new Date().toISOString(),
-    eventName,
-    snapshot: playerDebugSnapshot(details),
-  };
-
-  playerDebugEvents.push(entry);
-  if (playerDebugEvents.length > PLAYER_DEBUG_EVENT_LIMIT) {
-    playerDebugEvents = playerDebugEvents.slice(-PLAYER_DEBUG_EVENT_LIMIT);
-  }
-
-  console.debug("[FluxTuner player]", eventName, entry.snapshot);
-  renderPlayerDebugPanel();
-}
-
-initializePlayerDebug();
-
-
 function setResultsHeader(kicker, title) {
   if (resultsKickerNode) {
     resultsKickerNode.textContent = kicker;
@@ -919,6 +607,75 @@ const publicStatsController = createPublicStatsController({
   fetchImpl: window.fetch.bind(window),
 });
 
+function audioDebugSnapshot() {
+  if (!audioNode) return null;
+
+  return {
+    paused: audioNode.paused,
+    ended: audioNode.ended,
+    readyState: audioNode.readyState,
+    networkState: audioNode.networkState,
+    currentSrc: audioNode["currentSrc"] || "",
+    src: audioNode.getAttribute("src") || "",
+    errorCode: audioNode.error?.code || null,
+    errorMessage: audioNode.error?.message || "",
+  };
+}
+
+function mediaSessionDebugSnapshot() {
+  if (!("mediaSession" in navigator)) return null;
+
+  try {
+    return {
+      playbackState: navigator.mediaSession.playbackState || "",
+      hasMetadata: Boolean(navigator.mediaSession.metadata),
+    };
+  } catch (_error) {
+    return { unavailable: true };
+  }
+}
+
+function playerDebugSnapshot(details = {}) {
+  return {
+    state: playerBar?.dataset.state || "",
+    station: currentStation
+      ? {
+          name: currentStation.name || currentStation.custom_name || "",
+          url: stationUrl(currentStation),
+        }
+      : null,
+    flags: {
+      startingPlayback,
+      softPausingPlayback,
+      stoppingPlayback,
+    },
+    audio: audioDebugSnapshot(),
+    mediaSession: mediaSessionDebugSnapshot(),
+    visibilityState: document.visibilityState || "",
+    details,
+  };
+}
+
+const playerDebugController = createPlayerDebugController({
+  panel: playerDebugPanel,
+  summaryNode: playerDebugSummaryNode,
+  enableInput: playerDebugEnableInput,
+  toggleButton: playerDebugToggleButton,
+  copyButton: playerDebugCopyButton,
+  clearButton: playerDebugClearButton,
+  downloadButton: playerDebugDownloadButton,
+  detailsNode: playerDebugDetailsNode,
+  snapshotNode: playerDebugSnapshotNode,
+  logNode: playerDebugLogNode,
+  exportNode: playerDebugExportNode,
+  getSnapshot: playerDebugSnapshot,
+  isVisible: () => Boolean(currentUser?.is_admin) && !setupAvailable,
+});
+
+const logPlayerEvent = playerDebugController.logEvent;
+
+playerDebugController.initialize();
+
 function scrollToSection(node) {
   if (!node) return;
   node.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1210,7 +967,7 @@ function updateAuthUi() {
     navAdminButton.hidden = !showAdminPanel;
   }
 
-  updatePlayerDebugPanelVisibility();
+  playerDebugController.updateVisibility();
 
   if (!showAdminPanel) {
     clearAdminUsers();
@@ -2669,19 +2426,19 @@ if (healthButton) {
 }
 
 if (playerDebugToggleButton) {
-  playerDebugToggleButton.addEventListener("click", togglePlayerDebugDetails);
+  playerDebugToggleButton.addEventListener("click", playerDebugController.toggleDetails);
 }
 
 if (playerDebugCopyButton) {
-  playerDebugCopyButton.addEventListener("click", copyPlayerDebugLog);
+  playerDebugCopyButton.addEventListener("click", playerDebugController.copyLog);
 }
 
 if (playerDebugClearButton) {
-  playerDebugClearButton.addEventListener("click", clearPlayerDebugLog);
+  playerDebugClearButton.addEventListener("click", playerDebugController.clearLog);
 }
 
 if (playerDebugDownloadButton) {
-  playerDebugDownloadButton.addEventListener("click", downloadPlayerDebugLog);
+  playerDebugDownloadButton.addEventListener("click", playerDebugController.downloadLog);
 }
 
 if (navToggleButton) {
@@ -2838,8 +2595,8 @@ if (playerStopButton) {
 
 if (playerDebugEnableInput) {
   playerDebugEnableInput.addEventListener("change", () => {
-    applyPlayerDebugState(playerDebugEnableInput.checked);
-    logPlayerEvent("player-debug-toggle", { enabled: playerDebugEnabled });
+    playerDebugController.applyState(playerDebugEnableInput.checked);
+    logPlayerEvent("player-debug-toggle", { enabled: playerDebugController.enabled });
   });
 }
 

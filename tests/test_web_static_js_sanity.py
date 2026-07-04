@@ -120,15 +120,23 @@ def test_web_static_js_sanitizes_external_station_urls() -> None:
     assert "const homepage = stationHomepage(station);" in app_response.text
 
 
-def test_web_static_js_limits_playlist_names_client_side() -> None:
+def test_web_static_js_uses_playlists_module() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/playlists.js")
 
-    assert response.status_code == 200
-    assert "const MAX_PLAYLIST_NAME_LENGTH = 120;" in response.text
-    assert "playlistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
-    assert "cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createPlaylistController } from "/static/js/playlists.js";' in app_response.text
+    )
+    assert "export function createPlaylistController" in module_response.text
+    assert "const MAX_PLAYLIST_NAME_LENGTH = 120;" in module_response.text
+    assert "playlistName.length > MAX_PLAYLIST_NAME_LENGTH" in module_response.text
+    assert "cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH" in module_response.text
+    assert "const playlistController = createPlaylistController({" in app_response.text
+    assert "function setPlaylistDialogMessage" not in app_response.text
 
 
 def test_web_static_js_uses_search_limit_from_form() -> None:

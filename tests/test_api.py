@@ -123,6 +123,134 @@ def test_search_stations_filtered_deduplicates_and_filters_results(monkeypatch) 
     assert len(stored_cache) == 1
 
 
+def test_search_stations_filtered_debug_reports_source_counts(monkeypatch) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {
+                    "name": "Rock One",
+                    "url": "https://example.com/rock",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+                {
+                    "name": "Rock Duplicate",
+                    "url": "https://example.com/rock",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+                {
+                    "name": "Low Bitrate",
+                    "url": "https://example.com/low",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 64,
+                },
+            ]
+
+        return [
+            {
+                "name": "Rock Tag",
+                "url": "https://example.com/tag",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "rock",
+                "bitrate": 192,
+            },
+            {
+                "name": "Wrong Country",
+                "url": "https://example.com/wrong",
+                "country": "France",
+                "countrycode": "FR",
+                "tags": "rock",
+                "bitrate": 192,
+            },
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+
+    results, debug = api.search_stations_filtered_debug(
+        "rock",
+        country="ES",
+        min_bitrate=128,
+        limit=10,
+        use_cache=False,
+    )
+
+    assert [station["name"] for station in results] == ["Rock One", "Rock Tag"]
+    assert debug == {
+        "query": "rock",
+        "country": "ES",
+        "min_bitrate": 128,
+        "limit": 10,
+        "api_limit": 200,
+        "cache_hit": False,
+        "cache_bypassed": True,
+        "name_results": 3,
+        "tag_results": 2,
+        "country_results": 0,
+        "fallback_name_results": 0,
+        "fallback_tag_results": 0,
+        "fallback_country_results": 0,
+        "raw_results": 5,
+        "name_returned_results": 1,
+        "tag_returned_results": 1,
+        "country_returned_results": 0,
+        "fallback_name_returned_results": 0,
+        "fallback_tag_returned_results": 0,
+        "fallback_country_returned_results": 0,
+        "deduped_results": 1,
+        "country_filtered_results": 1,
+        "bitrate_filtered_results": 1,
+        "returned_results": 2,
+    }
+
+
+def test_search_stations_filtered_interleaves_name_and_tag_results(monkeypatch) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {
+                    "name": "Name One",
+                    "url": "https://example.com/name-one",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+                {
+                    "name": "Name Two",
+                    "url": "https://example.com/name-two",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+            ]
+
+        return [
+            {
+                "name": "Tag One",
+                "url": "https://example.com/tag-one",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "rock",
+                "bitrate": 128,
+            }
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+
+    results = api.search_stations_filtered("rock", limit=2, use_cache=False)
+
+    assert [station["name"] for station in results] == ["Name One", "Tag One"]
+
+
 def test_search_stations_filtered_falls_back_to_broad_search_when_country_too_strict(
     monkeypatch,
 ) -> None:

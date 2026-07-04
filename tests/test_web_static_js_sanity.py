@@ -39,6 +39,53 @@ def test_web_static_js_limits_playlist_names_client_side() -> None:
     assert "cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
 
 
+def test_web_static_js_uses_search_limit_from_form() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'params.set("limit", String(formData.get("limit") || "25"));' in response.text
+    assert 'params.set("limit", "25");' not in response.text
+
+
+def test_web_search_form_has_optional_debug_panel() -> None:
+    client = TestClient(create_app())
+
+    js_response = client.get("/static/app.js")
+    html_response = client.get("/")
+    css_response = client.get("/static/styles.css")
+
+    assert js_response.status_code == 200
+    assert html_response.status_code == 200
+    assert css_response.status_code == 200
+
+    assert 'name="debug" type="checkbox" value="1"' in html_response.text
+    assert "Search debug" in js_response.text
+    assert 'params.set("debug", "1");' in js_response.text
+    assert "function renderSearchDebug(debug)" in js_response.text
+    assert "payload.debug" in js_response.text
+    assert "cache_bypassed" in js_response.text
+    assert "name returned" in js_response.text
+    assert "tag returned" in js_response.text
+    assert ".search-debug-panel" in css_response.text
+    assert ".search-debug-label" in css_response.text
+
+
+def test_web_static_js_allows_min_bitrate_only_search() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'const minBitrate = String(formData.get("min_bitrate") || "0").trim();' in response.text
+    assert (
+        'const hasMinBitrateFilter = Number(params.get("min_bitrate") || "0") > 0;' in response.text
+    )
+    assert "Search text, country, or minimum bitrate is required." in response.text
+    assert "Search text or country is required." not in response.text
+
+
 def test_web_static_js_keeps_station_available_after_media_pause() -> None:
     client = TestClient(create_app())
 

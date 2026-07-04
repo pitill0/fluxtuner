@@ -280,6 +280,111 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     assert payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_authenticated_user_can_search_by_min_bitrate_only(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+    seen: dict[str, object] = {}
+
+    def fake_search_stations_filtered(**kwargs):
+        seen.update(kwargs)
+        return [
+            {
+                "name": "High Bitrate Radio",
+                "url": "https://example.com/high",
+                "bitrate": 320,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?min_bitrate=256")
+
+    assert response.status_code == 200
+    assert seen == {"query": "", "country": None, "min_bitrate": 256, "limit": 25}
+    payload = response.json()
+    assert payload["query"] == ""
+    assert payload["country"] == ""
+    assert payload["min_bitrate"] == 256
+    assert payload["stations"][0]["name"] == "High Bitrate Radio"
+
+
+def test_authenticated_user_can_request_up_to_100_search_results(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+    seen: dict[str, object] = {}
+
+    def fake_search_stations_filtered(**kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?q=alice&limit=100")
+
+    assert response.status_code == 200
+    assert seen["limit"] == 100
+    assert response.json()["limit"] == 100
+
+
+def test_search_rejects_oversized_limit(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    response = client.get("/api/search?q=alice&limit=101")
+
+    assert response.status_code == 422
+
+
+def test_authenticated_user_can_request_search_debug_metadata(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    def fake_search_stations_filtered_debug(**_kwargs):
+        return (
+            [
+                {
+                    "name": "Rock Tag",
+                    "url": "https://example.com/rock-tag",
+                    "tags": "rock",
+                }
+            ],
+            {
+                "query": "rock",
+                "name_results": 0,
+                "tag_results": 1,
+                "returned_results": 1,
+            },
+        )
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
+    )
+
+    response = client.get("/api/search?q=rock&debug=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Rock Tag"
+    assert payload["debug"] == {
+        "query": "rock",
+        "name_results": 0,
+        "tag_results": 1,
+        "returned_results": 1,
+    }
+
+
 def test_web_playlist_create_rejects_oversized_name(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")

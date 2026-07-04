@@ -2612,20 +2612,58 @@ function bindResultActions() {
   });
 }
 
+function renderSearchDebug(debug) {
+  if (!debug) return "";
+
+  const cacheState = debug.cache_bypassed ? "bypassed" : debug.cache_hit ? "hit" : "miss";
+  const items = [
+    ["cache", cacheState],
+    ["name fetched", debug.name_results],
+    ["tag fetched", debug.tag_results],
+    ["name returned", debug.name_returned_results],
+    ["tag returned", debug.tag_returned_results],
+    ["raw", debug.raw_results],
+    ["deduped", debug.deduped_results],
+    ["country filtered", debug.country_filtered_results],
+    ["bitrate filtered", debug.bitrate_filtered_results],
+    ["returned", debug.returned_results],
+    ["api limit", debug.api_limit],
+  ];
+
+  return `
+    <details class="search-debug-panel">
+      <summary>Search debug</summary>
+      <dl>
+        ${items
+          .map(
+            ([label, value]) => `
+              <div>
+                <dt>${escapeHtml(String(label))}</dt>
+                <dd>${escapeHtml(String(value ?? 0))}</dd>
+              </div>
+            `,
+          )
+          .join("")}
+      </dl>
+    </details>
+  `;
+}
+
 function renderResults(payload) {
   if (!resultsNode || !resultCountNode) return;
 
   const stations = payload.stations || [];
+  const debugPanel = renderSearchDebug(payload.debug);
   resultCountNode.textContent = `${payload.count ?? stations.length} result${
     stations.length === 1 ? "" : "s"
   }`;
 
   if (!stations.length) {
-    resultsNode.innerHTML = '<p class="empty">No stations found.</p>';
+    resultsNode.innerHTML = `${debugPanel}<p class="empty">No stations found.</p>`;
     return;
   }
 
-  resultsNode.innerHTML = stations.map(renderStation).join("");
+  resultsNode.innerHTML = `${debugPanel}${stations.map(renderStation).join("")}`;
   bindResultActions();
 }
 
@@ -2725,11 +2763,16 @@ async function searchStations(event) {
 
   params.set("q", String(formData.get("q") || "").trim());
   params.set("country", String(formData.get("country") || "").trim());
-  params.set("min_bitrate", String(formData.get("min_bitrate") || "0"));
-  params.set("limit", "25");
+  const minBitrate = String(formData.get("min_bitrate") || "0").trim();
+  params.set("min_bitrate", minBitrate || "0");
+  params.set("limit", String(formData.get("limit") || "25"));
+  if (formData.get("debug") === "1") {
+    params.set("debug", "1");
+  }
 
-  if (!params.get("q") && !params.get("country")) {
-    renderSearchError("Search text or country is required.");
+  const hasMinBitrateFilter = Number(params.get("min_bitrate") || "0") > 0;
+  if (!params.get("q") && !params.get("country") && !hasMinBitrateFilter) {
+    renderSearchError("Search text, country, or minimum bitrate is required.");
     return;
   }
 

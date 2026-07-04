@@ -456,6 +456,14 @@ select {
   font-weight: 700;
 }
 
+input[type="checkbox"] {
+  min-height: auto;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  accent-color: var(--action-fill);
+}
+
 input:focus,
 select:focus {
   border-color: rgba(110, 231, 216, 0.72);
@@ -465,8 +473,59 @@ select:focus {
 
 .search-form {
   display: grid;
-  grid-template-columns: minmax(14rem, 1.4fr) minmax(10rem, 0.9fr) minmax(8rem, 0.55fr) auto;
+  grid-template-columns:
+    minmax(14rem, 1.4fr) minmax(10rem, 0.9fr) minmax(8rem, 0.55fr)
+    minmax(7rem, 0.45fr) auto auto;
   align-items: end;
+}
+
+.search-debug-label {
+  display: flex;
+  min-height: 2.7rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.search-debug-panel {
+  border: 1px solid rgba(110, 231, 216, 0.2);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  color: var(--muted);
+  background: rgba(3, 7, 18, 0.2);
+}
+
+.search-debug-panel summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.search-debug-panel dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.65rem;
+  margin: 0.85rem 0 0;
+}
+
+.search-debug-panel div {
+  border: 1px solid rgba(155, 180, 206, 0.16);
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.search-debug-panel dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.search-debug-panel dd {
+  margin: 0.2rem 0 0;
+  color: var(--text);
+  font-weight: 900;
 }
 
 .search-form button,

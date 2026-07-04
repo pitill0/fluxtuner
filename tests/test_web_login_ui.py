@@ -189,13 +189,16 @@ def test_web_admin_health_is_compact_and_collapsible() -> None:
 def test_web_static_js_formats_admin_health_summary() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/health.js")
 
-    assert response.status_code == 200
-    assert 'document.querySelector("[data-health-state]")' in response.text
-    assert 'document.querySelector("[data-health-summary]")' in response.text
-    assert "formatHealthSummary(payload)" in response.text
-    assert "await checkHealth();" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'document.querySelector("[data-health-state]")' in app_response.text
+    assert 'document.querySelector("[data-health-summary]")' in app_response.text
+    assert 'from "/static/js/health.js"' in app_response.text
+    assert "formatHealthSummary(payload)" in module_response.text
+    assert "await checkHealth();" in app_response.text
 
 
 def test_web_css_has_compact_admin_health_bar() -> None:

@@ -3,6 +3,7 @@
  */
 
 import { createApiFetch } from "/static/js/api.js";
+import { createHealthController } from "/static/js/health.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createThemeController } from "/static/js/theme.js";
 import {
@@ -433,66 +434,6 @@ function logPlayerEvent(eventName, details = {}) {
 }
 
 initializePlayerDebug();
-
-
-function formatHealthSummary(payload) {
-  const status = payload.status || payload.state || "ok";
-  const version = payload.version ? ` · ${payload.version}` : "";
-  const database = payload.database || payload.db || payload.storage || "";
-  const databaseText = database ? ` · ${database}` : "";
-
-  const details = `${version}${databaseText}`.trim();
-
-  return {
-    state: String(status).toUpperCase(),
-    summary: details ? `${details} · checked now` : "checked now",
-  };
-}
-
-function setHealthSummary(state, summary) {
-  if (healthStateNode) {
-    healthStateNode.textContent = state;
-  }
-
-  if (healthSummaryNode) {
-    healthSummaryNode.textContent = summary;
-  }
-}
-
-async function checkHealth() {
-  if (statusNode) {
-    statusNode.textContent = "Checking server...";
-  }
-
-  setHealthSummary("Checking", "Refreshing server status...");
-
-  try {
-    const response = await fetch("/api/health", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    const summary = formatHealthSummary(payload);
-
-    setHealthSummary(summary.state, summary.summary);
-
-    if (statusNode) {
-      statusNode.textContent = JSON.stringify(payload, null, 2);
-    }
-  } catch (error) {
-    setHealthSummary("Error", `Server check failed: ${error}`);
-
-    if (statusNode) {
-      statusNode.textContent = `Server check failed: ${error}`;
-    }
-  }
-}
 
 
 function setResultsHeader(kicker, title) {
@@ -1067,6 +1008,14 @@ const themeController = createThemeController({
 const toggleTheme = themeController.toggleTheme;
 
 themeController.initializeTheme();
+const healthController = createHealthController({
+  fetch: window.fetch.bind(window),
+  statusNode,
+  healthStateNode,
+  healthSummaryNode,
+});
+const { checkHealth } = healthController;
+
 
 const publicStatsController = createPublicStatsController({
   contentNode: publicStatsContentNode,

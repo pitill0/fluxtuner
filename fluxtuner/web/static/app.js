@@ -3,6 +3,7 @@
  */
 
 import { createApiFetch } from "/static/js/api.js";
+import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createThemeController } from "/static/js/theme.js";
 import {
   escapeHtml,
@@ -122,8 +123,6 @@ let setupRequiresToken = false;
 let adminUsersLoaded = false;
 let dashboardLoaded = false;
 let pendingPlaylistStation = null;
-let publicStatsLoaded = false;
-let publicStatsLoading = false;
 let startingPlayback = false;
 let softPausingPlayback = false;
 let stoppingPlayback = false;
@@ -505,112 +504,6 @@ function setResultsHeader(kicker, title) {
     resultsTitleNode.textContent = title;
   }
 }
-
-function formatPublicStatCount(value, singular, plural) {
-  const count = Number(value || 0);
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function renderPublicStatTile(value, singular, plural) {
-  const count = Number(value || 0);
-  const label = count === 1 ? singular : plural;
-  return `
-    <article class="public-stat-tile">
-      <strong>${escapeHtml(String(count))}</strong>
-      <span>${escapeHtml(label)}</span>
-    </article>
-  `;
-}
-
-function renderPublicStats(payload) {
-  if (!publicStatsContentNode) return;
-
-  const topStations = Array.isArray(payload?.top_stations)
-    ? payload.top_stations.slice(0, 3)
-    : [];
-  const totals = payload?.totals || {};
-  const plays = Number(totals.plays || 0);
-  const favorites = Number(totals.favorites || 0);
-  const playlists = Number(totals.playlists || 0);
-  const users = Number(totals.users || 0);
-
-  if (!topStations.length && !plays && !favorites && !playlists && !users) {
-    publicStatsContentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
-    return;
-  }
-
-  const topStationsMarkup = topStations.length
-    ? `
-      <ol class="public-stats-list">
-        ${topStations
-          .map((station) => {
-            const name = escapeHtml(station.name || "Unknown station");
-            const playCount = formatPublicStatCount(station.play_count, "play", "plays");
-            return `
-              <li>
-                <span>${name}</span>
-                <strong>${escapeHtml(playCount)}</strong>
-              </li>
-            `;
-          })
-          .join("")}
-      </ol>
-    `
-    : '<p class="empty">No top stations yet.</p>';
-
-  publicStatsContentNode.innerHTML = `
-    <section class="public-stats-card public-stats-top" aria-labelledby="public-stats-most-played-title">
-      <div class="public-stats-card-heading">
-        <p class="eyebrow">Most played</p>
-        <h3 id="public-stats-most-played-title">Top stations</h3>
-      </div>
-      ${topStationsMarkup}
-    </section>
-    <div class="public-stats-totals" aria-label="Public activity totals">
-      ${renderPublicStatTile(plays, "play", "plays")}
-      ${renderPublicStatTile(favorites, "saved station", "saved stations")}
-      ${renderPublicStatTile(playlists, "playlist", "playlists")}
-      ${renderPublicStatTile(users, "user", "users")}
-    </div>
-  `;
-}
-
-async function loadPublicStats(force = false) {
-  if (!publicStatsContentNode || publicStatsLoading) return;
-  if (publicStatsLoaded && !force) return;
-
-  publicStatsLoading = true;
-  if (publicStatsMessageNode) {
-    publicStatsMessageNode.textContent = "Loading server activity...";
-  }
-
-  try {
-    const response = await fetch("/api/public/stats", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    renderPublicStats(payload);
-    publicStatsLoaded = true;
-    if (publicStatsMessageNode) {
-      publicStatsMessageNode.textContent = "";
-    }
-  } catch (_error) {
-    publicStatsContentNode.innerHTML = '<p class="empty">Public activity is unavailable.</p>';
-    if (publicStatsMessageNode) {
-      publicStatsMessageNode.textContent = "";
-    }
-  } finally {
-    publicStatsLoading = false;
-  }
-}
-
 
 function clearAdminUsers() {
   adminUsersLoaded = false;
@@ -1175,6 +1068,12 @@ const toggleTheme = themeController.toggleTheme;
 
 themeController.initializeTheme();
 
+const publicStatsController = createPublicStatsController({
+  contentNode: publicStatsContentNode,
+  messageNode: publicStatsMessageNode,
+  fetchImpl: window.fetch.bind(window),
+});
+
 function scrollToSection(node) {
   if (!node) return;
   node.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1443,7 +1342,7 @@ function updateAuthUi() {
   }
 
   if (!setupAvailable && !authenticated) {
-    loadPublicStats();
+    publicStatsController.loadPublicStats();
   }
 
   setAppContentVisible(!setupAvailable && authenticated);
@@ -1749,7 +1648,7 @@ async function logout() {
   } finally {
     stopPlayback();
     currentUser = null;
-    publicStatsLoaded = false;
+    publicStatsController.reset();
     resetRadioBrowserView();
     updateAuthUi();
     renderAuthRequired();

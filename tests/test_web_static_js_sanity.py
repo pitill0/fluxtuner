@@ -36,6 +36,24 @@ def test_web_static_js_uses_theme_module() -> None:
     assert "function systemThemePreference()" not in app_response.text
 
 
+def test_web_static_js_uses_public_stats_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    public_stats_response = client.get("/static/js/public-stats.js")
+
+    assert app_response.status_code == 200
+    assert public_stats_response.status_code == 200
+    assert (
+        'import { createPublicStatsController } from "/static/js/public-stats.js";'
+        in app_response.text
+    )
+    assert "export function createPublicStatsController" in public_stats_response.text
+    assert 'fetchImpl("/api/public/stats"' in public_stats_response.text
+    assert "publicStatsController.loadPublicStats();" in app_response.text
+    assert "function renderPublicStats" not in app_response.text
+
+
 def test_web_static_js_initializes_setup_before_auth() -> None:
     client = TestClient(create_app())
 

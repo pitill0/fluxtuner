@@ -65,6 +65,9 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert 'params.set("debug", "1");' in js_response.text
     assert "function renderSearchDebug(debug)" in js_response.text
     assert "payload.debug" in js_response.text
+    assert "cache_bypassed" in js_response.text
+    assert "name returned" in js_response.text
+    assert "tag returned" in js_response.text
     assert ".search-debug-panel" in css_response.text
     assert ".search-debug-label" in css_response.text
 

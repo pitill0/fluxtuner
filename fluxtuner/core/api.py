@@ -170,6 +170,7 @@ def _empty_search_debug(
         "limit": limit,
         "api_limit": 0,
         "cache_hit": False,
+        "cache_bypassed": False,
         "name_results": 0,
         "tag_results": 0,
         "country_results": 0,
@@ -177,6 +178,12 @@ def _empty_search_debug(
         "fallback_tag_results": 0,
         "fallback_country_results": 0,
         "raw_results": 0,
+        "name_returned_results": 0,
+        "tag_returned_results": 0,
+        "country_returned_results": 0,
+        "fallback_name_returned_results": 0,
+        "fallback_tag_returned_results": 0,
+        "fallback_country_returned_results": 0,
         "deduped_results": 0,
         "country_filtered_results": 0,
         "bitrate_filtered_results": 0,
@@ -208,6 +215,8 @@ def _filtered_search_result(
     if not query and not country and min_bitrate is None:
         logger.debug("Skipping search because no filters were provided")
         return [], debug
+
+    debug["cache_bypassed"] = not use_cache
 
     cache_key = make_search_key(query, country, min_bitrate, limit)
     if use_cache:
@@ -273,7 +282,7 @@ def _filtered_search_result(
 
     while len(results) < limit:
         advanced = False
-        for batch_index, (_source, items) in enumerate(raw_batches):
+        for batch_index, (source, items) in enumerate(raw_batches):
             item_index = batch_positions[batch_index]
             if item_index >= len(items):
                 continue
@@ -295,6 +304,7 @@ def _filtered_search_result(
 
             seen_urls.add(url)
             results.append(station)
+            debug[f"{source}_returned_results"] += 1
 
             if len(results) >= limit:
                 break

@@ -2615,10 +2615,13 @@ function bindResultActions() {
 function renderSearchDebug(debug) {
   if (!debug) return "";
 
+  const cacheState = debug.cache_bypassed ? "bypassed" : debug.cache_hit ? "hit" : "miss";
   const items = [
-    ["cache", debug.cache_hit ? "hit" : "miss"],
-    ["name", debug.name_results],
-    ["tag", debug.tag_results],
+    ["cache", cacheState],
+    ["name fetched", debug.name_results],
+    ["tag fetched", debug.tag_results],
+    ["name returned", debug.name_returned_results],
+    ["tag returned", debug.tag_returned_results],
     ["raw", debug.raw_results],
     ["deduped", debug.deduped_results],
     ["country filtered", debug.country_filtered_results],

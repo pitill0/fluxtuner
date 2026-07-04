@@ -54,6 +54,24 @@ def test_web_static_js_uses_public_stats_module() -> None:
     assert "function renderPublicStats" not in app_response.text
 
 
+def test_web_static_js_uses_admin_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    admin_response = client.get("/static/js/admin.js")
+
+    assert app_response.status_code == 200
+    assert admin_response.status_code == 200
+    assert 'import { createAdminController } from "/static/js/admin.js";' in app_response.text
+    assert "export function createAdminController" in admin_response.text
+    assert 'apiFetch("/api/admin/users"' in admin_response.text
+    assert 'apiFetch("/api/admin/password-change-requests"' in admin_response.text
+    assert "data-admin-user-action" in admin_response.text
+    assert "function renderUsers" in admin_response.text
+    assert "function renderPasswordChangeRequests" in admin_response.text
+    assert "function renderUsers" not in app_response.text
+
+
 def test_web_static_js_initializes_setup_before_auth() -> None:
     client = TestClient(create_app())
 

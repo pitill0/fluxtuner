@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createHealthController } from "/static/js/health.js";
@@ -119,7 +120,6 @@ let currentUser = null;
 let csrfToken = "";
 let setupAvailable = false;
 let setupRequiresToken = false;
-let adminUsersLoaded = false;
 let dashboardLoaded = false;
 let pendingPlaylistStation = null;
 let startingPlayback = false;
@@ -134,449 +134,6 @@ function setResultsHeader(kicker, title) {
     resultsTitleNode.textContent = title;
   }
 }
-
-function clearAdminUsers() {
-  adminUsersLoaded = false;
-
-  if (adminMessageNode) {
-    adminMessageNode.textContent = "";
-  }
-
-  if (adminUsersNode) {
-    adminUsersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
-  }
-
-  if (adminPasswordChangeRequestsNode) {
-    adminPasswordChangeRequestsNode.innerHTML =
-      '<p class="empty">Password change requests will appear here.</p>';
-  }
-}
-
-function setAdminMessage(message) {
-  if (adminMessageNode) {
-    adminMessageNode.textContent = message || "";
-  }
-}
-
-function renderAdminUsers(users) {
-  if (!adminUsersNode) return;
-
-  if (!users.length) {
-    adminUsersNode.innerHTML = '<p class="empty">No web users found.</p>';
-    return;
-  }
-
-  adminUsersNode.innerHTML = `
-    <div class="admin-users-table" role="table" aria-label="Web users">
-      <div class="admin-users-row admin-users-head" role="row">
-        <span role="columnheader">User</span>
-        <span role="columnheader">Admin</span>
-        <span role="columnheader">Active</span>
-        <span role="columnheader">Status</span>
-        <span role="columnheader">Actions</span>
-      </div>
-      ${users
-        .map((user) => {
-          const username = escapeHtml(user.username || "");
-          const displayName = escapeHtml(user.display_name || user.username || "");
-          const adminLabel = user.is_admin ? "yes" : "no";
-          const activeLabel = user.is_active ? "yes" : "no";
-          const approvalStatus = escapeHtml(user.approval_status || "approved");
-          const isCurrentUser = currentUser?.username === user.username;
-          const deleteAction = isCurrentUser
-            ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
-            : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}">Delete user and all data</button>`;
-
-          return `
-            <div class="admin-users-row" role="row">
-              <span role="cell">
-                <strong>${displayName}</strong>
-                <small>${username}</small>
-              </span>
-              <span role="cell">${adminLabel}</span>
-              <span role="cell">${activeLabel}</span>
-              <span role="cell">${approvalStatus}</span>
-              <span class="admin-user-actions" role="cell">
-                <span class="admin-user-actions-normal">
-                  ${
-                    user.approval_status === "pending"
-                      ? `<button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
-                         <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>`
-                      : ""
-                  }
-                  ${
-                    user.is_active
-                      ? `<button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>`
-                      : `<button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>`
-                  }
-                  ${
-                    user.is_admin
-                      ? `<button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Remove admin</button>`
-                      : `<button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Make admin</button>`
-                  }
-                </span>
-                <details class="admin-user-danger-zone">
-                  <summary>Danger zone</summary>
-                  <div>
-                    <strong>Permanent delete</strong>
-                    <small>Removes the user, sessions, favorites, playlists, history, and pending password requests.</small>
-                    ${deleteAction}
-                    <small class="admin-user-danger-feedback" data-admin-user-danger-feedback></small>
-                  </div>
-                </details>
-              </span>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-
-function formatDisplayDateTime(value) {
-  const text = String(value || "").trim();
-  if (!text) return "unknown";
-
-  let normalized = text.includes("T") ? text : text.replace(" ", "T");
-  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
-  if (!hasTimezone) normalized = `${normalized}Z`;
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return escapeHtml(text);
-
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  const hour = String(parsed.getHours()).padStart(2, "0");
-  const minute = String(parsed.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-}
-
-function renderPasswordChangeRequests(requests) {
-  if (!adminPasswordChangeRequestsNode) return;
-
-  if (!requests.length) {
-    adminPasswordChangeRequestsNode.innerHTML =
-      '<p class="empty">No pending password change requests.</p>';
-    return;
-  }
-
-  adminPasswordChangeRequestsNode.innerHTML = `
-    <div class="admin-users-table password-change-requests-table" role="table" aria-label="Password change requests">
-      <div class="admin-users-row password-change-request-row admin-users-head" role="row">
-        <span role="columnheader">User</span>
-        <span role="columnheader">Created</span>
-        <span role="columnheader">Expires</span>
-        <span role="columnheader">Note</span>
-        <span role="columnheader">Actions</span>
-      </div>
-      ${requests
-        .map((request) => {
-          const id = Number(request.id || 0);
-          const username = escapeHtml(request.username || "");
-          const displayName = escapeHtml(request.display_name || request.username || "");
-          const note = escapeHtml(request.note || "No note provided.");
-          const createdAt = formatDisplayDateTime(request.created_at);
-          const expiresAt = formatDisplayDateTime(request.expires_at);
-
-          return `
-            <div class="admin-users-row password-change-request-row" role="row">
-              <span role="cell">
-                <strong>${displayName}</strong>
-                <small>${username}</small>
-              </span>
-              <span role="cell">${createdAt}</span>
-              <span role="cell">${expiresAt}</span>
-              <span role="cell"><small>${note}</small></span>
-              <span class="admin-user-actions" role="cell">
-                <button type="button" data-admin-password-change-action="approve" data-request-id="${id}">Approve</button>
-                <button type="button" data-admin-password-change-action="reject" data-request-id="${id}">Reject</button>
-              </span>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-async function loadPasswordChangeRequests({ silent = false } = {}) {
-  if (!currentUser || !currentUser.is_admin || !adminPasswordChangeRequestsNode) return;
-
-  if (!silent) {
-    setAdminMessage("Loading password change requests...");
-  }
-
-  try {
-    const response = await apiFetch("/api/admin/password-change-requests", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not load password change requests.");
-    }
-
-    const payload = await response.json();
-    renderPasswordChangeRequests(payload.requests || []);
-
-    if (!silent) {
-      setAdminMessage(`${payload.count ?? 0} password change request(s).`);
-    }
-  } catch (error) {
-    setAdminMessage(String(error));
-  }
-}
-
-async function mutatePasswordChangeRequest(requestId, action) {
-  const id = Number(requestId || 0);
-  if (!id || !["approve", "reject"].includes(action)) return;
-
-  setAdminMessage("Updating password change request...");
-
-  try {
-    const response = await apiFetch(`/api/admin/password-change-requests/${id}/${action}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not update password change request.");
-    }
-
-    setAdminMessage(
-      action === "approve"
-        ? "Password change approved. Active sessions for that user were revoked."
-        : "Password change request rejected.",
-    );
-    await loadPasswordChangeRequests({ silent: true });
-    await loadDashboard();
-  } catch (error) {
-    setAdminMessage(String(error));
-  }
-}
-
-async function loadAdminUsers() {
-  if (!currentUser || !currentUser.is_admin) return;
-
-  setAdminMessage("Loading users...");
-
-  try {
-    const response = await apiFetch("/api/admin/users", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not load users.");
-    }
-
-    const payload = await response.json();
-    adminUsersLoaded = true;
-    renderAdminUsers(payload.users || []);
-    await loadPasswordChangeRequests({ silent: true });
-    setAdminMessage(`${payload.count ?? 0} web user(s).`);
-  } catch (error) {
-    setAdminMessage(String(error));
-  }
-}
-
-async function createAdminUser(event) {
-  event.preventDefault();
-
-  if (!adminCreateUserForm) return;
-
-  const formData = new FormData(adminCreateUserForm);
-  const username = String(formData.get("username") || "").trim();
-  const displayName = String(formData.get("display_name") || "").trim();
-  const password = String(formData.get("password") || "");
-  const confirmPassword = String(formData.get("confirm_password") || "");
-  const isAdmin = formData.get("is_admin") === "on";
-
-  if (password !== confirmPassword) {
-    setAdminMessage("Passwords do not match.");
-    return;
-  }
-
-  setAdminMessage("Creating user...");
-
-  try {
-    const response = await apiFetch("/api/admin/users", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username,
-        display_name: displayName,
-        password,
-        is_admin: isAdmin,
-        is_active: true,
-      }),
-    });
-
-    adminCreateUserForm.reset();
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not create user.");
-    }
-
-    setAdminMessage("User created.");
-    await loadAdminUsers();
-  } catch (error) {
-    setAdminMessage(String(error));
-  }
-}
-
-async function setAdminUserPassword(event) {
-  event.preventDefault();
-
-  if (!adminPasswordForm) return;
-
-  const formData = new FormData(adminPasswordForm);
-  const username = String(formData.get("username") || "").trim();
-  const password = String(formData.get("password") || "");
-  const confirmPassword = String(formData.get("confirm_password") || "");
-
-  if (password !== confirmPassword) {
-    setAdminMessage("Passwords do not match.");
-    return;
-  }
-
-  setAdminMessage("Updating password...");
-
-  try {
-    const response = await apiFetch(
-      `/api/admin/users/${encodeURIComponent(username)}/password`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-      },
-    );
-
-    adminPasswordForm.reset();
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not update password.");
-    }
-
-    setAdminMessage("Password updated. Active sessions for that user were revoked.");
-    await loadAdminUsers();
-  } catch (error) {
-    setAdminMessage(String(error));
-  }
-}
-
-function setAdminUserDangerFeedback(button, message) {
-  const feedbackNode = button
-    ?.closest(".admin-user-danger-zone")
-    ?.querySelector("[data-admin-user-danger-feedback]");
-
-  if (feedbackNode) {
-    feedbackNode.textContent = message || "";
-  }
-}
-
-async function mutateAdminUser(username, action, button = null) {
-  const encodedUsername = encodeURIComponent(username);
-  const routes = {
-    activate: {
-      method: "POST",
-      url: `/api/admin/users/${encodedUsername}/activate`,
-    },
-    deactivate: {
-      method: "POST",
-      url: `/api/admin/users/${encodedUsername}/deactivate`,
-    },
-    approve: {
-      method: "POST",
-      url: `/api/admin/users/${encodedUsername}/approve`,
-    },
-    reject: {
-      method: "POST",
-      url: `/api/admin/users/${encodedUsername}/reject`,
-    },
-    "grant-admin": {
-      method: "POST",
-      url: `/api/admin/users/${encodedUsername}/admin`,
-    },
-    "revoke-admin": {
-      method: "DELETE",
-      url: `/api/admin/users/${encodedUsername}/admin`,
-    },
-    delete: {
-      method: "DELETE",
-      url: `/api/admin/users/${encodedUsername}`,
-    },
-  };
-
-  const route = routes[action];
-  if (!route) return;
-
-  if (action === "delete") {
-    const expectedConfirmation = `DELETE ${username}`;
-    const confirmation = window.prompt(
-      `This permanently deletes ${username} and all related data. Type "${expectedConfirmation}" to continue.`,
-    );
-
-    if (confirmation !== expectedConfirmation) {
-      const message = confirmation === null
-        ? "User deletion cancelled."
-        : `Confirmation did not match. Type exactly: ${expectedConfirmation}`;
-      setAdminMessage(message);
-      setAdminUserDangerFeedback(button, message);
-      return;
-    }
-  }
-
-  setAdminMessage(action === "delete" ? "Deleting user..." : "Updating user...");
-  if (action === "delete") {
-    setAdminUserDangerFeedback(button, "Deleting user...");
-  }
-
-  try {
-    const response = await apiFetch(route.url, {
-      method: route.method,
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not update user.");
-    }
-
-    setAdminMessage(action === "delete" ? "User deleted." : "User updated.");
-    if (action === "delete") {
-      setAdminUserDangerFeedback(button, "User deleted.");
-    }
-    await loadAdminUsers();
-    await loadDashboard();
-  } catch (error) {
-    setAdminMessage(String(error));
-    if (action === "delete") {
-      setAdminUserDangerFeedback(button, String(error));
-    }
-  }
-}
-
 
 function setAppContentVisible(visible) {
   appContentNodes.forEach((node) => {
@@ -970,7 +527,7 @@ function updateAuthUi() {
   playerDebugController.updateVisibility();
 
   if (!showAdminPanel) {
-    clearAdminUsers();
+    adminController.reset();
   }
 
   if (loginForm) {
@@ -1047,6 +604,25 @@ const dashboardController = createDashboardController({
   },
 });
 const { loadDashboard } = dashboardController;
+
+const adminController = createAdminController({
+  apiFetch,
+  usersNode: adminUsersNode,
+  messageNode: adminMessageNode,
+  createUserForm: adminCreateUserForm,
+  passwordForm: adminPasswordForm,
+  passwordChangeRequestsNode: adminPasswordChangeRequestsNode,
+  getCurrentUser: () => currentUser,
+  loadDashboard,
+});
+const {
+  createUser: createAdminUser,
+  loadUsers: loadAdminUsers,
+  loadUsersIfNeeded: loadAdminUsersIfNeeded,
+  mutatePasswordChangeRequest,
+  mutateUser: mutateAdminUser,
+  setUserPassword: setAdminUserPassword,
+} = adminController;
 
 async function loadAuthState() {
   try {
@@ -2535,10 +2111,7 @@ if (navAdminButton) {
 
     await checkHealth();
 
-    if (!adminUsersLoaded) {
-      adminUsersLoaded = true;
-      await loadAdminUsers();
-    }
+    await loadAdminUsersIfNeeded();
 
     scrollToSection(adminPanel);
   });

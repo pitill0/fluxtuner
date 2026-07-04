@@ -20,17 +20,21 @@ def test_web_index_exposes_admin_user_ui() -> None:
 def test_web_static_js_wires_admin_user_api() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    admin_response = client.get("/static/js/admin.js")
 
-    assert response.status_code == 200
-    assert "/api/admin/users" in response.text
-    assert "data-admin-user-action" in response.text
-    assert 'data-admin-user-action="delete"' in response.text
-    assert "Danger zone" in response.text
-    assert "Delete user and all data" in response.text
-    assert "DELETE ${username}" in response.text
-    assert "data-admin-user-danger-feedback" in response.text
-    assert "Confirmation did not match" in response.text
-    assert "authToken" not in response.text
-    assert "accessToken" not in response.text
-    assert "sessionStorage" not in response.text
+    assert app_response.status_code == 200
+    assert admin_response.status_code == 200
+    assert 'import { createAdminController } from "/static/js/admin.js";' in app_response.text
+    assert "/api/admin/users" in admin_response.text
+    assert "data-admin-user-action" in admin_response.text
+    assert 'data-admin-user-action="delete"' in admin_response.text
+    assert "DELETE ${username}" in admin_response.text
+    assert "data-admin-user-danger-feedback" in admin_response.text
+    assert "Confirmation did not match" in admin_response.text
+    assert "authToken" not in app_response.text
+    assert "authToken" not in admin_response.text
+    assert "accessToken" not in app_response.text
+    assert "accessToken" not in admin_response.text
+    assert "sessionStorage" not in app_response.text
+    assert "sessionStorage" not in admin_response.text

@@ -49,6 +49,26 @@ def test_web_static_js_uses_search_limit_from_form() -> None:
     assert 'params.set("limit", "25");' not in response.text
 
 
+def test_web_search_form_has_optional_debug_panel() -> None:
+    client = TestClient(create_app())
+
+    js_response = client.get("/static/app.js")
+    html_response = client.get("/")
+    css_response = client.get("/static/styles.css")
+
+    assert js_response.status_code == 200
+    assert html_response.status_code == 200
+    assert css_response.status_code == 200
+
+    assert 'name="debug" type="checkbox" value="1"' in html_response.text
+    assert "Search debug" in js_response.text
+    assert 'params.set("debug", "1");' in js_response.text
+    assert "function renderSearchDebug(debug)" in js_response.text
+    assert "payload.debug" in js_response.text
+    assert ".search-debug-panel" in css_response.text
+    assert ".search-debug-label" in css_response.text
+
+
 def test_web_static_js_keeps_station_available_after_media_pause() -> None:
     client = TestClient(create_app())
 

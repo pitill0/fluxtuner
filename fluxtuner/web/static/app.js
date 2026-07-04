@@ -6,6 +6,7 @@ import { createAccountRequestsController } from "/static/js/account-requests.js"
 import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
 import { createDashboardController } from "/static/js/dashboard.js";
+import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
@@ -116,7 +117,6 @@ const playerDebugLogNode = document.querySelector("[data-player-debug-log]");
 const playerDebugExportNode = document.querySelector("[data-player-debug-export]");
 
 let currentStation = null;
-let recordedHistoryUrl = "";
 let currentView = "search";
 let currentPlaylistName = "";
 let currentUser = null;
@@ -813,96 +813,6 @@ function updatePlayerControls() {
   }
 }
 
-async function recordHistory(station) {
-  const url = stationUrl(station);
-  if (!currentUser || !url || recordedHistoryUrl === url) return;
-
-  recordedHistoryUrl = url;
-
-  try {
-    const response = await apiFetch("/api/history", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(station),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-  } catch (error) {
-    console.warn("Could not record playback history", error);
-  }
-}
-
-async function addFavorite(station) {
-  const url = stationUrl(station);
-  if (!url) {
-    setPlayerState("error", "This station has no URL to save as favorite.");
-    return;
-  }
-
-  try {
-    const response = await apiFetch("/api/favorites", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(station),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    setPlayerState(
-      "idle",
-      payload.added ? "Saved to favorites." : "Station is already in favorites.",
-    );
-  } catch (error) {
-    setPlayerState("error", `Could not save favorite. ${error}`);
-  }
-}
-
-async function removeFavorite(station) {
-  const url = stationUrl(station);
-  if (!url) {
-    setPlayerState("error", "This station has no URL to remove.");
-    return;
-  }
-
-  try {
-    const response = await apiFetch(`/api/favorites?url=${encodeURIComponent(url)}`, {
-      method: "DELETE",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    setPlayerState(
-      "idle",
-      payload.removed ? "Removed from favorites." : "Station was not in favorites.",
-    );
-
-    if (currentView === "favorites") {
-      await loadFavorites();
-    }
-  } catch (error) {
-    setPlayerState("error", `Could not remove favorite. ${error}`);
-  }
-}
-
-
-
 
 function clearAudioSource() {
   if (!audioNode) return;
@@ -1024,7 +934,7 @@ async function playStation(station) {
   }
 
   currentStation = station;
-  recordedHistoryUrl = "";
+  favoriteController.resetRecordedHistory();
   playerTitleNode.textContent = station.name || "Unknown station";
   playerOpenLink.href = streamUrl;
   playerOpenLink.hidden = false;
@@ -1040,7 +950,7 @@ function stopPlayback() {
   clearAudioSource();
 
   currentStation = null;
-  recordedHistoryUrl = "";
+  favoriteController.resetRecordedHistory();
   playerTitleNode.textContent = "Nothing playing yet";
   playerOpenLink.hidden = true;
   playerOpenLink.removeAttribute("href");
@@ -1330,6 +1240,18 @@ const libraryViewsController = createLibraryViewsController({
 });
 
 const { loadFavorites, loadHistory, loadPlaylists, loadPlaylistStations } = libraryViewsController;
+
+
+const favoriteController = createFavoriteController({
+  apiFetch,
+  stationUrl,
+  setPlayerState,
+  isAuthenticated: () => Boolean(currentUser),
+  getCurrentView: () => currentView,
+  loadFavorites,
+});
+
+const { addFavorite, recordHistory, removeFavorite } = favoriteController;
 
 const playlistController = createPlaylistController({
   apiFetch,

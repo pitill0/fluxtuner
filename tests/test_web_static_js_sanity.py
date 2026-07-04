@@ -139,6 +139,28 @@ def test_web_static_js_uses_playlists_module() -> None:
     assert "function setPlaylistDialogMessage" not in app_response.text
 
 
+def test_web_static_js_uses_favorites_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/favorites.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createFavoriteController } from "/static/js/favorites.js";' in app_response.text
+    )
+    assert "export function createFavoriteController" in module_response.text
+    assert 'apiFetch("/api/history"' in module_response.text
+    assert 'apiFetch("/api/favorites"' in module_response.text
+    assert "apiFetch(`/api/favorites?url=${encodeURIComponent(url)}`" in module_response.text
+    assert "const favoriteController = createFavoriteController({" in app_response.text
+    assert "favoriteController.resetRecordedHistory();" in app_response.text
+    assert "function recordHistory" not in app_response.text
+    assert "function addFavorite" not in app_response.text
+    assert "function removeFavorite" not in app_response.text
+
+
 def test_web_static_js_uses_search_limit_from_form() -> None:
     client = TestClient(create_app())
 

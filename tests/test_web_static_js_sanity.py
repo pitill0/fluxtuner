@@ -54,6 +54,26 @@ def test_web_static_js_uses_public_stats_module() -> None:
     assert "function renderPublicStats" not in app_response.text
 
 
+def test_web_static_js_uses_account_requests_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/account-requests.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createAccountRequestsController } from "/static/js/account-requests.js";'
+        in app_response.text
+    )
+    assert "export function createAccountRequestsController" in module_response.text
+    assert 'fetchImpl("/api/auth/register"' in module_response.text
+    assert 'fetchImpl("/api/auth/password-change-requests"' in module_response.text
+    assert "function focusFirstDialogControl" in module_response.text
+    assert "function setRegisterMessage" not in app_response.text
+    assert "function setPasswordChangeMessage" not in app_response.text
+
+
 def test_web_static_js_uses_admin_module() -> None:
     client = TestClient(create_app())
 

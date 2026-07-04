@@ -2726,7 +2726,7 @@ async function searchStations(event) {
   params.set("q", String(formData.get("q") || "").trim());
   params.set("country", String(formData.get("country") || "").trim());
   params.set("min_bitrate", String(formData.get("min_bitrate") || "0"));
-  params.set("limit", "25");
+  params.set("limit", String(formData.get("limit") || "25"));
 
   if (!params.get("q") && !params.get("country")) {
     renderSearchError("Search text or country is required.");

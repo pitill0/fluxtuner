@@ -465,7 +465,9 @@ select:focus {
 
 .search-form {
   display: grid;
-  grid-template-columns: minmax(14rem, 1.4fr) minmax(10rem, 0.9fr) minmax(8rem, 0.55fr) auto;
+  grid-template-columns:
+    minmax(14rem, 1.4fr) minmax(10rem, 0.9fr) minmax(8rem, 0.55fr)
+    minmax(7rem, 0.45fr) auto;
   align-items: end;
 }
 

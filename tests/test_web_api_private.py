@@ -280,6 +280,38 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     assert payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_authenticated_user_can_request_up_to_100_search_results(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+    seen: dict[str, object] = {}
+
+    def fake_search_stations_filtered(**kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?q=alice&limit=100")
+
+    assert response.status_code == 200
+    assert seen["limit"] == 100
+    assert response.json()["limit"] == 100
+
+
+def test_search_rejects_oversized_limit(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    response = client.get("/api/search?q=alice&limit=101")
+
+    assert response.status_code == 422
+
+
 def test_authenticated_user_can_request_search_debug_metadata(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")

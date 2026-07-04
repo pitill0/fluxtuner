@@ -39,6 +39,16 @@ def test_web_static_js_limits_playlist_names_client_side() -> None:
     assert "cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH" in response.text
 
 
+def test_web_static_js_uses_search_limit_from_form() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'params.set("limit", String(formData.get("limit") || "25"));' in response.text
+    assert 'params.set("limit", "25");' not in response.text
+
+
 def test_web_static_js_keeps_station_available_after_media_pause() -> None:
     client = TestClient(create_app())
 

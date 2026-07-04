@@ -45,6 +45,15 @@ export function stationTags(station) {
   return tags.split(",").slice(0, 8).join(", ");
 }
 
+export function formatDisplayDateTime(value) {
+  if (!value) return "unknown";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "unknown";
+
+  return parsed.toLocaleString();
+}
+
 export function stationButtonPayload(station) {
   return escapeHtml(JSON.stringify(station));
 }

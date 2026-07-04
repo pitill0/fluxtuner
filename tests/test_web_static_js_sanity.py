@@ -117,7 +117,12 @@ def test_web_static_js_sanitizes_external_station_urls() -> None:
     assert "/^https?:\\/\\//i.test(rawUrl)" in stations_response.text
     assert '["http:", "https:"].includes(parsed.protocol)' in stations_response.text
     assert "export function stationHomepage(station)" in stations_response.text
+    assert "export function formatDisplayDateTime(value)" in stations_response.text
+    assert "formatDisplayDateTime," in app_response.text
     assert "const homepage = stationHomepage(station);" in app_response.text
+    assert (
+        "const lastPlayedAt = formatDisplayDateTime(station.last_played_at);" in app_response.text
+    )
 
 
 def test_web_static_js_uses_playlists_module() -> None:

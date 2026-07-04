@@ -3,6 +3,7 @@
  */
 
 import { createApiFetch } from "/static/js/api.js";
+import { createThemeController } from "/static/js/theme.js";
 import {
   escapeHtml,
   stationButtonPayload,
@@ -1165,59 +1166,14 @@ function setAppContentVisible(visible) {
   });
 }
 
-const THEME_STORAGE_KEY = "fluxtuner.theme";
+const themeController = createThemeController({
+  toggleButton: themeToggleButton,
+  labelNode: themeLabelNode,
+});
 
-function systemThemePreference() {
-  if (window.matchMedia?.("(prefers-color-scheme: light)").matches) {
-    return "light";
-  }
+const toggleTheme = themeController.toggleTheme;
 
-  return "dark";
-}
-
-function storedThemePreference() {
-  try {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveThemePreference(theme) {
-  try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    // Ignore storage failures. The selected theme still applies for this page load.
-  }
-}
-
-function applyTheme(theme) {
-  const nextTheme = theme === "light" ? "light" : "dark";
-
-  document.documentElement.dataset.theme = nextTheme;
-  document.documentElement.style.colorScheme = nextTheme;
-
-  if (themeLabelNode) {
-    themeLabelNode.textContent = nextTheme === "light" ? "Dark" : "Light";
-  }
-
-  if (themeToggleButton) {
-    const label = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
-    themeToggleButton.setAttribute("aria-label", label);
-    themeToggleButton.title = label;
-  }
-}
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-  const nextTheme = currentTheme === "light" ? "dark" : "light";
-
-  applyTheme(nextTheme);
-  saveThemePreference(nextTheme);
-}
-
-applyTheme(storedThemePreference() || systemThemePreference());
+themeController.initializeTheme();
 
 function scrollToSection(node) {
   if (!node) return;

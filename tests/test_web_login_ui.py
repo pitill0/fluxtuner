@@ -223,17 +223,22 @@ def test_web_header_has_theme_toggle() -> None:
 def test_web_static_js_controls_theme_without_auth_storage() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    theme_response = client.get("/static/js/theme.js")
 
-    assert response.status_code == 200
-    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in response.text
-    assert "function applyTheme(theme)" in response.text
-    assert "function toggleTheme()" in response.text
-    assert "storedThemePreference() || systemThemePreference()" in response.text
-    assert 'document.querySelector("[data-theme-toggle]")' in response.text
-    assert "authToken" not in response.text
-    assert "accessToken" not in response.text
-    assert "sessionStorage" not in response.text
+    assert app_response.status_code == 200
+    assert theme_response.status_code == 200
+    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
+    assert "function applyTheme(theme)" in theme_response.text
+    assert "function toggleTheme()" in theme_response.text
+    assert "storedThemePreference() || systemThemePreference()" in theme_response.text
+    assert 'document.querySelector("[data-theme-toggle]")' in app_response.text
+    assert "authToken" not in app_response.text
+    assert "authToken" not in theme_response.text
+    assert "accessToken" not in app_response.text
+    assert "accessToken" not in theme_response.text
+    assert "sessionStorage" not in app_response.text
+    assert "sessionStorage" not in theme_response.text
 
 
 def test_web_css_has_light_theme() -> None:

@@ -20,6 +20,22 @@ def test_web_static_js_uses_module_entrypoint() -> None:
     assert "response.status === 401" in api_response.text
 
 
+def test_web_static_js_uses_theme_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    theme_response = client.get("/static/js/theme.js")
+
+    assert app_response.status_code == 200
+    assert theme_response.status_code == 200
+    assert 'import { createThemeController } from "/static/js/theme.js";' in app_response.text
+    assert "export function createThemeController" in theme_response.text
+    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
+    assert "themeController.initializeTheme();" in app_response.text
+    assert 'themeToggleButton.addEventListener("click", toggleTheme);' in app_response.text
+    assert "function systemThemePreference()" not in app_response.text
+
+
 def test_web_static_js_initializes_setup_before_auth() -> None:
     client = TestClient(create_app())
 

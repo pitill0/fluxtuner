@@ -3,6 +3,7 @@
  */
 
 import { createApiFetch } from "/static/js/api.js";
+import { createDashboardController } from "/static/js/dashboard.js";
 import { createHealthController } from "/static/js/health.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createThemeController } from "/static/js/theme.js";
@@ -889,111 +890,6 @@ async function mutateAdminUser(username, action, button = null) {
 }
 
 
-function setDashboardMessage(message) {
-  if (dashboardMessageNode) {
-    dashboardMessageNode.textContent = message || "";
-  }
-}
-
-function renderDashboardMetric(label, value) {
-  return `
-    <article class="dashboard-metric">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
-    </article>
-  `;
-}
-
-function renderDashboardStations(node, stations, emptyMessage) {
-  if (!node) return;
-
-  if (!stations.length) {
-    node.innerHTML = `<p class="empty">${escapeHtml(emptyMessage)}</p>`;
-    return;
-  }
-
-  node.innerHTML = stations.map(renderStation).join("");
-  bindResultActions();
-}
-
-function renderDashboard(payload) {
-  const userMetrics = payload.user || {};
-  const adminMetrics = payload.admin || null;
-
-  if (dashboardUserMetricsNode) {
-    dashboardUserMetricsNode.innerHTML = [
-      renderDashboardMetric("Favorites", Number(userMetrics.favorites_count || 0)),
-      renderDashboardMetric("Playlists", Number(userMetrics.playlists_count || 0)),
-      renderDashboardMetric("Playlist stations", Number(userMetrics.playlist_stations_count || 0)),
-      renderDashboardMetric("History", Number(userMetrics.history_count || 0)),
-    ].join("");
-  }
-
-  renderDashboardStations(
-    dashboardRecentHistoryNode,
-    userMetrics.recent_history || [],
-    "No recent playback yet.",
-  );
-  renderDashboardStations(
-    dashboardFavoriteHighlightsNode,
-    userMetrics.favorite_highlights || [],
-    "No favorites yet.",
-  );
-
-  if (dashboardAdminPanel) {
-    dashboardAdminPanel.hidden = !adminMetrics;
-  }
-
-  if (dashboardAdminActionButton) {
-    dashboardAdminActionButton.hidden = !adminMetrics;
-  }
-
-  if (dashboardAdminMetricsNode && adminMetrics) {
-    dashboardAdminMetricsNode.innerHTML = [
-      renderDashboardMetric("Users", Number(adminMetrics.users_count || 0)),
-      renderDashboardMetric("New today", Number(adminMetrics.users_created_today || 0)),
-      renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0)),
-      renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0)),
-      renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0)),
-      renderDashboardMetric(
-        "Password changes",
-        Number(adminMetrics.pending_password_change_requests_count || 0),
-      ),
-      renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown")),
-    ].join("");
-  }
-}
-
-async function loadDashboard() {
-  if (!currentUser || !dashboardPanel) return;
-
-  currentView = "dashboard";
-  currentPlaylistName = "";
-  showDashboardView();
-  setDashboardMessage("Loading dashboard...");
-
-  try {
-    const response = await apiFetch("/api/dashboard", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not load dashboard.");
-    }
-
-    const payload = await response.json();
-    renderDashboard(payload);
-    dashboardLoaded = true;
-    setDashboardMessage("Dashboard updated.");
-  } catch (error) {
-    setDashboardMessage(String(error));
-  }
-}
-
-
 function setAppContentVisible(visible) {
   appContentNodes.forEach((node) => {
     node.hidden = !visible;
@@ -1368,6 +1264,32 @@ const apiFetch = createApiFetch({
     renderAuthRequired();
   },
 });
+
+const dashboardController = createDashboardController({
+  apiFetch,
+  panelNode: dashboardPanel,
+  messageNode: dashboardMessageNode,
+  userMetricsNode: dashboardUserMetricsNode,
+  recentHistoryNode: dashboardRecentHistoryNode,
+  favoriteHighlightsNode: dashboardFavoriteHighlightsNode,
+  adminPanelNode: dashboardAdminPanel,
+  adminMetricsNode: dashboardAdminMetricsNode,
+  adminActionButton: dashboardAdminActionButton,
+  renderStation,
+  bindResultActions,
+  showDashboardView,
+  isAuthenticated: () => Boolean(currentUser),
+  setDashboardLoaded: (value) => {
+    dashboardLoaded = value;
+  },
+  setCurrentView: (value) => {
+    currentView = value;
+  },
+  setCurrentPlaylistName: (value) => {
+    currentPlaylistName = value;
+  },
+});
+const { loadDashboard } = dashboardController;
 
 async function loadAuthState() {
   try {

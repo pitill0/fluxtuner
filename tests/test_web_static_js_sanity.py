@@ -72,6 +72,20 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert ".search-debug-label" in css_response.text
 
 
+def test_web_static_js_allows_min_bitrate_only_search() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert 'const minBitrate = String(formData.get("min_bitrate") || "0").trim();' in response.text
+    assert (
+        'const hasMinBitrateFilter = Number(params.get("min_bitrate") || "0") > 0;' in response.text
+    )
+    assert "Search text, country, or minimum bitrate is required." in response.text
+    assert "Search text or country is required." not in response.text
+
+
 def test_web_static_js_keeps_station_available_after_media_pause() -> None:
     client = TestClient(create_app())
 

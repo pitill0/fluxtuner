@@ -2763,14 +2763,16 @@ async function searchStations(event) {
 
   params.set("q", String(formData.get("q") || "").trim());
   params.set("country", String(formData.get("country") || "").trim());
-  params.set("min_bitrate", String(formData.get("min_bitrate") || "0"));
+  const minBitrate = String(formData.get("min_bitrate") || "0").trim();
+  params.set("min_bitrate", minBitrate || "0");
   params.set("limit", String(formData.get("limit") || "25"));
   if (formData.get("debug") === "1") {
     params.set("debug", "1");
   }
 
-  if (!params.get("q") && !params.get("country")) {
-    renderSearchError("Search text or country is required.");
+  const hasMinBitrateFilter = Number(params.get("min_bitrate") || "0") > 0;
+  if (!params.get("q") && !params.get("country") && !hasMinBitrateFilter) {
+    renderSearchError("Search text, country, or minimum bitrate is required.");
     return;
   }
 

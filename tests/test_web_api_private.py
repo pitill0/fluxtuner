@@ -280,6 +280,38 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     assert payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_authenticated_user_can_search_by_min_bitrate_only(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+    seen: dict[str, object] = {}
+
+    def fake_search_stations_filtered(**kwargs):
+        seen.update(kwargs)
+        return [
+            {
+                "name": "High Bitrate Radio",
+                "url": "https://example.com/high",
+                "bitrate": 320,
+            }
+        ]
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.search_stations_filtered",
+        fake_search_stations_filtered,
+    )
+
+    response = client.get("/api/search?min_bitrate=256")
+
+    assert response.status_code == 200
+    assert seen == {"query": "", "country": None, "min_bitrate": 256, "limit": 25}
+    payload = response.json()
+    assert payload["query"] == ""
+    assert payload["country"] == ""
+    assert payload["min_bitrate"] == 256
+    assert payload["stations"][0]["name"] == "High Bitrate Radio"
+
+
 def test_authenticated_user_can_request_up_to_100_search_results(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     create_user("alice")

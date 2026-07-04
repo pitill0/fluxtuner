@@ -2,6 +2,8 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { createApiFetch } from "/static/js/api.js";
+
 const statusNode = document.querySelector("[data-status]");
 const healthStateNode = document.querySelector("[data-health-state]");
 const healthSummaryNode = document.querySelector("[data-health-summary]");
@@ -1593,29 +1595,15 @@ function renderAuthRequired() {
   }
 }
 
-async function apiFetch(url, options = {}) {
-  const requestOptions = { ...options };
-  const method = String(requestOptions.method || "GET").toUpperCase();
-
-  if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
-    requestOptions.headers = {
-      ...(requestOptions.headers || {}),
-      "X-FluxTuner-CSRF": csrfToken,
-    };
-  }
-
-  const response = await fetch(url, requestOptions);
-
-  if (response.status === 401) {
+const apiFetch = createApiFetch({
+  getCsrfToken: () => csrfToken,
+  onUnauthorized: () => {
     csrfToken = "";
     currentUser = null;
-    csrfToken = "";
     updateAuthUi();
     renderAuthRequired();
-  }
-
-  return response;
-}
+  },
+});
 
 async function loadAuthState() {
   try {

@@ -19,14 +19,18 @@ def test_web_index_exposes_login_ui() -> None:
 def test_web_static_js_does_not_store_auth_tokens() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    api_response = client.get("/static/js/api.js")
 
-    assert response.status_code == 200
-    assert "sessionStorage" not in response.text
-    assert "/api/auth/login" in response.text
-    assert "/api/auth/logout" in response.text
-    assert "/api/auth/me" in response.text
-    assert "X-FluxTuner-CSRF" in response.text
+    assert app_response.status_code == 200
+    assert api_response.status_code == 200
+    assert "sessionStorage" not in app_response.text
+    assert "sessionStorage" not in api_response.text
+    assert "/api/auth/login" in app_response.text
+    assert "/api/auth/logout" in app_response.text
+    assert "/api/auth/me" in app_response.text
+    assert "X-FluxTuner-CSRF" in api_response.text
+    assert "localStorage" not in api_response.text
 
 
 def test_web_static_js_stops_playback_on_logout() -> None:

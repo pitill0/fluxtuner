@@ -3,6 +3,23 @@ from fastapi.testclient import TestClient
 from fluxtuner.web.app import create_app
 
 
+def test_web_static_js_uses_module_entrypoint() -> None:
+    client = TestClient(create_app())
+
+    html_response = client.get("/")
+    app_response = client.get("/static/app.js")
+    api_response = client.get("/static/js/api.js")
+
+    assert html_response.status_code == 200
+    assert app_response.status_code == 200
+    assert api_response.status_code == 200
+    assert '<script type="module" src="/static/app.js"></script>' in html_response.text
+    assert 'import { createApiFetch } from "/static/js/api.js";' in app_response.text
+    assert "export function createApiFetch" in api_response.text
+    assert "X-FluxTuner-CSRF" in api_response.text
+    assert "response.status === 401" in api_response.text
+
+
 def test_web_static_js_initializes_setup_before_auth() -> None:
     client = TestClient(create_app())
 

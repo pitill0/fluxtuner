@@ -102,6 +102,7 @@ fluxtuner = [
     "web/templates/*.html",
     "web/static/*.css",
     "web/static/*.js",
+    "web/static/js/*.js",
     "web/static/*.svg",
     "web/static/*.png",
     "web/static/*.webmanifest",

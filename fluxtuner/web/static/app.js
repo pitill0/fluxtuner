@@ -5,6 +5,7 @@
 import { createAccountRequestsController } from "/static/js/account-requests.js";
 import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
+import { createAuthController } from "/static/js/auth.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
@@ -532,99 +533,24 @@ const {
   setUserPassword: setAdminUserPassword,
 } = adminController;
 
-async function loadAuthState() {
-  try {
-    const response = await fetch("/api/auth/me", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      currentUser = null;
-      csrfToken = "";
-      updateAuthUi();
-      return;
-    }
-
-    const payload = await response.json();
-    currentUser = payload.user || null;
-    csrfToken = payload.csrf_token || "";
-    resetRadioBrowserView();
-    updateAuthUi();
-    await loadDashboard();
-  } catch (_error) {
-    currentUser = null;
-    updateAuthUi();
-  }
-}
-
-async function login(event) {
-  event.preventDefault();
-
-  if (!loginForm || !authMessageNode) return;
-
-  const formData = new FormData(loginForm);
-  const username = String(formData.get("username") || "").trim();
-  const password = String(formData.get("password") || "");
-
-  authMessageNode.textContent = "Signing in...";
-
-  try {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
-
-    loginForm.reset();
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("Too many login attempts. Try again later.");
-      }
-
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Invalid username or password.");
-    }
-
-    const payload = await response.json();
-    currentUser = payload.user || null;
-    csrfToken = payload.csrf_token || "";
-    resetRadioBrowserView();
-    updateAuthUi();
-    await loadDashboard();
-  } catch (error) {
-    currentUser = null;
-    csrfToken = "";
-    updateAuthUi();
-    authMessageNode.textContent = String(error);
-  }
-}
-
-
-async function logout() {
-  try {
-    await apiFetch("/api/auth/logout", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-      },
-    });
-  } finally {
-    stopPlayback();
-    currentUser = null;
-    publicStatsController.reset();
-    resetRadioBrowserView();
-    updateAuthUi();
-    renderAuthRequired();
-  }
-}
-
-
+const authController = createAuthController({
+  apiFetch,
+  authMessageNode,
+  loginForm,
+  loadDashboard,
+  publicStatsController,
+  renderAuthRequired,
+  resetRadioBrowserView,
+  setCsrfToken: (token) => {
+    csrfToken = token;
+  },
+  setCurrentUser: (user) => {
+    currentUser = user;
+  },
+  stopPlayback,
+  updateAuthUi,
+});
+const { loadAuthState, login, logout } = authController;
 
 function setPlayerState(state, message) {
   logPlayerEvent("player-state", { state, message });

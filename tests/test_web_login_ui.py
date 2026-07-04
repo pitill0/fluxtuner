@@ -21,27 +21,35 @@ def test_web_static_js_does_not_store_auth_tokens() -> None:
 
     app_response = client.get("/static/app.js")
     api_response = client.get("/static/js/api.js")
+    auth_response = client.get("/static/js/auth.js")
 
     assert app_response.status_code == 200
     assert api_response.status_code == 200
+    assert auth_response.status_code == 200
     assert "sessionStorage" not in app_response.text
     assert "sessionStorage" not in api_response.text
-    assert "/api/auth/login" in app_response.text
-    assert "/api/auth/logout" in app_response.text
-    assert "/api/auth/me" in app_response.text
+    assert "sessionStorage" not in auth_response.text
+    assert "/api/auth/login" in auth_response.text
+    assert "/api/auth/logout" in auth_response.text
+    assert "/api/auth/me" in auth_response.text
+    assert 'import { createAuthController } from "/static/js/auth.js";' in app_response.text
     assert "X-FluxTuner-CSRF" in api_response.text
     assert "localStorage" not in api_response.text
+    assert "localStorage" not in auth_response.text
 
 
 def test_web_static_js_stops_playback_on_logout() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    auth_response = client.get("/static/js/auth.js")
 
-    assert response.status_code == 200
-    assert "async function logout()" in response.text
-    assert "stopPlayback();\n    currentUser = null;" in response.text
-    assert "function stopPlayback()" in response.text
+    assert app_response.status_code == 200
+    assert auth_response.status_code == 200
+    assert "async function logout()" in auth_response.text
+    assert "stopPlayback();" in auth_response.text
+    assert "setCurrentUser(null);" in auth_response.text
+    assert "function stopPlayback()" in app_response.text
 
 
 def test_web_playlist_picker_replaces_prompt() -> None:

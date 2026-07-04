@@ -1489,6 +1489,22 @@ function bindResultActions() {
   });
 }
 
+const searchController = createSearchController({
+  searchForm,
+  resultsNode,
+  resultCountNode,
+  setResultsHeader,
+  renderStation,
+  bindResultActions,
+  setSearchView: () => {
+    showRadioBrowserView();
+    currentView = "search";
+    currentPlaylistName = "";
+  },
+});
+
+const { renderResults, renderSearchError } = searchController;
+
 function renderPlaylists(payload) {
   if (!resultsNode || !resultCountNode) return;
 

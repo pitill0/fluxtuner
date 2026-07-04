@@ -140,6 +140,8 @@ def test_web_static_js_uses_search_limit_from_form() -> None:
     assert app_response.status_code == 200
     assert search_response.status_code == 200
     assert 'from "/static/js/search.js"' in app_response.text
+    assert "const searchController = createSearchController({" in app_response.text
+    assert "const { renderResults, renderSearchError } = searchController;" in app_response.text
     assert 'params.set("limit", String(formData.get("limit") || "25"));' in search_response.text
     assert 'params.set("limit", "25");' not in search_response.text
 

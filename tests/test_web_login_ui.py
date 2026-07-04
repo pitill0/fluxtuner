@@ -315,7 +315,10 @@ def test_web_static_js_controls_player_visibility_from_auth_ui() -> None:
 
     assert response.status_code == 200
     assert "function setPlayerVisible(isVisible)" in response.text
-    assert "setPlayerVisible(!setupAvailable && authenticated);" in response.text
+    setup_response = client.get("/static/js/setup.js")
+
+    assert setup_response.status_code == 200
+    assert "setPlayerVisible(!setupAvailable && authenticated);" in setup_response.text
     assert 'playerBar.removeAttribute("hidden")' in response.text
     assert 'playerBar.setAttribute("hidden", "")' in response.text
 

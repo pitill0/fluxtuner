@@ -13,6 +13,7 @@ import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlaylistController } from "/static/js/playlists.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createSearchController } from "/static/js/search.js";
+import { createSetupController } from "/static/js/setup.js";
 import { createThemeController } from "/static/js/theme.js";
 import {
   escapeHtml,
@@ -121,8 +122,6 @@ let currentView = "search";
 let currentPlaylistName = "";
 let currentUser = null;
 let csrfToken = "";
-let setupAvailable = false;
-let setupRequiresToken = false;
 let dashboardLoaded = false;
 let startingPlayback = false;
 let softPausingPlayback = false;
@@ -228,7 +227,7 @@ const playerDebugController = createPlayerDebugController({
   logNode: playerDebugLogNode,
   exportNode: playerDebugExportNode,
   getSnapshot: playerDebugSnapshot,
-  isVisible: () => Boolean(currentUser?.is_admin) && !setupAvailable,
+  isVisible: () => Boolean(currentUser?.is_admin) && !isSetupAvailable(),
 });
 
 const logPlayerEvent = playerDebugController.logEvent;
@@ -351,164 +350,60 @@ async function navigateToPrivateView(loader) {
   scrollToSection(searchPanel);
 }
 
-function updateSetupUi() {
-  const authenticated = Boolean(currentUser);
-
-  setPlayerVisible(!setupAvailable && authenticated);
-
-  if (appContent) {
-    appContent.hidden = !authenticated || setupAvailable;
-  }
-
-  if (setupPanel) {
-    setupPanel.hidden = !setupAvailable;
-  }
-
-  if (authPanel) {
-    authPanel.hidden = setupAvailable || authenticated;
-  }
-
-  setAppContentVisible(!setupAvailable && authenticated);
-
-  if (setupTokenField) {
-    setupTokenField.hidden = !setupRequiresToken;
-  }
-
-  if (setupMessageNode && setupAvailable) {
-    setupMessageNode.textContent = setupRequiresToken
-      ? "Enter the setup verification value configured on the server."
-      : "Local first-run setup is available. Create the first administrator.";
-  }
+function isSetupAvailable() {
+  return setupController.isSetupAvailable();
 }
 
-async function loadSetupState() {
-  try {
-    const response = await fetch("/api/setup/status", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
+const setupController = createSetupController({
+  appContent,
+  authPanel,
+  getCurrentUser: () => currentUser,
+  loadAuthState: () => loadAuthState(),
+  resetRadioBrowserView,
+  scrollToSection,
+  searchPanel,
+  setAppContentVisible,
+  setCsrfToken: (token) => {
+    csrfToken = token;
+  },
+  setCurrentUser: (user) => {
+    currentUser = user;
+  },
+  setPlayerVisible,
+  setupForm,
+  setupMessageNode,
+  setupPanel,
+  setupTokenField,
+  updateAuthUi: () => updateAuthUi(),
+});
 
-    if (!response.ok) {
-      setupAvailable = false;
-      setupRequiresToken = false;
-      updateSetupUi();
-      await loadAuthState();
-      return;
-    }
-
-    const payload = await response.json();
-    setupAvailable = Boolean(payload.available);
-    setupRequiresToken = Boolean(payload.requires_setup_token);
-    updateSetupUi();
-
-    if (!setupAvailable) {
-      await loadAuthState();
-      return;
-    }
-
-    currentUser = null;
-    csrfToken = "";
-    updateAuthUi();
-  } catch (_error) {
-    setupAvailable = false;
-    setupRequiresToken = false;
-    updateSetupUi();
-    await loadAuthState();
-  }
-}
-
-async function createFirstAdmin(event) {
-  event.preventDefault();
-
-  if (!setupForm || !setupMessageNode) return;
-
-  const formData = new FormData(setupForm);
-  const username = String(formData.get("username") || "").trim();
-  const password = String(formData.get("password") || "");
-  const confirmPassword = String(formData.get("confirm_password") || "");
-  const setupToken = String(formData.get("setup_token") || "");
-
-  if (password !== confirmPassword) {
-    setupMessageNode.textContent = "Passwords do not match.";
-    return;
-  }
-
-  setupMessageNode.textContent = "Creating administrator...";
-
-  try {
-    const body = {
-      username,
-      password,
-    };
-
-    if (setupRequiresToken) {
-      body.setup_token = setupToken;
-    }
-
-    const response = await fetch("/api/setup/create-admin", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    setupForm.reset();
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        throw new Error("Too many setup attempts. Try again later.");
-      }
-
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.detail || "Could not complete first-run setup.");
-    }
-
-    const payload = await response.json();
-    currentUser = payload.user || null;
-    csrfToken = payload.csrf_token || "";
-    setupAvailable = false;
-    setupRequiresToken = false;
-    resetRadioBrowserView();
-    updateSetupUi();
-    updateAuthUi();
-    scrollToSection(searchPanel);
-  } catch (error) {
-    currentUser = null;
-    csrfToken = "";
-    updateAuthUi();
-    setupMessageNode.textContent = String(error);
-  }
-}
-
+const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 
 function updateAuthUi() {
   const authenticated = Boolean(currentUser);
 
-  setPlayerVisible(!setupAvailable && authenticated);
+  setPlayerVisible(!setupController.isSetupAvailable() && authenticated);
 
   if (publicEntrySection) {
-    publicEntrySection.hidden = setupAvailable || authenticated;
+    publicEntrySection.hidden = isSetupAvailable() || authenticated;
   }
 
   if (authPanel) {
     authPanel.dataset.authenticated = authenticated ? "true" : "false";
-    authPanel.hidden = setupAvailable || authenticated;
+    authPanel.hidden = setupController.isSetupAvailable() || authenticated;
   }
 
   if (publicStatsSection) {
-    publicStatsSection.hidden = setupAvailable || authenticated;
+    publicStatsSection.hidden = isSetupAvailable() || authenticated;
   }
 
-  if (!setupAvailable && !authenticated) {
+  if (!isSetupAvailable() && !authenticated) {
     publicStatsController.loadPublicStats();
   }
 
-  setAppContentVisible(!setupAvailable && authenticated);
+  setAppContentVisible(!setupController.isSetupAvailable() && authenticated);
 
-  const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
+  const showAdminPanel = authenticated && Boolean(currentUser.is_admin) && !isSetupAvailable();
 
   if (authenticated && !showAdminPanel && searchPanel && searchPanel.hidden) {
     showRadioBrowserView();
@@ -1603,7 +1498,7 @@ async function initializeAuthFlow() {
 
   await loadSetupState();
 
-  if (setupAvailable) {
+  if (setupController.isSetupAvailable()) {
     updateSetupUi();
     updateAuthUi();
     return;

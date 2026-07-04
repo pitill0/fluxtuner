@@ -19,13 +19,15 @@ def test_web_index_exposes_first_run_setup_ui() -> None:
 def test_web_static_js_wires_first_run_setup_api() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    setup_response = client.get("/static/js/setup.js")
 
-    assert response.status_code == 200
-    assert "/api/setup/status" in response.text
-    assert "/api/setup/create-admin" in response.text
-    assert "setup_token" in response.text
-    assert "authToken" not in response.text
-    assert "accessToken" not in response.text
-    assert "sessionStorage" not in response.text
-    assert "sessionStorage" not in response.text
+    assert app_response.status_code == 200
+    assert setup_response.status_code == 200
+    assert "/static/js/setup.js" in app_response.text
+    assert "/api/setup/status" in setup_response.text
+    assert "/api/setup/create-admin" in setup_response.text
+    assert "setup_token" in setup_response.text
+    assert "authToken" not in setup_response.text
+    assert "accessToken" not in setup_response.text
+    assert "sessionStorage" not in setup_response.text

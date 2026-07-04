@@ -7,6 +7,7 @@ import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createHealthController } from "/static/js/health.js";
+import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createSearchController } from "/static/js/search.js";
@@ -1584,116 +1585,21 @@ function bindPlaylistActions() {
   });
 }
 
-async function loadHistory() {
-  if (!resultsNode || !resultCountNode) return;
+const libraryViewsController = createLibraryViewsController({
+  apiFetch,
+  resultsNode,
+  resultCountNode,
+  setResultsHeader,
+  renderResults,
+  renderPlaylists,
+  renderSearchError,
+  setLibraryView: (view, playlistName = "") => {
+    currentView = view;
+    currentPlaylistName = playlistName;
+  },
+});
 
-  currentView = "history";
-  currentPlaylistName = "";
-  setResultsHeader("Playback", "History");
-  resultCountNode.textContent = "Loading history...";
-  resultsNode.innerHTML = '<p class="empty">Loading playback history...</p>';
-
-  try {
-    const response = await fetch("/api/history?limit=25", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    renderResults(payload);
-  } catch (error) {
-    renderSearchError(error);
-  }
-}
-
-async function loadFavorites() {
-  if (!resultsNode || !resultCountNode) return;
-
-  currentView = "favorites";
-  currentPlaylistName = "";
-  setResultsHeader("Library", "Favorites");
-  resultCountNode.textContent = "Loading favorites...";
-  resultsNode.innerHTML = '<p class="empty">Loading favorites...</p>';
-
-  try {
-    const response = await apiFetch("/api/favorites", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    renderResults(payload);
-  } catch (error) {
-    renderSearchError(error);
-  }
-}
-
-async function loadPlaylists() {
-  if (!resultsNode || !resultCountNode) return;
-
-  currentView = "playlists";
-  currentPlaylistName = "";
-  setResultsHeader("Library", "Playlists");
-  resultCountNode.textContent = "Loading playlists...";
-  resultsNode.innerHTML = '<p class="empty">Loading playlists...</p>';
-
-  try {
-    const response = await apiFetch("/api/playlists", {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    renderPlaylists(payload);
-  } catch (error) {
-    renderSearchError(error);
-  }
-}
-
-async function loadPlaylistStations(name) {
-  if (!resultsNode || !resultCountNode) return;
-
-  currentView = "playlist";
-  currentPlaylistName = name;
-  setResultsHeader("Playlist", name);
-  resultCountNode.textContent = "Loading playlist...";
-  resultsNode.innerHTML = '<p class="empty">Loading playlist stations...</p>';
-
-  try {
-    const response = await apiFetch(
-      `/api/playlists/${encodeURIComponent(name)}/stations`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const payload = await response.json();
-    renderResults(payload);
-  } catch (error) {
-    renderSearchError(error);
-  }
-}
+const { loadFavorites, loadHistory, loadPlaylists, loadPlaylistStations } = libraryViewsController;
 
 if (adminLoadUsersButton) {
   adminLoadUsersButton.addEventListener("click", loadAdminUsers);

@@ -146,6 +146,32 @@ def test_web_static_js_uses_search_limit_from_form() -> None:
     assert 'params.set("limit", "25");' not in search_response.text
 
 
+def test_web_static_js_uses_library_views_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/library-views.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createLibraryViewsController } from "/static/js/library-views.js";'
+        in app_response.text
+    )
+    assert "export function createLibraryViewsController" in module_response.text
+    assert 'apiFetch("/api/history?limit=25"' in module_response.text
+    assert 'apiFetch("/api/favorites"' in module_response.text
+    assert 'apiFetch("/api/playlists"' in module_response.text
+    assert "function loadHistory" in module_response.text
+    assert "function loadFavorites" in module_response.text
+    assert "function loadPlaylists" in module_response.text
+    assert "function loadPlaylistStations" in module_response.text
+    assert "function loadHistory" not in app_response.text
+    assert "function loadFavorites" not in app_response.text
+    assert "function loadPlaylists" not in app_response.text
+    assert "function loadPlaylistStations" not in app_response.text
+
+
 def test_web_search_form_has_optional_debug_panel() -> None:
     client = TestClient(create_app())
 

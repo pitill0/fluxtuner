@@ -269,10 +269,19 @@ def _filtered_search_result(
 
     results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
+    batch_positions = [0 for _source, _items in raw_batches]
 
-    for _, items in raw_batches:
-        for item in items:
-            station = normalize_station(item)
+    while len(results) < limit:
+        advanced = False
+        for batch_index, (_source, items) in enumerate(raw_batches):
+            item_index = batch_positions[batch_index]
+            if item_index >= len(items):
+                continue
+
+            batch_positions[batch_index] += 1
+            advanced = True
+
+            station = normalize_station(items[item_index])
             url = station_key(station)
             if not url or url in seen_urls:
                 debug["deduped_results"] += 1
@@ -289,7 +298,8 @@ def _filtered_search_result(
 
             if len(results) >= limit:
                 break
-        if len(results) >= limit:
+
+        if not advanced:
             break
 
     if use_cache:

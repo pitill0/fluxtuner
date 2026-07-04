@@ -204,6 +204,46 @@ def test_search_stations_filtered_debug_reports_source_counts(monkeypatch) -> No
     }
 
 
+def test_search_stations_filtered_interleaves_name_and_tag_results(monkeypatch) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {
+                    "name": "Name One",
+                    "url": "https://example.com/name-one",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+                {
+                    "name": "Name Two",
+                    "url": "https://example.com/name-two",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                },
+            ]
+
+        return [
+            {
+                "name": "Tag One",
+                "url": "https://example.com/tag-one",
+                "country": "Spain",
+                "countrycode": "ES",
+                "tags": "rock",
+                "bitrate": 128,
+            }
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+
+    results = api.search_stations_filtered("rock", limit=2, use_cache=False)
+
+    assert [station["name"] for station in results] == ["Name One", "Tag One"]
+
+
 def test_search_stations_filtered_falls_back_to_broad_search_when_country_too_strict(
     monkeypatch,
 ) -> None:

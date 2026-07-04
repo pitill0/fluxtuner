@@ -3,6 +3,13 @@
  */
 
 import { createApiFetch } from "/static/js/api.js";
+import {
+  escapeHtml,
+  stationButtonPayload,
+  stationHomepage,
+  stationTags,
+  stationUrl,
+} from "/static/js/stations.js";
 
 const statusNode = document.querySelector("[data-status]");
 const healthStateNode = document.querySelector("[data-health-state]");
@@ -487,53 +494,6 @@ async function checkHealth() {
   }
 }
 
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => {
-    const replacements = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    };
-
-    return replacements[char];
-  });
-}
-
-function safeExternalUrl(value) {
-  const rawUrl = String(value || "").trim();
-  if (!rawUrl) return "";
-
-  if (!/^https?:\/\//i.test(rawUrl)) return "";
-
-  try {
-    const parsed = new URL(rawUrl);
-    if (!["http:", "https:"].includes(parsed.protocol)) return "";
-    return parsed.href;
-  } catch {
-    return "";
-  }
-}
-
-function stationUrl(station) {
-  return safeExternalUrl(station.url_resolved || station.url || "");
-}
-
-function stationHomepage(station) {
-  return safeExternalUrl(station.homepage || "");
-}
-
-function stationTags(station) {
-  const tags = String(station.tags || "").trim();
-  if (!tags) return "";
-  return tags.split(",").slice(0, 8).join(", ");
-}
-
-function stationButtonPayload(station) {
-  return escapeHtml(JSON.stringify(station));
-}
 
 function setResultsHeader(kicker, title) {
   if (resultsKickerNode) {

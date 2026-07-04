@@ -35,14 +35,17 @@ def test_web_static_js_initializes_setup_before_auth() -> None:
 def test_web_static_js_sanitizes_external_station_urls() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    stations_response = client.get("/static/js/stations.js")
 
-    assert response.status_code == 200
-    assert "function safeExternalUrl(value)" in response.text
-    assert "/^https?:\\/\\//i.test(rawUrl)" in response.text
-    assert '["http:", "https:"].includes(parsed.protocol)' in response.text
-    assert "function stationHomepage(station)" in response.text
-    assert "const homepage = stationHomepage(station);" in response.text
+    assert app_response.status_code == 200
+    assert stations_response.status_code == 200
+    assert 'from "/static/js/stations.js"' in app_response.text
+    assert "export function safeExternalUrl(value)" in stations_response.text
+    assert "/^https?:\\/\\//i.test(rawUrl)" in stations_response.text
+    assert '["http:", "https:"].includes(parsed.protocol)' in stations_response.text
+    assert "export function stationHomepage(station)" in stations_response.text
+    assert "const homepage = stationHomepage(station);" in app_response.text
 
 
 def test_web_static_js_limits_playlist_names_client_side() -> None:

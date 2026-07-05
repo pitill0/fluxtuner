@@ -16,14 +16,8 @@ import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createSearchController } from "/static/js/search.js";
 import { createSetupController } from "/static/js/setup.js";
 import { createThemeController } from "/static/js/theme.js";
-import {
-  escapeHtml,
-  formatDisplayDateTime,
-  stationButtonPayload,
-  stationHomepage,
-  stationTags,
-  stationUrl,
-} from "/static/js/stations.js";
+import { createStationRenderer } from "/static/js/station-renderer.js";
+import { escapeHtml, stationUrl } from "/static/js/stations.js";
 
 const statusNode = document.querySelector("[data-status]");
 const healthStateNode = document.querySelector("[data-health-state]");
@@ -797,160 +791,22 @@ async function togglePlayback() {
   }
 }
 
-function renderStation(station) {
-  const streamUrl = stationUrl(station);
-  const homepage = stationHomepage(station);
-  const tags = stationTags(station);
-  const playCount = Number(station.play_count || 0);
-  const lastPlayedAt = formatDisplayDateTime(station.last_played_at);
-  const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
+const stationRenderer = createStationRenderer({
+  renderState: () => ({
+    currentUser,
+    currentView,
+  }),
+  onPlayStation: (station) => playStation(station),
+  onAddFavorite: (station) => addFavorite(station),
+  onRemoveFavorite: (station) => removeFavorite(station),
+  onAddToPlaylist: (station) => playlistController.addToPlaylist(station),
+  onRemoveFromPlaylist: (station) => playlistController.removeFromPlaylist(station),
+  onStationActionError: (error) => {
+    setPlayerState("error", `Could not read station data. ${error}`);
+  },
+});
 
-  return `
-    <article class="station-card">
-      <header>
-        <div>
-          <h3>${escapeHtml(station.custom_name || station.name || "Unknown station")}</h3>
-        </div>
-        <div class="station-meta">
-          <span>${escapeHtml(station.country || "Unknown")}</span>
-          <span>${escapeHtml(station.codec || "Unknown codec")}</span>
-          <span>${Number(station.bitrate || 0)} kbps</span>
-          ${playCount ? `<span>${playCount} play${playCount === 1 ? "" : "s"}</span>` : ""}
-          ${favoriteTags.length ? `<span>${escapeHtml(favoriteTags.join(", "))}</span>` : ""}
-        </div>
-      </header>
-
-      ${
-        tags
-          ? `<p class="station-tags">${escapeHtml(tags)}</p>`
-          : '<p class="station-tags">No tags available.</p>'
-      }
-
-      ${
-        lastPlayedAt !== "unknown"
-          ? `<p class="station-tags">Last played: ${lastPlayedAt}</p>`
-          : ""
-      }
-
-      <div class="station-actions">
-        ${
-          streamUrl
-            ? `<button type="button" data-play-station="${stationButtonPayload(
-                station,
-              )}">Play</button>`
-            : ""
-        }
-        ${
-          currentUser && streamUrl
-            ? `<button type="button" data-add-favorite="${stationButtonPayload(
-                station,
-              )}">Add favorite</button>`
-            : ""
-        }
-        ${
-          currentUser && streamUrl
-            ? `<button type="button" data-add-to-playlist="${stationButtonPayload(
-                station,
-              )}">Add to playlist</button>`
-            : ""
-        }
-        ${
-          currentUser && currentView === "favorites" && streamUrl
-            ? `<button type="button" data-remove-favorite="${stationButtonPayload(
-                station,
-              )}">Remove favorite</button>`
-            : ""
-        }
-        ${
-          currentUser && currentView === "playlist" && streamUrl
-            ? `<button type="button" data-remove-from-playlist="${stationButtonPayload(
-                station,
-              )}">Remove from playlist</button>`
-            : ""
-        }
-        ${
-          streamUrl
-            ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
-            : ""
-        }
-        ${
-          homepage
-            ? `<a class="station-external-link" href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
-            : ""
-        }
-      </div>
-    </article>
-  `;
-}
-
-function parseStationButton(button) {
-  const payload =
-    button.getAttribute("data-play-station") ||
-    button.getAttribute("data-add-favorite") ||
-    button.getAttribute("data-remove-favorite") ||
-    button.getAttribute("data-add-to-playlist") ||
-    button.getAttribute("data-remove-from-playlist");
-
-  if (!payload) return null;
-  return JSON.parse(payload);
-}
-
-function bindResultActions() {
-  document.querySelectorAll("[data-play-station]").forEach((button) => {
-    button.addEventListener("click", () => {
-      try {
-        const station = parseStationButton(button);
-        if (station) playStation(station);
-      } catch (error) {
-        setPlayerState("error", `Could not read station data. ${error}`);
-      }
-    });
-  });
-
-  document.querySelectorAll("[data-add-favorite]").forEach((button) => {
-    button.addEventListener("click", () => {
-      try {
-        const station = parseStationButton(button);
-        if (station) addFavorite(station);
-      } catch (error) {
-        setPlayerState("error", `Could not read station data. ${error}`);
-      }
-    });
-  });
-
-  document.querySelectorAll("[data-remove-favorite]").forEach((button) => {
-    button.addEventListener("click", () => {
-      try {
-        const station = parseStationButton(button);
-        if (station) removeFavorite(station);
-      } catch (error) {
-        setPlayerState("error", `Could not read station data. ${error}`);
-      }
-    });
-  });
-
-  document.querySelectorAll("[data-add-to-playlist]").forEach((button) => {
-    button.addEventListener("click", () => {
-      try {
-        const station = parseStationButton(button);
-        if (station) playlistController.addToPlaylist(station);
-      } catch (error) {
-        setPlayerState("error", `Could not read station data. ${error}`);
-      }
-    });
-  });
-
-  document.querySelectorAll("[data-remove-from-playlist]").forEach((button) => {
-    button.addEventListener("click", () => {
-      try {
-        const station = parseStationButton(button);
-        if (station) playlistController.removeFromPlaylist(station);
-      } catch (error) {
-        setPlayerState("error", `Could not read station data. ${error}`);
-      }
-    });
-  });
-}
+const { bindResultActions, renderStation } = stationRenderer;
 
 const searchController = createSearchController({
   searchForm,

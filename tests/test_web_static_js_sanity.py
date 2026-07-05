@@ -109,20 +109,51 @@ def test_web_static_js_sanitizes_external_station_urls() -> None:
 
     app_response = client.get("/static/app.js")
     stations_response = client.get("/static/js/stations.js")
+    renderer_response = client.get("/static/js/station-renderer.js")
 
     assert app_response.status_code == 200
     assert stations_response.status_code == 200
+    assert renderer_response.status_code == 200
     assert 'from "/static/js/stations.js"' in app_response.text
+    assert 'from "/static/js/station-renderer.js"' in app_response.text
     assert "export function safeExternalUrl(value)" in stations_response.text
     assert "/^https?:\\/\\//i.test(rawUrl)" in stations_response.text
     assert '["http:", "https:"].includes(parsed.protocol)' in stations_response.text
     assert "export function stationHomepage(station)" in stations_response.text
     assert "export function formatDisplayDateTime(value)" in stations_response.text
-    assert "formatDisplayDateTime," in app_response.text
-    assert "const homepage = stationHomepage(station);" in app_response.text
+    assert "export function createStationRenderer" in renderer_response.text
+    assert "formatDisplayDateTime," in renderer_response.text
+    assert "const homepage = stationHomepage(station);" in renderer_response.text
     assert (
-        "const lastPlayedAt = formatDisplayDateTime(station.last_played_at);" in app_response.text
+        "const lastPlayedAt = formatDisplayDateTime(station.last_played_at);"
+        in renderer_response.text
     )
+    assert (
+        "const lastPlayedAt = formatDisplayDateTime(station.last_played_at);"
+        not in app_response.text
+    )
+
+
+def test_web_static_js_uses_station_renderer_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/station-renderer.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createStationRenderer } from "/static/js/station-renderer.js";'
+        in app_response.text
+    )
+    assert "export function createStationRenderer" in module_response.text
+    assert "function renderStation(station)" in module_response.text
+    assert "function bindResultActions()" in module_response.text
+    assert "function parseStationButton(button)" in module_response.text
+    assert "const stationRenderer = createStationRenderer({" in app_response.text
+    assert "const { bindResultActions, renderStation } = stationRenderer;" in app_response.text
+    assert "function renderStation(station)" not in app_response.text
+    assert "function parseStationButton(button)" not in app_response.text
 
 
 def test_web_static_js_uses_playlists_module() -> None:

@@ -20,6 +20,8 @@ def test_web_static_js_uses_module_entrypoint() -> None:
     assert "export function createApiFetch" in api_response.text
     assert "X-FluxTuner-CSRF" in api_response.text
     assert "response.status === 401" in api_response.text
+    assert app_response.headers["cache-control"] == "no-cache"
+    assert api_response.headers["cache-control"] == "no-cache"
 
 
 def test_web_static_js_uses_theme_module() -> None:
@@ -122,7 +124,8 @@ def test_web_static_js_initializes_setup_before_auth() -> None:
     assert "loadAuthState();\nasync function initializeAuthFlow" not in response.text
     assert "await loadSetupState();" in response.text
     assert "if (setupController.isSetupAvailable())" in response.text
-    assert "await loadAuthState();" in response.text
+    initialize_body = response.text.split("async function initializeAuthFlow()", 1)[1]
+    assert "await loadAuthState();" not in initialize_body
 
 
 def test_web_static_js_sanitizes_external_station_urls() -> None:
@@ -171,6 +174,7 @@ def test_web_static_js_uses_station_renderer_module() -> None:
     assert "function renderStation(station)" in module_response.text
     assert "function bindResultActions()" in module_response.text
     assert "function parseStationButton(button)" in module_response.text
+    assert 'button.dataset.stationActionBound === "true"' in module_response.text
     assert "const stationRenderer = createStationRenderer({" in app_response.text
     assert "const { bindResultActions, renderStation } = stationRenderer;" in app_response.text
     assert "function renderStation(station)" not in app_response.text
@@ -199,6 +203,7 @@ def test_web_manifest_is_valid_json() -> None:
     manifest = json.loads(response.text)
     assert manifest["name"] == "FluxTuner Web"
     assert manifest["categories"] == ["music", "entertainment"]
+    assert response.headers["cache-control"] == "no-cache"
 
 
 def test_web_static_js_uses_playlists_module() -> None:
@@ -235,7 +240,7 @@ def test_web_static_js_uses_playlist_renderer_module() -> None:
     assert "export function createPlaylistRenderer" in module_response.text
     assert "function renderPlaylists(payload)" in module_response.text
     assert "function bindPlaylistActions()" in module_response.text
-    assert "data-create-playlist" in module_response.text
+    assert "data-create-playlist-form" in module_response.text
     assert "data-open-playlist" in module_response.text
     assert "data-delete-playlist" in module_response.text
     assert "const playlistRenderer = createPlaylistRenderer({" in app_response.text
@@ -333,6 +338,8 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert "tag returned" in search_response.text
     assert ".search-debug-panel" in css_response.text
     assert ".search-debug-label" in css_response.text
+    assert "min-width: 0;" in css_response.text
+    assert "minmax(9rem, 0.85fr)" in css_response.text
 
 
 def test_web_static_js_allows_min_bitrate_only_search() -> None:

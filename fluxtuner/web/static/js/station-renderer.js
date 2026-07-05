@@ -125,6 +125,11 @@ export function createStationRenderer({
 
   function bindStationAction(selector, callback) {
     document.querySelectorAll(selector).forEach((button) => {
+      if (button.dataset.stationActionBound === "true") {
+        return;
+      }
+
+      button.dataset.stationActionBound = "true";
       button.addEventListener("click", () => {
         try {
           const station = parseStationButton(button);

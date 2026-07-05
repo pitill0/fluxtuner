@@ -11,6 +11,25 @@ export function createPlaylistRenderer({
   onOpenPlaylist,
   onDeletePlaylist,
 }) {
+  function renderCreatePlaylistForm() {
+    return `
+      <form class="playlist-create-form station-actions" data-create-playlist-form>
+        <label>
+          <span class="sr-only">New playlist name</span>
+          <input
+            name="playlist"
+            type="text"
+            autocomplete="off"
+            maxlength="120"
+            placeholder="New playlist name"
+            required
+          >
+        </label>
+        <button type="submit">Create playlist</button>
+      </form>
+    `;
+  }
+
   function renderPlaylists(payload) {
     if (!resultsNode || !resultCountNode) return;
 
@@ -22,18 +41,14 @@ export function createPlaylistRenderer({
     if (!playlists.length) {
       resultsNode.innerHTML = `
         <p class="empty">No playlists yet.</p>
-        <div class="station-actions">
-          <button type="button" data-create-playlist>Create playlist</button>
-        </div>
+        ${renderCreatePlaylistForm()}
       `;
       bindPlaylistActions();
       return;
     }
 
     resultsNode.innerHTML = `
-      <div class="station-actions">
-        <button type="button" data-create-playlist>Create playlist</button>
-      </div>
+      ${renderCreatePlaylistForm()}
       ${playlists
         .map(
           (playlist) => `
@@ -67,11 +82,27 @@ export function createPlaylistRenderer({
   }
 
   function bindPlaylistActions() {
-    document.querySelectorAll("[data-create-playlist]").forEach((button) => {
-      button.addEventListener("click", onCreatePlaylist);
+    document.querySelectorAll("[data-create-playlist-form]").forEach((form) => {
+      if (form.dataset.playlistCreateBound === "true") {
+        return;
+      }
+
+      form.dataset.playlistCreateBound = "true";
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const name = String(formData.get("playlist") || "").trim();
+        await onCreatePlaylist(name);
+        form.reset();
+      });
     });
 
     document.querySelectorAll("[data-open-playlist]").forEach((button) => {
+      if (button.dataset.playlistOpenBound === "true") {
+        return;
+      }
+
+      button.dataset.playlistOpenBound = "true";
       button.addEventListener("click", () => {
         const name = button.getAttribute("data-open-playlist");
         if (name) {
@@ -81,6 +112,11 @@ export function createPlaylistRenderer({
     });
 
     document.querySelectorAll("[data-delete-playlist]").forEach((button) => {
+      if (button.dataset.playlistDeleteBound === "true") {
+        return;
+      }
+
+      button.dataset.playlistDeleteBound = "true";
       button.addEventListener("click", () => {
         const name = button.getAttribute("data-delete-playlist");
         if (name) {

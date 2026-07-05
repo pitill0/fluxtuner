@@ -223,13 +223,12 @@ export function createPlaylistController({
     }
   }
 
-  async function createPlaylistFromPrompt() {
-    const playlistName = window.prompt("New playlist name:");
-    if (!playlistName || !playlistName.trim()) {
+  async function createPlaylist(playlistName) {
+    const cleanPlaylistName = String(playlistName || "").trim();
+    if (!cleanPlaylistName) {
+      setPlayerState("error", "Enter a playlist name.");
       return;
     }
-
-    const cleanPlaylistName = playlistName.trim();
     if (cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH) {
       setPlayerState(
         "error",
@@ -300,7 +299,7 @@ export function createPlaylistController({
   return {
     addToPlaylist,
     closePlaylistDialog,
-    createPlaylistFromPrompt,
+    createPlaylist,
     deletePlaylist,
     removeFromPlaylist,
     submitPlaylistDialog,

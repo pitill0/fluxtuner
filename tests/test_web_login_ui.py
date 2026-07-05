@@ -66,7 +66,7 @@ def test_web_static_js_stops_playback_on_logout() -> None:
     assert "function stopPlayback()" in player_response.text
 
 
-def test_web_playlist_picker_replaces_prompt() -> None:
+def test_web_playlist_picker_replaces_station_add_prompt() -> None:
     client = TestClient(create_app())
 
     index_response = client.get("/")
@@ -78,9 +78,11 @@ def test_web_playlist_picker_replaces_prompt() -> None:
     assert playlists_response.status_code == 200
     assert "data-playlist-dialog" in index_response.text
     assert "data-playlist-select" in index_response.text
-    assert 'window.prompt("Playlist name:")' not in app_response.text
+    assert "window.prompt" not in app_response.text
+    assert "window.prompt" not in playlists_response.text
     assert "async function openPlaylistDialog(station)" in playlists_response.text
     assert "async function submitPlaylistDialog(event)" in playlists_response.text
+    assert "async function createPlaylist(playlistName)" in playlists_response.text
     assert "/api/playlists" in playlists_response.text
 
 

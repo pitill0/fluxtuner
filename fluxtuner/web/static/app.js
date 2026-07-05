@@ -347,6 +347,7 @@ function renderAuthRequired() {
   }
 
   if (authMessageNode) {
+    authMessageNode.hidden = false;
     authMessageNode.textContent = "Session expired or login required.";
   }
 }
@@ -500,7 +501,7 @@ const { renderResults, renderSearchError } = searchController;
 const playlistRenderer = createPlaylistRenderer({
   resultsNode,
   resultCountNode,
-  onCreatePlaylist: () => playlistController.createPlaylistFromPrompt(),
+  onCreatePlaylist: (name) => playlistController.createPlaylist(name),
   onOpenPlaylist: (name) => loadPlaylistStations(name),
   onDeletePlaylist: (name) => playlistController.deletePlaylist(name),
 });
@@ -784,10 +785,7 @@ async function initializeAuthFlow() {
   if (setupController.isSetupAvailable()) {
     updateSetupUi();
     updateAuthUi();
-    return;
   }
-
-  await loadAuthState();
 }
 
 initializeAuthFlow();

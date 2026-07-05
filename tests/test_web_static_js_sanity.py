@@ -180,9 +180,11 @@ def test_web_static_js_uses_favorites_module() -> None:
 
     app_response = client.get("/static/app.js")
     module_response = client.get("/static/js/favorites.js")
+    player_response = client.get("/static/js/player.js")
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
+    assert player_response.status_code == 200
     assert (
         'import { createFavoriteController } from "/static/js/favorites.js";' in app_response.text
     )
@@ -191,7 +193,7 @@ def test_web_static_js_uses_favorites_module() -> None:
     assert 'apiFetch("/api/favorites"' in module_response.text
     assert "apiFetch(`/api/favorites?url=${encodeURIComponent(url)}`" in module_response.text
     assert "const favoriteController = createFavoriteController({" in app_response.text
-    assert "favoriteController.resetRecordedHistory();" in app_response.text
+    assert "resetRecordedHistory();" in player_response.text
     assert "function recordHistory" not in app_response.text
     assert "function addFavorite" not in app_response.text
     assert "function removeFavorite" not in app_response.text
@@ -281,20 +283,24 @@ def test_web_static_js_allows_min_bitrate_only_search() -> None:
 def test_web_static_js_keeps_station_available_after_media_pause() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    player_response = client.get("/static/js/player.js")
 
-    assert response.status_code == 200
+    assert app_response.status_code == 200
+    assert player_response.status_code == 200
+    assert 'import { createPlayerController } from "/static/js/player.js";' in app_response.text
     assert (
-        "const hasStream = Boolean(currentStation && stationUrl(currentStation));" in response.text
+        "const hasStream = Boolean(currentStation && stationUrl(currentStation));"
+        in player_response.text
     )
-    assert "playerToggleButton.disabled = !hasStream;" in response.text
-    assert "function pauseCurrentStationPlayback" in response.text
-    assert "function stopPlayback()" in response.text
-    assert "currentStation = null;" in response.text
-    assert "async function startCurrentStationPlayback(" in response.text
-    assert 'audioNode.removeAttribute("src");' in response.text
-    assert "audioNode.currentSrc" not in response.text
-    assert 'audioNode.addEventListener("pause"' in response.text
+    assert "toggleButton.disabled = !hasStream;" in player_response.text
+    assert "function pauseCurrentStationPlayback" in player_response.text
+    assert "function stopPlayback()" in player_response.text
+    assert "currentStation = null;" in player_response.text
+    assert "async function startCurrentStationPlayback(" in player_response.text
+    assert 'audioNode.removeAttribute("src");' in player_response.text
+    assert "audioNode.currentSrc" not in player_response.text
+    assert 'audioNode.addEventListener("pause"' in player_response.text
 
 
 def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
@@ -332,24 +338,25 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
 def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
-
-    assert response.status_code == 200
-    assert "function waitForAudioPlaybackStart" in response.text
-    assert "function attemptCurrentStationPlayback" in response.text
+    app_response = client.get("/static/app.js")
+    player_response = client.get("/static/js/player.js")
     module_response = client.get("/static/js/media-session.js")
 
+    assert app_response.status_code == 200
+    assert player_response.status_code == 200
     assert module_response.status_code == 200
-    assert response.text.count("updateMediaSessionState") >= 1
-    assert "function updateMediaSessionState" not in response.text
-    assert response.text.count("function waitForAudioPlaybackStart") == 1
-    assert response.text.count("function attemptCurrentStationPlayback") == 1
-    assert "function setupMediaSessionHandlers" not in response.text
+    assert "function waitForAudioPlaybackStart" in player_response.text
+    assert "function attemptCurrentStationPlayback" in player_response.text
+    assert player_response.text.count("updateMediaSessionState") >= 1
+    assert "function updateMediaSessionState" not in app_response.text
+    assert player_response.text.count("function waitForAudioPlaybackStart") == 1
+    assert player_response.text.count("function attemptCurrentStationPlayback") == 1
+    assert "function setupMediaSessionHandlers" not in app_response.text
     assert (
         'startCurrentStationPlayback("Starting stream from system controls...")'
         in module_response.text
     )
-    assert "stream did not start after reload" in response.text
+    assert "stream did not start after reload" in player_response.text
     assert 'navigator.mediaSession.playbackState = "paused";' in module_response.text
     assert 'navigator.mediaSession.playbackState = "none";' in module_response.text
 
@@ -380,9 +387,11 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
     client = TestClient(create_app())
 
     response = client.get("/static/app.js")
+    player_response = client.get("/static/js/player.js")
     media_session_response = client.get("/static/js/media-session.js")
 
     assert response.status_code == 200
+    assert player_response.status_code == 200
     assert media_session_response.status_code == 200
     for event_name in [
         "media-session-play",
@@ -403,18 +412,18 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
         "window-online",
         "window-offline",
     ]:
-        assert event_name in response.text
+        assert event_name in player_response.text
 
     assert (
         '["abort", "canplay", "emptied", "ended", "loadstart", "stalled", "suspend"]'
-        in response.text
+        in player_response.text
     )
-    assert "function audioDebugSnapshot()" in response.text
-    assert "function mediaSessionDebugSnapshot()" in response.text
-    assert "readyState: audioNode.readyState" in response.text
-    assert "networkState: audioNode.networkState" in response.text
-    assert 'currentSrc: audioNode["currentSrc"] || ""' in response.text
-    assert "errorCode: audioNode.error?.code || null" in response.text
+    assert "function audioDebugSnapshot()" in player_response.text
+    assert "function mediaSessionDebugSnapshot()" in player_response.text
+    assert "readyState: audioNode.readyState" in player_response.text
+    assert "networkState: audioNode.networkState" in player_response.text
+    assert 'currentSrc: audioNode["currentSrc"] || ""' in player_response.text
+    assert "errorCode: audioNode.error?.code || null" in player_response.text
 
 
 def test_web_static_js_has_admin_player_debug_panel() -> None:
@@ -422,11 +431,13 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
 
     js_response = client.get("/static/app.js")
     module_response = client.get("/static/js/player-debug.js")
+    player_response = client.get("/static/js/player.js")
     html_response = client.get("/")
     css_response = client.get("/static/styles.css")
 
     assert js_response.status_code == 200
     assert module_response.status_code == 200
+    assert player_response.status_code == 200
     assert html_response.status_code == 200
     assert css_response.status_code == 200
 
@@ -450,7 +461,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
         'const playerDebugPanel = document.querySelector("[data-player-debug-panel]");'
         in js_response.text
     )
-    assert "function playerDebugSnapshot(details = {})" in js_response.text
+    assert "debugSnapshot(details = {})" in player_response.text
     assert "function applyState(nextEnabled, persist = true)" in module_response.text
     assert "function updateVisibility()" in module_response.text
     assert "function render()" in module_response.text

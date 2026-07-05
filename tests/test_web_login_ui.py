@@ -43,13 +43,15 @@ def test_web_static_js_stops_playback_on_logout() -> None:
 
     app_response = client.get("/static/app.js")
     auth_response = client.get("/static/js/auth.js")
+    player_response = client.get("/static/js/player.js")
 
     assert app_response.status_code == 200
     assert auth_response.status_code == 200
+    assert player_response.status_code == 200
     assert "async function logout()" in auth_response.text
     assert "stopPlayback();" in auth_response.text
     assert "setCurrentUser(null);" in auth_response.text
-    assert "function stopPlayback()" in app_response.text
+    assert "function stopPlayback()" in player_response.text
 
 
 def test_web_playlist_picker_replaces_prompt() -> None:

@@ -12,6 +12,7 @@ import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createMediaSessionController } from "/static/js/media-session.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
+import { createPlayerController } from "/static/js/player.js";
 import { createPlaylistController } from "/static/js/playlists.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createSearchController } from "/static/js/search.js";
@@ -114,15 +115,15 @@ const playerDebugSnapshotNode = document.querySelector("[data-player-debug-snaps
 const playerDebugLogNode = document.querySelector("[data-player-debug-log]");
 const playerDebugExportNode = document.querySelector("[data-player-debug-export]");
 
-let currentStation = null;
+let playerController = null;
+let playStation = () => {};
+let setPlayerState = () => {};
+let stopPlayback = () => {};
 let currentView = "search";
 let currentPlaylistName = "";
 let currentUser = null;
 let csrfToken = "";
 let dashboardLoaded = false;
-let startingPlayback = false;
-let softPausingPlayback = false;
-let stoppingPlayback = false;
 function setResultsHeader(kicker, title) {
   if (resultsKickerNode) {
     resultsKickerNode.textContent = kicker;
@@ -162,55 +163,6 @@ const publicStatsController = createPublicStatsController({
   fetchImpl: window.fetch.bind(window),
 });
 
-function audioDebugSnapshot() {
-  if (!audioNode) return null;
-
-  return {
-    paused: audioNode.paused,
-    ended: audioNode.ended,
-    readyState: audioNode.readyState,
-    networkState: audioNode.networkState,
-    currentSrc: audioNode["currentSrc"] || "",
-    src: audioNode.getAttribute("src") || "",
-    errorCode: audioNode.error?.code || null,
-    errorMessage: audioNode.error?.message || "",
-  };
-}
-
-function mediaSessionDebugSnapshot() {
-  if (!("mediaSession" in navigator)) return null;
-
-  try {
-    return {
-      playbackState: navigator.mediaSession.playbackState || "",
-      hasMetadata: Boolean(navigator.mediaSession.metadata),
-    };
-  } catch (_error) {
-    return { unavailable: true };
-  }
-}
-
-function playerDebugSnapshot(details = {}) {
-  return {
-    state: playerBar?.dataset.state || "",
-    station: currentStation
-      ? {
-          name: currentStation.name || currentStation.custom_name || "",
-          url: stationUrl(currentStation),
-        }
-      : null,
-    flags: {
-      startingPlayback,
-      softPausingPlayback,
-      stoppingPlayback,
-    },
-    audio: audioDebugSnapshot(),
-    mediaSession: mediaSessionDebugSnapshot(),
-    visibilityState: document.visibilityState || "",
-    details,
-  };
-}
-
 const playerDebugController = createPlayerDebugController({
   panel: playerDebugPanel,
   summaryNode: playerDebugSummaryNode,
@@ -223,7 +175,7 @@ const playerDebugController = createPlayerDebugController({
   snapshotNode: playerDebugSnapshotNode,
   logNode: playerDebugLogNode,
   exportNode: playerDebugExportNode,
-  getSnapshot: playerDebugSnapshot,
+  getSnapshot: (details) => playerController?.debugSnapshot(details) || { details },
   isVisible: () => Boolean(currentUser?.is_admin) && !isSetupAvailable(),
 });
 
@@ -543,223 +495,38 @@ const authController = createAuthController({
   setCurrentUser: (user) => {
     currentUser = user;
   },
-  stopPlayback,
+  stopPlayback: () => stopPlayback(),
   updateAuthUi,
 });
 const { loadAuthState, login, logout } = authController;
 
-function setPlayerState(state, message) {
-  logPlayerEvent("player-state", { state, message });
-  if (playerBar) {
-    playerBar.dataset.state = state;
-  }
-
-  if (playerStatusNode) {
-    playerStatusNode.textContent = message;
-  }
-
-  updateMediaSessionState(state);
-}
-
 const mediaSessionController = createMediaSessionController({
-  getCurrentStation: () => currentStation,
+  getCurrentStation: () => playerController?.getCurrentStation() || null,
   logPlayerEvent,
-  pauseCurrentStationPlayback,
-  startCurrentStationPlayback,
+  pauseCurrentStationPlayback: (message) =>
+    playerController?.pauseCurrentStationPlayback(message),
+  startCurrentStationPlayback: (message) =>
+    playerController?.startCurrentStationPlayback(message),
 });
 
-const {
-  clearMediaSessionMetadata,
-  setMediaSessionMetadata,
-  setupMediaSessionHandlers,
-  updateMediaSessionState,
-} = mediaSessionController;
+const { setupMediaSessionHandlers } = mediaSessionController;
 
-function updatePlayerControls() {
-  if (!audioNode || !playerToggleButton || !playerStopButton) return;
+playerController = createPlayerController({
+  audioNode,
+  playerBar,
+  titleNode: playerTitleNode,
+  statusNode: playerStatusNode,
+  toggleButton: playerToggleButton,
+  stopButton: playerStopButton,
+  openLink: playerOpenLink,
+  stationUrl,
+  logPlayerEvent,
+  mediaSessionController,
+  recordHistory: (station) => recordHistory(station),
+  resetRecordedHistory: () => favoriteController.resetRecordedHistory(),
+});
 
-  const hasStream = Boolean(currentStation && stationUrl(currentStation));
-  playerToggleButton.disabled = !hasStream;
-  playerStopButton.disabled = !hasStream;
-
-  if (audioNode.paused || playerBar?.dataset.state === "loading") {
-    playerToggleButton.textContent = "Resume";
-  } else {
-    playerToggleButton.textContent = "Pause";
-  }
-
-  if (playerOpenLink) {
-    playerOpenLink.hidden = !hasStream;
-
-    if (hasStream) {
-      playerOpenLink.href = stationUrl(currentStation);
-    } else {
-      playerOpenLink.removeAttribute("href");
-    }
-  }
-}
-
-
-function clearAudioSource() {
-  if (!audioNode) return;
-
-  audioNode.pause();
-  audioNode.removeAttribute("src");
-  audioNode.load();
-}
-
-function waitForAudioPlaybackStart(timeoutMs = 4500) {
-  if (!audioNode) return Promise.reject(new Error("Audio element is unavailable."));
-
-  return new Promise((resolve, reject) => {
-    let timeoutId = 0;
-
-    const cleanup = () => {
-      window.clearTimeout(timeoutId);
-      audioNode.removeEventListener("playing", handleStarted);
-      audioNode.removeEventListener("canplay", handleStarted);
-      audioNode.removeEventListener("error", handleError);
-    };
-
-    const handleStarted = () => {
-      cleanup();
-      resolve();
-    };
-
-    const handleError = () => {
-      cleanup();
-      reject(new Error("stream failed to start after reload"));
-    };
-
-    timeoutId = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("stream did not start after reload"));
-    }, timeoutMs);
-
-    audioNode.addEventListener("playing", handleStarted, { once: true });
-    audioNode.addEventListener("canplay", handleStarted, { once: true });
-    audioNode.addEventListener("error", handleError, { once: true });
-  });
-}
-
-async function attemptCurrentStationPlayback(streamUrl) {
-  if (!audioNode) return;
-
-  logPlayerEvent("playback-attempt", { streamUrl });
-  clearAudioSource();
-  audioNode.src = streamUrl;
-  audioNode.load();
-
-  const playbackStarted = waitForAudioPlaybackStart();
-  await audioNode.play();
-  await playbackStarted;
-  logPlayerEvent("playback-attempt-started", { streamUrl });
-}
-
-async function startCurrentStationPlayback(message = "Loading stream...") {
-  if (!audioNode || !currentStation) return;
-
-  logPlayerEvent("playback-start-request", { message });
-
-  const streamUrl = stationUrl(currentStation);
-  if (!streamUrl) {
-    setPlayerState("error", "This station has no playable stream URL.");
-    updatePlayerControls();
-    return;
-  }
-
-  startingPlayback = true;
-  setMediaSessionMetadata(currentStation);
-  setPlayerState("loading", message);
-  updatePlayerControls();
-
-  try {
-    try {
-      await attemptCurrentStationPlayback(streamUrl);
-    } catch (firstError) {
-      logPlayerEvent("playback-retry", { error: String(firstError) });
-      await attemptCurrentStationPlayback(streamUrl);
-    }
-
-    setPlayerState("playing", "Playing in browser.");
-    await recordHistory(currentStation);
-  } catch (error) {
-    logPlayerEvent("playback-start-failed", { error: String(error) });
-    audioNode.pause();
-    setPlayerState(
-      "error",
-      `Browser playback failed. Try opening the stream directly. ${error}`,
-    );
-  } finally {
-    startingPlayback = false;
-    updatePlayerControls();
-  }
-}
-
-function pauseCurrentStationPlayback(message = "Paused.") {
-  if (!audioNode || !currentStation) return;
-
-  logPlayerEvent("playback-pause-request", { message });
-  softPausingPlayback = true;
-  audioNode.pause();
-  setMediaSessionMetadata(currentStation);
-  setPlayerState("paused", message);
-  updatePlayerControls();
-  window.setTimeout(() => {
-    softPausingPlayback = false;
-  }, 0);
-}
-
-async function playStation(station) {
-  if (!audioNode || !playerTitleNode || !playerOpenLink) return;
-
-  const streamUrl = stationUrl(station);
-  if (!streamUrl) {
-    setPlayerState("error", "This station has no playable stream URL.");
-    return;
-  }
-
-  currentStation = station;
-  favoriteController.resetRecordedHistory();
-  playerTitleNode.textContent = station.name || "Unknown station";
-  playerOpenLink.href = streamUrl;
-  playerOpenLink.hidden = false;
-
-  await startCurrentStationPlayback("Loading stream...");
-}
-
-function stopPlayback() {
-  if (!audioNode || !playerTitleNode || !playerOpenLink) return;
-
-  logPlayerEvent("playback-stop-request");
-  stoppingPlayback = true;
-  clearAudioSource();
-
-  currentStation = null;
-  favoriteController.resetRecordedHistory();
-  playerTitleNode.textContent = "Nothing playing yet";
-  playerOpenLink.hidden = true;
-  playerOpenLink.removeAttribute("href");
-
-  clearMediaSessionMetadata();
-  setPlayerState("idle", "Idle");
-  updatePlayerControls();
-  window.setTimeout(() => {
-    stoppingPlayback = false;
-  }, 0);
-}
-
-async function togglePlayback() {
-  if (!audioNode || !currentStation) return;
-
-  logPlayerEvent("playback-toggle");
-
-  if (audioNode.paused || playerBar?.dataset.state === "loading") {
-    await startCurrentStationPlayback("Resuming stream...");
-  } else {
-    pauseCurrentStationPlayback("Paused.");
-  }
-}
+({ playStation, setPlayerState, stopPlayback } = playerController);
 
 const stationRenderer = createStationRenderer({
   renderState: () => ({
@@ -1131,14 +898,7 @@ if (loadPlaylistsButton) {
 }
 
 setupMediaSessionHandlers();
-
-if (playerToggleButton) {
-  playerToggleButton.addEventListener("click", togglePlayback);
-}
-
-if (playerStopButton) {
-  playerStopButton.addEventListener("click", stopPlayback);
-}
+playerController.initialize();
 
 if (playerDebugEnableInput) {
   playerDebugEnableInput.addEventListener("change", () => {
@@ -1146,80 +906,6 @@ if (playerDebugEnableInput) {
     logPlayerEvent("player-debug-toggle", { enabled: playerDebugController.enabled });
   });
 }
-
-if (audioNode) {
-  audioNode.addEventListener("play", () => {
-    logPlayerEvent("audio-play");
-    if (currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback) {
-      startCurrentStationPlayback("Restarting live stream...");
-    }
-  });
-
-  audioNode.addEventListener("playing", () => {
-    logPlayerEvent("audio-playing");
-    if (currentStation) {
-      setPlayerState("playing", "Playing in browser.");
-      recordHistory(currentStation);
-    }
-
-    updatePlayerControls();
-  });
-
-  audioNode.addEventListener("pause", () => {
-    logPlayerEvent("audio-pause");
-    if (currentStation && !startingPlayback && !stoppingPlayback) {
-      setMediaSessionMetadata(currentStation);
-      setPlayerState("paused", "Paused.");
-    }
-    updatePlayerControls();
-  });
-
-  audioNode.addEventListener("waiting", () => {
-    logPlayerEvent("audio-waiting");
-    if (currentStation) {
-      setPlayerState("loading", "Buffering stream...");
-    }
-  });
-
-  audioNode.addEventListener("error", () => {
-    logPlayerEvent("audio-error");
-    if (currentStation) {
-      setPlayerState("error", "Browser playback failed. Try Open stream.");
-    }
-    updatePlayerControls();
-  });
-
-  ["abort", "canplay", "emptied", "ended", "loadstart", "stalled", "suspend"].forEach((eventName) => {
-    audioNode.addEventListener(eventName, () => {
-      logPlayerEvent(`audio-${eventName}`);
-    });
-  });
-}
-
-if (typeof document !== "undefined") {
-  document.addEventListener("visibilitychange", () => {
-    logPlayerEvent("document-visibilitychange");
-  });
-}
-
-window.addEventListener("pagehide", () => {
-  logPlayerEvent("window-pagehide");
-});
-
-window.addEventListener("pageshow", () => {
-  logPlayerEvent("window-pageshow");
-});
-
-window.addEventListener("online", () => {
-  logPlayerEvent("window-online");
-});
-
-window.addEventListener("offline", () => {
-  logPlayerEvent("window-offline");
-});
-
-
-updatePlayerControls();
 
 
 async function initializeAuthFlow() {

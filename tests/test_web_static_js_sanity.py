@@ -194,6 +194,30 @@ def test_web_static_js_uses_playlists_module() -> None:
     assert "function setPlaylistDialogMessage" not in app_response.text
 
 
+def test_web_static_js_uses_playlist_renderer_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/playlist-renderer.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createPlaylistRenderer } from "/static/js/playlist-renderer.js";'
+        in app_response.text
+    )
+    assert "export function createPlaylistRenderer" in module_response.text
+    assert "function renderPlaylists(payload)" in module_response.text
+    assert "function bindPlaylistActions()" in module_response.text
+    assert "data-create-playlist" in module_response.text
+    assert "data-open-playlist" in module_response.text
+    assert "data-delete-playlist" in module_response.text
+    assert "const playlistRenderer = createPlaylistRenderer({" in app_response.text
+    assert "const { bindPlaylistActions, renderPlaylists } = playlistRenderer;" in app_response.text
+    assert "function renderPlaylists(payload)" not in app_response.text
+    assert "function bindPlaylistActions()" not in app_response.text
+
+
 def test_web_static_js_uses_favorites_module() -> None:
     client = TestClient(create_app())
 

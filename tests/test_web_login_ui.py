@@ -12,6 +12,7 @@ def test_web_index_exposes_login_ui() -> None:
 
     assert response.status_code == 200
     assert "data-login-form" in response.text
+    assert 'method="post" action="/api/auth/login" data-login-form' in response.text
     assert "data-auth-panel" in response.text
     assert "data-logout" in response.text
 

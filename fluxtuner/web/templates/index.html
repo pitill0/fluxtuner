@@ -84,7 +84,7 @@
           </div>
         </div>
 
-        <form class="setup-form" data-setup-form>
+        <form class="setup-form" method="post" action="/api/setup/create-admin" data-setup-form>
           <label>
             <span>Admin username</span>
             <input
@@ -161,7 +161,7 @@
             </div>
           </div>
 
-          <form class="auth-form" data-login-form>
+          <form class="auth-form" method="post" action="/api/auth/login" data-login-form>
             <label>
               <span>Username</span>
               <input
@@ -502,7 +502,7 @@
           Choose a new password. It will only become active if an administrator approves the request.
         </p>
 
-        <form class="auth-form register-form" data-password-change-form>
+        <form class="auth-form register-form" method="post" action="/api/auth/password-change-requests" data-password-change-form>
           <label>
             <span>Username</span>
             <input name="username" type="text" autocomplete="username" maxlength="80" required>
@@ -548,7 +548,7 @@
           Create a pending account for this private FluxTuner server. No email is sent; try signing in later to check whether an administrator has approved it.
         </p>
 
-        <form class="auth-form register-form" data-register-form>
+        <form class="auth-form register-form" method="post" action="/api/auth/register" data-register-form>
           <label>
             <span>Username</span>
             <input name="username" type="text" autocomplete="username" maxlength="80" required>

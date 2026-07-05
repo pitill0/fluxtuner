@@ -12,6 +12,11 @@ def test_web_index_exposes_pending_registration_form() -> None:
 
     assert response.status_code == 200
     assert "data-register-form" in response.text
+    assert 'method="post" action="/api/auth/register" data-register-form' in response.text
+    assert (
+        'method="post" action="/api/auth/password-change-requests" data-password-change-form'
+        in response.text
+    )
     assert "Request access" in response.text
     assert "No email is sent" in response.text
 

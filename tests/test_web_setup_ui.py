@@ -13,6 +13,7 @@ def test_web_index_exposes_first_run_setup_ui() -> None:
     assert response.status_code == 200
     assert "data-setup-panel" in response.text
     assert "data-setup-form" in response.text
+    assert 'method="post" action="/api/setup/create-admin" data-setup-form' in response.text
     assert "data-setup-token-field" in response.text
 
 

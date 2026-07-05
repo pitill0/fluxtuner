@@ -31,6 +31,37 @@ function setAdminUserDangerFeedback(button, message) {
   }
 }
 
+function adminUserActionButton(action, username, label) {
+  return `<button type="button" data-admin-user-action="${action}" data-admin-username="${username}">${label}</button>`;
+}
+
+function adminUserActions(user, username) {
+  const approvalStatus = String(user.approval_status || "approved").toLowerCase();
+  const isPending = approvalStatus === "pending";
+  const isRejected = approvalStatus === "rejected";
+  const isDisabled = approvalStatus === "disabled";
+  const actions = [];
+
+  if (isPending) {
+    actions.push(adminUserActionButton("approve", username, "Approve"));
+    actions.push(adminUserActionButton("reject", username, "Reject"));
+  } else if (isRejected) {
+    actions.push(adminUserActionButton("approve", username, "Approve"));
+  } else if (isDisabled || !user.is_active) {
+    actions.push(adminUserActionButton("activate", username, "Activate"));
+  } else {
+    actions.push(adminUserActionButton("deactivate", username, "Deactivate"));
+  }
+
+  if (user.is_admin) {
+    actions.push(adminUserActionButton("revoke-admin", username, "Revoke admin"));
+  } else {
+    actions.push(adminUserActionButton("grant-admin", username, "Grant admin"));
+  }
+
+  return actions.join("");
+}
+
 export function createAdminController({
   apiFetch,
   usersNode,
@@ -94,6 +125,7 @@ export function createAdminController({
             const adminLabel = user.is_admin ? "yes" : "no";
             const activeLabel = user.is_active ? "yes" : "no";
             const approvalStatus = escapeHtml(user.approval_status || "approved");
+            const userActions = adminUserActions(user, username);
             const isCurrentUser = currentUser()?.username === user.username;
             const deleteAction = isCurrentUser
               ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
@@ -113,12 +145,9 @@ export function createAdminController({
                 <span role="cell" data-cell-label="Active">${activeLabel}</span>
                 <span role="cell" data-cell-label="Status">${approvalStatus}</span>
                 <span class="admin-user-actions" role="cell" data-cell-label="Actions">
-                  <button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>
-                  <button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>
-                  <button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
-                  <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>
-                  <button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Grant admin</button>
-                  <button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Revoke admin</button>
+                  <div class="admin-user-actions-normal">
+                    ${userActions}
+                  </div>
                   <details class="admin-user-danger-zone">
                     <summary>${dangerTitle}</summary>
                     <div>

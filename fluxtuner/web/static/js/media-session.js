@@ -16,6 +16,7 @@ export function createMediaSessionController({
   logPlayerEvent,
   pauseCurrentStationPlayback,
   startCurrentStationPlayback,
+  stopPlayback,
 }) {
   function setMediaSessionMetadata(station) {
     if (!("mediaSession" in navigator) || !("MediaMetadata" in window) || !station) return;
@@ -79,8 +80,8 @@ export function createMediaSessionController({
         pauseCurrentStationPlayback();
       });
       navigator.mediaSession.setActionHandler("stop", () => {
-        logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });
-        pauseCurrentStationPlayback("Playback paused by system controls.");
+        logPlayerEvent("media-session-stop", { behavior: "stop-playback" });
+        stopPlayback();
       });
     } catch (_error) {
       // Some browsers expose mediaSession without supporting all handlers.

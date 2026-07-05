@@ -2,6 +2,9 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+const PLAYBACK_START_TIMEOUT_MS = 12000;
+const BUFFERING_NOTICE_TIMEOUT_MS = 8000;
+
 export function createPlayerController({
   audioNode,
   playerBar,
@@ -23,6 +26,8 @@ export function createPlayerController({
   let softPausingPlayback = false;
   let stoppingPlayback = false;
   let initialized = false;
+  let playbackRunId = 0;
+  let bufferingNoticeTimeoutId = 0;
 
   function audioDebugSnapshot() {
     if (!audioNode) return null;
@@ -66,6 +71,7 @@ export function createPlayerController({
         softPausingPlayback,
         stoppingPlayback,
       },
+      playbackRunId,
       audio: audioDebugSnapshot(),
       mediaSession: mediaSessionDebugSnapshot(),
       visibilityState: documentRef.visibilityState || "",
@@ -75,6 +81,39 @@ export function createPlayerController({
 
   function getCurrentStation() {
     return currentStation;
+  }
+
+  function currentStreamUrl() {
+    return currentStation ? stationUrl(currentStation) : "";
+  }
+
+  function nextPlaybackRun() {
+    playbackRunId += 1;
+    return playbackRunId;
+  }
+
+  function isCurrentPlaybackRun(runId) {
+    return runId === playbackRunId;
+  }
+
+  function clearBufferingNotice() {
+    if (!bufferingNoticeTimeoutId) return;
+
+    windowRef.clearTimeout(bufferingNoticeTimeoutId);
+    bufferingNoticeTimeoutId = 0;
+  }
+
+  function scheduleBufferingNotice(runId, message = "Still buffering stream...") {
+    clearBufferingNotice();
+    bufferingNoticeTimeoutId = windowRef.setTimeout(() => {
+      bufferingNoticeTimeoutId = 0;
+      if (!currentStation || !isCurrentPlaybackRun(runId) || playerBar?.dataset.state !== "loading") {
+        return;
+      }
+
+      setPlayerState("loading", message);
+      updatePlayerControls();
+    }, BUFFERING_NOTICE_TIMEOUT_MS);
   }
 
   function setPlayerState(state, message) {
@@ -94,10 +133,17 @@ export function createPlayerController({
     if (!audioNode || !toggleButton || !stopButton) return;
 
     const hasStream = Boolean(currentStation && stationUrl(currentStation));
-    toggleButton.disabled = !hasStream;
+    const state = playerBar?.dataset.state || "idle";
+    const isLoading = state === "loading" || startingPlayback;
+
+    toggleButton.disabled = !hasStream || isLoading;
     stopButton.disabled = !hasStream;
 
-    if (audioNode.paused || playerBar?.dataset.state === "loading") {
+    if (isLoading) {
+      toggleButton.textContent = "Loading...";
+    } else if (state === "error") {
+      toggleButton.textContent = "Retry";
+    } else if (audioNode.paused) {
       toggleButton.textContent = "Resume";
     } else {
       toggleButton.textContent = "Pause";
@@ -122,7 +168,7 @@ export function createPlayerController({
     audioNode.load();
   }
 
-  function waitForAudioPlaybackStart(timeoutMs = 4500) {
+  function waitForAudioPlaybackStart(runId, timeoutMs = PLAYBACK_START_TIMEOUT_MS) {
     if (!audioNode) return Promise.reject(new Error("Audio element is unavailable."));
 
     return new Promise((resolve, reject) => {
@@ -131,13 +177,25 @@ export function createPlayerController({
       const cleanup = () => {
         windowRef.clearTimeout(timeoutId);
         audioNode.removeEventListener("playing", handleStarted);
-        audioNode.removeEventListener("canplay", handleStarted);
+        audioNode.removeEventListener("timeupdate", handleStarted);
         audioNode.removeEventListener("error", handleError);
+        audioNode.removeEventListener("stalled", handleStalled);
+      };
+
+      const resolveIfCurrent = () => {
+        if (!isCurrentPlaybackRun(runId)) {
+          cleanup();
+          reject(new Error("playback request was replaced"));
+          return false;
+        }
+
+        cleanup();
+        resolve();
+        return true;
       };
 
       const handleStarted = () => {
-        cleanup();
-        resolve();
+        resolveIfCurrent();
       };
 
       const handleError = () => {
@@ -145,35 +203,55 @@ export function createPlayerController({
         reject(new Error("stream failed to start after reload"));
       };
 
+      const handleStalled = () => {
+        if (isCurrentPlaybackRun(runId)) {
+          scheduleBufferingNotice(runId, "Still waiting for stream data...");
+        }
+      };
+
       timeoutId = windowRef.setTimeout(() => {
         cleanup();
-        reject(new Error("stream did not start after reload"));
+        reject(new Error("stream did not start in time"));
       }, timeoutMs);
 
       audioNode.addEventListener("playing", handleStarted, { once: true });
-      audioNode.addEventListener("canplay", handleStarted, { once: true });
+      audioNode.addEventListener("timeupdate", handleStarted, { once: true });
       audioNode.addEventListener("error", handleError, { once: true });
+      audioNode.addEventListener("stalled", handleStalled, { once: true });
     });
   }
 
-  async function attemptCurrentStationPlayback(streamUrl) {
+  async function attemptCurrentStationPlayback(streamUrl, runId) {
     if (!audioNode) return;
 
-    logPlayerEvent("playback-attempt", { streamUrl });
+    logPlayerEvent("playback-attempt", { streamUrl, runId });
     clearAudioSource();
+
+    if (!isCurrentPlaybackRun(runId)) {
+      throw new Error("playback request was replaced");
+    }
+
     audioNode.src = streamUrl;
     audioNode.load();
+    scheduleBufferingNotice(runId, "Still loading stream...");
 
-    const playbackStarted = waitForAudioPlaybackStart();
+    const playbackStarted = waitForAudioPlaybackStart(runId);
     await audioNode.play();
     await playbackStarted;
-    logPlayerEvent("playback-attempt-started", { streamUrl });
+
+    if (!isCurrentPlaybackRun(runId)) {
+      throw new Error("playback request was replaced");
+    }
+
+    clearBufferingNotice();
+    logPlayerEvent("playback-attempt-started", { streamUrl, runId });
   }
 
   async function startCurrentStationPlayback(message = "Loading stream...") {
     if (!audioNode || !currentStation) return;
 
-    logPlayerEvent("playback-start-request", { message });
+    const runId = nextPlaybackRun();
+    logPlayerEvent("playback-start-request", { message, runId });
 
     const streamUrl = stationUrl(currentStation);
     if (!streamUrl) {
@@ -189,24 +267,33 @@ export function createPlayerController({
 
     try {
       try {
-        await attemptCurrentStationPlayback(streamUrl);
+        await attemptCurrentStationPlayback(streamUrl, runId);
       } catch (firstError) {
-        logPlayerEvent("playback-retry", { error: String(firstError) });
-        await attemptCurrentStationPlayback(streamUrl);
+        if (!isCurrentPlaybackRun(runId)) return;
+        logPlayerEvent("playback-retry", { error: String(firstError), runId });
+        setPlayerState("loading", "Retrying stream...");
+        updatePlayerControls();
+        await attemptCurrentStationPlayback(streamUrl, runId);
       }
 
+      if (!isCurrentPlaybackRun(runId)) return;
       setPlayerState("playing", "Playing in browser.");
       await recordHistory(currentStation);
     } catch (error) {
-      logPlayerEvent("playback-start-failed", { error: String(error) });
+      if (!isCurrentPlaybackRun(runId)) return;
+      logPlayerEvent("playback-start-failed", { error: String(error), runId });
+      clearBufferingNotice();
       audioNode.pause();
       setPlayerState(
         "error",
-        `Browser playback failed. Try opening the stream directly. ${error}`,
+        `Could not start this stream. Try Retry, Stop, or Open externally. ${error}`,
       );
     } finally {
-      startingPlayback = false;
-      updatePlayerControls();
+      if (isCurrentPlaybackRun(runId)) {
+        startingPlayback = false;
+        clearBufferingNotice();
+        updatePlayerControls();
+      }
     }
   }
 
@@ -214,6 +301,7 @@ export function createPlayerController({
     if (!audioNode || !currentStation) return;
 
     logPlayerEvent("playback-pause-request", { message });
+    clearBufferingNotice();
     softPausingPlayback = true;
     audioNode.pause();
     mediaSessionController.setMediaSessionMetadata(currentStation);
@@ -246,7 +334,9 @@ export function createPlayerController({
     if (!audioNode || !titleNode || !openLink) return;
 
     logPlayerEvent("playback-stop-request");
+    const runId = nextPlaybackRun();
     stoppingPlayback = true;
+    clearBufferingNotice();
     clearAudioSource();
 
     currentStation = null;
@@ -258,6 +348,8 @@ export function createPlayerController({
     mediaSessionController.clearMediaSessionMetadata();
     setPlayerState("idle", "Idle");
     updatePlayerControls();
+    logPlayerEvent("playback-stopped", { runId });
+
     windowRef.setTimeout(() => {
       stoppingPlayback = false;
     }, 0);
@@ -268,8 +360,14 @@ export function createPlayerController({
 
     logPlayerEvent("playback-toggle");
 
-    if (audioNode.paused || playerBar?.dataset.state === "loading") {
-      await startCurrentStationPlayback("Resuming stream...");
+    if (playerBar?.dataset.state === "loading" || startingPlayback) {
+      return;
+    }
+
+    if (audioNode.paused || playerBar?.dataset.state === "error") {
+      await startCurrentStationPlayback(
+        playerBar?.dataset.state === "error" ? "Retrying stream..." : "Resuming stream...",
+      );
     } else {
       pauseCurrentStationPlayback("Paused.");
     }
@@ -281,12 +379,13 @@ export function createPlayerController({
     audioNode.addEventListener("play", () => {
       logPlayerEvent("audio-play");
       if (currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback) {
-        startCurrentStationPlayback("Restarting live stream...");
+        void startCurrentStationPlayback("Restarting live stream...");
       }
     });
 
     audioNode.addEventListener("playing", () => {
       logPlayerEvent("audio-playing");
+      clearBufferingNotice();
       if (currentStation) {
         setPlayerState("playing", "Playing in browser.");
         recordHistory(currentStation);
@@ -298,6 +397,7 @@ export function createPlayerController({
     audioNode.addEventListener("pause", () => {
       logPlayerEvent("audio-pause");
       if (currentStation && !startingPlayback && !stoppingPlayback) {
+        clearBufferingNotice();
         mediaSessionController.setMediaSessionMetadata(currentStation);
         setPlayerState("paused", "Paused.");
       }
@@ -306,15 +406,18 @@ export function createPlayerController({
 
     audioNode.addEventListener("waiting", () => {
       logPlayerEvent("audio-waiting");
-      if (currentStation) {
+      if (currentStation && !stoppingPlayback) {
         setPlayerState("loading", "Buffering stream...");
+        scheduleBufferingNotice(playbackRunId);
       }
+      updatePlayerControls();
     });
 
     audioNode.addEventListener("error", () => {
       logPlayerEvent("audio-error");
-      if (currentStation) {
-        setPlayerState("error", "Browser playback failed. Try Open stream.");
+      clearBufferingNotice();
+      if (currentStation && !startingPlayback && !stoppingPlayback) {
+        setPlayerState("error", "Stream playback failed. Try Retry, Stop, or Open externally.");
       }
       updatePlayerControls();
     });
@@ -332,6 +435,7 @@ export function createPlayerController({
     if (typeof documentRef !== "undefined") {
       documentRef.addEventListener("visibilitychange", () => {
         logPlayerEvent("document-visibilitychange");
+        updatePlayerControls();
       });
     }
 
@@ -341,6 +445,7 @@ export function createPlayerController({
 
     windowRef.addEventListener("pageshow", () => {
       logPlayerEvent("window-pageshow");
+      updatePlayerControls();
     });
 
     windowRef.addEventListener("online", () => {
@@ -349,6 +454,10 @@ export function createPlayerController({
 
     windowRef.addEventListener("offline", () => {
       logPlayerEvent("window-offline");
+      if (currentStation) {
+        setPlayerState("error", "Browser is offline. Playback may resume when network returns.");
+        updatePlayerControls();
+      }
     });
   }
 

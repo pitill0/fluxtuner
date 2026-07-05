@@ -369,13 +369,15 @@ def test_web_static_js_keeps_station_available_after_media_pause() -> None:
         "const hasStream = Boolean(currentStation && stationUrl(currentStation));"
         in player_response.text
     )
-    assert "toggleButton.disabled = !hasStream;" in player_response.text
+    assert "toggleButton.disabled = !hasStream || isLoading;" in player_response.text
+    assert 'toggleButton.textContent = "Retry";' in player_response.text
     assert "function pauseCurrentStationPlayback" in player_response.text
     assert "function stopPlayback()" in player_response.text
     assert "currentStation = null;" in player_response.text
     assert "async function startCurrentStationPlayback(" in player_response.text
     assert 'audioNode.removeAttribute("src");' in player_response.text
-    assert "audioNode.currentSrc" not in player_response.text
+    assert "let playbackRunId = 0;" in player_response.text
+    assert "function isCurrentPlaybackRun(runId)" in player_response.text
     assert 'audioNode.addEventListener("pause"' in player_response.text
 
 
@@ -402,13 +404,8 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert 'navigator.mediaSession.setActionHandler("play"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("pause"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("stop"' in module_response.text
-    assert (
-        'pauseCurrentStationPlayback("Playback paused by system controls.");'
-        in module_response.text
-    )
-    assert (
-        'navigator.mediaSession.setActionHandler("stop", stopPlayback)' not in module_response.text
-    )
+    assert 'stopPlayback();' in module_response.text
+    assert 'behavior: "stop-playback"' in module_response.text
     assert module_response.text.count('navigator.mediaSession.setActionHandler("play"') == 1
     assert module_response.text.count('navigator.mediaSession.setActionHandler("pause"') == 1
     assert module_response.text.count('navigator.mediaSession.setActionHandler("stop"') == 1
@@ -436,7 +433,11 @@ def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
         'startCurrentStationPlayback("Starting stream from system controls...")'
         in module_response.text
     )
-    assert "stream did not start after reload" in player_response.text
+    assert "stream did not start in time" in player_response.text
+    assert 'audioNode.addEventListener("timeupdate", handleStarted' in player_response.text
+    assert 'audioNode.addEventListener("canplay", handleStarted' not in player_response.text
+    assert "scheduleBufferingNotice" in player_response.text
+    assert "Still buffering stream..." in player_response.text
     assert 'navigator.mediaSession.playbackState = "paused";' in module_response.text
     assert 'navigator.mediaSession.playbackState = "none";' in module_response.text
 
@@ -565,10 +566,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     media_session_response = client.get("/static/js/media-session.js")
 
     assert media_session_response.status_code == 200
-    assert (
-        'logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });'
-        in media_session_response.text
-    )
+    assert 'logPlayerEvent("media-session-stop", { behavior: "stop-playback" });' in media_session_response.text
     assert "Player debug log download started:" in module_response.text
 
     assert ".player-debug-panel" in css_response.text

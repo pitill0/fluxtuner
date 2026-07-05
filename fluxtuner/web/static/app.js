@@ -444,6 +444,7 @@ const mediaSessionController = createMediaSessionController({
     playerController?.pauseCurrentStationPlayback(message),
   startCurrentStationPlayback: (message) =>
     playerController?.startCurrentStationPlayback(message),
+  stopPlayback: () => playerController?.stopPlayback(),
 });
 
 const { setupMediaSessionHandlers } = mediaSessionController;

@@ -49,10 +49,11 @@ def test_web_static_js_renders_only_applicable_admin_user_actions() -> None:
     response = client.get("/static/js/admin.js")
 
     assert response.status_code == 200
-    assert "function adminUserActions(user, username)" in response.text
+    assert "function adminUserActions(user, username, isCurrentUser = false)" in response.text
     assert 'approvalStatus === "pending"' in response.text
-    assert 'approvalStatus === "rejected"' in response.text
-    assert 'approvalStatus === "disabled"' in response.text
+    assert 'approvalStatus === "approved"' in response.text
+    assert 'approvalStatus === "rejected"' not in response.text
+    assert 'approvalStatus === "disabled"' not in response.text
     assert 'actions.push(adminUserActionButton("approve", username, "Approve"));' in response.text
     assert 'actions.push(adminUserActionButton("reject", username, "Reject"));' in response.text
     assert 'actions.push(adminUserActionButton("activate", username, "Activate"));' in response.text
@@ -68,7 +69,8 @@ def test_web_static_js_renders_only_applicable_admin_user_actions() -> None:
         'actions.push(adminUserActionButton("revoke-admin", username, "Revoke admin"));'
         in response.text
     )
-    assert "const userActions = adminUserActions(user, username);" in response.text
+    assert "const userActions = adminUserActions(user, username, isCurrentUser);" in response.text
+    assert "if (!isCurrentUser)" in response.text
     assert '<div class="admin-user-actions-normal">' in response.text
     assert "${userActions}" in response.text
     assert (

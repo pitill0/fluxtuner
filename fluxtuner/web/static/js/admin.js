@@ -35,26 +35,25 @@ function adminUserActionButton(action, username, label) {
   return `<button type="button" data-admin-user-action="${action}" data-admin-username="${username}">${label}</button>`;
 }
 
-function adminUserActions(user, username) {
+function adminUserActions(user, username, isCurrentUser = false) {
   const approvalStatus = String(user.approval_status || "approved").toLowerCase();
   const isPending = approvalStatus === "pending";
-  const isRejected = approvalStatus === "rejected";
-  const isDisabled = approvalStatus === "disabled";
+  const isApproved = approvalStatus === "approved";
   const actions = [];
 
   if (isPending) {
     actions.push(adminUserActionButton("approve", username, "Approve"));
     actions.push(adminUserActionButton("reject", username, "Reject"));
-  } else if (isRejected) {
-    actions.push(adminUserActionButton("approve", username, "Approve"));
-  } else if (isDisabled || !user.is_active) {
-    actions.push(adminUserActionButton("activate", username, "Activate"));
-  } else {
+  } else if (user.is_active && isApproved) {
     actions.push(adminUserActionButton("deactivate", username, "Deactivate"));
+  } else {
+    actions.push(adminUserActionButton("activate", username, "Activate"));
   }
 
   if (user.is_admin) {
-    actions.push(adminUserActionButton("revoke-admin", username, "Revoke admin"));
+    if (!isCurrentUser) {
+      actions.push(adminUserActionButton("revoke-admin", username, "Revoke admin"));
+    }
   } else {
     actions.push(adminUserActionButton("grant-admin", username, "Grant admin"));
   }
@@ -125,8 +124,8 @@ export function createAdminController({
             const adminLabel = user.is_admin ? "yes" : "no";
             const activeLabel = user.is_active ? "yes" : "no";
             const approvalStatus = escapeHtml(user.approval_status || "approved");
-            const userActions = adminUserActions(user, username);
             const isCurrentUser = currentUser()?.username === user.username;
+            const userActions = adminUserActions(user, username, isCurrentUser);
             const deleteAction = isCurrentUser
               ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
               : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}">Delete user</button>`;

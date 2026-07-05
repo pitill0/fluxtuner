@@ -2145,6 +2145,84 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
   }
 }
 
+
+@media (max-width: 60rem) {
+  .admin-users {
+    overflow-x: visible;
+  }
+
+  .admin-users-table {
+    min-width: 0;
+  }
+
+  .admin-users-head {
+    display: none;
+  }
+
+  .admin-users-row,
+  .password-change-request-row {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    align-items: stretch;
+  }
+
+  .admin-users-row [role="cell"] {
+    display: grid;
+    grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr);
+    gap: 0.45rem 0.75rem;
+    min-width: 0;
+  }
+
+  .admin-users-row [role="cell"]::before {
+    content: attr(data-cell-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"] {
+    order: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"]::before {
+    display: none;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Actions"] {
+    order: 2;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Admin"],
+  .admin-users-row [role="cell"][data-cell-label="Active"],
+  .admin-users-row [role="cell"][data-cell-label="Status"],
+  .password-change-request-row [role="cell"][data-cell-label="Created"],
+  .password-change-request-row [role="cell"][data-cell-label="Expires"],
+  .password-change-request-row [role="cell"][data-cell-label="Note"] {
+    order: 3;
+  }
+
+  .admin-user-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-actions::before {
+    display: none;
+  }
+
+  .admin-user-actions button,
+  .admin-user-danger-zone {
+    width: 100%;
+    max-width: none;
+  }
+
+  .admin-user-danger-zone[open] {
+    padding-bottom: 0.75rem;
+  }
+}
+
 /* FluxTuner Web 1.0.1 family QA polish */
 
 .player-bar {

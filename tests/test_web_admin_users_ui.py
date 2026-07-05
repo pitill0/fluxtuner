@@ -30,6 +30,9 @@ def test_web_static_js_wires_admin_user_api() -> None:
     assert "data-admin-user-action" in admin_response.text
     assert 'data-admin-user-action="delete"' in admin_response.text
     assert "DELETE ${username}" in admin_response.text
+    assert '<details class="admin-user-danger-zone">' in admin_response.text
+    assert "<summary>${dangerTitle}</summary>" in admin_response.text
+    assert "Deleting a user is permanent and cannot be undone." in admin_response.text
     assert "data-admin-user-danger-feedback" in admin_response.text
     assert "Confirmation did not match" in admin_response.text
     assert "authToken" not in app_response.text

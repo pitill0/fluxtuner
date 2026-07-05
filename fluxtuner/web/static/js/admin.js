@@ -98,27 +98,35 @@ export function createAdminController({
             const deleteAction = isCurrentUser
               ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
               : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}">Delete user</button>`;
+            const dangerTitle = isCurrentUser ? "Protected user" : "Danger zone";
+            const dangerDescription = isCurrentUser
+              ? "The current signed-in user cannot be deleted."
+              : "Deleting a user is permanent and cannot be undone.";
 
             return `
               <div class="admin-users-row" role="row">
-                <span role="cell">
+                <span role="cell" data-cell-label="User">
                   <strong>${displayName}</strong>
                   <small>${username}</small>
                 </span>
-                <span role="cell">${adminLabel}</span>
-                <span role="cell">${activeLabel}</span>
-                <span role="cell">${approvalStatus}</span>
-                <span class="admin-user-actions" role="cell">
+                <span role="cell" data-cell-label="Admin">${adminLabel}</span>
+                <span role="cell" data-cell-label="Active">${activeLabel}</span>
+                <span role="cell" data-cell-label="Status">${approvalStatus}</span>
+                <span class="admin-user-actions" role="cell" data-cell-label="Actions">
                   <button type="button" data-admin-user-action="activate" data-admin-username="${username}">Activate</button>
                   <button type="button" data-admin-user-action="deactivate" data-admin-username="${username}">Deactivate</button>
                   <button type="button" data-admin-user-action="approve" data-admin-username="${username}">Approve</button>
                   <button type="button" data-admin-user-action="reject" data-admin-username="${username}">Reject</button>
                   <button type="button" data-admin-user-action="grant-admin" data-admin-username="${username}">Grant admin</button>
                   <button type="button" data-admin-user-action="revoke-admin" data-admin-username="${username}">Revoke admin</button>
-                  <div class="admin-user-danger-zone">
-                    ${deleteAction}
-                    <small data-admin-user-danger-feedback></small>
-                  </div>
+                  <details class="admin-user-danger-zone">
+                    <summary>${dangerTitle}</summary>
+                    <div>
+                      <strong>${dangerDescription}</strong>
+                      ${deleteAction}
+                      <small class="admin-user-danger-feedback" data-admin-user-danger-feedback></small>
+                    </div>
+                  </details>
                 </span>
               </div>
             `;
@@ -159,14 +167,14 @@ export function createAdminController({
 
             return `
               <div class="admin-users-row password-change-request-row" role="row">
-                <span role="cell">
+                <span role="cell" data-cell-label="User">
                   <strong>${displayName}</strong>
                   <small>${username}</small>
                 </span>
-                <span role="cell">${createdAt}</span>
-                <span role="cell">${expiresAt}</span>
-                <span role="cell"><small>${note}</small></span>
-                <span class="admin-user-actions" role="cell">
+                <span role="cell" data-cell-label="Created">${createdAt}</span>
+                <span role="cell" data-cell-label="Expires">${expiresAt}</span>
+                <span role="cell" data-cell-label="Note"><small>${note}</small></span>
+                <span class="admin-user-actions" role="cell" data-cell-label="Actions">
                   <button type="button" data-admin-password-change-action="approve" data-request-id="${id}">Approve</button>
                   <button type="button" data-admin-password-change-action="reject" data-request-id="${id}">Reject</button>
                 </span>

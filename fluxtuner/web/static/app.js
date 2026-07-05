@@ -10,6 +10,7 @@ import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
+import { createMediaSessionController } from "/static/js/media-session.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlaylistController } from "/static/js/playlists.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
@@ -560,50 +561,19 @@ function setPlayerState(state, message) {
   updateMediaSessionState(state);
 }
 
-function setMediaSessionMetadata(station) {
-  if (!("mediaSession" in navigator) || !("MediaMetadata" in window) || !station) return;
+const mediaSessionController = createMediaSessionController({
+  getCurrentStation: () => currentStation,
+  logPlayerEvent,
+  pauseCurrentStationPlayback,
+  startCurrentStationPlayback,
+});
 
-  try {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: station.name || station.custom_name || "Unknown station",
-      artist: "FluxTuner Web",
-      album: "Internet radio",
-    });
-  } catch (_error) {
-    // MediaMetadata is optional even when mediaSession exists.
-  }
-}
-
-function clearMediaSessionMetadata() {
-  if (!("mediaSession" in navigator)) return;
-
-  try {
-    navigator.mediaSession.metadata = null;
-    navigator.mediaSession.playbackState = "none";
-  } catch (_error) {
-    // Some browsers expose mediaSession only partially.
-  }
-}
-
-function updateMediaSessionState(state) {
-  if (!("mediaSession" in navigator)) return;
-
-  try {
-    if (currentStation) {
-      setMediaSessionMetadata(currentStation);
-    }
-
-    if (state === "playing" || state === "loading") {
-      navigator.mediaSession.playbackState = "playing";
-    } else if (state === "paused" || currentStation) {
-      navigator.mediaSession.playbackState = "paused";
-    } else {
-      navigator.mediaSession.playbackState = "none";
-    }
-  } catch (_error) {
-    // Media Session support varies across desktop and mobile browsers.
-  }
-}
+const {
+  clearMediaSessionMetadata,
+  setMediaSessionMetadata,
+  setupMediaSessionHandlers,
+  updateMediaSessionState,
+} = mediaSessionController;
 
 function updatePlayerControls() {
   if (!audioNode || !playerToggleButton || !playerStopButton) return;
@@ -1158,29 +1128,6 @@ if (loadFavoritesButton) {
 
 if (loadPlaylistsButton) {
   loadPlaylistsButton.addEventListener("click", loadPlaylists);
-}
-
-function setupMediaSessionHandlers() {
-  if (!("mediaSession" in navigator)) return;
-
-  try {
-    navigator.mediaSession.setActionHandler("play", () => {
-      logPlayerEvent("media-session-play");
-      if (currentStation) {
-        void startCurrentStationPlayback("Starting stream from system controls...");
-      }
-    });
-    navigator.mediaSession.setActionHandler("pause", () => {
-      logPlayerEvent("media-session-pause");
-      pauseCurrentStationPlayback();
-    });
-    navigator.mediaSession.setActionHandler("stop", () => {
-      logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });
-      pauseCurrentStationPlayback("Playback paused by system controls.");
-    });
-  } catch (_error) {
-    // Some browsers expose mediaSession without supporting all handlers.
-  }
 }
 
 setupMediaSessionHandlers();

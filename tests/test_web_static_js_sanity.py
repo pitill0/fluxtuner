@@ -300,20 +300,33 @@ def test_web_static_js_keeps_station_available_after_media_pause() -> None:
 def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/media-session.js")
 
-    assert response.status_code == 200
-    assert "navigator.mediaSession.metadata" in response.text
-    assert "new MediaMetadata" in response.text
-    assert "function setupMediaSessionHandlers()" in response.text
-    assert 'navigator.mediaSession.setActionHandler("play"' in response.text
-    assert 'navigator.mediaSession.setActionHandler("pause"' in response.text
-    assert 'navigator.mediaSession.setActionHandler("stop"' in response.text
-    assert 'pauseCurrentStationPlayback("Playback paused by system controls.");' in response.text
-    assert 'navigator.mediaSession.setActionHandler("stop", stopPlayback)' not in response.text
-    assert response.text.count('navigator.mediaSession.setActionHandler("play"') == 1
-    assert response.text.count('navigator.mediaSession.setActionHandler("pause"') == 1
-    assert response.text.count('navigator.mediaSession.setActionHandler("stop"') == 1
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createMediaSessionController } from "/static/js/media-session.js";'
+        in app_response.text
+    )
+    assert "export function createMediaSessionController" in module_response.text
+    assert "navigator.mediaSession.metadata" in module_response.text
+    assert "new MediaMetadata" in module_response.text
+    assert "function setupMediaSessionHandlers()" in module_response.text
+    assert 'navigator.mediaSession.setActionHandler("play"' in module_response.text
+    assert 'navigator.mediaSession.setActionHandler("pause"' in module_response.text
+    assert 'navigator.mediaSession.setActionHandler("stop"' in module_response.text
+    assert (
+        'pauseCurrentStationPlayback("Playback paused by system controls.");'
+        in module_response.text
+    )
+    assert (
+        'navigator.mediaSession.setActionHandler("stop", stopPlayback)' not in module_response.text
+    )
+    assert module_response.text.count('navigator.mediaSession.setActionHandler("play"') == 1
+    assert module_response.text.count('navigator.mediaSession.setActionHandler("pause"') == 1
+    assert module_response.text.count('navigator.mediaSession.setActionHandler("stop"') == 1
+    assert "function setupMediaSessionHandlers()" not in app_response.text
 
 
 def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
@@ -324,14 +337,21 @@ def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
     assert response.status_code == 200
     assert "function waitForAudioPlaybackStart" in response.text
     assert "function attemptCurrentStationPlayback" in response.text
-    assert response.text.count("function updateMediaSessionState") == 1
+    module_response = client.get("/static/js/media-session.js")
+
+    assert module_response.status_code == 200
+    assert response.text.count("updateMediaSessionState") >= 1
+    assert "function updateMediaSessionState" not in response.text
     assert response.text.count("function waitForAudioPlaybackStart") == 1
     assert response.text.count("function attemptCurrentStationPlayback") == 1
-    assert response.text.count("function setupMediaSessionHandlers") == 1
-    assert 'startCurrentStationPlayback("Starting stream from system controls...")' in response.text
+    assert "function setupMediaSessionHandlers" not in response.text
+    assert (
+        'startCurrentStationPlayback("Starting stream from system controls...")'
+        in module_response.text
+    )
     assert "stream did not start after reload" in response.text
-    assert 'navigator.mediaSession.playbackState = "paused";' in response.text
-    assert 'navigator.mediaSession.playbackState = "none";' in response.text
+    assert 'navigator.mediaSession.playbackState = "paused";' in module_response.text
+    assert 'navigator.mediaSession.playbackState = "none";' in module_response.text
 
 
 def test_web_static_js_has_opt_in_player_debug_logging() -> None:
@@ -360,12 +380,18 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
     client = TestClient(create_app())
 
     response = client.get("/static/app.js")
+    media_session_response = client.get("/static/js/media-session.js")
 
     assert response.status_code == 200
+    assert media_session_response.status_code == 200
     for event_name in [
         "media-session-play",
         "media-session-pause",
         "media-session-stop",
+    ]:
+        assert event_name in media_session_response.text
+
+    for event_name in [
         "audio-play",
         "audio-playing",
         "audio-pause",
@@ -445,9 +471,12 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert 'new Blob([data], { type: "text/plain;charset=utf-8" })' in module_response.text
     assert "link.download = filename;" in module_response.text
     assert "window.setTimeout(() => URL.revokeObjectURL(url), 1000);" in module_response.text
+    media_session_response = client.get("/static/js/media-session.js")
+
+    assert media_session_response.status_code == 200
     assert (
         'logPlayerEvent("media-session-stop", { behavior: "pause-with-station-preserved" });'
-        in js_response.text
+        in media_session_response.text
     )
     assert "Player debug log download started:" in module_response.text
 

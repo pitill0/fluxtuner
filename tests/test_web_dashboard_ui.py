@@ -23,9 +23,11 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
 
     app_response = client.get("/static/app.js")
     dashboard_response = client.get("/static/js/dashboard.js")
+    ui_shell_response = client.get("/static/js/ui-shell.js")
 
     assert app_response.status_code == 200
     assert dashboard_response.status_code == 200
+    assert ui_shell_response.status_code == 200
     assert 'document.querySelector("[data-nav-dashboard]")' in app_response.text
     assert (
         'import { createDashboardController } from "/static/js/dashboard.js";' in app_response.text
@@ -35,7 +37,8 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
     assert "async function loadDashboard()" in dashboard_response.text
     assert 'apiFetch("/api/dashboard"' in dashboard_response.text
     assert "function renderDashboard(payload)" in dashboard_response.text
-    assert "function showDashboardView()" in app_response.text
+    assert "function showDashboardView()" in ui_shell_response.text
+    assert "function showDashboardView()" not in app_response.text
     assert "function renderDashboard(payload)" not in app_response.text
 
 

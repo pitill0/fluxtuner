@@ -134,30 +134,34 @@ def test_web_index_uses_real_icon_for_favicon() -> None:
 def test_web_static_js_controls_mobile_menu() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert 'document.querySelector("[data-nav-toggle]")' in response.text
-    assert "function setMobileMenuOpen(open)" in response.text
-    assert "function closeMobileMenu()" in response.text
-    assert "appHeader.dataset.mobileMenuOpen = nextState;" in response.text
-    assert 'navToggleButton.setAttribute("aria-expanded", nextState);' in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'document.querySelector("[data-nav-toggle]")' in app_response.text
+    assert "function setMobileMenuOpen(open)" in module_response.text
+    assert "function closeMobileMenu()" in module_response.text
+    assert "appHeader.dataset.mobileMenuOpen = nextState;" in module_response.text
+    assert 'navToggleButton.setAttribute("aria-expanded", nextState);' in module_response.text
 
 
 def test_web_static_js_admin_is_exclusive_view() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert "function showRadioBrowserView()" in response.text
-    assert "function showAdminView()" in response.text
-    assert "searchPanel.hidden = true;" in response.text
-    assert "searchPanel.hidden = false;" in response.text
-    assert "adminPanel.hidden = true;" in response.text
-    assert "adminPanel.hidden = false;" in response.text
-    assert "showAdminView();" in response.text
-    assert "adminPanel.hidden = false;\n\n    if (!adminUsersLoaded)" not in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert "function showRadioBrowserView()" in module_response.text
+    assert "function showAdminView()" in module_response.text
+    assert "searchPanel.hidden = true;" in module_response.text
+    assert "searchPanel.hidden = false;" in module_response.text
+    assert "adminPanel.hidden = true;" in module_response.text
+    assert "adminPanel.hidden = false;" in module_response.text
+    assert "showAdminView();" in app_response.text
+    assert "adminPanel.hidden = false;\n\n    if (!adminUsersLoaded)" not in app_response.text
 
 
 def test_web_css_has_clean_header_and_admin_view() -> None:
@@ -271,13 +275,15 @@ def test_web_css_has_light_theme() -> None:
 def test_web_static_js_hides_player_without_auth_and_resets_non_admin_view() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert 'playerBar.removeAttribute("hidden")' in response.text
-    assert 'playerBar.setAttribute("hidden", "")' in response.text
-    assert "showRadioBrowserView();" in response.text
-    assert "searchPanel.hidden" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'playerBar.removeAttribute("hidden")' in module_response.text
+    assert 'playerBar.setAttribute("hidden", "")' in module_response.text
+    assert "showRadioBrowserView();" in module_response.text
+    assert "searchPanel.hidden" in module_response.text
 
 
 def test_web_css_has_accessible_playlist_dialog_theme() -> None:
@@ -321,26 +327,29 @@ def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:
 def test_web_static_js_controls_player_visibility_from_auth_ui() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
-
-    assert response.status_code == 200
-    assert "function setPlayerVisible(isVisible)" in response.text
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
     setup_response = client.get("/static/js/setup.js")
 
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
     assert setup_response.status_code == 200
+    assert "function setPlayerVisible(isVisible)" in module_response.text
     assert "setPlayerVisible(!setupAvailable && authenticated);" in setup_response.text
-    assert 'playerBar.removeAttribute("hidden")' in response.text
-    assert 'playerBar.setAttribute("hidden", "")' in response.text
+    assert 'playerBar.removeAttribute("hidden")' in module_response.text
+    assert 'playerBar.setAttribute("hidden", "")' in module_response.text
 
 
 def test_web_static_js_resets_search_view_on_auth_changes() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert "function resetRadioBrowserView()" in response.text
-    assert 'currentView = "search";' in response.text
-    assert 'currentPlaylistName = "";' in response.text
-    assert 'setResultsHeader("Radio Browser", "Search stations");' in response.text
-    assert "resetRadioBrowserView();" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert "function resetRadioBrowserView()" in module_response.text
+    assert 'setCurrentView("search");' in module_response.text
+    assert 'setCurrentPlaylistName("");' in module_response.text
+    assert 'setResultsHeader("Radio Browser", "Search stations");' in module_response.text
+    assert "resetRadioBrowserView();" in app_response.text

@@ -18,6 +18,7 @@ import { createPublicStatsController } from "/static/js/public-stats.js";
 import { createSearchController } from "/static/js/search.js";
 import { createSetupController } from "/static/js/setup.js";
 import { createThemeController } from "/static/js/theme.js";
+import { createUiShellController } from "/static/js/ui-shell.js";
 import { createStationRenderer } from "/static/js/station-renderer.js";
 import { escapeHtml, stationUrl } from "/static/js/stations.js";
 
@@ -124,21 +125,39 @@ let currentPlaylistName = "";
 let currentUser = null;
 let csrfToken = "";
 let dashboardLoaded = false;
-function setResultsHeader(kicker, title) {
-  if (resultsKickerNode) {
-    resultsKickerNode.textContent = kicker;
-  }
 
-  if (resultsTitleNode) {
-    resultsTitleNode.textContent = title;
-  }
-}
+const uiShellController = createUiShellController({
+  adminPanel,
+  appContentNodes,
+  appHeader,
+  dashboardPanel,
+  navToggleButton,
+  playerBar,
+  resultCountNode,
+  resultsKickerNode,
+  resultsNode,
+  resultsTitleNode,
+  searchPanel,
+  setCurrentPlaylistName: (value) => {
+    currentPlaylistName = value;
+  },
+  setCurrentView: (value) => {
+    currentView = value;
+  },
+});
 
-function setAppContentVisible(visible) {
-  appContentNodes.forEach((node) => {
-    node.hidden = !visible;
-  });
-}
+const {
+  closeMobileMenu,
+  resetRadioBrowserView,
+  scrollToSection,
+  setAppContentVisible,
+  setMobileMenuOpen,
+  setPlayerVisible,
+  setResultsHeader,
+  showAdminView,
+  showDashboardView,
+  showRadioBrowserView,
+} = uiShellController;
 
 const themeController = createThemeController({
   toggleButton: themeToggleButton,
@@ -183,19 +202,6 @@ const logPlayerEvent = playerDebugController.logEvent;
 
 playerDebugController.initialize();
 
-function scrollToSection(node) {
-  if (!node) return;
-  node.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function setMobileMenuOpen(open) {
-  if (!appHeader || !navToggleButton) return;
-
-  const nextState = open ? "true" : "false";
-  appHeader.dataset.mobileMenuOpen = nextState;
-  navToggleButton.setAttribute("aria-expanded", nextState);
-}
-
 function closeOpenDialog() {
   if (playlistDialog && !playlistDialog.hidden) {
     closePlaylistDialog();
@@ -213,77 +219,6 @@ function closeOpenDialog() {
   }
 
   return false;
-}
-
-function closeMobileMenu() {
-  setMobileMenuOpen(false);
-}
-
-function setPlayerVisible(isVisible) {
-  if (!playerBar) return;
-
-  if (isVisible) {
-    playerBar.removeAttribute("hidden");
-  } else {
-    playerBar.setAttribute("hidden", "");
-  }
-}
-
-function resetRadioBrowserView() {
-  showRadioBrowserView();
-  currentView = "search";
-  currentPlaylistName = "";
-  setResultsHeader("Radio Browser", "Search stations");
-
-  if (resultCountNode) {
-    resultCountNode.textContent = "";
-  }
-
-  if (resultsNode) {
-    resultsNode.innerHTML = '<p class="empty">Search Radio Browser to find internet radio stations.</p>';
-  }
-}
-
-function showRadioBrowserView() {
-  if (searchPanel) {
-    searchPanel.hidden = false;
-  }
-
-  if (dashboardPanel) {
-    dashboardPanel.hidden = true;
-  }
-
-  if (adminPanel) {
-    adminPanel.hidden = true;
-  }
-}
-
-function showDashboardView() {
-  if (searchPanel) {
-    searchPanel.hidden = true;
-  }
-
-  if (dashboardPanel) {
-    dashboardPanel.hidden = false;
-  }
-
-  if (adminPanel) {
-    adminPanel.hidden = true;
-  }
-}
-
-function showAdminView() {
-  if (searchPanel) {
-    searchPanel.hidden = true;
-  }
-
-  if (dashboardPanel) {
-    dashboardPanel.hidden = true;
-  }
-
-  if (adminPanel) {
-    adminPanel.hidden = false;
-  }
 }
 
 async function navigateToPrivateView(loader) {

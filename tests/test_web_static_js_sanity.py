@@ -36,6 +36,25 @@ def test_web_static_js_uses_theme_module() -> None:
     assert "function systemThemePreference()" not in app_response.text
 
 
+def test_web_static_js_uses_ui_shell_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'import { createUiShellController } from "/static/js/ui-shell.js";' in app_response.text
+    assert "export function createUiShellController" in module_response.text
+    assert "function setResultsHeader" in module_response.text
+    assert "function resetRadioBrowserView" in module_response.text
+    assert "function showDashboardView" in module_response.text
+    assert "const uiShellController = createUiShellController({" in app_response.text
+    assert "function setResultsHeader" not in app_response.text
+    assert "function resetRadioBrowserView" not in app_response.text
+    assert "function showDashboardView" not in app_response.text
+
+
 def test_web_static_js_uses_public_stats_module() -> None:
     client = TestClient(create_app())
 

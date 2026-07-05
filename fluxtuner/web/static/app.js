@@ -371,8 +371,8 @@ const dashboardController = createDashboardController({
   adminPanelNode: dashboardAdminPanel,
   adminMetricsNode: dashboardAdminMetricsNode,
   adminActionButton: dashboardAdminActionButton,
-  renderStation,
-  bindResultActions,
+  renderStation: (station) => renderStation(station),
+  bindResultActions: () => bindResultActions(),
   showDashboardView,
   isAuthenticated: () => Boolean(currentUser),
   setDashboardLoaded: (value) => {

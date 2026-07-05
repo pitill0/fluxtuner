@@ -2,6 +2,15 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+const DEFAULT_ARTWORK = [
+  { src: "/static/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+  { src: "/static/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+];
+
+function stationTitle(station) {
+  return station?.name || station?.custom_name || station?.title || station?.url || "Unknown station";
+}
+
 export function createMediaSessionController({
   getCurrentStation,
   logPlayerEvent,
@@ -13,9 +22,10 @@ export function createMediaSessionController({
 
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: station.name || station.custom_name || "Unknown station",
+        title: stationTitle(station),
         artist: "FluxTuner Web",
         album: "Internet radio",
+        artwork: DEFAULT_ARTWORK,
       });
     } catch (_error) {
       // MediaMetadata is optional even when mediaSession exists.

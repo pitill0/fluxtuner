@@ -39,6 +39,17 @@ def test_web_static_js_does_not_store_auth_tokens() -> None:
     assert "localStorage" not in auth_response.text
 
 
+def test_web_static_js_shows_login_errors_after_auth_ui_reset() -> None:
+    client = TestClient(create_app())
+
+    auth_response = client.get("/static/js/auth.js")
+
+    assert auth_response.status_code == 200
+    assert "authMessageNode.hidden = false;" in auth_response.text
+    assert "error instanceof Error ? error.message : String(error)" in auth_response.text
+    assert "Invalid username or password." in auth_response.text
+
+
 def test_web_static_js_stops_playback_on_logout() -> None:
     client = TestClient(create_app())
 

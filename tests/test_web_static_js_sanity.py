@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from fluxtuner.web.app import create_app
@@ -173,6 +175,30 @@ def test_web_static_js_uses_station_renderer_module() -> None:
     assert "const { bindResultActions, renderStation } = stationRenderer;" in app_response.text
     assert "function renderStation(station)" not in app_response.text
     assert "function parseStationButton(button)" not in app_response.text
+
+
+def test_web_static_js_defers_dashboard_station_renderer_callbacks() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+    assert "renderStation: (station) => renderStation(station)," in response.text
+    assert "bindResultActions: () => bindResultActions()," in response.text
+    dashboard_index = response.text.index("const dashboardController = createDashboardController({")
+    station_renderer_index = response.text.index("const stationRenderer = createStationRenderer({")
+    assert dashboard_index < station_renderer_index
+
+
+def test_web_manifest_is_valid_json() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/site.webmanifest")
+
+    assert response.status_code == 200
+    manifest = json.loads(response.text)
+    assert manifest["name"] == "FluxTuner Web"
+    assert manifest["categories"] == ["music", "entertainment"]
 
 
 def test_web_static_js_uses_playlists_module() -> None:
@@ -361,6 +387,10 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert "export function createMediaSessionController" in module_response.text
     assert "navigator.mediaSession.metadata" in module_response.text
     assert "new MediaMetadata" in module_response.text
+    assert "artwork: DEFAULT_ARTWORK" in module_response.text
+    assert "/static/icons/icon-192.png" in module_response.text
+    assert "/static/icons/icon-512.png" in module_response.text
+    assert "function stationTitle(station)" in module_response.text
     assert "function setupMediaSessionHandlers()" in module_response.text
     assert 'navigator.mediaSession.setActionHandler("play"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("pause"' in module_response.text

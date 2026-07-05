@@ -84,7 +84,8 @@ export function createAuthController({
       setCurrentUser(null);
       setCsrfToken("");
       updateAuthUi();
-      authMessageNode.textContent = String(error);
+      authMessageNode.hidden = false;
+      authMessageNode.textContent = error instanceof Error ? error.message : String(error);
     }
   }
 

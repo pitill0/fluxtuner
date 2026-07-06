@@ -273,7 +273,7 @@ export function createAdminController({
           : "Password change request rejected.",
       );
       await loadPasswordChangeRequests({ silent: true });
-      await loadDashboard();
+      await loadDashboard({ preserveView: true, silent: true });
     } catch (error) {
       setMessage(String(error));
     }
@@ -485,7 +485,7 @@ export function createAdminController({
         setAdminUserDangerFeedback(button, "User deleted.");
       }
       await loadUsers();
-      await loadDashboard();
+      await loadDashboard({ preserveView: true, silent: true });
     } catch (error) {
       setMessage(String(error));
       if (action === "delete") {

@@ -642,10 +642,37 @@ select:focus {
 
 .setup-form {
   grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  grid-template-areas:
+    "username token"
+    "password confirm"
+    "actions actions";
+  align-items: start;
+}
+
+.setup-form > label {
+  align-self: start;
+}
+
+.setup-form > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+.setup-form > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+.setup-form > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+.setup-form > label:nth-of-type(4) {
+  grid-area: token;
 }
 
 .setup-form button {
+  grid-area: actions;
   width: fit-content;
+  margin-top: 0.15rem;
 }
 
 .auth-panel[data-authenticated="true"] .auth-form {
@@ -931,6 +958,63 @@ footer {
   .setup-form,
   .admin-forms {
     grid-template-columns: 1fr;
+  }
+
+  .setup-form {
+    grid-template-areas:
+      "username"
+      "token"
+      "password"
+      "confirm"
+      "actions";
+  }
+
+
+  [data-password-change-form],
+  [data-register-form],
+  [data-admin-create-user-form],
+  [data-admin-password-form] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-password-change-form] {
+    grid-template-areas:
+      "username"
+      "note"
+      "password"
+      "confirm"
+      "message"
+      "actions";
+  }
+
+  [data-register-form] {
+    grid-template-areas:
+      "username"
+      "display"
+      "password"
+      "note"
+      "message"
+      "actions";
+  }
+
+  [data-admin-create-user-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "display"
+      "password"
+      "confirm"
+      "admin"
+      "actions";
+  }
+
+  [data-admin-password-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "password"
+      "confirm"
+      "actions";
   }
 
   .search-form button,
@@ -1994,6 +2078,131 @@ html[data-theme="light"] .playlist-dialog-card {
 
 .register-form .station-actions {
   grid-column: 1 / -1;
+}
+
+
+[data-password-change-form],
+[data-register-form] {
+  align-items: start;
+}
+
+[data-password-change-form] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "username note"
+    "password confirm"
+    "message message"
+    "actions actions";
+}
+
+[data-register-form] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "username display"
+    "password note"
+    "message message"
+    "actions actions";
+}
+
+[data-password-change-form] > label,
+[data-register-form] > label {
+  align-self: start;
+}
+
+[data-password-change-form] > label:nth-of-type(1),
+[data-register-form] > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+[data-password-change-form] > label:nth-of-type(2),
+[data-register-form] > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+[data-password-change-form] > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+[data-password-change-form] > label:nth-of-type(4),
+[data-register-form] > label:nth-of-type(4) {
+  grid-area: note;
+}
+
+[data-register-form] > label:nth-of-type(3) {
+  grid-area: display;
+}
+
+[data-password-change-form] .register-dialog-message,
+[data-register-form] .register-dialog-message {
+  grid-area: message;
+}
+
+[data-password-change-form] .station-actions,
+[data-register-form] .station-actions {
+  grid-area: actions;
+  grid-column: auto;
+}
+
+[data-admin-create-user-form],
+[data-admin-password-form] {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-admin-create-user-form] {
+  grid-template-areas:
+    "title title"
+    "username display"
+    "password confirm"
+    "admin admin"
+    "actions actions";
+}
+
+[data-admin-password-form] {
+  grid-template-areas:
+    "title title"
+    "username username"
+    "password confirm"
+    "actions actions";
+}
+
+[data-admin-create-user-form] > h3,
+[data-admin-password-form] > h3 {
+  grid-area: title;
+}
+
+[data-admin-create-user-form] > label,
+[data-admin-password-form] > label {
+  align-self: start;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(1),
+[data-admin-password-form] > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(2) {
+  grid-area: display;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(3),
+[data-admin-password-form] > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(4),
+[data-admin-password-form] > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+[data-admin-create-user-form] > .checkbox-label {
+  grid-area: admin;
+}
+
+[data-admin-create-user-form] > button,
+[data-admin-password-form] > button {
+  grid-area: actions;
+  width: fit-content;
 }
 
 .auth-note {

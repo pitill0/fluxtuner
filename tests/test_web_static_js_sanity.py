@@ -119,6 +119,7 @@ def test_web_static_js_uses_admin_module() -> None:
     assert "function renderPasswordChangeRequests" in admin_response.text
     assert "if (usersLoaded) {" in admin_response.text
     assert "await loadPasswordChangeRequests({ silent: true });" in admin_response.text
+    assert "await loadDashboard({ preserveView: true, silent: true });" in admin_response.text
     assert "function renderUsers" not in app_response.text
 
 
@@ -584,3 +585,29 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert ".player-debug-actions" in css_response.text
     assert ".player-debug-export" in css_response.text
     assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_response.text
+
+
+def test_web_setup_form_layout_keeps_password_fields_together() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/styles.css")
+
+    assert response.status_code == 200
+    assert '"username token"' in response.text
+    assert '"password confirm"' in response.text
+    assert "grid-area: token;" in response.text
+
+
+def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/styles.css")
+
+    assert response.status_code == 200
+    assert "[data-password-change-form]" in response.text
+    assert '"username note"' in response.text
+    assert '"password confirm"' in response.text
+    assert "[data-register-form]" in response.text
+    assert '"username display"' in response.text
+    assert "[data-admin-create-user-form]" in response.text
+    assert "[data-admin-password-form]" in response.text

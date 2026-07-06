@@ -52,7 +52,7 @@ export function createSetupController({
 
     if (setupMessageNode && setupAvailable) {
       setupMessageNode.textContent = setupRequiresToken
-        ? "Enter the setup verification value configured on the server."
+        ? "Enter the setup verification token configured on the server."
         : "Local first-run setup is available. Create the first administrator.";
     }
   }

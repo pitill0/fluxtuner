@@ -100,13 +100,21 @@ export function createDashboardController({
     }
   }
 
-  async function loadDashboard() {
+  async function loadDashboard(options = {}) {
     if (!isAuthenticated() || !panelNode) return;
 
-    setCurrentView("dashboard");
-    setCurrentPlaylistName("");
-    showDashboardView();
-    setDashboardMessage("Loading dashboard...");
+    const preserveView = Boolean(options.preserveView);
+    const silent = Boolean(options.silent);
+
+    if (!preserveView) {
+      setCurrentView("dashboard");
+      setCurrentPlaylistName("");
+      showDashboardView();
+    }
+
+    if (!silent) {
+      setDashboardMessage("Loading dashboard...");
+    }
 
     try {
       const response = await apiFetch("/api/dashboard", {
@@ -123,7 +131,9 @@ export function createDashboardController({
       const payload = await response.json();
       renderDashboard(payload);
       setDashboardLoaded(true);
-      setDashboardMessage("Dashboard updated.");
+      if (!silent) {
+        setDashboardMessage("Dashboard updated.");
+      }
     } catch (error) {
       setDashboardMessage(String(error));
     }

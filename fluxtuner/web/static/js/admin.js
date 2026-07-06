@@ -308,7 +308,11 @@ export function createAdminController({
   }
 
   async function loadUsersIfNeeded() {
-    if (usersLoaded) return;
+    if (usersLoaded) {
+      await loadPasswordChangeRequests({ silent: true });
+      return;
+    }
+
     usersLoaded = true;
     await loadUsers();
   }

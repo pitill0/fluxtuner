@@ -92,6 +92,11 @@ def test_web_static_js_uses_account_requests_module() -> None:
     assert "export function createAccountRequestsController" in module_response.text
     assert 'fetchImpl("/api/auth/register"' in module_response.text
     assert 'fetchImpl("/api/auth/password-change-requests"' in module_response.text
+    assert "authMessageNode.hidden = false;" in module_response.text
+    assert module_response.text.count("authMessageNode.hidden = false;") == 2
+    assert "function errorMessage" in module_response.text
+    assert "setPasswordChangeMessage(errorMessage(error));" in module_response.text
+    assert "setRegisterMessage(errorMessage(error));" in module_response.text
     assert "function focusFirstDialogControl" in module_response.text
     assert "function setRegisterMessage" not in app_response.text
     assert "function setPasswordChangeMessage" not in app_response.text
@@ -112,6 +117,8 @@ def test_web_static_js_uses_admin_module() -> None:
     assert "data-admin-user-action" in admin_response.text
     assert "function renderUsers" in admin_response.text
     assert "function renderPasswordChangeRequests" in admin_response.text
+    assert "if (usersLoaded) {" in admin_response.text
+    assert "await loadPasswordChangeRequests({ silent: true });" in admin_response.text
     assert "function renderUsers" not in app_response.text
 
 
@@ -404,7 +411,7 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert 'navigator.mediaSession.setActionHandler("play"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("pause"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("stop"' in module_response.text
-    assert 'stopPlayback();' in module_response.text
+    assert "stopPlayback();" in module_response.text
     assert 'behavior: "stop-playback"' in module_response.text
     assert module_response.text.count('navigator.mediaSession.setActionHandler("play"') == 1
     assert module_response.text.count('navigator.mediaSession.setActionHandler("pause"') == 1
@@ -566,7 +573,10 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     media_session_response = client.get("/static/js/media-session.js")
 
     assert media_session_response.status_code == 200
-    assert 'logPlayerEvent("media-session-stop", { behavior: "stop-playback" });' in media_session_response.text
+    assert (
+        'logPlayerEvent("media-session-stop", { behavior: "stop-playback" });'
+        in media_session_response.text
+    )
     assert "Player debug log download started:" in module_response.text
 
     assert ".player-debug-panel" in css_response.text

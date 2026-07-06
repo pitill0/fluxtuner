@@ -2197,7 +2197,12 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
   }
 
   .admin-users-row [role="cell"][data-cell-label="Actions"] {
+    grid-template-columns: 1fr;
     order: 2;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Actions"]::before {
+    display: none;
   }
 
   .admin-users-row [role="cell"][data-cell-label="Admin"],
@@ -2211,20 +2216,48 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
 
   .admin-user-actions {
     grid-template-columns: 1fr;
+    gap: 0.6rem;
   }
 
   .admin-user-actions::before {
     display: none;
   }
 
-  .admin-user-actions button,
+  .admin-user-actions-normal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .admin-user-actions button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
   .admin-user-danger-zone {
     width: 100%;
     max-width: none;
+    margin-top: 0.1rem;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .admin-user-danger-zone summary {
+    padding-inline: 0.1rem;
+    white-space: nowrap;
   }
 
   .admin-user-danger-zone[open] {
     padding-bottom: 0.75rem;
+  }
+}
+
+@media (max-width: 24rem) {
+  .admin-user-actions-normal {
+    grid-template-columns: 1fr;
   }
 }
 

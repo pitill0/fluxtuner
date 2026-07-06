@@ -2,6 +2,10 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function focusFirstDialogControl(dialogNode) {
   if (!dialogNode) return;
 
@@ -84,9 +88,10 @@ export function createAccountRequestsController({
       }
 
       closePasswordChangeDialog();
+      authMessageNode.hidden = false;
       authMessageNode.textContent = payload.message || "Password change request received.";
     } catch (error) {
-      setPasswordChangeMessage(String(error));
+      setPasswordChangeMessage(errorMessage(error));
     }
   }
 
@@ -149,9 +154,10 @@ export function createAccountRequestsController({
       }
 
       closeRegisterDialog();
+      authMessageNode.hidden = false;
       authMessageNode.textContent = payload.message || "Account request received.";
     } catch (error) {
-      setRegisterMessage(String(error));
+      setRegisterMessage(errorMessage(error));
     }
   }
 

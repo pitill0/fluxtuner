@@ -34,7 +34,9 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
     )
     assert "const { loadDashboard } = dashboardController;" in app_response.text
     assert "export function createDashboardController" in dashboard_response.text
-    assert "async function loadDashboard()" in dashboard_response.text
+    assert "async function loadDashboard(options = {})" in dashboard_response.text
+    assert "const preserveView = Boolean(options.preserveView);" in dashboard_response.text
+    assert "const silent = Boolean(options.silent);" in dashboard_response.text
     assert 'apiFetch("/api/dashboard"' in dashboard_response.text
     assert "function renderDashboard(payload)" in dashboard_response.text
     assert "function showDashboardView()" in ui_shell_response.text

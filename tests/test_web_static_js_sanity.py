@@ -404,7 +404,9 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert "export function createMediaSessionController" in module_response.text
     assert "navigator.mediaSession.metadata" in module_response.text
     assert "new MediaMetadata" in module_response.text
-    assert "artwork: DEFAULT_ARTWORK" in module_response.text
+    assert "artwork: resolvedArtwork()" in module_response.text
+    assert "function resolvedArtwork()" in module_response.text
+    assert "new URL(src, window.location.href).href" in module_response.text
     assert "/static/icons/icon-192.png" in module_response.text
     assert "/static/icons/icon-512.png" in module_response.text
     assert "function stationTitle(station)" in module_response.text
@@ -503,10 +505,10 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
     ]:
         assert event_name in player_response.text
 
-    assert (
-        '["abort", "canplay", "emptied", "ended", "loadstart", "stalled", "suspend"]'
-        in player_response.text
-    )
+    for event_name in ["loadedmetadata", "audio-timeupdate-first"]:
+        assert event_name in player_response.text
+    assert "reapplyMediaSessionMetadata" in player_response.text
+    assert '[\n      "abort",' in player_response.text
     assert "function audioDebugSnapshot()" in player_response.text
     assert "function mediaSessionDebugSnapshot()" in player_response.text
     assert "readyState: audioNode.readyState" in player_response.text
@@ -611,3 +613,39 @@ def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:
     assert '"username display"' in response.text
     assert "[data-admin-create-user-form]" in response.text
     assert "[data-admin-password-form]" in response.text
+
+
+def test_web_media_session_metadata_debug_and_reapply() -> None:
+    client = TestClient(create_app())
+
+    media_response = client.get("/static/js/media-session.js")
+    player_response = client.get("/static/js/player.js")
+
+    assert media_response.status_code == 200
+    assert player_response.status_code == 200
+    assert "debugSnapshot" in media_response.text
+    assert "defaultArtwork: resolvedArtwork()" in media_response.text
+    assert "new URL(src, window.location.href).href" in media_response.text
+    assert "media-session-metadata" in media_response.text
+    assert "reapplyCurrentMetadata" in media_response.text
+    assert "mediaSessionController.debugSnapshot()" in player_response.text
+    assert "reapplyMediaSessionMetadata" in player_response.text
+    assert "audio-playing-event" in player_response.text
+    assert "audio-timeupdate-first" in player_response.text
+    assert "window-pageshow" in player_response.text
+
+
+def test_web_player_prepares_audio_for_mobile_media_handoff() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/js/player.js")
+
+    assert response.status_code == 200
+    assert "function prepareAudioElementForMediaHandoff()" in response.text
+    assert 'audioNode.crossOrigin = "anonymous";' in response.text
+    assert "audioNode.title = title;" in response.text
+    assert 'audioNode.setAttribute("aria-label", title);' in response.text
+    assert "document-hidden" in response.text
+    assert "window-pagehide" in response.text
+    assert "visibilityReason" in response.text
+    assert "crossOrigin:" in response.text

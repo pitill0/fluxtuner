@@ -28,6 +28,8 @@ export function createPlayerController({
   let initialized = false;
   let playbackRunId = 0;
   let bufferingNoticeTimeoutId = 0;
+  let lastMetadataTimeupdateRunId = 0;
+
 
   function audioDebugSnapshot() {
     if (!audioNode) return null;
@@ -39,22 +41,21 @@ export function createPlayerController({
       networkState: audioNode.networkState,
       currentSrc: audioNode["currentSrc"] || "",
       src: audioNode.getAttribute("src") || "",
+      crossOrigin: audioNode.crossOrigin || audioNode.getAttribute("crossorigin") || "",
+      title: audioNode.title || "",
+      controls: Boolean(audioNode.controls),
+      preload: audioNode.preload || "",
       errorCode: audioNode.error?.code || null,
       errorMessage: audioNode.error?.message || "",
     };
   }
 
   function mediaSessionDebugSnapshot() {
-    if (!("mediaSession" in navigator)) return null;
-
-    try {
-      return {
-        playbackState: navigator.mediaSession.playbackState || "",
-        hasMetadata: Boolean(navigator.mediaSession.metadata),
-      };
-    } catch (_error) {
-      return { unavailable: true };
+    if (mediaSessionController?.debugSnapshot) {
+      return mediaSessionController.debugSnapshot();
     }
+
+    return null;
   }
 
   function debugSnapshot(details = {}) {
@@ -83,8 +84,27 @@ export function createPlayerController({
     return currentStation;
   }
 
+  function currentStationTitle() {
+    return (
+      currentStation?.name ||
+      currentStation?.custom_name ||
+      currentStation?.title ||
+      stationUrl(currentStation) ||
+      "Unknown station"
+    );
+  }
+
   function currentStreamUrl() {
     return currentStation ? stationUrl(currentStation) : "";
+  }
+
+  function prepareAudioElementForMediaHandoff() {
+    if (!audioNode || !currentStation) return;
+
+    const title = currentStationTitle();
+    audioNode.title = title;
+    audioNode.setAttribute("aria-label", title);
+    audioNode.crossOrigin = "anonymous";
   }
 
   function nextPlaybackRun() {
@@ -111,13 +131,18 @@ export function createPlayerController({
         return;
       }
 
-      setPlayerState("loading", message);
+      setPlayerState("loading", message, "buffering-notice");
       updatePlayerControls();
     }, BUFFERING_NOTICE_TIMEOUT_MS);
   }
 
-  function setPlayerState(state, message) {
-    logPlayerEvent("player-state", { state, message });
+  function reapplyMediaSessionMetadata(reason) {
+    if (!currentStation) return;
+    mediaSessionController.reapplyCurrentMetadata(reason);
+  }
+
+  function setPlayerState(state, message, reason = "player-state") {
+    logPlayerEvent("player-state", { state, message, reason });
     if (playerBar) {
       playerBar.dataset.state = state;
     }
@@ -126,7 +151,7 @@ export function createPlayerController({
       statusNode.textContent = message;
     }
 
-    mediaSessionController.updateMediaSessionState(state);
+    mediaSessionController.updateMediaSessionState(state, reason);
   }
 
   function updatePlayerControls() {
@@ -226,6 +251,7 @@ export function createPlayerController({
 
     logPlayerEvent("playback-attempt", { streamUrl, runId });
     clearAudioSource();
+    prepareAudioElementForMediaHandoff();
 
     if (!isCurrentPlaybackRun(runId)) {
       throw new Error("playback request was replaced");
@@ -237,6 +263,7 @@ export function createPlayerController({
 
     const playbackStarted = waitForAudioPlaybackStart(runId);
     await audioNode.play();
+    reapplyMediaSessionMetadata("audio-play-promise-resolved");
     await playbackStarted;
 
     if (!isCurrentPlaybackRun(runId)) {
@@ -255,14 +282,15 @@ export function createPlayerController({
 
     const streamUrl = stationUrl(currentStation);
     if (!streamUrl) {
-      setPlayerState("error", "This station has no playable stream URL.");
+      setPlayerState("error", "This station has no playable stream URL.", "missing-stream-url");
       updatePlayerControls();
       return;
     }
 
     startingPlayback = true;
-    mediaSessionController.setMediaSessionMetadata(currentStation);
-    setPlayerState("loading", message);
+    prepareAudioElementForMediaHandoff();
+    mediaSessionController.setMediaSessionMetadata(currentStation, "playback-start-request");
+    setPlayerState("loading", message, "playback-start-loading");
     updatePlayerControls();
 
     try {
@@ -271,13 +299,13 @@ export function createPlayerController({
       } catch (firstError) {
         if (!isCurrentPlaybackRun(runId)) return;
         logPlayerEvent("playback-retry", { error: String(firstError), runId });
-        setPlayerState("loading", "Retrying stream...");
+        setPlayerState("loading", "Retrying stream...", "playback-retry-loading");
         updatePlayerControls();
         await attemptCurrentStationPlayback(streamUrl, runId);
       }
 
       if (!isCurrentPlaybackRun(runId)) return;
-      setPlayerState("playing", "Playing in browser.");
+      setPlayerState("playing", "Playing in browser.", "playback-started");
       await recordHistory(currentStation);
     } catch (error) {
       if (!isCurrentPlaybackRun(runId)) return;
@@ -287,6 +315,7 @@ export function createPlayerController({
       setPlayerState(
         "error",
         `Could not start this stream. Try Retry, Stop, or Open externally. ${error}`,
+        "playback-start-error",
       );
     } finally {
       if (isCurrentPlaybackRun(runId)) {
@@ -304,8 +333,8 @@ export function createPlayerController({
     clearBufferingNotice();
     softPausingPlayback = true;
     audioNode.pause();
-    mediaSessionController.setMediaSessionMetadata(currentStation);
-    setPlayerState("paused", message);
+    mediaSessionController.setMediaSessionMetadata(currentStation, "playback-pause-request");
+    setPlayerState("paused", message, "playback-paused");
     updatePlayerControls();
     windowRef.setTimeout(() => {
       softPausingPlayback = false;
@@ -317,13 +346,15 @@ export function createPlayerController({
 
     const streamUrl = stationUrl(station);
     if (!streamUrl) {
-      setPlayerState("error", "This station has no playable stream URL.");
+      setPlayerState("error", "This station has no playable stream URL.", "missing-stream-url");
       return;
     }
 
     currentStation = station;
+    lastMetadataTimeupdateRunId = 0;
+    prepareAudioElementForMediaHandoff();
     resetRecordedHistory();
-    titleNode.textContent = station.name || "Unknown station";
+    titleNode.textContent = currentStationTitle();
     openLink.href = streamUrl;
     openLink.hidden = false;
 
@@ -346,7 +377,7 @@ export function createPlayerController({
     openLink.removeAttribute("href");
 
     mediaSessionController.clearMediaSessionMetadata();
-    setPlayerState("idle", "Idle");
+    setPlayerState("idle", "Idle", "playback-stopped");
     updatePlayerControls();
     logPlayerEvent("playback-stopped", { runId });
 
@@ -378,6 +409,7 @@ export function createPlayerController({
 
     audioNode.addEventListener("play", () => {
       logPlayerEvent("audio-play");
+      reapplyMediaSessionMetadata("audio-play-event");
       if (currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback) {
         void startCurrentStationPlayback("Restarting live stream...");
       }
@@ -385,21 +417,29 @@ export function createPlayerController({
 
     audioNode.addEventListener("playing", () => {
       logPlayerEvent("audio-playing");
+      reapplyMediaSessionMetadata("audio-playing-event");
       clearBufferingNotice();
       if (currentStation) {
-        setPlayerState("playing", "Playing in browser.");
+        setPlayerState("playing", "Playing in browser.", "playback-started");
         recordHistory(currentStation);
       }
 
       updatePlayerControls();
     });
 
+    audioNode.addEventListener("timeupdate", () => {
+      if (!currentStation || lastMetadataTimeupdateRunId === playbackRunId) return;
+      lastMetadataTimeupdateRunId = playbackRunId;
+      logPlayerEvent("audio-timeupdate-first");
+      reapplyMediaSessionMetadata("audio-timeupdate-first");
+    });
+
     audioNode.addEventListener("pause", () => {
       logPlayerEvent("audio-pause");
       if (currentStation && !startingPlayback && !stoppingPlayback) {
         clearBufferingNotice();
-        mediaSessionController.setMediaSessionMetadata(currentStation);
-        setPlayerState("paused", "Paused.");
+        mediaSessionController.setMediaSessionMetadata(currentStation, "playback-pause-request");
+        setPlayerState("paused", "Paused.", "audio-pause");
       }
       updatePlayerControls();
     });
@@ -407,7 +447,7 @@ export function createPlayerController({
     audioNode.addEventListener("waiting", () => {
       logPlayerEvent("audio-waiting");
       if (currentStation && !stoppingPlayback) {
-        setPlayerState("loading", "Buffering stream...");
+        setPlayerState("loading", "Buffering stream...", "audio-waiting");
         scheduleBufferingNotice(playbackRunId);
       }
       updatePlayerControls();
@@ -417,45 +457,69 @@ export function createPlayerController({
       logPlayerEvent("audio-error");
       clearBufferingNotice();
       if (currentStation && !startingPlayback && !stoppingPlayback) {
-        setPlayerState("error", "Stream playback failed. Try Retry, Stop, or Open externally.");
+        setPlayerState("error", "Stream playback failed. Try Retry, Stop, or Open externally.", "audio-error");
       }
       updatePlayerControls();
     });
 
-    ["abort", "canplay", "emptied", "ended", "loadstart", "stalled", "suspend"].forEach(
-      (eventName) => {
-        audioNode.addEventListener(eventName, () => {
-          logPlayerEvent(`audio-${eventName}`);
-        });
-      },
-    );
+    [
+      "abort",
+      "canplay",
+      "emptied",
+      "ended",
+      "loadedmetadata",
+      "loadstart",
+      "stalled",
+      "suspend",
+    ].forEach((eventName) => {
+      audioNode.addEventListener(eventName, () => {
+        logPlayerEvent(`audio-${eventName}`);
+        if (["canplay", "loadedmetadata", "loadstart", "stalled"].includes(eventName)) {
+          reapplyMediaSessionMetadata(`audio-${eventName}`);
+        }
+      });
+    });
   }
 
   function bindLifecycleEvents() {
     if (typeof documentRef !== "undefined") {
       documentRef.addEventListener("visibilitychange", () => {
-        logPlayerEvent("document-visibilitychange");
+        const visibilityReason =
+          documentRef.visibilityState === "hidden" ? "document-hidden" : "document-visible";
+        logPlayerEvent("document-visibilitychange", { visibilityReason });
+        reapplyMediaSessionMetadata(visibilityReason);
+        mediaSessionController.updateMediaSessionState(
+          playerBar?.dataset.state || "idle",
+          visibilityReason,
+        );
         updatePlayerControls();
       });
     }
 
     windowRef.addEventListener("pagehide", () => {
       logPlayerEvent("window-pagehide");
+      reapplyMediaSessionMetadata("window-pagehide");
+      mediaSessionController.updateMediaSessionState(
+        playerBar?.dataset.state || "idle",
+        "window-pagehide",
+      );
     });
 
     windowRef.addEventListener("pageshow", () => {
       logPlayerEvent("window-pageshow");
+      reapplyMediaSessionMetadata("window-pageshow");
       updatePlayerControls();
     });
 
     windowRef.addEventListener("online", () => {
       logPlayerEvent("window-online");
+      reapplyMediaSessionMetadata("window-online");
     });
 
     windowRef.addEventListener("offline", () => {
       logPlayerEvent("window-offline");
       if (currentStation) {
-        setPlayerState("error", "Browser is offline. Playback may resume when network returns.");
+        setPlayerState("error", "Browser is offline. Playback may resume when network returns.", "window-offline");
         updatePlayerControls();
       }
     });

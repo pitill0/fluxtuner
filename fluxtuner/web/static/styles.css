@@ -447,6 +447,7 @@ label {
 input,
 select {
   min-height: 2.7rem;
+  min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 0 1rem;
@@ -474,9 +475,13 @@ select:focus {
 .search-form {
   display: grid;
   grid-template-columns:
-    minmax(14rem, 1.4fr) minmax(10rem, 0.9fr) minmax(8rem, 0.55fr)
-    minmax(7rem, 0.45fr) auto auto;
+    minmax(13rem, 1.25fr) minmax(9rem, 0.85fr) minmax(6.5rem, 0.4fr)
+    minmax(6.5rem, 0.35fr) auto auto;
   align-items: end;
+}
+
+.search-form label {
+  min-width: 0;
 }
 
 .search-debug-label {
@@ -637,10 +642,37 @@ select:focus {
 
 .setup-form {
   grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  grid-template-areas:
+    "username token"
+    "password confirm"
+    "actions actions";
+  align-items: start;
+}
+
+.setup-form > label {
+  align-self: start;
+}
+
+.setup-form > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+.setup-form > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+.setup-form > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+.setup-form > label:nth-of-type(4) {
+  grid-area: token;
 }
 
 .setup-form button {
+  grid-area: actions;
   width: fit-content;
+  margin-top: 0.15rem;
 }
 
 .auth-panel[data-authenticated="true"] .auth-form {
@@ -926,6 +958,63 @@ footer {
   .setup-form,
   .admin-forms {
     grid-template-columns: 1fr;
+  }
+
+  .setup-form {
+    grid-template-areas:
+      "username"
+      "token"
+      "password"
+      "confirm"
+      "actions";
+  }
+
+
+  [data-password-change-form],
+  [data-register-form],
+  [data-admin-create-user-form],
+  [data-admin-password-form] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-password-change-form] {
+    grid-template-areas:
+      "username"
+      "note"
+      "password"
+      "confirm"
+      "message"
+      "actions";
+  }
+
+  [data-register-form] {
+    grid-template-areas:
+      "username"
+      "display"
+      "password"
+      "note"
+      "message"
+      "actions";
+  }
+
+  [data-admin-create-user-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "display"
+      "password"
+      "confirm"
+      "admin"
+      "actions";
+  }
+
+  [data-admin-password-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "password"
+      "confirm"
+      "actions";
   }
 
   .search-form button,
@@ -1991,6 +2080,131 @@ html[data-theme="light"] .playlist-dialog-card {
   grid-column: 1 / -1;
 }
 
+
+[data-password-change-form],
+[data-register-form] {
+  align-items: start;
+}
+
+[data-password-change-form] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "username note"
+    "password confirm"
+    "message message"
+    "actions actions";
+}
+
+[data-register-form] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "username display"
+    "password note"
+    "message message"
+    "actions actions";
+}
+
+[data-password-change-form] > label,
+[data-register-form] > label {
+  align-self: start;
+}
+
+[data-password-change-form] > label:nth-of-type(1),
+[data-register-form] > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+[data-password-change-form] > label:nth-of-type(2),
+[data-register-form] > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+[data-password-change-form] > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+[data-password-change-form] > label:nth-of-type(4),
+[data-register-form] > label:nth-of-type(4) {
+  grid-area: note;
+}
+
+[data-register-form] > label:nth-of-type(3) {
+  grid-area: display;
+}
+
+[data-password-change-form] .register-dialog-message,
+[data-register-form] .register-dialog-message {
+  grid-area: message;
+}
+
+[data-password-change-form] .station-actions,
+[data-register-form] .station-actions {
+  grid-area: actions;
+  grid-column: auto;
+}
+
+[data-admin-create-user-form],
+[data-admin-password-form] {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-admin-create-user-form] {
+  grid-template-areas:
+    "title title"
+    "username display"
+    "password confirm"
+    "admin admin"
+    "actions actions";
+}
+
+[data-admin-password-form] {
+  grid-template-areas:
+    "title title"
+    "username username"
+    "password confirm"
+    "actions actions";
+}
+
+[data-admin-create-user-form] > h3,
+[data-admin-password-form] > h3 {
+  grid-area: title;
+}
+
+[data-admin-create-user-form] > label,
+[data-admin-password-form] > label {
+  align-self: start;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(1),
+[data-admin-password-form] > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(2) {
+  grid-area: display;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(3),
+[data-admin-password-form] > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(4),
+[data-admin-password-form] > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+[data-admin-create-user-form] > .checkbox-label {
+  grid-area: admin;
+}
+
+[data-admin-create-user-form] > button,
+[data-admin-password-form] > button {
+  grid-area: actions;
+  width: fit-content;
+}
+
 .auth-note {
   margin: 0.8rem 0 0;
   color: var(--muted);
@@ -2141,6 +2355,117 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
   .dashboard-grid,
   .dashboard-sections,
   .register-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 60rem) {
+  .admin-users {
+    overflow-x: visible;
+  }
+
+  .admin-users-table {
+    min-width: 0;
+  }
+
+  .admin-users-head {
+    display: none;
+  }
+
+  .admin-users-row,
+  .password-change-request-row {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    align-items: stretch;
+  }
+
+  .admin-users-row [role="cell"] {
+    display: grid;
+    grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr);
+    gap: 0.45rem 0.75rem;
+    min-width: 0;
+  }
+
+  .admin-users-row [role="cell"]::before {
+    content: attr(data-cell-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"] {
+    order: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"]::before {
+    display: none;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Actions"] {
+    grid-template-columns: 1fr;
+    order: 2;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Actions"]::before {
+    display: none;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Admin"],
+  .admin-users-row [role="cell"][data-cell-label="Active"],
+  .admin-users-row [role="cell"][data-cell-label="Status"],
+  .password-change-request-row [role="cell"][data-cell-label="Created"],
+  .password-change-request-row [role="cell"][data-cell-label="Expires"],
+  .password-change-request-row [role="cell"][data-cell-label="Note"] {
+    order: 3;
+  }
+
+  .admin-user-actions {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .admin-user-actions::before {
+    display: none;
+  }
+
+  .admin-user-actions-normal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .admin-user-actions button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .admin-user-danger-zone {
+    width: 100%;
+    max-width: none;
+    margin-top: 0.1rem;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .admin-user-danger-zone summary {
+    padding-inline: 0.1rem;
+    white-space: nowrap;
+  }
+
+  .admin-user-danger-zone[open] {
+    padding-bottom: 0.75rem;
+  }
+}
+
+@media (max-width: 24rem) {
+  .admin-user-actions-normal {
     grid-template-columns: 1fr;
   }
 }

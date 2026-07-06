@@ -21,14 +21,27 @@ def test_web_index_exposes_dashboard_ui() -> None:
 def test_web_static_js_loads_and_renders_dashboard() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    dashboard_response = client.get("/static/js/dashboard.js")
+    ui_shell_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert 'document.querySelector("[data-nav-dashboard]")' in response.text
-    assert "async function loadDashboard()" in response.text
-    assert 'apiFetch("/api/dashboard"' in response.text
-    assert "function renderDashboard(payload)" in response.text
-    assert "function showDashboardView()" in response.text
+    assert app_response.status_code == 200
+    assert dashboard_response.status_code == 200
+    assert ui_shell_response.status_code == 200
+    assert 'document.querySelector("[data-nav-dashboard]")' in app_response.text
+    assert (
+        'import { createDashboardController } from "/static/js/dashboard.js";' in app_response.text
+    )
+    assert "const { loadDashboard } = dashboardController;" in app_response.text
+    assert "export function createDashboardController" in dashboard_response.text
+    assert "async function loadDashboard(options = {})" in dashboard_response.text
+    assert "const preserveView = Boolean(options.preserveView);" in dashboard_response.text
+    assert "const silent = Boolean(options.silent);" in dashboard_response.text
+    assert 'apiFetch("/api/dashboard"' in dashboard_response.text
+    assert "function renderDashboard(payload)" in dashboard_response.text
+    assert "function showDashboardView()" in ui_shell_response.text
+    assert "function showDashboardView()" not in app_response.text
+    assert "function renderDashboard(payload)" not in app_response.text
 
 
 def test_web_static_js_resets_search_navigation() -> None:

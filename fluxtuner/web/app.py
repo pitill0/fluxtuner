@@ -104,6 +104,14 @@ def create_app() -> Any:
         description="FluxTuner web/server interface.",
     )
 
+    @app.middleware("http")
+    async def add_static_cache_headers(request: Request, call_next: Any) -> Response:
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/static/") and path.endswith((".js", ".webmanifest")):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     static_dir = resources.files("fluxtuner.web").joinpath("static")
     app.mount(
         "/static",

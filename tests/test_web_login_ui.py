@@ -12,6 +12,7 @@ def test_web_index_exposes_login_ui() -> None:
 
     assert response.status_code == 200
     assert "data-login-form" in response.text
+    assert 'method="post" action="/api/auth/login" data-login-form' in response.text
     assert "data-auth-panel" in response.text
     assert "data-logout" in response.text
 
@@ -19,41 +20,70 @@ def test_web_index_exposes_login_ui() -> None:
 def test_web_static_js_does_not_store_auth_tokens() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    api_response = client.get("/static/js/api.js")
+    auth_response = client.get("/static/js/auth.js")
 
-    assert response.status_code == 200
-    assert "sessionStorage" not in response.text
-    assert "/api/auth/login" in response.text
-    assert "/api/auth/logout" in response.text
-    assert "/api/auth/me" in response.text
-    assert "X-FluxTuner-CSRF" in response.text
+    assert app_response.status_code == 200
+    assert api_response.status_code == 200
+    assert auth_response.status_code == 200
+    assert "sessionStorage" not in app_response.text
+    assert "sessionStorage" not in api_response.text
+    assert "sessionStorage" not in auth_response.text
+    assert "/api/auth/login" in auth_response.text
+    assert "/api/auth/logout" in auth_response.text
+    assert "/api/auth/me" in auth_response.text
+    assert 'import { createAuthController } from "/static/js/auth.js";' in app_response.text
+    assert "X-FluxTuner-CSRF" in api_response.text
+    assert "localStorage" not in api_response.text
+    assert "localStorage" not in auth_response.text
+
+
+def test_web_static_js_shows_login_errors_after_auth_ui_reset() -> None:
+    client = TestClient(create_app())
+
+    auth_response = client.get("/static/js/auth.js")
+
+    assert auth_response.status_code == 200
+    assert "authMessageNode.hidden = false;" in auth_response.text
+    assert "error instanceof Error ? error.message : String(error)" in auth_response.text
+    assert "Invalid username or password." in auth_response.text
 
 
 def test_web_static_js_stops_playback_on_logout() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    auth_response = client.get("/static/js/auth.js")
+    player_response = client.get("/static/js/player.js")
 
-    assert response.status_code == 200
-    assert "async function logout()" in response.text
-    assert "stopPlayback();\n    currentUser = null;" in response.text
-    assert "function stopPlayback()" in response.text
+    assert app_response.status_code == 200
+    assert auth_response.status_code == 200
+    assert player_response.status_code == 200
+    assert "async function logout()" in auth_response.text
+    assert "stopPlayback();" in auth_response.text
+    assert "setCurrentUser(null);" in auth_response.text
+    assert "function stopPlayback()" in player_response.text
 
 
-def test_web_playlist_picker_replaces_prompt() -> None:
+def test_web_playlist_picker_replaces_station_add_prompt() -> None:
     client = TestClient(create_app())
 
     index_response = client.get("/")
-    js_response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    playlists_response = client.get("/static/js/playlists.js")
 
     assert index_response.status_code == 200
-    assert js_response.status_code == 200
+    assert app_response.status_code == 200
+    assert playlists_response.status_code == 200
     assert "data-playlist-dialog" in index_response.text
     assert "data-playlist-select" in index_response.text
-    assert 'window.prompt("Playlist name:")' not in js_response.text
-    assert "async function openPlaylistDialog(station)" in js_response.text
-    assert "async function submitPlaylistDialog(event)" in js_response.text
-    assert "/api/playlists" in js_response.text
+    assert "window.prompt" not in app_response.text
+    assert "window.prompt" not in playlists_response.text
+    assert "async function openPlaylistDialog(station)" in playlists_response.text
+    assert "async function submitPlaylistDialog(event)" in playlists_response.text
+    assert "async function createPlaylist(playlistName)" in playlists_response.text
+    assert "/api/playlists" in playlists_response.text
 
 
 def test_web_index_has_minimal_hamburger_header() -> None:
@@ -118,30 +148,34 @@ def test_web_index_uses_real_icon_for_favicon() -> None:
 def test_web_static_js_controls_mobile_menu() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert 'document.querySelector("[data-nav-toggle]")' in response.text
-    assert "function setMobileMenuOpen(open)" in response.text
-    assert "function closeMobileMenu()" in response.text
-    assert "appHeader.dataset.mobileMenuOpen = nextState;" in response.text
-    assert 'navToggleButton.setAttribute("aria-expanded", nextState);' in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'document.querySelector("[data-nav-toggle]")' in app_response.text
+    assert "function setMobileMenuOpen(open)" in module_response.text
+    assert "function closeMobileMenu()" in module_response.text
+    assert "appHeader.dataset.mobileMenuOpen = nextState;" in module_response.text
+    assert 'navToggleButton.setAttribute("aria-expanded", nextState);' in module_response.text
 
 
 def test_web_static_js_admin_is_exclusive_view() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert "function showRadioBrowserView()" in response.text
-    assert "function showAdminView()" in response.text
-    assert "searchPanel.hidden = true;" in response.text
-    assert "searchPanel.hidden = false;" in response.text
-    assert "adminPanel.hidden = true;" in response.text
-    assert "adminPanel.hidden = false;" in response.text
-    assert "showAdminView();" in response.text
-    assert "adminPanel.hidden = false;\n\n    if (!adminUsersLoaded)" not in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert "function showRadioBrowserView()" in module_response.text
+    assert "function showAdminView()" in module_response.text
+    assert "searchPanel.hidden = true;" in module_response.text
+    assert "searchPanel.hidden = false;" in module_response.text
+    assert "adminPanel.hidden = true;" in module_response.text
+    assert "adminPanel.hidden = false;" in module_response.text
+    assert "showAdminView();" in app_response.text
+    assert "adminPanel.hidden = false;\n\n    if (!adminUsersLoaded)" not in app_response.text
 
 
 def test_web_css_has_clean_header_and_admin_view() -> None:
@@ -185,13 +219,16 @@ def test_web_admin_health_is_compact_and_collapsible() -> None:
 def test_web_static_js_formats_admin_health_summary() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/health.js")
 
-    assert response.status_code == 200
-    assert 'document.querySelector("[data-health-state]")' in response.text
-    assert 'document.querySelector("[data-health-summary]")' in response.text
-    assert "formatHealthSummary(payload)" in response.text
-    assert "await checkHealth();" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'document.querySelector("[data-health-state]")' in app_response.text
+    assert 'document.querySelector("[data-health-summary]")' in app_response.text
+    assert 'from "/static/js/health.js"' in app_response.text
+    assert "formatHealthSummary(payload)" in module_response.text
+    assert "await checkHealth();" in app_response.text
 
 
 def test_web_css_has_compact_admin_health_bar() -> None:
@@ -219,17 +256,22 @@ def test_web_header_has_theme_toggle() -> None:
 def test_web_static_js_controls_theme_without_auth_storage() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    theme_response = client.get("/static/js/theme.js")
 
-    assert response.status_code == 200
-    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in response.text
-    assert "function applyTheme(theme)" in response.text
-    assert "function toggleTheme()" in response.text
-    assert "storedThemePreference() || systemThemePreference()" in response.text
-    assert 'document.querySelector("[data-theme-toggle]")' in response.text
-    assert "authToken" not in response.text
-    assert "accessToken" not in response.text
-    assert "sessionStorage" not in response.text
+    assert app_response.status_code == 200
+    assert theme_response.status_code == 200
+    assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
+    assert "function applyTheme(theme)" in theme_response.text
+    assert "function toggleTheme()" in theme_response.text
+    assert "storedThemePreference() || systemThemePreference()" in theme_response.text
+    assert 'document.querySelector("[data-theme-toggle]")' in app_response.text
+    assert "authToken" not in app_response.text
+    assert "authToken" not in theme_response.text
+    assert "accessToken" not in app_response.text
+    assert "accessToken" not in theme_response.text
+    assert "sessionStorage" not in app_response.text
+    assert "sessionStorage" not in theme_response.text
 
 
 def test_web_css_has_light_theme() -> None:
@@ -247,13 +289,15 @@ def test_web_css_has_light_theme() -> None:
 def test_web_static_js_hides_player_without_auth_and_resets_non_admin_view() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert 'playerBar.removeAttribute("hidden")' in response.text
-    assert 'playerBar.setAttribute("hidden", "")' in response.text
-    assert "showRadioBrowserView();" in response.text
-    assert "searchPanel.hidden" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert 'playerBar.removeAttribute("hidden")' in module_response.text
+    assert 'playerBar.setAttribute("hidden", "")' in module_response.text
+    assert "showRadioBrowserView();" in module_response.text
+    assert "searchPanel.hidden" in module_response.text
 
 
 def test_web_css_has_accessible_playlist_dialog_theme() -> None:
@@ -297,23 +341,29 @@ def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:
 def test_web_static_js_controls_player_visibility_from_auth_ui() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
+    setup_response = client.get("/static/js/setup.js")
 
-    assert response.status_code == 200
-    assert "function setPlayerVisible(isVisible)" in response.text
-    assert "setPlayerVisible(!setupAvailable && authenticated);" in response.text
-    assert 'playerBar.removeAttribute("hidden")' in response.text
-    assert 'playerBar.setAttribute("hidden", "")' in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert setup_response.status_code == 200
+    assert "function setPlayerVisible(isVisible)" in module_response.text
+    assert "setPlayerVisible(!setupAvailable && authenticated);" in setup_response.text
+    assert 'playerBar.removeAttribute("hidden")' in module_response.text
+    assert 'playerBar.setAttribute("hidden", "")' in module_response.text
 
 
 def test_web_static_js_resets_search_view_on_auth_changes() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/ui-shell.js")
 
-    assert response.status_code == 200
-    assert "function resetRadioBrowserView()" in response.text
-    assert 'currentView = "search";' in response.text
-    assert 'currentPlaylistName = "";' in response.text
-    assert 'setResultsHeader("Radio Browser", "Search stations");' in response.text
-    assert "resetRadioBrowserView();" in response.text
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert "function resetRadioBrowserView()" in module_response.text
+    assert 'setCurrentView("search");' in module_response.text
+    assert 'setCurrentPlaylistName("");' in module_response.text
+    assert 'setResultsHeader("Radio Browser", "Search stations");' in module_response.text
+    assert "resetRadioBrowserView();" in app_response.text

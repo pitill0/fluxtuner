@@ -24,15 +24,18 @@ def test_web_index_includes_public_stats_card() -> None:
 def test_web_static_js_loads_public_stats() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    public_stats_response = client.get("/static/js/public-stats.js")
 
-    assert response.status_code == 200
-    assert '"/api/public/stats"' in response.text
-    assert "loadPublicStats" in response.text
-    assert "renderPublicStats" in response.text
-    assert "renderPublicStatTile" in response.text
-    assert "No public activity yet." in response.text
-    assert '"user", "users"' in response.text
+    assert app_response.status_code == 200
+    assert public_stats_response.status_code == 200
+    assert 'from "/static/js/public-stats.js"' in app_response.text
+    assert '"/api/public/stats"' in public_stats_response.text
+    assert "loadPublicStats" in public_stats_response.text
+    assert "renderPublicStats" in public_stats_response.text
+    assert "renderPublicStatTile" in public_stats_response.text
+    assert "No public activity yet." in public_stats_response.text
+    assert '"user", "users"' in public_stats_response.text
 
 
 def test_web_static_css_styles_public_stats() -> None:

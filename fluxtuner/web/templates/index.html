@@ -321,17 +321,32 @@
                     <button type="button" data-player-debug-clear>Clear</button>
                   </div>
 
-                  <details class="admin-health-details" data-player-debug-details>
+                  <details class="admin-health-details player-debug-details" data-player-debug-details>
                     <summary>Details</summary>
-                    <pre class="status" data-player-debug-snapshot>No player snapshot yet.</pre>
-                    <pre class="status" data-player-debug-log>No player events yet.</pre>
-                    <textarea
-                      class="player-debug-export"
+
+                    <section class="player-debug-section" aria-labelledby="player-debug-current-snapshot-title">
+                      <h4 id="player-debug-current-snapshot-title">Current snapshot</h4>
+                      <p>Current audio, player and Media Session state.</p>
+                      <pre class="status" data-player-debug-snapshot>No player snapshot yet.</pre>
+                    </section>
+
+                    <section class="player-debug-section" aria-labelledby="player-debug-recent-events-title">
+                      <h4 id="player-debug-recent-events-title">Recent events</h4>
+                      <p>Last captured playback and Media Session events.</p>
+                      <pre class="status" data-player-debug-log>No player events yet.</pre>
+                    </section>
+
+                    <section class="player-debug-section player-debug-export-section" aria-labelledby="player-debug-export-title">
+                      <h4 id="player-debug-export-title">Exported debug log</h4>
+                      <p>Shown after copying or downloading when manual selection is useful.</p>
+                      <textarea
+                        class="player-debug-export"
                       data-player-debug-export
                       readonly
-                      hidden
-                      aria-label="Player debug log export"
-                    ></textarea>
+                        hidden
+                        aria-label="Player debug log export"
+                      ></textarea>
+                    </section>
                   </details>
                 </div>
 

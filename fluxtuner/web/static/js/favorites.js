@@ -35,8 +35,8 @@ export function createFavoriteController({
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-    } catch (error) {
-      console.warn("Could not record playback history", error);
+    } catch (_error) {
+      // Playback history is best-effort. Keep production consoles quiet if it fails.
     }
   }
 

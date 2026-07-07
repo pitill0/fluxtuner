@@ -1789,6 +1789,39 @@ html[data-theme="light"] .player-debug-export {
   background: rgba(255, 255, 255, 0.92) !important;
 }
 
+.player-debug-details {
+  display: grid !important;
+  gap: 0.85rem !important;
+}
+
+.player-debug-section {
+  display: grid !important;
+  gap: 0.35rem !important;
+}
+
+.player-debug-section h4 {
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 0.9rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+}
+
+.player-debug-section p {
+  margin: 0 !important;
+  color: var(--muted) !important;
+  font-size: 0.82rem !important;
+  line-height: 1.45 !important;
+}
+
+.player-debug-section .status {
+  margin-top: 0.25rem !important;
+}
+
+.player-debug-export-section:has(.player-debug-export[hidden]) {
+  display: none !important;
+}
+
 
 html[data-theme="light"] .dashboard-metric,
 html[data-theme="light"] .dashboard-card,

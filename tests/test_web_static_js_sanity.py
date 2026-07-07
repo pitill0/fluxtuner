@@ -546,6 +546,11 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "data-player-debug-log" in html_response.text
     assert "data-player-debug-export" in html_response.text
     assert "Playback diagnostics" in html_response.text
+    assert "Current snapshot" in html_response.text
+    assert "Current audio, player and Media Session state." in html_response.text
+    assert "Recent events" in html_response.text
+    assert "Last captured playback and Media Session events." in html_response.text
+    assert "Exported debug log" in html_response.text
 
     assert "const PLAYER_DEBUG_EVENT_LIMIT = 80;" in module_response.text
     assert (
@@ -586,6 +591,8 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert ".player-debug-enable" in css_response.text
     assert ".player-debug-actions" in css_response.text
     assert ".player-debug-export" in css_response.text
+    assert ".player-debug-section" in css_response.text
+    assert ".player-debug-export-section:has(.player-debug-export[hidden])" in css_response.text
     assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_response.text
 
 
@@ -649,3 +656,15 @@ def test_web_player_prepares_audio_for_mobile_media_handoff() -> None:
     assert "window-pagehide" in response.text
     assert "visibilityReason" in response.text
     assert "crossOrigin:" in response.text
+
+
+def test_web_static_js_keeps_production_console_clean() -> None:
+    client = TestClient(create_app())
+
+    favorites_response = client.get("/static/js/favorites.js")
+    player_debug_response = client.get("/static/js/player-debug.js")
+
+    assert favorites_response.status_code == 200
+    assert player_debug_response.status_code == 200
+    assert "console." not in favorites_response.text
+    assert 'console.debug("[FluxTuner player]"' in player_debug_response.text

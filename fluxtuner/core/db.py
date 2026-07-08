@@ -1529,7 +1529,9 @@ def replace_playlists(
 
 def normalize_profile_name(name: str) -> str:
     """Normalize a profile name for storage and lookup."""
-    return name.strip()
+    from fluxtuner.core import profiles as _profiles
+
+    return _profiles.normalize_profile_name(name)
 
 
 def get_profile_by_name(
@@ -1539,32 +1541,9 @@ def get_profile_by_name(
     user_id: int | None = None,
 ) -> dict[str, Any] | None:
     """Return a profile by name for a user."""
-    clean_name = normalize_profile_name(name)
-    if not clean_name:
-        return None
+    from fluxtuner.core import profiles as _profiles
 
-    resolved_user_id = user_id if user_id is not None else ensure_default_user(conn)
-
-    row = conn.execute(
-        """
-        SELECT id, user_id, name, display_name, created_at, updated_at
-        FROM profiles
-        WHERE user_id = ? AND lower(name) = lower(?)
-        """,
-        (resolved_user_id, clean_name),
-    ).fetchone()
-
-    if row is None:
-        return None
-
-    return {
-        "id": int(row["id"]),
-        "user_id": int(row["user_id"]),
-        "name": str(row["name"]),
-        "display_name": str(row["display_name"] or row["name"]),
-        "created_at": str(row["created_at"]),
-        "updated_at": str(row["updated_at"]),
-    }
+    return _profiles.get_profile_by_name(conn, name, user_id=user_id)
 
 
 def get_or_create_profile(
@@ -1575,44 +1554,14 @@ def get_or_create_profile(
     user_id: int | None = None,
 ) -> int:
     """Return a profile id for a user, creating the profile if needed."""
-    clean_name = normalize_profile_name(name)
-    if not clean_name:
-        raise ValueError("Profile name is required.")
+    from fluxtuner.core import profiles as _profiles
 
-    resolved_user_id = user_id if user_id is not None else ensure_default_user(conn)
-
-    existing = get_profile_by_name(conn, clean_name, user_id=resolved_user_id)
-    if existing is not None:
-        return int(existing["id"])
-
-    now = utc_now()
-    clean_display_name = _clean_text(display_name) or clean_name
-
-    cursor = conn.execute(
-        """
-        INSERT INTO profiles (
-            user_id,
-            name,
-            display_name,
-            created_at,
-            updated_at
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            resolved_user_id,
-            clean_name,
-            clean_display_name,
-            now,
-            now,
-        ),
+    return _profiles.get_or_create_profile(
+        conn,
+        name,
+        display_name=display_name,
+        user_id=user_id,
     )
-
-    profile_id = cursor.lastrowid
-    if profile_id is None:
-        raise RuntimeError("Could not create profile.")
-
-    return int(profile_id)
 
 
 def list_profiles(
@@ -1621,33 +1570,6 @@ def list_profiles(
     user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Return known profiles, optionally scoped to a user."""
-    if user_id is None:
-        rows = conn.execute(
-            """
-            SELECT id, user_id, name, display_name, created_at, updated_at
-            FROM profiles
-            ORDER BY created_at ASC, id ASC
-            """
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            """
-            SELECT id, user_id, name, display_name, created_at, updated_at
-            FROM profiles
-            WHERE user_id = ?
-            ORDER BY created_at ASC, id ASC
-            """,
-            (user_id,),
-        ).fetchall()
+    from fluxtuner.core import profiles as _profiles
 
-    return [
-        {
-            "id": int(row["id"]),
-            "user_id": int(row["user_id"]),
-            "name": str(row["name"]),
-            "display_name": str(row["display_name"] or row["name"]),
-            "created_at": str(row["created_at"]),
-            "updated_at": str(row["updated_at"]),
-        }
-        for row in rows
-    ]
+    return _profiles.list_profiles(conn, user_id=user_id)

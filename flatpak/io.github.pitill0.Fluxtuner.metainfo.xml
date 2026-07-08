@@ -80,6 +80,29 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.5" date="2026-07-08">
+      <description>
+        <ul>
+          <li>Refactored FluxTuner Web JavaScript into focused ES modules.</li>
+          <li>Improved Web player handling for slow, failed, retried and interrupted streams.</li>
+          <li>Improved Android and iOS Media Session metadata and artwork handoff.</li>
+          <li>Improved setup, account recovery, access request and Admin form layouts.</li>
+          <li>Added a new FluxTuner TUI theme inspired by the project landing page.</li>
+        </ul>
+      </description>
+    </release>
+
+    <release version="1.0.4" date="2026-07-02">
+      <description>
+        <ul>
+          <li>Added admin-only Web user deletion with related sessions, library data and requests cleanup.</li>
+          <li>Added a compact Admin user danger zone with strong destructive-action confirmation.</li>
+          <li>Added anonymous approved-user counts to public Web stats.</li>
+          <li>Added an admin-only Web player debug panel for mobile playback diagnostics.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.3" date="2026-07-01">
       <description>
         <ul>

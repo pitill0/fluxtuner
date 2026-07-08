@@ -2,7 +2,7 @@
 
 FluxTuner has grown from a local internet-radio app into a multi-interface
 project with TUI, GTK, CLI and Web/server mode. This roadmap describes an
-incremental refactor path for the post-`v1.0.4` series.
+incremental refactor path for the post-`v1.0.5` series.
 
 The goal is not a rewrite. The goal is to make the existing behaviour easier to
 reason about, test and extend while keeping releases small and reversible.
@@ -18,9 +18,10 @@ Several interface modules carry many responsibilities at once:
   history, favorites, playlists and station payload shaping. The first Web
   refactor pass has reduced it to composition/bootstrap plus a small set of
   setup, dashboard and health endpoints.
-- `fluxtuner/web/static/app.js` owns navigation, auth, admin UI, dashboard,
-  Radio Browser search, favorites, playlists, browser playback, Media Session
-  integration, player debugging and theme/mobile shell behaviour.
+- `fluxtuner/web/static/app.js` is now a small ES module composition layer. It
+  wires focused browser controllers under `fluxtuner/web/static/js/` for auth,
+  admin, dashboard, search, library views, playlists, browser playback, Media
+  Session integration, player debugging and theme/mobile shell behaviour.
 - `fluxtuner/web/static/styles.css` owns the full Web visual system and has
   become large enough that feature-local CSS is hard to audit.
 - `fluxtuner/tui.py` and `fluxtuner/gui/window.py` contain broad UI orchestration
@@ -71,11 +72,13 @@ adapters/
 The repository does not need to adopt these exact directory names immediately.
 The first step is to introduce seams and move code only when it reduces risk.
 
-## Web refactor status after v1.0.4
+## Web refactor status after v1.0.5
 
-The first Web refactor phase is complete. `fluxtuner/web/app.py` is now kept as
-the FastAPI composition/bootstrap layer: app creation, static/template wiring,
-health, setup, dashboard and router inclusion.
+The first Web refactor phases are complete. `fluxtuner/web/app.py` is now kept
+as the FastAPI composition/bootstrap layer: app creation, static/template
+wiring, health, setup, dashboard and router inclusion. The browser client has
+also been split from one large `static/app.js` file into focused ES modules
+loaded through a no-build module entrypoint.
 
 Current Web routers:
 
@@ -95,6 +98,23 @@ Extracted Web helper/action modules:
 - `password_changes.py`, `password_change_actions.py`;
 - `registration_actions.py`.
 
+Current Web browser modules:
+
+- `api.js` for CSRF-aware API requests.
+- `auth.js`, `account-requests.js` and `setup.js` for login, account request,
+  password-change request and first-run setup flows.
+- `dashboard.js`, `admin.js`, `public-stats.js` and `health.js` for authenticated
+  dashboard, admin operations, public stats and server health rendering.
+- `search.js`, `favorites.js`, `playlists.js`, `library-views.js`,
+  `station-renderer.js` and `playlist-renderer.js` for Radio Browser search and
+  profile-owned library interactions.
+- `player.js`, `media-session.js` and `player-debug.js` for browser playback,
+  mobile Media Session handoff and local diagnostics.
+- `theme.js` and `ui-shell.js` for theme preference and responsive app shell
+  behavior.
+
+
+
 Packaging note: new Web subpackages must be included in the setuptools package
 list. The router package is currently listed as `fluxtuner.web.routes` in
 `pyproject.toml`; keep this in mind when adding new package directories.
@@ -103,7 +123,7 @@ Recommended next branches should stay separate:
 
 - search quality/debugging;
 - `fluxtuner/core/db.py` domain split;
-- Web JavaScript module boundaries for `fluxtuner/web/static/app.js`.
+- Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`.
 
 ## Proposed incremental phases
 
@@ -169,7 +189,14 @@ blocks too early can create noisy diffs.
 
 ### Phase 5: Web player state model
 
-Introduce an explicit player controller/state object that owns:
+Status: partially completed in `v1.0.5`.
+
+The Web player now lives in a dedicated browser controller with playback
+attempt IDs, lifecycle handling, Media Session updates and debug snapshots.
+Future work can still simplify the state model further by making requested
+state transitions more explicit.
+
+The player controller currently owns:
 
 - current station;
 - requested state (`idle`, `loading`, `playing`, `paused`, `error`);
@@ -200,6 +227,10 @@ cache/worker design:
    password-change flows.
 3. Web router extraction for public, auth, library and admin API endpoints.
 4. Packaging update for the `fluxtuner.web.routes` package.
+5. Web JavaScript module extraction for auth, admin, dashboard, search,
+   favorites, playlists, player, Media Session, player debug, theme and shell
+   behavior.
+6. Mobile Media Session/player hardening and Player debug UX cleanup.
 
 Future structural PRs should remain small enough to review manually and should
 not change user-visible behaviour unless explicitly stated.

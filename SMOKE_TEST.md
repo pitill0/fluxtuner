@@ -13,7 +13,7 @@ The goal is not to replace automated tests, but to quickly verify that the main 
 ```bash
 git status
 python --version
-python -m compileall fluxtuner
+python -m compileall fluxtuner tests
 ```
 
 Expected:
@@ -22,6 +22,7 @@ Expected:
 - no unexpected local changes
 - Python version is supported
 - `compileall` completes without errors
+- Web JavaScript modules pass syntax checks when Web changes are included
 
 ---
 
@@ -202,6 +203,9 @@ Expected first-run flow:
 - dashboard loads after login
 - search works from the dashboard quick action and from the top navigation
 - playback starts in the browser
+- browser player `Pause`, `Resume`, `Stop` and failed-stream `Retry` states are coherent
+- Android lock-screen/status-bar media controls show station metadata and artwork after playback starts
+- iOS media controls show station metadata after the browser hands playback to the system
 - favorites, history and playlists are accessible only after login
 
 Account request and admin user flow:
@@ -233,8 +237,9 @@ UI checks:
 - Search navigation resets stale Favorites/History/Playlist results
 - Request access uses the modal flow and does not crowd the login form
 - public stats remain anonymous and show aggregate platform counts only
-- Admin Player debug can be enabled on the current browser, remains responsive
-  on mobile, exports logs, and can be disabled again without affecting playback
+- Admin Player debug can be enabled on the current browser, clearly separates
+  current snapshot from recent events, remains responsive on mobile, exports logs,
+  and can be disabled again without affecting playback
 
 ---
 
@@ -327,6 +332,8 @@ Review visually:
 
 - `README.md`
 - `CHANGELOG.md`
+- `docs/architecture.md`, including Mermaid diagrams
+- `docs/refactor-roadmap.md`
 - screenshots render correctly on GitHub
 
 ---
@@ -337,7 +344,9 @@ Before committing:
 
 ```bash
 git diff
-python -m compileall fluxtuner
+python -m compileall fluxtuner tests
+node --check fluxtuner/web/static/app.js
+node --check fluxtuner/web/static/js/*.js
 python -m fluxtuner --list-players
 ```
 
@@ -359,7 +368,9 @@ Recommended manual checks:
 Before a release candidate:
 
 ```bash
-python -m compileall fluxtuner
+python -m compileall fluxtuner tests
+node --check fluxtuner/web/static/app.js
+node --check fluxtuner/web/static/js/*.js
 python -m fluxtuner --version
 python -m fluxtuner --help
 python -m fluxtuner --list-players

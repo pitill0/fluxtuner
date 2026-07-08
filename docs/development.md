@@ -14,6 +14,7 @@ Recommended local tools:
 - `mpv` and/or `ffplay` for broad manual playback testing.
 - Optional lightweight players: `mpg123` and `ogg123`.
 - Git.
+- Node.js for Web JavaScript syntax checks.
 - Optional: Flatpak tooling if you work on packaging.
 
 The CI currently validates supported Python versions, package builds, dependency audits, static security checks, and tests.
@@ -163,11 +164,14 @@ fluxtuner/core/
   stream_metadata.py       ICY stream metadata parsing
 
 fluxtuner/web/
-  app.py                   FastAPI Web/server entry point and routes
+  app.py                   FastAPI Web/server composition/bootstrap
+  routes/                  Public, auth, library and admin API routers
   auth.py                  Password hashing, sessions and Web auth helpers
   admin_cli.py             Emergency Web user administration CLI
   templates/               Browser UI shell
-  static/                  Web CSS, JS and static assets
+  static/app.js            ES module browser entrypoint/composition layer
+  static/js/               Focused Web browser controllers/helpers
+  static/styles.css        Web visual system
 
 fluxtuner/players/
   base.py                  Player interface and errors
@@ -262,6 +266,7 @@ python -m compileall fluxtuner tests
 python -m pytest
 python -m mypy --follow-imports=skip fluxtuner/
 node --check fluxtuner/web/static/app.js
+node --check fluxtuner/web/static/js/*.js
 python -m build
 pip-audit --local
 bandit -r fluxtuner -c pyproject.toml

@@ -20,6 +20,35 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.5] - 2026-07-08
+
+### Added
+
+- Added a new FluxTuner TUI theme inspired by the project landing page.
+- Added richer Web player diagnostics for audio state, Media Session metadata and recent playback events.
+
+### Changed
+
+- Refactored FluxTuner Web JavaScript from one large entrypoint into focused ES modules.
+- Improved Web player state handling for slow, failed, retried and interrupted streams.
+- Improved Android and iOS Media Session handoff with stronger metadata, artwork and mobile lifecycle handling.
+- Improved first-run setup, request access, password recovery and Admin account form layouts.
+- Improved the Player debug panel so the current snapshot, recent events and exported log are clearly separated.
+- Kept the Admin view stable after user and password request actions while refreshing dashboard data silently.
+
+### Fixed
+
+- Fixed invalid Web manifest JSON.
+- Fixed static JS module packaging in source and wheel distributions.
+- Fixed stale JS/module caching behavior for Web assets.
+- Fixed login and account recovery feedback visibility.
+- Fixed Admin action layout issues on mobile.
+- Removed noisy production console output from best-effort playback history recording.
+
+### Internal
+
+- Added and updated tests for Web modules, dashboard behavior, setup, admin flows, player debug and Media Session handling.
+
 ## [1.0.4] - 2026-07-02
 
 ### Added

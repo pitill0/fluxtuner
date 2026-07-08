@@ -128,6 +128,7 @@ python -m compileall fluxtuner tests
 python -m pytest
 python -m mypy --follow-imports=skip fluxtuner/
 node --check fluxtuner/web/static/app.js
+node --check fluxtuner/web/static/js/*.js
 python -m build
 pip-audit --local
 bandit -r fluxtuner -c pyproject.toml

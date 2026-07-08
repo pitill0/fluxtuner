@@ -52,7 +52,7 @@ The Web user/account model adds ownership above profiles:
 
 FluxTuner is organized around a small set of frontends that share core services, user data and playback backends.
 
-For post-`v1.0.4` maintenance and larger internal cleanup, see [`docs/refactor-roadmap.md`](refactor-roadmap.md).
+For completed refactor milestones and larger internal cleanup plans, see [`docs/refactor-roadmap.md`](refactor-roadmap.md).
 
 ## Overview
 
@@ -107,6 +107,51 @@ flowchart LR
     Config --> ConfigStorage["XDG config file"]
     Search --> CacheStorage["XDG cache file"]
 ```
+
+
+## Web/server architecture
+
+FluxTuner Web keeps the server and browser client deliberately simple: FastAPI
+serves the HTML shell, static assets and JSON API routes, while the browser loads
+a small ES module entrypoint that composes focused controllers.
+
+```mermaid
+flowchart LR
+    Browser["Browser"] --> HTML["index.html"]
+    HTML --> AppJS["static/app.js<br/>ES module entrypoint"]
+    HTML --> CSS["styles.css"]
+    HTML --> Manifest["site.webmanifest"]
+
+    AppJS --> AuthJS["auth/account controllers"]
+    AppJS --> AdminJS["admin/dashboard controllers"]
+    AppJS --> LibraryJS["search/favorites/playlists controllers"]
+    AppJS --> PlayerJS["player controller"]
+    PlayerJS --> Audio["HTML audio element"]
+    PlayerJS --> MediaSession["Media Session metadata/actions"]
+    PlayerJS --> PlayerDebug["Player debug diagnostics"]
+
+    AuthJS --> ApiFetch["api.js CSRF-aware fetch"]
+    AdminJS --> ApiFetch
+    LibraryJS --> ApiFetch
+    PlayerDebug --> ApiFetch
+
+    ApiFetch --> FastAPI["FastAPI app"]
+    FastAPI --> PublicRoutes["routes/public.py"]
+    FastAPI --> AuthRoutes["routes/auth.py"]
+    FastAPI --> LibraryRoutes["routes/library.py"]
+    FastAPI --> AdminRoutes["routes/admin.py"]
+
+    AuthRoutes --> WebGuards["context/guards/security"]
+    LibraryRoutes --> WebGuards
+    AdminRoutes --> WebGuards
+    WebGuards --> WebActions["Web helper/action modules"]
+    WebActions --> Core["Core services and SQLite library"]
+```
+
+This no-build JavaScript structure keeps the deployed Web UI inspectable while
+avoiding one large browser script. New Web client behavior should be added to a
+focused module under `fluxtuner/web/static/js/` and wired from `static/app.js`.
+
 
 
 ## Frontends

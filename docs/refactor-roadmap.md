@@ -169,23 +169,19 @@ covered.
 
 ### Phase 4: Web JavaScript module boundaries
 
-If the no-build Web approach remains important, prefer small plain JavaScript
-files loaded in order rather than introducing a bundler immediately.
+Status: completed in `v1.0.5`.
 
-Potential split:
+The browser client now keeps the no-build approach, but `static/app.js` has been
+reduced to a small ES module entrypoint that wires focused modules under
+`fluxtuner/web/static/js/`.
 
-```text
-static/js/state.js
-static/js/api.js
-static/js/player.js
-static/js/admin.js
-static/js/library.js
-static/js/navigation.js
-static/js/main.js
-```
+The current split includes API access, auth/setup/account-request flows,
+dashboard/admin/public stats/health rendering, search, favorites, playlists,
+library rendering, browser playback, Media Session integration, player debug,
+theme preference and responsive shell behaviour.
 
-Only do this after the player and admin flows are stable, because moving large JS
-blocks too early can create noisy diffs.
+Future JavaScript changes should preserve the no-build module boundary unless a
+separate build-pipeline decision is made explicitly.
 
 ### Phase 5: Web player state model
 

@@ -688,19 +688,8 @@ def public_activity_stats(
     return _public_activity_stats(conn, top_limit=top_limit)
 
 
-def _clean_text(value: Any) -> str | None:
-    if value is None:
-        return None
-
-    clean_value = str(value).strip()
-    return clean_value or None
-
-
-def _safe_int(value: Any) -> int:
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError):
-        return 0
+# Compatibility wrappers for storage helpers that now live in domain modules.
+# Keep these thin wrappers while older call sites and tests still import from db.py.
 
 
 def station_metadata(station: dict[str, Any]) -> str:
@@ -982,6 +971,10 @@ def replace_playlists(
     from fluxtuner.core.playlists import replace_playlists as _replace_playlists
 
     _replace_playlists(conn, playlists, profile_id=profile_id)
+
+
+# Profile storage helpers remain delegated here for compatibility.
+# Default-profile bootstrap and schema migration logic intentionally stay above.
 
 
 def normalize_profile_name(name: str) -> str:

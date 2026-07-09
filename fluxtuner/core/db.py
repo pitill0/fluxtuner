@@ -727,38 +727,23 @@ def get_station_by_key(conn: sqlite3.Connection, key: str) -> dict[str, Any] | N
 
 def normalize_favorite_tags(value: Any) -> list[str]:
     """Return normalized user-defined favorite tags."""
-    if not isinstance(value, list):
-        return []
-    return sorted({str(tag).strip() for tag in value if str(tag).strip()})
+    from fluxtuner.core.favorites import normalize_favorite_tags as _normalize_favorite_tags
+
+    return _normalize_favorite_tags(value)
 
 
 def favorite_tags_to_json(value: Any) -> str:
     """Serialize favorite tags using the current FluxTuner normalization rules."""
-    return json.dumps(
-        normalize_favorite_tags(value),
-        ensure_ascii=False,
-        sort_keys=True,
-    )
+    from fluxtuner.core.favorites import favorite_tags_to_json as _favorite_tags_to_json
+
+    return _favorite_tags_to_json(value)
 
 
 def favorite_from_row(row: sqlite3.Row) -> dict[str, Any]:
     """Return a favorite station dict from a joined favorite/station row."""
-    favorite = station_from_row(row)
+    from fluxtuner.core.favorites import favorite_from_row as _favorite_from_row
 
-    custom_name = _clean_text(row["custom_name"])
-    favorite["custom_name"] = custom_name
-
-    try:
-        raw_tags = json.loads(str(row["favorite_tags_json"] or "[]"))
-    except json.JSONDecodeError:
-        raw_tags = []
-
-    favorite["favorite_tags"] = normalize_favorite_tags(raw_tags)
-
-    if not favorite.get("url_resolved"):
-        favorite["url_resolved"] = favorite.get("url")
-
-    return favorite
+    return _favorite_from_row(row)
 
 
 def list_favorites(
@@ -766,23 +751,9 @@ def list_favorites(
     profile_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Return favorites for a profile as FluxTuner station dictionaries."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
+    from fluxtuner.core.favorites import list_favorites as _list_favorites
 
-    rows = conn.execute(
-        """
-        SELECT
-            stations.*,
-            favorites.custom_name,
-            favorites.favorite_tags_json
-        FROM favorites
-        JOIN stations ON stations.id = favorites.station_id
-        WHERE favorites.profile_id = ?
-        ORDER BY favorites.created_at ASC, favorites.id ASC
-        """,
-        (active_profile_id,),
-    ).fetchall()
-
-    return [favorite_from_row(row) for row in rows]
+    return _list_favorites(conn, profile_id=profile_id)
 
 
 def add_favorite_record(
@@ -794,33 +765,9 @@ def add_favorite_record(
 
     Returns False when the station is already a favorite.
     """
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    station_id = upsert_station(conn, station)
-    now = utc_now()
+    from fluxtuner.core.favorites import add_favorite_record as _add_favorite_record
 
-    cursor = conn.execute(
-        """
-        INSERT OR IGNORE INTO favorites (
-            profile_id,
-            station_id,
-            custom_name,
-            favorite_tags_json,
-            created_at,
-            updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            active_profile_id,
-            station_id,
-            _clean_text(station.get("custom_name")),
-            favorite_tags_to_json(station.get("favorite_tags")),
-            now,
-            now,
-        ),
-    )
-
-    return cursor.rowcount > 0
+    return _add_favorite_record(conn, station, profile_id=profile_id)
 
 
 def remove_favorite_record(
@@ -829,28 +776,9 @@ def remove_favorite_record(
     profile_id: int | None = None,
 ) -> bool:
     """Remove a favorite by station key or raw URL."""
-    clean_key = key.strip()
-    if not clean_key:
-        return False
+    from fluxtuner.core.favorites import remove_favorite_record as _remove_favorite_record
 
-    active_profile_id = profile_id or ensure_default_profile(conn)
-
-    cursor = conn.execute(
-        """
-        DELETE FROM favorites
-        WHERE profile_id = ?
-          AND station_id IN (
-              SELECT id
-              FROM stations
-              WHERE station_key = ?
-                 OR url = ?
-                 OR url_resolved = ?
-          )
-        """,
-        (active_profile_id, clean_key, clean_key, clean_key),
-    )
-
-    return cursor.rowcount > 0
+    return _remove_favorite_record(conn, key, profile_id=profile_id)
 
 
 def update_favorite_record(
@@ -862,94 +790,15 @@ def update_favorite_record(
     profile_id: int | None = None,
 ) -> bool:
     """Update editable favorite metadata for a saved station."""
-    clean_key = key.strip()
-    if not clean_key:
-        return False
+    from fluxtuner.core.favorites import update_favorite_record as _update_favorite_record
 
-    if custom_name is ... and favorite_tags is ...:
-        return False
-
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    now = utc_now()
-
-    if custom_name is not ... and favorite_tags is not ...:
-        cursor = conn.execute(
-            """
-            UPDATE favorites
-            SET custom_name = ?,
-                favorite_tags_json = ?,
-                updated_at = ?
-            WHERE profile_id = ?
-              AND station_id IN (
-                  SELECT id
-                  FROM stations
-                  WHERE station_key = ?
-                     OR url = ?
-                     OR url_resolved = ?
-              )
-            """,
-            (
-                _clean_text(custom_name),
-                favorite_tags_to_json(favorite_tags or []),
-                now,
-                active_profile_id,
-                clean_key,
-                clean_key,
-                clean_key,
-            ),
-        )
-        return cursor.rowcount > 0
-
-    if custom_name is not ...:
-        cursor = conn.execute(
-            """
-            UPDATE favorites
-            SET custom_name = ?,
-                updated_at = ?
-            WHERE profile_id = ?
-              AND station_id IN (
-                  SELECT id
-                  FROM stations
-                  WHERE station_key = ?
-                     OR url = ?
-                     OR url_resolved = ?
-              )
-            """,
-            (
-                _clean_text(custom_name),
-                now,
-                active_profile_id,
-                clean_key,
-                clean_key,
-                clean_key,
-            ),
-        )
-        return cursor.rowcount > 0
-
-    cursor = conn.execute(
-        """
-        UPDATE favorites
-        SET favorite_tags_json = ?,
-            updated_at = ?
-        WHERE profile_id = ?
-          AND station_id IN (
-              SELECT id
-              FROM stations
-              WHERE station_key = ?
-                 OR url = ?
-                 OR url_resolved = ?
-          )
-        """,
-        (
-            favorite_tags_to_json(favorite_tags or []),
-            now,
-            active_profile_id,
-            clean_key,
-            clean_key,
-            clean_key,
-        ),
+    return _update_favorite_record(
+        conn,
+        key,
+        custom_name=custom_name,
+        favorite_tags=favorite_tags,
+        profile_id=profile_id,
     )
-    return cursor.rowcount > 0
 
 
 def replace_favorites(
@@ -958,16 +807,9 @@ def replace_favorites(
     profile_id: int | None = None,
 ) -> None:
     """Replace all favorites for a profile with the provided station dictionaries."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
+    from fluxtuner.core.favorites import replace_favorites as _replace_favorites
 
-    conn.execute(
-        "DELETE FROM favorites WHERE profile_id = ?",
-        (active_profile_id,),
-    )
-
-    for favorite in favorites:
-        if station_key(favorite):
-            add_favorite_record(conn, favorite, active_profile_id)
+    _replace_favorites(conn, favorites, profile_id=profile_id)
 
 
 def history_from_row(row: sqlite3.Row) -> dict[str, Any]:

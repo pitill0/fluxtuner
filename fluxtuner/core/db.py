@@ -15,7 +15,6 @@ from typing import Any
 from fluxtuner.core import password_changes as _password_changes
 from fluxtuner.core import stations as _stations
 from fluxtuner.core import users as _users
-from fluxtuner.core.stations import station_key
 from fluxtuner.paths import data_file
 
 DB_FILE = data_file("fluxtuner.db")
@@ -867,7 +866,9 @@ def clear_history_records(
 
 
 def _clean_playlist_name(name: str) -> str:
-    return name.strip()
+    from fluxtuner.core.playlists import _clean_playlist_name as _clean_playlist_name_impl
+
+    return _clean_playlist_name_impl(name)
 
 
 def _playlist_id(
@@ -875,42 +876,20 @@ def _playlist_id(
     name: str,
     profile_id: int,
 ) -> int | None:
-    clean_name = _clean_playlist_name(name)
-    if not clean_name:
-        return None
+    from fluxtuner.core.playlists import _playlist_id as _playlist_id_impl
 
-    row = conn.execute(
-        """
-        SELECT id
-        FROM playlists
-        WHERE profile_id = ?
-          AND lower(name) = lower(?)
-        """,
-        (profile_id, clean_name),
-    ).fetchone()
-
-    if row is None:
-        return None
-
-    return int(row["id"])
+    return _playlist_id_impl(conn, name, profile_id)
 
 
 def _playlist_station_keys(
     conn: sqlite3.Connection,
     playlist_id: int,
 ) -> list[str]:
-    rows = conn.execute(
-        """
-        SELECT stations.station_key
-        FROM playlist_stations
-        JOIN stations ON stations.id = playlist_stations.station_id
-        WHERE playlist_stations.playlist_id = ?
-        ORDER BY playlist_stations.position ASC, playlist_stations.id ASC
-        """,
-        (playlist_id,),
-    ).fetchall()
+    from fluxtuner.core.playlists import (
+        _playlist_station_keys as _playlist_station_keys_impl,
+    )
 
-    return [str(row["station_key"]) for row in rows]
+    return _playlist_station_keys_impl(conn, playlist_id)
 
 
 def list_playlists(
@@ -918,25 +897,9 @@ def list_playlists(
     profile_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Return playlists using the public FluxTuner station_keys shape."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
+    from fluxtuner.core.playlists import list_playlists as _list_playlists
 
-    rows = conn.execute(
-        """
-        SELECT id, name
-        FROM playlists
-        WHERE profile_id = ?
-        ORDER BY created_at ASC, id ASC
-        """,
-        (active_profile_id,),
-    ).fetchall()
-
-    return [
-        {
-            "name": str(row["name"]),
-            "station_keys": _playlist_station_keys(conn, int(row["id"])),
-        }
-        for row in rows
-    ]
+    return _list_playlists(conn, profile_id=profile_id)
 
 
 def get_playlist_record(
@@ -945,24 +908,9 @@ def get_playlist_record(
     profile_id: int | None = None,
 ) -> dict[str, Any] | None:
     """Return one playlist using the public FluxTuner station_keys shape."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    playlist_id = _playlist_id(conn, name, active_profile_id)
+    from fluxtuner.core.playlists import get_playlist_record as _get_playlist_record
 
-    if playlist_id is None:
-        return None
-
-    row = conn.execute(
-        "SELECT name FROM playlists WHERE id = ?",
-        (playlist_id,),
-    ).fetchone()
-
-    if row is None:
-        return None
-
-    return {
-        "name": str(row["name"]),
-        "station_keys": _playlist_station_keys(conn, playlist_id),
-    }
+    return _get_playlist_record(conn, name, profile_id=profile_id)
 
 
 def create_playlist_record(
@@ -971,27 +919,9 @@ def create_playlist_record(
     profile_id: int | None = None,
 ) -> bool:
     """Create a playlist, returning False if it already exists."""
-    clean_name = _clean_playlist_name(name)
-    if not clean_name:
-        return False
+    from fluxtuner.core.playlists import create_playlist_record as _create_playlist_record
 
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    now = utc_now()
-
-    cursor = conn.execute(
-        """
-        INSERT OR IGNORE INTO playlists (
-            profile_id,
-            name,
-            created_at,
-            updated_at
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (active_profile_id, clean_name, now, now),
-    )
-
-    return cursor.rowcount > 0
+    return _create_playlist_record(conn, name, profile_id=profile_id)
 
 
 def delete_playlist_record(
@@ -1000,22 +930,9 @@ def delete_playlist_record(
     profile_id: int | None = None,
 ) -> bool:
     """Delete a playlist by name."""
-    clean_name = _clean_playlist_name(name)
-    if not clean_name:
-        return False
+    from fluxtuner.core.playlists import delete_playlist_record as _delete_playlist_record
 
-    active_profile_id = profile_id or ensure_default_profile(conn)
-
-    cursor = conn.execute(
-        """
-        DELETE FROM playlists
-        WHERE profile_id = ?
-          AND lower(name) = lower(?)
-        """,
-        (active_profile_id, clean_name),
-    )
-
-    return cursor.rowcount > 0
+    return _delete_playlist_record(conn, name, profile_id=profile_id)
 
 
 def add_station_to_playlist_record(
@@ -1025,48 +942,16 @@ def add_station_to_playlist_record(
     profile_id: int | None = None,
 ) -> bool:
     """Add a station key to a playlist, creating the playlist if needed."""
-    clean_name = _clean_playlist_name(name)
-    key = station_key(station)
-
-    if not clean_name or not key:
-        return False
-
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    playlist_id = _playlist_id(conn, clean_name, active_profile_id)
-
-    if playlist_id is None:
-        create_playlist_record(conn, clean_name, active_profile_id)
-        playlist_id = _playlist_id(conn, clean_name, active_profile_id)
-
-    if playlist_id is None:
-        raise RuntimeError("Could not create playlist.")
-
-    station_id = upsert_station(conn, station)
-
-    next_position_row = conn.execute(
-        """
-        SELECT COALESCE(MAX(position), -1) + 1 AS next_position
-        FROM playlist_stations
-        WHERE playlist_id = ?
-        """,
-        (playlist_id,),
-    ).fetchone()
-    next_position = int(next_position_row["next_position"] if next_position_row else 0)
-
-    cursor = conn.execute(
-        """
-        INSERT OR IGNORE INTO playlist_stations (
-            playlist_id,
-            station_id,
-            position,
-            created_at
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (playlist_id, station_id, next_position, utc_now()),
+    from fluxtuner.core.playlists import (
+        add_station_to_playlist_record as _add_station_to_playlist_record,
     )
 
-    return cursor.rowcount > 0
+    return _add_station_to_playlist_record(
+        conn,
+        name,
+        station,
+        profile_id=profile_id,
+    )
 
 
 def remove_station_from_playlist_record(
@@ -1076,34 +961,16 @@ def remove_station_from_playlist_record(
     profile_id: int | None = None,
 ) -> bool:
     """Remove a station key from a playlist."""
-    clean_name = _clean_playlist_name(name)
-    key = station_key(station)
-
-    if not clean_name or not key:
-        return False
-
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    playlist_id = _playlist_id(conn, clean_name, active_profile_id)
-
-    if playlist_id is None:
-        return False
-
-    cursor = conn.execute(
-        """
-        DELETE FROM playlist_stations
-        WHERE playlist_id = ?
-          AND station_id IN (
-              SELECT id
-              FROM stations
-              WHERE station_key = ?
-                 OR url = ?
-                 OR url_resolved = ?
-          )
-        """,
-        (playlist_id, key, key, key),
+    from fluxtuner.core.playlists import (
+        remove_station_from_playlist_record as _remove_station_from_playlist_record,
     )
 
-    return cursor.rowcount > 0
+    return _remove_station_from_playlist_record(
+        conn,
+        name,
+        station,
+        profile_id=profile_id,
+    )
 
 
 def replace_playlists(
@@ -1112,35 +979,9 @@ def replace_playlists(
     profile_id: int | None = None,
 ) -> None:
     """Replace all playlists for a profile using the public station_keys shape."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
+    from fluxtuner.core.playlists import replace_playlists as _replace_playlists
 
-    conn.execute(
-        "DELETE FROM playlists WHERE profile_id = ?",
-        (active_profile_id,),
-    )
-
-    for playlist in playlists:
-        name = _clean_playlist_name(str(playlist.get("name") or ""))
-        if not name:
-            continue
-
-        create_playlist_record(conn, name, active_profile_id)
-
-        station_keys = playlist.get("station_keys", [])
-        if not isinstance(station_keys, list):
-            continue
-
-        for key in station_keys:
-            clean_key = str(key).strip()
-            if not clean_key:
-                continue
-
-            add_station_to_playlist_record(
-                conn,
-                name,
-                {"name": clean_key, "url": clean_key},
-                active_profile_id,
-            )
+    _replace_playlists(conn, playlists, profile_id=profile_id)
 
 
 def normalize_profile_name(name: str) -> str:

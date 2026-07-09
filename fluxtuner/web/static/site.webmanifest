@@ -1,7 +1,7 @@
 {
   "name": "FluxTuner Web",
   "short_name": "FluxTuner",
-  "description": "Private self-hosted internet radio",
+  "description": "Private self-hosted internet radio platform",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

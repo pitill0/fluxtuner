@@ -1,10 +1,10 @@
 # Development Guide
 
-This guide explains how to set up a local FluxTuner development environment, run the app, execute tests, and validate changes before opening a pull request.
+This guide explains how to set up a local FluxTuner development environment, run the platform interfaces, execute tests, and validate changes before opening a pull request.
 
 ## Requirements
 
-FluxTuner is a Python application with CLI, TUI, and optional GTK GUI entry points.
+FluxTuner is a Python internet radio platform with CLI, TUI, GTK GUI and Web/server entry points.
 
 Recommended local tools:
 

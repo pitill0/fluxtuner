@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fluxtuner"
 version = "1.0.5"
-description = "Modern internet radio player for terminal, desktop and web, powered by Textual, GTK and browser playback."
+description = "Modern internet radio platform for terminal, desktop and web, powered by Textual, GTK and browser playback."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT AND LicenseRef-FluxTuner-Web-NC"

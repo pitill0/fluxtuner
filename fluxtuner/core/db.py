@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -813,25 +812,10 @@ def replace_favorites(
 
 
 def history_from_row(row: sqlite3.Row) -> dict[str, Any]:
-    """Return a history station dict from a joined history/station row.
+    """Return a history station dict from a joined history/station row."""
+    from fluxtuner.core.history import history_from_row as _history_from_row
 
-    History entries are snapshots. FluxTuner 0.6.0 returned the saved JSON item
-    mostly as-is, so migrated history should not grow station defaults such as
-    codec, bitrate or url_resolved unless they were already present.
-    """
-    try:
-        snapshot = json.loads(str(row["station_snapshot_json"] or "{}"))
-    except json.JSONDecodeError:
-        snapshot = {}
-
-    if isinstance(snapshot, dict) and snapshot:
-        return dict(snapshot)
-
-    station = station_from_row(row)
-    station["last_played_at"] = str(row["last_played_at"] or "")
-    station["play_count"] = _safe_int(row["play_count"])
-
-    return station
+    return _history_from_row(row)
 
 
 def list_history(
@@ -841,26 +825,9 @@ def list_history(
     profile_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Return profile history, newest first."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    safe_limit = max(0, int(limit))
+    from fluxtuner.core.history import list_history as _list_history
 
-    rows = conn.execute(
-        """
-        SELECT
-            stations.*,
-            history_entries.last_played_at,
-            history_entries.play_count,
-            history_entries.station_snapshot_json
-        FROM history_entries
-        JOIN stations ON stations.id = history_entries.station_id
-        WHERE history_entries.profile_id = ?
-        ORDER BY history_entries.last_played_at DESC, history_entries.id DESC
-        LIMIT ?
-        """,
-        (active_profile_id, safe_limit),
-    ).fetchall()
-
-    return [history_from_row(row) for row in rows]
+    return _list_history(conn, limit=limit, profile_id=profile_id)
 
 
 def add_history_record(
@@ -870,58 +837,10 @@ def add_history_record(
     played_at: str | None = None,
     profile_id: int | None = None,
 ) -> None:
-    """Insert or update one history entry for a station.
+    """Insert or update one history entry for a station."""
+    from fluxtuner.core.history import add_history_record as _add_history_record
 
-    FluxTuner history keeps one row per station and increments play_count on
-    repeated plays. It is not a raw play-event log.
-    """
-    key = station_key(station)
-    if not key:
-        return
-
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    station_id = upsert_station(conn, station)
-    timestamp = played_at or utc_now()
-
-    previous = conn.execute(
-        """
-        SELECT play_count
-        FROM history_entries
-        WHERE profile_id = ?
-          AND station_id = ?
-        """,
-        (active_profile_id, station_id),
-    ).fetchone()
-    play_count = _safe_int(previous["play_count"]) + 1 if previous is not None else 1
-
-    snapshot_data = dict(station)
-    snapshot_data["last_played_at"] = timestamp
-    snapshot_data["play_count"] = play_count
-    snapshot = station_metadata(snapshot_data)
-
-    conn.execute(
-        """
-        INSERT INTO history_entries (
-            profile_id,
-            station_id,
-            last_played_at,
-            play_count,
-            station_snapshot_json
-        )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(profile_id, station_id) DO UPDATE SET
-            last_played_at = excluded.last_played_at,
-            play_count = excluded.play_count,
-            station_snapshot_json = excluded.station_snapshot_json
-        """,
-        (
-            active_profile_id,
-            station_id,
-            timestamp,
-            play_count,
-            snapshot,
-        ),
-    )
+    _add_history_record(conn, station, played_at=played_at, profile_id=profile_id)
 
 
 def replace_history(
@@ -932,39 +851,9 @@ def replace_history(
     profile_id: int | None = None,
 ) -> None:
     """Replace profile history with the provided station dictionaries."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
+    from fluxtuner.core.history import replace_history as _replace_history
 
-    conn.execute(
-        "DELETE FROM history_entries WHERE profile_id = ?",
-        (active_profile_id,),
-    )
-
-    for item in history[:limit]:
-        if not station_key(item):
-            continue
-
-        station_id = upsert_station(conn, item)
-        last_played_at = str(item.get("last_played_at") or utc_now())
-
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO history_entries (
-                profile_id,
-                station_id,
-                last_played_at,
-                play_count,
-                station_snapshot_json
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                active_profile_id,
-                station_id,
-                last_played_at,
-                max(1, _safe_int(item.get("play_count"))),
-                station_metadata(item),
-            ),
-        )
+    _replace_history(conn, history, limit=limit, profile_id=profile_id)
 
 
 def clear_history_records(
@@ -972,11 +861,9 @@ def clear_history_records(
     profile_id: int | None = None,
 ) -> None:
     """Clear profile history."""
-    active_profile_id = profile_id or ensure_default_profile(conn)
-    conn.execute(
-        "DELETE FROM history_entries WHERE profile_id = ?",
-        (active_profile_id,),
-    )
+    from fluxtuner.core.history import clear_history_records as _clear_history_records
+
+    _clear_history_records(conn, profile_id=profile_id)
 
 
 def _clean_playlist_name(name: str) -> str:

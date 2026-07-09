@@ -1,7 +1,7 @@
 # Architecture refactor roadmap
 
 FluxTuner has grown from a local internet-radio app into a multi-interface
-project with TUI, GTK, CLI and Web/server mode. This roadmap describes an
+platform with TUI, GTK, CLI and Web/server mode. This roadmap describes an
 incremental refactor path for the post-`v1.0.5` series.
 
 The goal is not a rewrite. The goal is to make the existing behaviour easier to
@@ -122,8 +122,8 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 Recommended next branches should stay separate:
 
 - search quality/debugging;
-- `fluxtuner/core/db.py` domain split;
-- Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`.
+- Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`;
+- smaller follow-up storage cleanups only where they reduce risk without moving schema.
 
 ## Proposed incremental phases
 
@@ -153,6 +153,9 @@ of one broad `services.py` module. This keeps Web licensing boundaries clear
 while reducing `app.py` size without changing the external API.
 
 ### Phase 3: Split storage by domain without changing SQLite
+
+Status: completed for users, password-change requests, profiles and the main
+library storage domains: stations, favorites, history and playlists.
 
 Keep `fluxtuner/core/db.py` as the schema and low-level SQLite foundation, then
 move domain-specific persistence functions behind small modules where it helps:

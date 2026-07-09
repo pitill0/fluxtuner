@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-FluxTuner is a local desktop/terminal internet radio application with an optional Web/server mode.
+FluxTuner is an internet radio platform with local desktop/terminal interfaces and an optional Web/server mode.
 
 At this stage, security fixes are expected to target the latest released version and the current `main` branch. Older versions may not receive dedicated security patches unless the issue is severe and easy to backport.
 
@@ -57,13 +57,13 @@ Security-sensitive handling expectations:
 - Imported files should be validated before being persisted.
 - Logs should not expose unnecessary local paths, stream URLs, station names, or imported data contents.
 - Debug logs should be opt-in through explicit configuration such as `--verbose` or `FLUXTUNER_DEBUG`.
-- The application should fail safely when local data files are unreadable or invalid.
+- The platform should fail safely when local data files are unreadable or invalid.
 
 
 ## Web/server mode
 
 FluxTuner Web/server mode exposes an HTTP interface and should be treated as a
-server application when it is reachable from other devices.
+server platform component when it is reachable from other devices.
 
 Security-sensitive handling expectations:
 
@@ -89,7 +89,7 @@ Security-sensitive handling expectations:
 - Stream URLs should be validated before being passed to external player backends.
 - Unsupported or unsafe URL schemes should be rejected.
 - Stream metadata should be read with explicit limits.
-- Malformed stream responses should not crash the application.
+- Malformed stream responses should not crash FluxTuner.
 - External stream data should not be trusted as safe input.
 
 ## External player backends

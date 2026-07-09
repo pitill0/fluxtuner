@@ -12,9 +12,9 @@
 
 **Website:** [https://fluxtuner.vjml.es](https://fluxtuner.vjml.es)
 
-FluxTuner is a modern internet radio player for the terminal, desktop and web.
+FluxTuner is a modern internet radio platform for terminal, desktop and web.
 
-It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
+It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, a browser-based Web/server mode, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
 
 ## Contents
 
@@ -250,7 +250,7 @@ They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode a
 
 FluxTuner uses a split licensing model:
 
-- **MIT License** for the local/core application components.
+- **MIT License** for the local/core platform components.
 - **FluxTuner Web Non-Commercial License** for Web/server, multi-user,
   authentication, session, first-run setup, admin-user management, and hosted
   service components.

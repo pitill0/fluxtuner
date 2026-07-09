@@ -50,7 +50,7 @@ The Web user/account model adds ownership above profiles:
         ├── playback history
         └── manual playlists
 
-FluxTuner is organized around a small set of frontends that share core services, user data and playback backends.
+FluxTuner is organized as a multi-interface platform with frontends that share core services, user data and playback backends.
 
 For completed refactor milestones and larger internal cleanup plans, see [`docs/refactor-roadmap.md`](refactor-roadmap.md).
 

@@ -2,7 +2,7 @@
 
 Thanks for considering a contribution to FluxTuner.
 
-FluxTuner is a lightweight internet radio player with a Textual terminal UI, GTK GUI, browser-based Web/server mode and modular playback backends.
+FluxTuner is a lightweight internet radio platform with a Textual terminal UI, GTK GUI, browser-based Web/server mode and modular playback backends.
 
 This document explains the preferred workflow for local development, pull requests, validation and releases.
 

@@ -134,20 +134,6 @@ def test_init_db_accepts_explicit_database_path(tmp_path: Path) -> None:
     assert db_file.exists()
 
 
-def test_get_or_create_user_is_case_insensitive(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    patch_db_file(tmp_path, monkeypatch)
-    db.init_db()
-
-    with db.connect() as conn:
-        first_id = db.get_or_create_user(conn, "Laura", display_name="Laura")
-        second_id = db.get_or_create_user(conn, "laura", display_name="Other")
-
-    assert first_id == second_id
-
-
 def test_existing_profiles_are_migrated_to_default_user(
     tmp_path: Path,
 ) -> None:

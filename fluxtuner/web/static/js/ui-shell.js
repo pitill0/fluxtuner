@@ -35,7 +35,23 @@ export function createUiShellController({
 
   function scrollToSection(node) {
     if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const headerHeight = appHeader?.getBoundingClientRect().height ?? 0;
+    const headerTop = appHeader
+      ? Number.parseFloat(window.getComputedStyle(appHeader).top) || 0
+      : 0;
+    const gap = 16;
+    const targetTop =
+      window.scrollY +
+      node.getBoundingClientRect().top -
+      headerHeight -
+      headerTop -
+      gap;
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    });
   }
 
   function setMobileMenuOpen(open) {

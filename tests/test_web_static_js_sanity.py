@@ -639,16 +639,22 @@ def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:
     client = TestClient(create_app())
 
     styles_response = client.get("/static/styles.css")
+    dialogs_response = client.get("/static/dialogs.css")
     admin_response = client.get("/static/admin.css")
 
     assert styles_response.status_code == 200
+    assert dialogs_response.status_code == 200
     assert admin_response.status_code == 200
 
-    assert "[data-password-change-form]" in styles_response.text
-    assert '"username note"' in styles_response.text
-    assert '"password confirm"' in styles_response.text
-    assert "[data-register-form]" in styles_response.text
-    assert '"username display"' in styles_response.text
+    assert "[data-password-change-form]" in dialogs_response.text
+    assert '"username note"' in dialogs_response.text
+    assert '"password confirm"' in dialogs_response.text
+    assert "[data-register-form]" in dialogs_response.text
+    assert '"username display"' in dialogs_response.text
+    assert ".register-form" in dialogs_response.text
+    assert ".register-dialog-message" in dialogs_response.text
+    assert "@media (max-width: 58rem)" in dialogs_response.text
+    assert "@media (max-width: 760px)" in dialogs_response.text
 
     assert "[data-admin-create-user-form]" in admin_response.text
     assert "[data-admin-password-form]" in admin_response.text
@@ -659,6 +665,10 @@ def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:
     assert "@media (max-width: 60rem)" in admin_response.text
     assert "@media (max-width: 24rem)" in admin_response.text
 
+    assert "[data-password-change-form]" not in styles_response.text
+    assert "[data-register-form]" not in styles_response.text
+    assert "\n.register-form {" not in styles_response.text
+    assert "\n.register-dialog-message {" not in styles_response.text
     assert "[data-admin-create-user-form]" not in styles_response.text
     assert "[data-admin-password-form]" not in styles_response.text
     assert "\n.admin-forms {" not in styles_response.text
@@ -742,6 +752,12 @@ def test_web_shared_dialog_styles_are_isolated() -> None:
     assert "\n.playlist-dialog {" not in styles_response.text
     assert "\n.playlist-dialog-card {" not in styles_response.text
     assert "\n.playlist-dialog-form {" not in styles_response.text
-    assert ".register-form {" in styles_response.text
-    assert "[data-register-form]" in styles_response.text
-    assert "[data-password-change-form]" in styles_response.text
+    assert ".register-form {" in dialogs_response.text
+    assert ".register-dialog-message {" in dialogs_response.text
+    assert "[data-register-form]" in dialogs_response.text
+    assert "[data-password-change-form]" in dialogs_response.text
+
+    assert "\n.register-form {" not in styles_response.text
+    assert "\n.register-dialog-message {" not in styles_response.text
+    assert "[data-register-form]" not in styles_response.text
+    assert "[data-password-change-form]" not in styles_response.text

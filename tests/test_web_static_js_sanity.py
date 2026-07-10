@@ -712,3 +712,36 @@ def test_web_static_js_keeps_production_console_clean() -> None:
     assert player_debug_response.status_code == 200
     assert "console." not in favorites_response.text
     assert 'console.debug("[FluxTuner player]"' in player_debug_response.text
+
+
+def test_web_shared_dialog_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    dialogs_response = client.get("/static/dialogs.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert dialogs_response.status_code == 200
+
+    dialogs_link = '<link rel="stylesheet" href="/static/dialogs.css">'
+    auth_link = '<link rel="stylesheet" href="/static/auth.css">'
+    assert dialogs_link in page_response.text
+    assert auth_link in page_response.text
+    assert page_response.text.index(dialogs_link) < page_response.text.index(auth_link)
+
+    assert ".playlist-dialog" in dialogs_response.text
+    assert ".playlist-dialog-card" in dialogs_response.text
+    assert ".playlist-dialog-form" in dialogs_response.text
+    assert ".playlist-dialog[hidden]" in dialogs_response.text
+    assert ".register-dialog[hidden]" in dialogs_response.text
+    assert ".password-change-dialog[hidden]" in dialogs_response.text
+    assert "@media (max-width: 42rem)" in dialogs_response.text
+
+    assert "\n.playlist-dialog {" not in styles_response.text
+    assert "\n.playlist-dialog-card {" not in styles_response.text
+    assert "\n.playlist-dialog-form {" not in styles_response.text
+    assert ".register-form {" in styles_response.text
+    assert "[data-register-form]" in styles_response.text
+    assert "[data-password-change-form]" in styles_response.text

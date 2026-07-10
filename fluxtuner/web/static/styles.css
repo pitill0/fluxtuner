@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
- */
-
 :root {
   color-scheme: dark;
   --bg: #07111f;
@@ -535,8 +531,7 @@ select:focus {
 
 .search-form button,
 .auth-form button,
-.setup-form button,
-.playlist-dialog-form button[type="submit"] {
+.setup-form button {
   color: #04111f;
   border-color: var(--action-fill);
   background: var(--action-fill);
@@ -544,8 +539,7 @@ select:focus {
 
 .search-form button:not(:disabled):hover,
 .auth-form button:not(:disabled):hover,
-.setup-form button:not(:disabled):hover,
-.playlist-dialog-form button[type="submit"]:not(:disabled):hover {
+.setup-form button:not(:disabled):hover {
   color: #ffffff;
   border-color: var(--action-fill-hover);
   background: var(--action-fill-hover);
@@ -622,48 +616,6 @@ select:focus {
   color: var(--danger);
   border-color: rgba(252, 165, 165, 0.3);
   background: rgba(127, 29, 29, 0.2);
-}
-
-.playlist-dialog-message {
-  margin: 1rem 0 0;
-  color: var(--muted);
-}
-
-.playlist-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: var(--page-inline);
-  background: rgba(3, 7, 18, 0.72);
-  backdrop-filter: blur(0.6rem);
-}
-
-.playlist-dialog-card {
-  display: grid;
-  gap: 1rem;
-  width: min(34rem, 100%);
-  padding: 1.25rem;
-  border: 1px solid rgba(110, 231, 216, 0.32);
-  border-radius: 1.25rem;
-  background: radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.16), transparent 16rem), linear-gradient(180deg, rgba(10, 25, 43, 0.98), rgba(4, 10, 20, 0.98));
-  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.65);
-}
-
-.playlist-dialog-form {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.playlist-dialog-station {
-  margin: 0;
-  color: var(--muted);
-}
-
-.playlist-dialog select {
-  width: 100%;
-  border-radius: 0.8rem;
 }
 
 .player-bar {
@@ -751,7 +703,9 @@ select:focus {
 }
 
 .player-bar[data-state="loading"] [data-player-status] { color: var(--warning); }
+
 .player-bar[data-state="playing"] [data-player-status] { color: var(--accent); }
+
 .player-bar[data-state="error"] [data-player-status] { color: var(--danger); }
 
 footer {
@@ -760,43 +714,40 @@ footer {
   font-size: 0.85rem;
 }
 
-@media (max-width: 58rem) {
-  .app-header {
+@media (max-width: 58rem) {.app-header {
     grid-template-columns: 1fr auto;
     border-radius: 1.25rem;
   }
 
-  .app-nav {
+.app-nav {
     grid-column: 1 / -1;
     justify-content: start;
   }
 
-  .app-user {
+.app-user {
     grid-column: 1 / 2;
     justify-content: start;
   }
 
-  .server-tools {
+.server-tools {
     grid-column: 2 / 3;
     grid-row: 1 / 2;
   }
 
-  .app-hero {
+.app-hero {
     grid-template-columns: 1fr;
   }
 
-  .search-form {
+.search-form {
     grid-template-columns: 1fr;
   }
 
-
-
-  [data-password-change-form],
-  [data-register-form] {
+[data-password-change-form],
+[data-register-form] {
     grid-template-columns: 1fr;
   }
 
-  [data-password-change-form] {
+[data-password-change-form] {
     grid-template-areas:
       "username"
       "note"
@@ -806,7 +757,7 @@ footer {
       "actions";
   }
 
-  [data-register-form] {
+[data-register-form] {
     grid-template-areas:
       "username"
       "display"
@@ -816,110 +767,107 @@ footer {
       "actions";
   }
 
-  .search-form button {
+.search-form button {
     width: fit-content;
   }
 
-  .player-bar {
+.player-bar {
     grid-template-columns: 1fr;
   }
 
-  .player-bar::before {
+.player-bar::before {
     position: absolute;
     top: 1rem;
     right: 1rem;
   }
 
-  .player-actions {
+.player-actions {
     justify-content: start;
   }
 }
 
-@media (max-width: 42rem) {
-  body {
+@media (max-width: 42rem) {body {
     padding-bottom: calc(12rem + env(safe-area-inset-bottom));
   }
 
-  .shell {
+.shell {
     width: min(100% - 1rem, 78rem);
     padding-top: 0.5rem;
   }
 
-  .app-header {
+.app-header {
     position: static;
     grid-template-columns: 1fr;
     gap: 0.55rem;
     padding: 0.75rem;
   }
 
-  .app-brand {
+.app-brand {
     justify-self: start;
   }
 
-  .app-nav {
+.app-nav {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app-user {
+.app-user {
     flex-wrap: wrap;
     white-space: normal;
   }
 
-  .server-tools {
+.server-tools {
     grid-column: auto;
     grid-row: auto;
     justify-self: stretch;
     width: 100%;
   }
 
-  .server-tools summary {
+.server-tools summary {
     width: 100%;
   }
 
-  .server-tools .actions,
-  .server-tools .status {
+.server-tools .actions,
+.server-tools .status {
     position: static;
     width: 100%;
     margin-top: 0.6rem;
   }
 
-  .hero,
-  .panel {
+.hero,
+.panel {
     border-radius: 1.15rem;
   }
 
-  h1 {
+h1 {
     max-width: none;
     font-size: clamp(2.15rem, 13vw, 3.5rem);
   }
 
-  .panel-heading,
-  .station-card header {
+.panel-heading,
+.station-card header {
     display: grid;
     align-items: start;
     justify-content: stretch;
   }
 
-  .panel-tools {
+.panel-tools {
     justify-content: start;
   }
 
-  .station-actions,
-  .player-actions {
+.station-actions,
+.player-actions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
-  .station-actions button,
-  .station-actions a,
-  .player-actions button,
-  .player-actions a {
+.station-actions button,
+.station-actions a,
+.player-actions button,
+.player-actions a {
     width: 100%;
   }
 }
-
-/* Compact player */
 
 .app-content {
   display: grid;
@@ -994,15 +942,14 @@ footer {
   font-size: 0.82rem !important;
 }
 
-@media (max-width: 42rem) {
-  .player-bar {
+@media (max-width: 42rem) {.player-bar {
     width: calc(100% - 1rem) !important;
     bottom: 0.5rem !important;
     grid-template-columns: 1fr !important;
     padding: 0.7rem !important;
   }
 
-  .player-actions {
+.player-actions {
     justify-content: start !important;
   }
 }
@@ -1011,8 +958,6 @@ footer {
 .panel[hidden] {
   display: none !important;
 }
-
-/* Light/dark theme switcher */
 
 :root[data-theme="light"] {
   color-scheme: light;
@@ -1096,10 +1041,10 @@ html[data-theme="light"] .player-bar {
 }
 
 html[data-theme="light"] .admin-health,
-html[data-theme="light"] .panel,
-html[data-theme="light"] .playlist-dialog {
+html[data-theme="light"] .panel {
   background: rgba(255, 255, 255, 0.78) !important;
 }
+
 .player-debug-details {
   display: grid !important;
   gap: 0.85rem !important;
@@ -1133,7 +1078,6 @@ html[data-theme="light"] .playlist-dialog {
   display: none !important;
 }
 
-
 html[data-theme="light"] .dashboard-metric,
 html[data-theme="light"] .dashboard-card,
 html[data-theme="light"] .station-card {
@@ -1157,7 +1101,6 @@ html[data-theme="light"] .station-meta span {
 html[data-theme="light"] .dashboard-metric span {
   color: #475569 !important;
 }
-
 
 .theme-toggle {
   min-width: 4.35rem !important;
@@ -1185,8 +1128,7 @@ html[data-theme="light"] .theme-toggle span::before {
   box-shadow: 0 0 0 0.28rem rgba(14, 116, 144, 0.10) !important;
 }
 
-@media (max-width: 38rem) {
-  .theme-toggle {
+@media (max-width: 38rem) {.theme-toggle {
     min-width: 3.75rem !important;
     padding: 0 0.68rem !important;
   }
@@ -1195,8 +1137,6 @@ html[data-theme="light"] .theme-toggle span::before {
 .player-bar[hidden] {
   display: none !important;
 }
-
-/* Final 0.9 accessibility and theme contrast polish */
 
 :root {
   --field-bg: rgba(3, 12, 24, 0.72);
@@ -1280,54 +1220,6 @@ small {
   color: var(--help-text) !important;
 }
 
-.playlist-dialog {
-  color: var(--dialog-text) !important;
-  background: var(--dialog-backdrop) !important;
-  backdrop-filter: blur(0.6rem);
-}
-
-.playlist-dialog-card {
-  color: var(--dialog-text) !important;
-  border-color: var(--field-border-focus) !important;
-  background:
-    radial-gradient(circle at 0% 0%, var(--dialog-glow), transparent 16rem),
-    var(--dialog-bg) !important;
-  box-shadow:
-    0 1.5rem 5rem var(--dialog-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
-}
-
-html[data-theme="light"] .playlist-dialog-card {
-  box-shadow:
-    0 1.25rem 4rem var(--dialog-shadow),
-    0 0 0 1px rgba(255, 255, 255, 0.88) inset !important;
-}
-
-.playlist-dialog h2,
-.playlist-dialog h3,
-.playlist-dialog strong {
-  color: var(--dialog-text) !important;
-}
-
-.playlist-dialog p,
-.playlist-dialog label,
-.playlist-dialog label span,
-.playlist-dialog .eyebrow,
-.playlist-dialog .muted,
-.playlist-dialog-message,
-.playlist-dialog-station {
-  color: var(--dialog-muted) !important;
-}
-
-.playlist-dialog select,
-.playlist-dialog input,
-.playlist-dialog textarea {
-  color: var(--field-text) !important;
-  background: var(--field-bg) !important;
-  border-color: var(--field-border) !important;
-}
-
-/* Dashboard and pending-account registration */
 .dashboard-panel {
   display: grid;
   gap: 1rem;
@@ -1393,10 +1285,6 @@ html[data-theme="light"] .playlist-dialog-card {
   width: 100%;
 }
 
-.register-dialog-card {
-  width: min(42rem, calc(100vw - 2rem));
-}
-
 .register-form {
   margin-top: 1rem;
   grid-template-columns: repeat(2, minmax(12rem, 1fr));
@@ -1413,7 +1301,6 @@ html[data-theme="light"] .playlist-dialog-card {
 .register-form .station-actions {
   grid-column: 1 / -1;
 }
-
 
 [data-password-change-form],
 [data-register-form] {
@@ -1584,16 +1471,12 @@ html[data-theme="light"] .public-stats-totals span {
   background: rgba(236, 254, 255, 0.8);
 }
 
-@media (max-width: 760px) {
-  .dashboard-grid,
-  .dashboard-sections,
-  .register-form {
+@media (max-width: 760px) {.dashboard-grid,
+.dashboard-sections,
+.register-form {
     grid-template-columns: 1fr;
   }
 }
-
-
-/* FluxTuner Web 1.0.1 family QA polish */
 
 .player-bar {
   border-color: rgba(110, 231, 216, 0.56) !important;
@@ -1659,17 +1542,6 @@ html[data-theme="light"] .public-stats-totals span {
   border-color: rgba(252, 165, 165, 0.62) !important;
 }
 
-.playlist-dialog {
-  align-items: start !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-.playlist-dialog-card {
-  max-height: calc(100dvh - (var(--page-inline) * 2)) !important;
-  overflow-y: auto !important;
-}
-
 html[data-theme="light"] .player-actions a {
   border-color: rgba(14, 116, 144, 0.22) !important;
   color: var(--text) !important;
@@ -1681,29 +1553,6 @@ html[data-theme="light"] .player-actions a:hover {
   color: var(--accent) !important;
 }
 
-@media (max-width: 42rem) {
-  .playlist-dialog {
-    display: grid !important;
-    place-items: start stretch !important;
-    padding: 0.75rem !important;
-  }
-
-  .playlist-dialog-card {
-    width: 100% !important;
-    max-height: calc(100dvh - 1.5rem) !important;
-    padding: 1rem !important;
-  }
-
-  .register-dialog-card {
-    margin-block: 0 !important;
-  }
-}
-
-/* 1.0.1 mobile hidden-state hotfix */
-
-.playlist-dialog[hidden],
-.register-dialog[hidden],
-.password-change-dialog[hidden],
 .app-user[hidden],
 .app-content[hidden],
 .auth-panel[hidden],
@@ -1714,18 +1563,6 @@ html[data-theme="light"] .player-actions a:hover {
   display: none !important;
 }
 
-
-/* 1.0.2 password-change and floating-header polish */
-
-.playlist-dialog {
-  padding-block-start: calc(5.75rem + env(safe-area-inset-top)) !important;
-}
-
-.playlist-dialog-card {
-  max-height: calc(100dvh - 6.75rem - env(safe-area-inset-top)) !important;
-}
-
-/* Secondary dialog actions stay quieter than submit, but keep readable hover states. */
 .register-dialog .register-form .station-actions button[type="button"],
 .password-change-dialog .register-form .station-actions button[type="button"] {
   border-color: rgba(148, 163, 184, 0.24) !important;
@@ -1753,18 +1590,6 @@ html[data-theme="light"] .password-change-dialog .register-form .station-actions
   color: #0f172a !important;
   background: rgba(255, 255, 255, 0.96) !important;
 }
-
-@media (max-width: 42rem) {
-  .playlist-dialog {
-    padding: calc(5.25rem + env(safe-area-inset-top)) 0.75rem 0.75rem !important;
-  }
-
-  .playlist-dialog-card {
-    max-height: calc(100dvh - 6rem - env(safe-area-inset-top)) !important;
-  }
-}
-
-/* FluxTuner Web public entry and admin diagnostics polish */
 
 .public-entry {
   display: grid;
@@ -2067,41 +1892,39 @@ html[data-theme="light"] .public-stats-totals {
   background: rgba(255, 255, 255, 0.82);
 }
 
-@media (max-width: 920px) {
-  .public-entry,
-  .public-stats-content {
+@media (max-width: 920px) {.public-entry,
+.public-stats-content {
     grid-template-columns: 1fr;
   }
 
-  .public-intro-panel h1 {
+.public-intro-panel h1 {
     max-width: 18ch;
   }
 
-  .public-stats-totals {
+.public-stats-totals {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 760px) {
-  .public-entry .auth-form {
+@media (max-width: 760px) {.public-entry .auth-form {
     grid-template-columns: 1fr;
   }
 
-  .public-entry .auth-form button[type="submit"] {
+.public-entry .auth-form button[type="submit"] {
     width: 100%;
     justify-self: stretch;
   }
 
-  .public-stats-list li {
+.public-stats-list li {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .public-stats-list strong {
+.public-stats-list strong {
     grid-column: 2;
     justify-self: start;
   }
 
-  .public-stats-totals {
+.public-stats-totals {
     grid-template-columns: 1fr;
   }
 }

@@ -181,16 +181,18 @@ def test_web_static_js_admin_is_exclusive_view() -> None:
 def test_web_css_has_clean_header_and_admin_view() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    admin_response = client.get("/static/admin.css")
 
-    assert response.status_code == 200
-    assert "/* Clean app shell header and exclusive admin view */" in response.text
-    assert ".app-menu" in response.text
-    assert "display: none !important;" in response.text
-    assert '.app-header[data-mobile-menu-open="true"] .app-menu' in response.text
-    assert ".admin-health" in response.text
-    assert "width: min(100%, 52rem) !important;" in response.text
-    assert "width: min(50rem, calc(100% - 2rem)) !important;" in response.text
+    assert styles_response.status_code == 200
+    assert admin_response.status_code == 200
+    assert "/* Clean app shell header and exclusive admin view */" in styles_response.text
+    assert ".app-menu" in styles_response.text
+    assert "display: none !important;" in styles_response.text
+    assert '.app-header[data-mobile-menu-open="true"] .app-menu' in styles_response.text
+    assert ".admin-health" in admin_response.text
+    assert "width: min(100%, 52rem);" in admin_response.text
+    assert "width: min(50rem, calc(100% - 2rem)) !important;" in styles_response.text
 
 
 def test_web_static_serves_app_icon() -> None:
@@ -253,6 +255,17 @@ def test_web_css_has_compact_admin_health_bar() -> None:
     assert "/* Compact admin health bar */" in admin_response.text
     assert ".admin-health-details" in admin_response.text
     assert "grid-template-columns: minmax(0, 1fr) auto;" in admin_response.text
+    assert ".admin-panel" in admin_response.text
+    assert ".player-debug-panel" in admin_response.text
+    assert ".player-debug-actions" in admin_response.text
+    assert ".player-debug-export" in admin_response.text
+    assert "color: var(--muted);" in admin_response.text
+    assert "width: min(100%, 52rem)" not in styles_response.text
+    assert "margin-inline: auto" in admin_response.text
+    assert ".player-debug-panel" not in styles_response.text
+    assert ".player-debug-actions" not in styles_response.text
+    assert "\n.player-debug-export {" not in styles_response.text
+    assert "var(--text-muted)" not in admin_response.text
     assert "!important" not in admin_response.text
 
 

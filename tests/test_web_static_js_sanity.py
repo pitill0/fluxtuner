@@ -524,13 +524,15 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     module_response = client.get("/static/js/player-debug.js")
     player_response = client.get("/static/js/player.js")
     html_response = client.get("/")
-    css_response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    admin_response = client.get("/static/admin.css")
 
     assert js_response.status_code == 200
     assert module_response.status_code == 200
     assert player_response.status_code == 200
     assert html_response.status_code == 200
-    assert css_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert admin_response.status_code == 200
 
     assert "data-admin-panel" in html_response.text
     assert "data-player-debug-panel" in html_response.text
@@ -587,13 +589,18 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     )
     assert "Player debug log download started:" in module_response.text
 
-    assert ".player-debug-panel" in css_response.text
-    assert ".player-debug-enable" in css_response.text
-    assert ".player-debug-actions" in css_response.text
-    assert ".player-debug-export" in css_response.text
-    assert ".player-debug-section" in css_response.text
-    assert ".player-debug-export-section:has(.player-debug-export[hidden])" in css_response.text
-    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_response.text
+    combined_css = styles_response.text + admin_response.text
+    assert ".player-debug-panel" in admin_response.text
+    assert ".player-debug-enable" in admin_response.text
+    assert ".player-debug-actions" in admin_response.text
+    assert ".player-debug-export" in admin_response.text
+    assert ".player-debug-panel" not in styles_response.text
+    assert ".player-debug-enable" not in styles_response.text
+    assert ".player-debug-actions" not in styles_response.text
+    assert "\n.player-debug-export {" not in styles_response.text
+    assert ".player-debug-section" in combined_css
+    assert ".player-debug-export-section:has(.player-debug-export[hidden])" in combined_css
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in admin_response.text
 
 
 def test_web_setup_form_layout_keeps_password_fields_together() -> None:

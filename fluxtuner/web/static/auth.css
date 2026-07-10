@@ -101,3 +101,19 @@
     width: 100%;
   }
 }
+
+/* Light theme primary actions */
+
+html[data-theme="light"] .auth-form button,
+html[data-theme="light"] .setup-form button {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+html[data-theme="light"] .auth-form button:not(:disabled):hover,
+html[data-theme="light"] .setup-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}

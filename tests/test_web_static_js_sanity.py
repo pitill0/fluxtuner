@@ -606,12 +606,33 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
 def test_web_setup_form_layout_keeps_password_fields_together() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    auth_response = client.get("/static/auth.css")
 
-    assert response.status_code == 200
-    assert '"username token"' in response.text
-    assert '"password confirm"' in response.text
-    assert "grid-area: token;" in response.text
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert auth_response.status_code == 200
+
+    auth_link = '<link rel="stylesheet" href="/static/auth.css">'
+    admin_link = '<link rel="stylesheet" href="/static/admin.css">'
+    assert auth_link in page_response.text
+    assert admin_link in page_response.text
+    assert page_response.text.index(auth_link) < page_response.text.index(admin_link)
+
+    assert '"username token"' in auth_response.text
+    assert '"password confirm"' in auth_response.text
+    assert "grid-area: token;" in auth_response.text
+    assert ".auth-panel" in auth_response.text
+    assert ".setup-panel" in auth_response.text
+    assert ".auth-form" in auth_response.text
+    assert ".setup-form" in auth_response.text
+    assert "@media (max-width: 58rem)" in auth_response.text
+    assert "@media (max-width: 42rem)" in auth_response.text
+    assert '"username token"' not in styles_response.text
+    assert "\n.setup-form {" not in styles_response.text
+    assert "\n.auth-form," not in styles_response.text
+    assert "/* Auth panels and compact player */" not in styles_response.text
 
 
 def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:

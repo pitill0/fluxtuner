@@ -1,0 +1,103 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
+/*
+ * Authentication and initial setup layouts.
+ *
+ * This stylesheet is loaded after the base and shell styles, and before
+ * admin.css. Global form controls remain in styles.css.
+ */
+
+.auth-panel,
+.setup-panel {
+  width: min(100%, 48rem);
+  max-width: 58rem;
+  margin-inline: auto;
+}
+
+.auth-panel .panel-heading,
+.setup-panel .panel-heading {
+  align-items: start;
+}
+
+.auth-form,
+.setup-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr)) auto;
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.setup-form {
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  grid-template-areas:
+    "username token"
+    "password confirm"
+    "actions actions";
+  align-items: start;
+}
+
+.setup-form > label {
+  align-self: start;
+}
+
+.setup-form > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+.setup-form > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+.setup-form > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+.setup-form > label:nth-of-type(4) {
+  grid-area: token;
+}
+
+.setup-form button {
+  grid-area: actions;
+  width: fit-content;
+  margin-top: 0.15rem;
+}
+
+.auth-panel[data-authenticated="true"] .auth-form {
+  display: none;
+}
+
+.auth-message,
+.setup-message {
+  margin: 1rem 0 0;
+  color: var(--muted);
+}
+
+@media (max-width: 58rem) {
+  .auth-form,
+  .setup-form {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-form {
+    grid-template-areas:
+      "username"
+      "token"
+      "password"
+      "confirm"
+      "actions";
+  }
+
+  .auth-form button,
+  .setup-form button {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 42rem) {
+  .auth-panel,
+  .setup-panel {
+    width: 100%;
+  }
+}

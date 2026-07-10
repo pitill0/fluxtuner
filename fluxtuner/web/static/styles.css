@@ -626,61 +626,11 @@ select:focus {
   background: rgba(127, 29, 29, 0.2);
 }
 
-.auth-panel,
-.setup-panel,
 .admin-panel {
   max-width: 58rem;
 }
 
-.auth-form,
-.setup-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(12rem, 1fr)) auto;
-  gap: 0.85rem;
-  align-items: end;
-}
 
-.setup-form {
-  grid-template-columns: repeat(2, minmax(12rem, 1fr));
-  grid-template-areas:
-    "username token"
-    "password confirm"
-    "actions actions";
-  align-items: start;
-}
-
-.setup-form > label {
-  align-self: start;
-}
-
-.setup-form > label:nth-of-type(1) {
-  grid-area: username;
-}
-
-.setup-form > label:nth-of-type(2) {
-  grid-area: password;
-}
-
-.setup-form > label:nth-of-type(3) {
-  grid-area: confirm;
-}
-
-.setup-form > label:nth-of-type(4) {
-  grid-area: token;
-}
-
-.setup-form button {
-  grid-area: actions;
-  width: fit-content;
-  margin-top: 0.15rem;
-}
-
-.auth-panel[data-authenticated="true"] .auth-form {
-  display: none;
-}
-
-.auth-message,
-.setup-message,
 .admin-message,
 .playlist-dialog-message {
   margin: 1rem 0 0;
@@ -954,20 +904,10 @@ footer {
   }
 
   .search-form,
-  .auth-form,
-  .setup-form,
   .admin-forms {
     grid-template-columns: 1fr;
   }
 
-  .setup-form {
-    grid-template-areas:
-      "username"
-      "token"
-      "password"
-      "confirm"
-      "actions";
-  }
 
 
   [data-password-change-form],
@@ -1017,9 +957,7 @@ footer {
       "actions";
   }
 
-  .search-form button,
-  .auth-form button,
-  .setup-form button {
+  .search-form button {
     width: fit-content;
   }
 
@@ -1122,23 +1060,7 @@ footer {
   }
 }
 
-/* Auth panels and compact player */
-
-.setup-panel,
-.auth-panel {
-  width: min(100%, 48rem);
-  margin-inline: auto;
-}
-
-.auth-panel .panel-heading,
-.setup-panel .panel-heading {
-  align-items: start;
-}
-
-.auth-form,
-.setup-form {
-  align-items: end;
-}
+/* Compact player */
 
 .app-content {
   display: grid;
@@ -1214,11 +1136,6 @@ footer {
 }
 
 @media (max-width: 42rem) {
-  .setup-panel,
-  .auth-panel {
-    width: 100%;
-  }
-
   .player-bar {
     width: calc(100% - 1rem) !important;
     bottom: 0.5rem !important;

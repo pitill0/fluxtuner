@@ -94,3 +94,104 @@
     width: 100%;
   }
 }
+
+
+/* Admin panel layout */
+
+.admin-panel {
+  width: min(100%, 52rem);
+  margin-inline: auto;
+}
+
+
+/* Player diagnostics */
+
+.player-debug-panel {
+  overflow: hidden;
+  border-color: rgba(190, 132, 255, 0.34);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(190, 132, 255, 0.14), transparent 12rem),
+    rgba(3, 8, 20, 0.28);
+}
+
+.player-debug-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.player-debug-enable input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.player-debug-actions {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.player-debug-actions button {
+  min-width: 0;
+  min-height: 2.15rem;
+  padding: 0 0.65rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.player-debug-export {
+  display: block;
+  width: 100%;
+  min-height: 9rem;
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  resize: vertical;
+  overflow: auto;
+  white-space: pre;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  background: rgba(3, 8, 20, 0.42);
+  color: var(--text);
+  font: 0.78rem/1.45 var(
+    --mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace
+  );
+}
+
+@media (max-width: 38rem) {
+  .player-debug-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .player-debug-actions button {
+    width: 100%;
+    padding-inline: 0.45rem;
+  }
+}
+
+/* Player diagnostics: light theme */
+
+html[data-theme="light"] .player-debug-panel {
+  border-color: rgba(126, 58, 242, 0.28);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(126, 58, 242, 0.10), transparent 12rem),
+    rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="light"] .player-debug-export {
+  background: rgba(255, 255, 255, 0.92);
+}
+

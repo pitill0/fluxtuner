@@ -1394,11 +1394,6 @@ footer {
   font-size: 0.86rem !important;
 }
 
-.admin-panel {
-  width: min(100%, 52rem) !important;
-  margin-inline: auto !important;
-}
-
 .admin-panel[hidden],
 .panel[hidden] {
   display: none !important;
@@ -1468,116 +1463,6 @@ footer {
 
   .app-user span {
     max-width: none !important;
-  }
-}
-
-.player-debug-panel {
-  border-color: rgba(190, 132, 255, 0.34) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(190, 132, 255, 0.14), transparent 12rem),
-    rgba(3, 8, 20, 0.28) !important;
-}
-
-
-.player-debug-enable {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.45rem !important;
-  margin-top: 0.65rem !important;
-  color: var(--text-muted) !important;
-  font-size: 0.86rem !important;
-}
-
-.player-debug-enable input {
-  width: 1rem !important;
-  height: 1rem !important;
-  accent-color: var(--accent) !important;
-}
-
-.player-debug-actions button:disabled {
-  cursor: not-allowed !important;
-  opacity: 0.48 !important;
-}
-
-.player-debug-actions {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 0.45rem !important;
-  justify-content: flex-end !important;
-}
-
-.player-debug-actions button {
-  min-height: 2.25rem !important;
-  padding: 0 0.75rem !important;
-  font-size: 0.82rem !important;
-}
-
-.player-debug-export {
-  width: 100% !important;
-  min-height: 9rem !important;
-  margin-top: 0.65rem !important;
-  padding: 0.75rem !important;
-  border: 1px solid var(--border-soft) !important;
-  border-radius: 0.85rem !important;
-  background: rgba(3, 8, 20, 0.42) !important;
-  color: var(--text) !important;
-  font: 0.78rem/1.45 var(--mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-}
-
-@media (max-width: 38rem) {
-  .player-debug-actions {
-    justify-content: stretch !important;
-  }
-
-  .player-debug-actions button {
-    flex: 1 1 5.5rem !important;
-  }
-}
-
-.player-debug-panel {
-  overflow: hidden !important;
-}
-
-.player-debug-actions {
-  display: flex !important;
-  max-width: 100% !important;
-  flex-wrap: wrap !important;
-  gap: 0.45rem !important;
-  justify-content: flex-end !important;
-}
-
-.player-debug-actions button {
-  min-width: 0 !important;
-  min-height: 2.15rem !important;
-  padding: 0 0.65rem !important;
-  font-size: 0.78rem !important;
-  white-space: nowrap !important;
-}
-
-.player-debug-export {
-  display: block !important;
-  width: 100% !important;
-  min-height: 9rem !important;
-  margin-top: 0.65rem !important;
-  resize: vertical !important;
-  overflow: auto !important;
-  white-space: pre !important;
-}
-
-.player-debug-export[hidden] {
-  display: none !important;
-}
-
-@media (max-width: 38rem) {
-  .player-debug-actions {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    justify-content: stretch !important;
-  }
-
-  .player-debug-actions button {
-    width: 100% !important;
-    padding-inline: 0.45rem !important;
   }
 }
 
@@ -1671,17 +1556,6 @@ html[data-theme="light"] .panel,
 html[data-theme="light"] .playlist-dialog {
   background: rgba(255, 255, 255, 0.78) !important;
 }
-html[data-theme="light"] .player-debug-panel {
-  border-color: rgba(126, 58, 242, 0.28) !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(126, 58, 242, 0.10), transparent 12rem),
-    rgba(255, 255, 255, 0.88) !important;
-}
-
-html[data-theme="light"] .player-debug-export {
-  background: rgba(255, 255, 255, 0.92) !important;
-}
-
 .player-debug-details {
   display: grid !important;
   gap: 0.85rem !important;

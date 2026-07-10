@@ -234,12 +234,15 @@ def test_web_static_js_formats_admin_health_summary() -> None:
 def test_web_css_has_compact_admin_health_bar() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    admin_response = client.get("/static/admin.css")
 
-    assert response.status_code == 200
-    assert "/* Compact admin health bar */" in response.text
-    assert ".admin-health-details" in response.text
-    assert "grid-template-columns: minmax(0, 1fr) auto !important;" in response.text
+    assert styles_response.status_code == 200
+    assert admin_response.status_code == 200
+    assert '@import url("./admin.css");' in styles_response.text
+    assert "/* Compact admin health bar */" in admin_response.text
+    assert ".admin-health-details" in admin_response.text
+    assert "grid-template-columns: minmax(0, 1fr) auto !important;" in admin_response.text
 
 
 def test_web_header_has_theme_toggle() -> None:

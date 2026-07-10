@@ -191,6 +191,28 @@ Focused boundary tests verify that the extracted domain modules and the
 compatibility wrappers operate on the same storage. Schema, migration and
 bootstrap logic should only be changed in a dedicated, carefully scoped PR.
 
+Storage tests now follow the same ownership boundaries:
+
+```text
+tests/test_stations_storage.py
+tests/test_favorites_storage.py
+tests/test_history_storage.py
+tests/test_playlists_storage.py
+tests/test_profiles_storage.py
+tests/test_users_storage.py
+tests/test_storage_domain_boundaries.py
+```
+
+`tests/test_db.py` is intentionally limited to SQLite connection behavior,
+schema creation, migrations, idempotency and default user/profile bootstrap.
+Domain persistence behavior belongs in the corresponding `*_storage.py` test
+module. `tests/test_storage_domain_boundaries.py` protects compatibility between
+direct domain-module calls and the wrappers retained in `db.py`.
+
+Future persistence tests should be added to the matching domain test module.
+Schema, migration and bootstrap changes should remain isolated in dedicated,
+carefully reviewed PRs.
+
 ### Phase 4: Web JavaScript module boundaries
 
 Status: completed in `v1.0.5`.

@@ -52,3 +52,50 @@ def test_web_static_js_resets_search_navigation() -> None:
     assert response.status_code == 200
     assert 'navSearchButton.addEventListener("click", () => {' in response.text
     assert "resetRadioBrowserView();" in response.text
+
+
+def test_web_dashboard_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    dashboard_response = client.get("/static/dashboard.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert dashboard_response.status_code == 200
+
+    dashboard_link = '<link rel="stylesheet" href="/static/dashboard.css">'
+    admin_link = '<link rel="stylesheet" href="/static/admin.css">'
+    assert dashboard_link in page_response.text
+    assert admin_link in page_response.text
+    assert page_response.text.index(dashboard_link) < page_response.text.index(admin_link)
+
+    for selector in [
+        ".dashboard-panel",
+        ".dashboard-grid",
+        ".dashboard-metric",
+        ".dashboard-sections",
+        ".dashboard-card",
+        ".dashboard-quick-actions",
+        ".dashboard-panel[hidden]",
+    ]:
+        assert selector in dashboard_response.text
+
+    assert 'html[data-theme="light"] .dashboard-metric' in dashboard_response.text
+    assert 'html[data-theme="light"] .dashboard-card' in dashboard_response.text
+    assert "@media (max-width: 760px)" in dashboard_response.text
+
+    for selector in [
+        "\n.dashboard-panel {",
+        "\n.dashboard-grid {",
+        "\n.dashboard-metric {",
+        "\n.dashboard-sections {",
+        "\n.dashboard-card {",
+        "\n.dashboard-quick-actions {",
+        ".dashboard-panel[hidden]",
+    ]:
+        assert selector not in styles_response.text
+
+    assert ".station-card" in styles_response.text
+    assert ".station-card" not in dashboard_response.text

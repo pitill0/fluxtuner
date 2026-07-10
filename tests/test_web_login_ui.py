@@ -181,15 +181,40 @@ def test_web_static_js_admin_is_exclusive_view() -> None:
 def test_web_css_has_clean_header_and_admin_view() -> None:
     client = TestClient(create_app())
 
+    page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
+    shell_response = client.get("/static/shell.css")
     admin_response = client.get("/static/admin.css")
 
+    assert page_response.status_code == 200
     assert styles_response.status_code == 200
+    assert shell_response.status_code == 200
     assert admin_response.status_code == 200
-    assert "/* Clean app shell header and exclusive admin view */" in styles_response.text
-    assert ".app-menu" in styles_response.text
-    assert "display: none !important;" in styles_response.text
-    assert '.app-header[data-mobile-menu-open="true"] .app-menu' in styles_response.text
+
+    styles_link = '<link rel="stylesheet" href="/static/styles.css">'
+    shell_link = '<link rel="stylesheet" href="/static/shell.css">'
+    admin_link = '<link rel="stylesheet" href="/static/admin.css">'
+    assert styles_link in page_response.text
+    assert shell_link in page_response.text
+    assert admin_link in page_response.text
+    assert page_response.text.index(styles_link) < page_response.text.index(shell_link)
+    assert page_response.text.index(shell_link) < page_response.text.index(admin_link)
+
+    assert "App shell, header and responsive navigation" in shell_response.text
+    assert ".shell" in shell_response.text
+    assert ".app-header" in shell_response.text
+    assert ".app-brand" in shell_response.text
+    assert ".app-user" in shell_response.text
+    assert ".app-menu-toggle" in shell_response.text
+    assert ".app-menu" in shell_response.text
+    assert ".app-nav" in shell_response.text
+    assert '.app-header[data-mobile-menu-open="true"] .app-menu' in shell_response.text
+    assert "@media (max-width: 38rem)" in shell_response.text
+    assert "@media (max-width: 30rem)" in shell_response.text
+    assert " !important;" not in shell_response.text
+
+    assert "/* Clean app shell header and exclusive admin view */" not in styles_response.text
+    assert 'html[data-theme="light"] .player-bar' in styles_response.text
     assert ".admin-health" in admin_response.text
     assert "width: min(100%, 52rem);" in admin_response.text
     assert "width: min(50rem, calc(100% - 2rem)) !important;" in styles_response.text

@@ -1,0 +1,253 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
+/*
+ * App shell, header and responsive navigation.
+ *
+ * This stylesheet is loaded after the base Web styles and before admin.css.
+ * Component selectors provide the final shell layout without !important.
+ */
+
+/* Core shell */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.shell {
+  width: min(68rem, calc(100% - (var(--page-inline) * 2)));
+  margin-inline: auto;
+}
+
+.app-header {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.72rem 0.85rem;
+  border: 1px solid rgba(110, 231, 216, 0.28);
+  border-radius: 1.55rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.18), transparent 13rem),
+    linear-gradient(180deg, rgba(13, 31, 53, 0.96), rgba(6, 15, 28, 0.94));
+  box-shadow:
+    0 1rem 3rem rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  backdrop-filter: blur(1rem);
+}
+
+.app-brand {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 2.65rem;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0;
+}
+
+.app-brand-icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.app-brand strong {
+  display: block;
+  font-size: 1rem;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.app-brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.app-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: end;
+  gap: 0.55rem;
+}
+
+.app-user {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: end;
+  gap: 0.55rem;
+}
+
+.app-user span {
+  max-width: 11rem;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-user button {
+  min-height: 2.3rem;
+  padding: 0 0.85rem;
+  font-size: 0.86rem;
+}
+
+.app-menu-toggle {
+  display: inline-flex;
+  width: 2.45rem;
+  min-width: 2.45rem;
+  height: 2.45rem;
+  min-height: 2.45rem;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.22rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.app-menu-toggle span[aria-hidden="true"] {
+  display: block;
+  width: 1rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.app-menu {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0.7rem;
+  left: auto;
+  z-index: 90;
+  display: none;
+  width: min(16rem, calc(100vw - 2rem));
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(110, 231, 216, 0.28);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.12), transparent 12rem),
+    linear-gradient(180deg, rgba(13, 31, 53, 0.98), rgba(6, 15, 28, 0.98));
+  box-shadow:
+    0 1.2rem 3.5rem rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset;
+}
+
+.app-header[data-mobile-menu-open="true"] .app-menu {
+  display: block;
+}
+
+.app-nav {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.app-nav button {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
+  justify-content: center;
+  padding: 0 0.85rem;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 38rem) {
+  :root {
+    --page-inline: 0.75rem;
+  }
+
+  .shell {
+    width: calc(100% - 1.5rem);
+    padding-top: 0.75rem;
+  }
+
+  .app-header {
+    gap: 0.65rem;
+    padding: 0.7rem;
+    border-radius: 1.25rem;
+  }
+
+  .app-brand-icon {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+
+  .app-brand strong {
+    font-size: 0.98rem;
+  }
+
+  .app-brand small {
+    font-size: 0.64rem;
+  }
+
+  .app-header-actions {
+    gap: 0.4rem;
+  }
+
+  .app-user {
+    display: contents;
+  }
+
+  .app-user span {
+    max-width: 8.5rem;
+    font-size: 0.86rem;
+  }
+
+  .app-user button {
+    min-height: 2.25rem;
+    padding: 0 0.7rem;
+  }
+
+  .app-menu {
+    right: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 30rem) {
+  .app-header {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header-actions {
+    justify-content: space-between;
+  }
+
+  .app-user span {
+    max-width: none;
+  }
+}
+
+/* Light theme */
+
+html[data-theme="light"] .app-header,
+html[data-theme="light"] .app-menu {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(2, 132, 199, 0.12), transparent 13rem),
+    rgba(255, 255, 255, 0.90);
+  box-shadow:
+    0 1rem 3rem rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.70) inset;
+}
+

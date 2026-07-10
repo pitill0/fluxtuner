@@ -30,15 +30,26 @@ Several interface modules carry many responsibilities at once:
 These files are still workable, but new features increasingly require scanning a
 large surface area.
 
-### Core storage concentration
+### Core storage boundaries
 
-`fluxtuner/core/db.py` is the single SQLite foundation for local and Web data.
-It currently owns schema creation/migrations, users, approval state, password
-change requests, profile ownership, public stats, station records, favorites,
-history and playlists.
+`fluxtuner/core/db.py` remains the shared SQLite foundation for local and Web
+data. It owns connection setup, schema creation and migrations, default
+user/profile bootstrap and compatibility wrappers for older call sites.
 
-Keeping one SQLite backend is fine, but the module now mixes multiple domains.
-Future changes should reduce the risk of touching unrelated storage code.
+Domain-specific persistence now lives in focused modules:
+
+- `fluxtuner/core/users.py` for user-account storage;
+- `fluxtuner/core/password_changes.py` for password-change requests;
+- `fluxtuner/core/profiles.py` for profiles and profile ownership;
+- `fluxtuner/core/stations.py` for station records;
+- `fluxtuner/core/favorites.py` for favorites;
+- `fluxtuner/core/history.py` for listening history;
+- `fluxtuner/core/playlists.py` for playlists;
+- `fluxtuner/core/public_stats.py` for public statistics.
+
+Schema and bootstrap responsibilities intentionally remain together in `db.py`.
+Compatibility wrappers are retained while existing call sites are reviewed
+gradually.
 
 ### Web state model
 
@@ -154,21 +165,31 @@ while reducing `app.py` size without changing the external API.
 
 ### Phase 3: Split storage by domain without changing SQLite
 
-Status: completed for users, password-change requests, profiles and the main
-library storage domains: stations, favorites, history and playlists.
+Status: completed.
 
-Keep `fluxtuner/core/db.py` as the schema and low-level SQLite foundation, then
-move domain-specific persistence functions behind small modules where it helps:
+The storage split introduced focused ownership for:
 
 ```text
+fluxtuner/core/public_stats.py
+fluxtuner/core/password_changes.py
 fluxtuner/core/users.py
-fluxtuner/core/library.py
-fluxtuner/core/playlists.py     # existing higher-level module can grow here
-fluxtuner/core/history.py       # existing higher-level module can grow here
+fluxtuner/core/profiles.py
+fluxtuner/core/stations.py
+fluxtuner/core/favorites.py
+fluxtuner/core/history.py
+fluxtuner/core/playlists.py
 ```
 
-Do this gradually. Avoid moving schema definitions until the behaviour is well
-covered.
+`fluxtuner/core/db.py` intentionally retains:
+
+- SQLite connection setup;
+- schema creation and migrations;
+- default user/profile bootstrap;
+- compatibility wrappers for existing call sites.
+
+Focused boundary tests verify that the extracted domain modules and the
+compatibility wrappers operate on the same storage. Schema, migration and
+bootstrap logic should only be changed in a dedicated, carefully scoped PR.
 
 ### Phase 4: Web JavaScript module boundaries
 

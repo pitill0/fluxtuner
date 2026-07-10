@@ -742,31 +742,6 @@ footer {
     grid-template-columns: 1fr;
   }
 
-[data-password-change-form],
-[data-register-form] {
-    grid-template-columns: 1fr;
-  }
-
-[data-password-change-form] {
-    grid-template-areas:
-      "username"
-      "note"
-      "password"
-      "confirm"
-      "message"
-      "actions";
-  }
-
-[data-register-form] {
-    grid-template-areas:
-      "username"
-      "display"
-      "password"
-      "note"
-      "message"
-      "actions";
-  }
-
 .search-form button {
     width: fit-content;
   }
@@ -1087,8 +1062,7 @@ html[data-theme="light"] .station-card {
 
 html[data-theme="light"] .station-meta,
 html[data-theme="light"] .station-tags,
-html[data-theme="light"] .auth-note,
-html[data-theme="light"] .register-dialog-message {
+html[data-theme="light"] .auth-note {
   color: #334155 !important;
 }
 
@@ -1285,85 +1259,6 @@ small {
   width: 100%;
 }
 
-.register-form {
-  margin-top: 1rem;
-  grid-template-columns: repeat(2, minmax(12rem, 1fr));
-}
-
-.register-dialog-message {
-  grid-column: 1 / -1;
-  min-height: 1.2rem;
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.register-form .station-actions {
-  grid-column: 1 / -1;
-}
-
-[data-password-change-form],
-[data-register-form] {
-  align-items: start;
-}
-
-[data-password-change-form] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "username note"
-    "password confirm"
-    "message message"
-    "actions actions";
-}
-
-[data-register-form] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "username display"
-    "password note"
-    "message message"
-    "actions actions";
-}
-
-[data-password-change-form] > label,
-[data-register-form] > label {
-  align-self: start;
-}
-
-[data-password-change-form] > label:nth-of-type(1),
-[data-register-form] > label:nth-of-type(1) {
-  grid-area: username;
-}
-
-[data-password-change-form] > label:nth-of-type(2),
-[data-register-form] > label:nth-of-type(2) {
-  grid-area: password;
-}
-
-[data-password-change-form] > label:nth-of-type(3) {
-  grid-area: confirm;
-}
-
-[data-password-change-form] > label:nth-of-type(4),
-[data-register-form] > label:nth-of-type(4) {
-  grid-area: note;
-}
-
-[data-register-form] > label:nth-of-type(3) {
-  grid-area: display;
-}
-
-[data-password-change-form] .register-dialog-message,
-[data-register-form] .register-dialog-message {
-  grid-area: message;
-}
-
-[data-password-change-form] .station-actions,
-[data-register-form] .station-actions {
-  grid-area: actions;
-  grid-column: auto;
-}
-
 .auth-note {
   margin: 0.8rem 0 0;
   color: var(--muted);
@@ -1472,8 +1367,7 @@ html[data-theme="light"] .public-stats-totals span {
 }
 
 @media (max-width: 760px) {.dashboard-grid,
-.dashboard-sections,
-.register-form {
+.dashboard-sections {
     grid-template-columns: 1fr;
   }
 }
@@ -1561,34 +1455,6 @@ html[data-theme="light"] .player-actions a:hover {
 .admin-panel[hidden],
 .panel[hidden] {
   display: none !important;
-}
-
-.register-dialog .register-form .station-actions button[type="button"],
-.password-change-dialog .register-form .station-actions button[type="button"] {
-  border-color: rgba(148, 163, 184, 0.24) !important;
-  color: var(--muted) !important;
-  background: rgba(15, 23, 42, 0.34) !important;
-}
-
-.register-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover,
-.password-change-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover {
-  border-color: rgba(110, 231, 216, 0.58) !important;
-  color: var(--text) !important;
-  background: rgba(15, 35, 59, 0.62) !important;
-}
-
-html[data-theme="light"] .register-dialog .register-form .station-actions button[type="button"],
-html[data-theme="light"] .password-change-dialog .register-form .station-actions button[type="button"] {
-  border-color: rgba(100, 116, 139, 0.24) !important;
-  color: #475569 !important;
-  background: rgba(248, 250, 252, 0.82) !important;
-}
-
-html[data-theme="light"] .register-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover,
-html[data-theme="light"] .password-change-dialog .register-form .station-actions button[type="button"]:not(:disabled):hover {
-  border-color: rgba(14, 116, 144, 0.52) !important;
-  color: #0f172a !important;
-  background: rgba(255, 255, 255, 0.96) !important;
 }
 
 .public-entry {
@@ -1701,34 +1567,16 @@ html[data-theme="light"] .password-change-dialog .register-form .station-actions
   background: rgba(110, 231, 216, 0.08);
 }
 
-.public-entry .auth-form button[type="submit"],
-.register-dialog .auth-form button[type="submit"],
-.password-change-dialog .auth-form button[type="submit"] {
+.public-entry .auth-form button[type="submit"] {
   color: #04111f;
   border-color: var(--action-fill);
   background: var(--action-fill);
 }
 
-.public-entry .auth-form button[type="submit"]:not(:disabled):hover,
-.register-dialog .auth-form button[type="submit"]:not(:disabled):hover,
-.password-change-dialog .auth-form button[type="submit"]:not(:disabled):hover {
+.public-entry .auth-form button[type="submit"]:not(:disabled):hover {
   color: #ffffff;
   border-color: var(--action-fill-hover);
   background: var(--action-fill-hover);
-}
-
-.register-dialog .station-actions button[type="button"],
-.password-change-dialog .station-actions button[type="button"] {
-  color: var(--muted);
-  border-color: rgba(148, 163, 184, 0.22);
-  background: rgba(15, 35, 59, 0.36);
-}
-
-.register-dialog .station-actions button[type="button"]:not(:disabled):hover,
-.password-change-dialog .station-actions button[type="button"]:not(:disabled):hover {
-  color: var(--text);
-  border-color: rgba(110, 231, 216, 0.38);
-  background: rgba(110, 231, 216, 0.1);
 }
 
 .public-stats-panel {
@@ -1858,34 +1706,16 @@ html[data-theme="light"] .public-entry .auth-secondary-actions button:not(:disab
   background: rgba(236, 254, 255, 0.82);
 }
 
-html[data-theme="light"] .public-entry .auth-form button[type="submit"],
-html[data-theme="light"] .register-dialog .auth-form button[type="submit"],
-html[data-theme="light"] .password-change-dialog .auth-form button[type="submit"] {
+html[data-theme="light"] .public-entry .auth-form button[type="submit"] {
   color: #ffffff;
   border-color: #0891b2;
   background: #0891b2;
 }
 
-html[data-theme="light"] .public-entry .auth-form button[type="submit"]:not(:disabled):hover,
-html[data-theme="light"] .register-dialog .auth-form button[type="submit"]:not(:disabled):hover,
-html[data-theme="light"] .password-change-dialog .auth-form button[type="submit"]:not(:disabled):hover {
+html[data-theme="light"] .public-entry .auth-form button[type="submit"]:not(:disabled):hover {
   color: #ffffff;
   border-color: #0e7490;
   background: #0e7490;
-}
-
-html[data-theme="light"] .register-dialog .station-actions button[type="button"],
-html[data-theme="light"] .password-change-dialog .station-actions button[type="button"] {
-  color: var(--muted);
-  border-color: rgba(15, 23, 42, 0.14);
-  background: rgba(248, 250, 252, 0.9);
-}
-
-html[data-theme="light"] .register-dialog .station-actions button[type="button"]:not(:disabled):hover,
-html[data-theme="light"] .password-change-dialog .station-actions button[type="button"]:not(:disabled):hover {
-  color: var(--text);
-  border-color: rgba(8, 145, 178, 0.28);
-  background: rgba(236, 254, 255, 0.86);
 }
 
 html[data-theme="light"] .public-stats-totals {

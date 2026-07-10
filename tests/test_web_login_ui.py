@@ -252,7 +252,8 @@ def test_web_css_has_compact_admin_health_bar() -> None:
     assert "/* Compact admin health bar */" not in styles_response.text
     assert "/* Compact admin health bar */" in admin_response.text
     assert ".admin-health-details" in admin_response.text
-    assert "grid-template-columns: minmax(0, 1fr) auto !important;" in admin_response.text
+    assert "grid-template-columns: minmax(0, 1fr) auto;" in admin_response.text
+    assert "!important" not in admin_response.text
 
 
 def test_web_header_has_theme_toggle() -> None:

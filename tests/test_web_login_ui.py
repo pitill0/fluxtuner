@@ -234,12 +234,22 @@ def test_web_static_js_formats_admin_health_summary() -> None:
 def test_web_css_has_compact_admin_health_bar() -> None:
     client = TestClient(create_app())
 
+    page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
     admin_response = client.get("/static/admin.css")
 
+    assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert admin_response.status_code == 200
-    assert '@import url("./admin.css");' in styles_response.text
+
+    styles_link = '<link rel="stylesheet" href="/static/styles.css">'
+    admin_link = '<link rel="stylesheet" href="/static/admin.css">'
+    assert styles_link in page_response.text
+    assert admin_link in page_response.text
+    assert page_response.text.index(styles_link) < page_response.text.index(admin_link)
+
+    assert '@import url("./admin.css");' not in styles_response.text
+    assert "/* Compact admin health bar */" not in styles_response.text
     assert "/* Compact admin health bar */" in admin_response.text
     assert ".admin-health-details" in admin_response.text
     assert "grid-template-columns: minmax(0, 1fr) auto !important;" in admin_response.text

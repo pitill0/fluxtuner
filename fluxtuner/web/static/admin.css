@@ -195,3 +195,376 @@ html[data-theme="light"] .player-debug-export {
   background: rgba(255, 255, 255, 0.92);
 }
 
+/* User management */
+
+.admin-panel {
+  display: grid;
+  width: min(100%, 52rem);
+  max-width: 58rem;
+  gap: 1rem;
+  margin-inline: auto;
+  border-color: rgba(110, 231, 216, 0.32);
+}
+
+.admin-message {
+  margin: 1rem 0 0;
+  color: var(--muted);
+}
+
+.admin-forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.admin-user-form {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.admin-user-form button {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.admin-user-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+.checkbox-label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.checkbox-label input {
+  width: auto;
+  min-height: auto;
+}
+
+.admin-users {
+  overflow-x: auto;
+}
+
+.admin-users-table {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 44rem;
+}
+
+.admin-users-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.45fr) 0.45fr 0.45fr 0.65fr minmax(18rem, 1.6fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.admin-users-head {
+  color: var(--muted);
+  font-weight: 800;
+  background: transparent;
+}
+
+.admin-users-row small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.admin-password-change-requests {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.password-change-request-row {
+  grid-template-columns: minmax(12rem, 1.25fr) minmax(9rem, 0.9fr) minmax(9rem, 0.9fr) minmax(14rem, 1.3fr) minmax(10rem, 1fr);
+}
+
+.admin-user-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-user-actions-normal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-user-danger-zone {
+  max-width: 22rem;
+  border: 1px solid rgba(248, 113, 113, 0.36);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(15, 23, 42, 0.18));
+}
+
+.admin-user-danger-zone summary {
+  cursor: pointer;
+  color: #fecaca;
+  font-size: 0.85rem;
+  font-weight: 850;
+}
+
+.admin-user-danger-zone div {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.admin-user-danger-zone strong {
+  color: var(--text);
+}
+
+.admin-user-danger-note,
+.admin-user-danger-feedback {
+  margin-top: 0;
+}
+
+.admin-user-danger-feedback {
+  color: #fecaca;
+  font-weight: 750;
+}
+
+[data-admin-create-user-form],
+[data-admin-password-form] {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-admin-create-user-form] {
+  grid-template-areas:
+    "title title"
+    "username display"
+    "password confirm"
+    "admin admin"
+    "actions actions";
+}
+
+[data-admin-password-form] {
+  grid-template-areas:
+    "title title"
+    "username username"
+    "password confirm"
+    "actions actions";
+}
+
+[data-admin-create-user-form] > h3,
+[data-admin-password-form] > h3 {
+  grid-area: title;
+}
+
+[data-admin-create-user-form] > label,
+[data-admin-password-form] > label {
+  align-self: start;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(1),
+[data-admin-password-form] > label:nth-of-type(1) {
+  grid-area: username;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(2) {
+  grid-area: display;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(3),
+[data-admin-password-form] > label:nth-of-type(2) {
+  grid-area: password;
+}
+
+[data-admin-create-user-form] > label:nth-of-type(4),
+[data-admin-password-form] > label:nth-of-type(3) {
+  grid-area: confirm;
+}
+
+[data-admin-create-user-form] > .checkbox-label {
+  grid-area: admin;
+}
+
+[data-admin-create-user-form] > button,
+[data-admin-password-form] > button {
+  grid-area: actions;
+  width: fit-content;
+}
+
+.admin-user-actions [data-admin-user-action="reject"],
+.admin-user-actions [data-admin-password-change-action="reject"] {
+  color: var(--danger);
+  border-color: rgba(252, 165, 165, 0.3);
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.admin-user-actions [data-admin-user-action="deactivate"] {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(120, 53, 15, 0.22);
+}
+
+.admin-user-actions [data-admin-user-action="delete"] {
+  color: #fee2e2;
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(153, 27, 27, 0.42);
+}
+
+@media (max-width: 58rem) {
+  .admin-forms,
+  [data-admin-create-user-form],
+  [data-admin-password-form] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-admin-create-user-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "display"
+      "password"
+      "confirm"
+      "admin"
+      "actions";
+  }
+
+  [data-admin-password-form] {
+    grid-template-areas:
+      "title"
+      "username"
+      "password"
+      "confirm"
+      "actions";
+  }
+}
+
+@media (max-width: 60rem) {
+  .admin-users { overflow-x: visible; }
+  .admin-users-table { min-width: 0; }
+  .admin-users-head { display: none; }
+
+  .admin-users-row,
+  .password-change-request-row {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    align-items: stretch;
+  }
+
+  .admin-users-row [role="cell"] {
+    display: grid;
+    grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr);
+    gap: 0.45rem 0.75rem;
+    min-width: 0;
+  }
+
+  .admin-users-row [role="cell"]::before {
+    content: attr(data-cell-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"] {
+    order: 1;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="User"]::before,
+  .admin-users-row [role="cell"][data-cell-label="Actions"]::before,
+  .admin-user-actions::before {
+    display: none;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Actions"] {
+    grid-template-columns: 1fr;
+    order: 2;
+  }
+
+  .admin-users-row [role="cell"][data-cell-label="Admin"],
+  .admin-users-row [role="cell"][data-cell-label="Active"],
+  .admin-users-row [role="cell"][data-cell-label="Status"],
+  .password-change-request-row [role="cell"][data-cell-label="Created"],
+  .password-change-request-row [role="cell"][data-cell-label="Expires"],
+  .password-change-request-row [role="cell"][data-cell-label="Note"] {
+    order: 3;
+  }
+
+  .admin-user-actions {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .admin-user-actions-normal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .admin-user-actions button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .admin-user-danger-zone {
+    width: 100%;
+    max-width: none;
+    margin-top: 0.1rem;
+    padding: 0.65rem 0.8rem;
+  }
+
+  .admin-user-danger-zone summary {
+    padding-inline: 0.1rem;
+    white-space: nowrap;
+  }
+
+  .admin-user-danger-zone[open] { padding-bottom: 0.75rem; }
+}
+
+@media (max-width: 24rem) {
+  .admin-user-actions-normal { grid-template-columns: 1fr; }
+}
+
+/* User management: light theme */
+
+html[data-theme="light"] .admin-user-form button {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+html[data-theme="light"] .admin-user-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+html[data-theme="light"] .admin-user-danger-zone {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.9), rgba(255, 247, 237, 0.72));
+}
+
+html[data-theme="light"] .admin-user-danger-zone summary,
+html[data-theme="light"] .admin-user-danger-feedback {
+  color: #991b1b;
+}
+
+html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate"] {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(254, 243, 199, 0.82);
+}
+

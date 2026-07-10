@@ -638,16 +638,32 @@ def test_web_setup_form_layout_keeps_password_fields_together() -> None:
 def test_web_dialog_and_admin_forms_keep_password_fields_together() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    admin_response = client.get("/static/admin.css")
 
-    assert response.status_code == 200
-    assert "[data-password-change-form]" in response.text
-    assert '"username note"' in response.text
-    assert '"password confirm"' in response.text
-    assert "[data-register-form]" in response.text
-    assert '"username display"' in response.text
-    assert "[data-admin-create-user-form]" in response.text
-    assert "[data-admin-password-form]" in response.text
+    assert styles_response.status_code == 200
+    assert admin_response.status_code == 200
+
+    assert "[data-password-change-form]" in styles_response.text
+    assert '"username note"' in styles_response.text
+    assert '"password confirm"' in styles_response.text
+    assert "[data-register-form]" in styles_response.text
+    assert '"username display"' in styles_response.text
+
+    assert "[data-admin-create-user-form]" in admin_response.text
+    assert "[data-admin-password-form]" in admin_response.text
+    assert ".admin-forms" in admin_response.text
+    assert ".admin-users-table" in admin_response.text
+    assert ".admin-user-actions" in admin_response.text
+    assert ".admin-user-danger-zone" in admin_response.text
+    assert "@media (max-width: 60rem)" in admin_response.text
+    assert "@media (max-width: 24rem)" in admin_response.text
+
+    assert "[data-admin-create-user-form]" not in styles_response.text
+    assert "[data-admin-password-form]" not in styles_response.text
+    assert "\n.admin-forms {" not in styles_response.text
+    assert "\n.admin-users-table {" not in styles_response.text
+    assert "\n.admin-user-danger-zone {" not in styles_response.text
 
 
 def test_web_media_session_metadata_debug_and_reapply() -> None:

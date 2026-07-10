@@ -1,0 +1,165 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
+/* Shared modal and dialog system. Form-specific layouts remain in styles.css. */
+
+.playlist-dialog-form button[type="submit"] {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.playlist-dialog-form button[type="submit"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+.playlist-dialog-message {
+  margin: 1rem 0 0;
+  color: var(--muted);
+}
+
+.playlist-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: var(--page-inline);
+  background: rgba(3, 7, 18, 0.72);
+  backdrop-filter: blur(0.6rem);
+}
+
+.playlist-dialog-card {
+  display: grid;
+  gap: 1rem;
+  width: min(34rem, 100%);
+  padding: 1.25rem;
+  border: 1px solid rgba(110, 231, 216, 0.32);
+  border-radius: 1.25rem;
+  background: radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.16), transparent 16rem), linear-gradient(180deg, rgba(10, 25, 43, 0.98), rgba(4, 10, 20, 0.98));
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.65);
+}
+
+.playlist-dialog-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.playlist-dialog-station {
+  margin: 0;
+  color: var(--muted);
+}
+
+.playlist-dialog select {
+  width: 100%;
+  border-radius: 0.8rem;
+}
+
+html[data-theme="light"] .playlist-dialog {
+  background: rgba(255, 255, 255, 0.78) !important;
+}
+
+.playlist-dialog {
+  color: var(--dialog-text) !important;
+  background: var(--dialog-backdrop) !important;
+  backdrop-filter: blur(0.6rem);
+}
+
+.playlist-dialog-card {
+  color: var(--dialog-text) !important;
+  border-color: var(--field-border-focus) !important;
+  background:
+    radial-gradient(circle at 0% 0%, var(--dialog-glow), transparent 16rem),
+    var(--dialog-bg) !important;
+  box-shadow:
+    0 1.5rem 5rem var(--dialog-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+}
+
+html[data-theme="light"] .playlist-dialog-card {
+  box-shadow:
+    0 1.25rem 4rem var(--dialog-shadow),
+    0 0 0 1px rgba(255, 255, 255, 0.88) inset !important;
+}
+
+.playlist-dialog h2,
+.playlist-dialog h3,
+.playlist-dialog strong {
+  color: var(--dialog-text) !important;
+}
+
+.playlist-dialog p,
+.playlist-dialog label,
+.playlist-dialog label span,
+.playlist-dialog .eyebrow,
+.playlist-dialog .muted,
+.playlist-dialog-message,
+.playlist-dialog-station {
+  color: var(--dialog-muted) !important;
+}
+
+.playlist-dialog select,
+.playlist-dialog input,
+.playlist-dialog textarea {
+  color: var(--field-text) !important;
+  background: var(--field-bg) !important;
+  border-color: var(--field-border) !important;
+}
+
+.register-dialog-card {
+  width: min(42rem, calc(100vw - 2rem));
+}
+
+.playlist-dialog {
+  align-items: start !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.playlist-dialog-card {
+  max-height: calc(100dvh - (var(--page-inline) * 2)) !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 42rem) {.playlist-dialog {
+    display: grid !important;
+    place-items: start stretch !important;
+    padding: 0.75rem !important;
+  }
+
+.playlist-dialog-card {
+    width: 100% !important;
+    max-height: calc(100dvh - 1.5rem) !important;
+    padding: 1rem !important;
+  }
+
+.register-dialog-card {
+    margin-block: 0 !important;
+  }
+}
+
+.playlist-dialog[hidden],
+.register-dialog[hidden],
+.password-change-dialog[hidden] {
+  display: none !important;
+}
+
+.playlist-dialog {
+  padding-block-start: calc(5.75rem + env(safe-area-inset-top)) !important;
+}
+
+.playlist-dialog-card {
+  max-height: calc(100dvh - 6.75rem - env(safe-area-inset-top)) !important;
+}
+
+@media (max-width: 42rem) {.playlist-dialog {
+    padding: calc(5.25rem + env(safe-area-inset-top)) 0.75rem 0.75rem !important;
+  }
+
+.playlist-dialog-card {
+    max-height: calc(100dvh - 6rem - env(safe-area-inset-top)) !important;
+  }
+}

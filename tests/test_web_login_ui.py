@@ -332,9 +332,9 @@ def test_web_css_has_light_theme() -> None:
     response = client.get("/static/styles.css")
 
     assert response.status_code == 200
-    assert "/* Light/dark theme switcher */" in response.text
     assert ':root[data-theme="light"]' in response.text
     assert 'html[data-theme="light"] body' in response.text
+    assert 'html[data-theme="light"] body::before' in response.text
     assert ".theme-toggle" in response.text
 
 
@@ -355,15 +355,25 @@ def test_web_static_js_hides_player_without_auth_and_resets_non_admin_view() -> 
 def test_web_css_has_accessible_playlist_dialog_theme() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    dialogs_response = client.get("/static/dialogs.css")
 
-    assert response.status_code == 200
-    assert "/* Final 0.9 accessibility and theme contrast polish */" in response.text
-    assert "--field-muted" in response.text
-    assert "--dialog-bg" in response.text
-    assert "input::placeholder" in response.text
-    assert 'html[data-theme="light"] .playlist-dialog-card' in response.text
-    assert ".playlist-dialog-card" in response.text
+    assert styles_response.status_code == 200
+    assert dialogs_response.status_code == 200
+
+    assert "--field-muted" in styles_response.text
+    assert "--dialog-bg" in styles_response.text
+    assert "--dialog-backdrop" in styles_response.text
+    assert "input::placeholder" in styles_response.text
+
+    assert ".playlist-dialog {" in dialogs_response.text
+    assert ".playlist-dialog-card {" in dialogs_response.text
+    assert 'html[data-theme="light"] .playlist-dialog-card' in dialogs_response.text
+    assert "background: var(--dialog-backdrop)" in dialogs_response.text
+    assert "var(--dialog-bg)" in dialogs_response.text
+
+    assert "\n.playlist-dialog {" not in styles_response.text
+    assert "\n.playlist-dialog-card {" not in styles_response.text
 
 
 def test_web_player_starts_hidden_until_authenticated() -> None:

@@ -5,8 +5,8 @@
 /*
  * Authentication and initial setup layouts.
  *
- * This stylesheet is loaded after the base and shell styles, and before
- * admin.css. Global form controls remain in styles.css.
+ * This stylesheet is loaded after forms.css and dialogs.css, and before
+ * public.css. Shared form controls remain in forms.css.
  */
 
 .auth-panel,
@@ -116,4 +116,44 @@ html[data-theme="light"] .setup-form button:not(:disabled):hover {
   color: #ffffff;
   border-color: var(--action-fill-hover);
   background: var(--action-fill-hover);
+}
+
+/* Completed authentication ownership */
+
+.auth-form button,
+.setup-form button {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+.auth-form button:not(:disabled):hover,
+.setup-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+html[data-theme="light"] .auth-note {
+  color: #334155 !important;
+}
+
+.auth-secondary-actions {
+  margin-top: 1rem;
+}
+
+.auth-secondary-actions button {
+  width: 100%;
+}
+
+.auth-note {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.auth-panel[hidden],
+.setup-panel[hidden] {
+  display: none !important;
 }

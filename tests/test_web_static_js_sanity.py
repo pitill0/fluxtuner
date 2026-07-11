@@ -24,6 +24,27 @@ def test_web_static_js_uses_module_entrypoint() -> None:
     assert api_response.headers["cache-control"] == "no-cache"
 
 
+def test_web_static_js_uses_application_dom_registry() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    elements_response = client.get("/static/js/app-elements.js")
+
+    assert app_response.status_code == 200
+    assert elements_response.status_code == 200
+    assert 'import { createAppElements } from "/static/js/app-elements.js";' in app_response.text
+    assert "export function createAppElements(root = document)" in elements_response.text
+    assert "} = createAppElements();" in app_response.text
+    assert 'root.querySelector("[data-app-header]")' in elements_response.text
+    assert 'root.querySelectorAll("[data-private-action]")' in elements_response.text
+    assert 'root.querySelectorAll("[data-dashboard-action]")' in elements_response.text
+    assert "document.querySelector(" not in app_response.text
+    assert "document.querySelectorAll(" not in app_response.text
+    assert "document.getElementById(" not in app_response.text
+    assert "document.getElementsByClassName(" not in app_response.text
+    assert "document.getElementsByTagName(" not in app_response.text
+
+
 def test_web_static_js_uses_theme_module() -> None:
     client = TestClient(create_app())
 
@@ -555,9 +576,11 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "Exported debug log" in html_response.text
 
     assert "const PLAYER_DEBUG_EVENT_LIMIT = 80;" in module_response.text
+    elements_response = client.get("/static/js/app-elements.js")
+    assert elements_response.status_code == 200
     assert (
-        'const playerDebugPanel = document.querySelector("[data-player-debug-panel]");'
-        in js_response.text
+        'playerDebugPanel: root.querySelector("[data-player-debug-panel]"),'
+        in elements_response.text
     )
     assert "debugSnapshot(details = {})" in player_response.text
     assert "function applyState(nextEnabled, persist = true)" in module_response.text

@@ -5,6 +5,7 @@
 import { createAccountRequestsController } from "/static/js/account-requests.js";
 import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
+import { createAppElements } from "/static/js/app-elements.js";
 import { createAuthController } from "/static/js/auth.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
@@ -23,99 +24,99 @@ import { createUiShellController } from "/static/js/ui-shell.js";
 import { createStationRenderer } from "/static/js/station-renderer.js";
 import { stationUrl } from "/static/js/stations.js";
 
-const statusNode = document.querySelector("[data-status]");
-const healthStateNode = document.querySelector("[data-health-state]");
-const healthSummaryNode = document.querySelector("[data-health-summary]");
-const healthButton = document.querySelector("[data-health-check]");
-const searchForm = document.querySelector("[data-search-form]");
-const resultsNode = document.querySelector("[data-results]");
-const resultCountNode = document.querySelector("[data-result-count]");
-const resultsKickerNode = document.querySelector("[data-results-kicker]");
-const resultsTitleNode = document.querySelector("[data-results-title]");
-const appContent = document.querySelector("[data-app-content]");
-const searchPanel = document.querySelector("[data-search-panel]");
-const appContentNodes = document.querySelectorAll("[data-app-content]");
-const appHeader = document.querySelector("[data-app-header]");
-const navToggleButton = document.querySelector("[data-nav-toggle]");
-const themeToggleButton = document.querySelector("[data-theme-toggle]");
-const themeLabelNode = document.querySelector("[data-theme-label]");
-const navDashboardButton = document.querySelector("[data-nav-dashboard]");
-const navSearchButton = document.querySelector("[data-nav-search]");
-const navFavoritesButton = document.querySelector("[data-nav-favorites]");
-const navPlaylistsButton = document.querySelector("[data-nav-playlists]");
-const navHistoryButton = document.querySelector("[data-nav-history]");
-const navAdminButton = document.querySelector("[data-nav-admin]");
-const loadHistoryButton = document.querySelector("[data-load-history]");
-const loadFavoritesButton = document.querySelector("[data-load-favorites]");
-const loadPlaylistsButton = document.querySelector("[data-load-playlists]");
-const publicEntrySection = document.querySelector("[data-public-entry]");
-const authPanel = document.querySelector("[data-auth-panel]");
-const loginForm = document.querySelector("[data-login-form]");
-const registerOpenButton = document.querySelector("[data-register-open]");
-const registerDialog = document.querySelector("[data-register-dialog]");
-const registerCancelButtons = document.querySelectorAll("[data-register-cancel]");
-const registerForm = document.querySelector("[data-register-form]");
-const registerMessageNode = document.querySelector("[data-register-message]");
-const passwordChangeOpenButton = document.querySelector("[data-password-change-open]");
-const passwordChangeDialog = document.querySelector("[data-password-change-dialog]");
-const passwordChangeCancelButtons = document.querySelectorAll("[data-password-change-cancel]");
-const passwordChangeForm = document.querySelector("[data-password-change-form]");
-const passwordChangeMessageNode = document.querySelector("[data-password-change-message]");
-const authMessageNode = document.querySelector("[data-auth-message]");
-const publicStatsSection = document.querySelector("[data-public-stats]");
-const publicStatsContentNode = document.querySelector("[data-public-stats-content]");
-const publicStatsMessageNode = document.querySelector("[data-public-stats-message]");
-const authUserPanel = document.querySelector("[data-auth-user]");
-const authUsernameNode = document.querySelector("[data-auth-username]");
-const logoutButton = document.querySelector("[data-logout]");
-const privateActionNodes = document.querySelectorAll("[data-private-action]");
-const setupPanel = document.querySelector("[data-setup-panel]");
-const setupForm = document.querySelector("[data-setup-form]");
-const setupTokenField = document.querySelector("[data-setup-token-field]");
-const setupMessageNode = document.querySelector("[data-setup-message]");
-const dashboardPanel = document.querySelector("[data-dashboard-panel]");
-const dashboardRefreshButton = document.querySelector("[data-dashboard-refresh]");
-const dashboardUserMetricsNode = document.querySelector("[data-dashboard-user-metrics]");
-const dashboardRecentHistoryNode = document.querySelector("[data-dashboard-recent-history]");
-const dashboardFavoriteHighlightsNode = document.querySelector("[data-dashboard-favorite-highlights]");
-const dashboardAdminPanel = document.querySelector("[data-dashboard-admin]");
-const dashboardAdminMetricsNode = document.querySelector("[data-dashboard-admin-metrics]");
-const dashboardAdminActionButton = document.querySelector("[data-dashboard-admin-action]");
-const dashboardMessageNode = document.querySelector("[data-dashboard-message]");
-const adminPanel = document.querySelector("[data-admin-panel]");
-const adminLoadUsersButton = document.querySelector("[data-admin-load-users]");
-const adminCreateUserForm = document.querySelector("[data-admin-create-user-form]");
-const adminPasswordForm = document.querySelector("[data-admin-password-form]");
-const adminMessageNode = document.querySelector("[data-admin-message]");
-const adminUsersNode = document.querySelector("[data-admin-users]");
-const adminPasswordChangeRequestsNode = document.querySelector(
-  "[data-admin-password-change-requests]",
-);
-const playlistDialog = document.querySelector("[data-playlist-dialog]");
-const playlistForm = document.querySelector("[data-playlist-form]");
-const playlistSelect = document.querySelector("[data-playlist-select]");
-const playlistMessageNode = document.querySelector("[data-playlist-message]");
-const playlistStationNameNode = document.querySelector("[data-playlist-station-name]");
-const playlistCancelButtons = document.querySelectorAll("[data-playlist-cancel]");
-
-const playerBar = document.querySelector("[data-player-bar]");
-const audioNode = document.querySelector("[data-audio]");
-const playerTitleNode = document.querySelector("[data-player-title]");
-const playerStatusNode = document.querySelector("[data-player-status]");
-const playerToggleButton = document.querySelector("[data-player-toggle]");
-const playerStopButton = document.querySelector("[data-player-stop]");
-const playerOpenLink = document.querySelector("[data-player-open]");
-const playerDebugPanel = document.querySelector("[data-player-debug-panel]");
-const playerDebugSummaryNode = document.querySelector("[data-player-debug-summary]");
-const playerDebugEnableInput = document.querySelector("[data-player-debug-enable]");
-const playerDebugToggleButton = document.querySelector("[data-player-debug-toggle]");
-const playerDebugCopyButton = document.querySelector("[data-player-debug-copy]");
-const playerDebugClearButton = document.querySelector("[data-player-debug-clear]");
-const playerDebugDownloadButton = document.querySelector("[data-player-debug-download]");
-const playerDebugDetailsNode = document.querySelector("[data-player-debug-details]");
-const playerDebugSnapshotNode = document.querySelector("[data-player-debug-snapshot]");
-const playerDebugLogNode = document.querySelector("[data-player-debug-log]");
-const playerDebugExportNode = document.querySelector("[data-player-debug-export]");
+const {
+  adminCreateUserForm,
+  adminLoadUsersButton,
+  adminMessageNode,
+  adminPanel,
+  adminPasswordChangeRequestsNode,
+  adminPasswordForm,
+  adminUsersNode,
+  appContent,
+  appContentNodes,
+  appHeader,
+  audioNode,
+  authMessageNode,
+  authPanel,
+  authUserPanel,
+  authUsernameNode,
+  dashboardActionButtons,
+  dashboardAdminActionButton,
+  dashboardAdminMetricsNode,
+  dashboardAdminPanel,
+  dashboardFavoriteHighlightsNode,
+  dashboardMessageNode,
+  dashboardPanel,
+  dashboardRecentHistoryNode,
+  dashboardRefreshButton,
+  dashboardUserMetricsNode,
+  healthButton,
+  healthStateNode,
+  healthSummaryNode,
+  loadFavoritesButton,
+  loadHistoryButton,
+  loadPlaylistsButton,
+  loginForm,
+  logoutButton,
+  navAdminButton,
+  navDashboardButton,
+  navFavoritesButton,
+  navHistoryButton,
+  navPlaylistsButton,
+  navSearchButton,
+  navToggleButton,
+  passwordChangeCancelButtons,
+  passwordChangeDialog,
+  passwordChangeForm,
+  passwordChangeMessageNode,
+  passwordChangeOpenButton,
+  playerBar,
+  playerDebugClearButton,
+  playerDebugCopyButton,
+  playerDebugDetailsNode,
+  playerDebugDownloadButton,
+  playerDebugEnableInput,
+  playerDebugExportNode,
+  playerDebugLogNode,
+  playerDebugPanel,
+  playerDebugSnapshotNode,
+  playerDebugSummaryNode,
+  playerDebugToggleButton,
+  playerOpenLink,
+  playerStatusNode,
+  playerStopButton,
+  playerTitleNode,
+  playerToggleButton,
+  playlistCancelButtons,
+  playlistDialog,
+  playlistForm,
+  playlistMessageNode,
+  playlistSelect,
+  playlistStationNameNode,
+  privateActionNodes,
+  publicEntrySection,
+  publicStatsContentNode,
+  publicStatsMessageNode,
+  publicStatsSection,
+  registerCancelButtons,
+  registerDialog,
+  registerForm,
+  registerMessageNode,
+  registerOpenButton,
+  resultCountNode,
+  resultsKickerNode,
+  resultsNode,
+  resultsTitleNode,
+  searchForm,
+  searchPanel,
+  setupForm,
+  setupMessageNode,
+  setupPanel,
+  setupTokenField,
+  statusNode,
+  themeLabelNode,
+  themeToggleButton,
+} = createAppElements();
 
 let playerController = null;
 let playStation = () => {};
@@ -696,7 +697,7 @@ if (dashboardRefreshButton) {
   dashboardRefreshButton.addEventListener("click", loadDashboard);
 }
 
-document.querySelectorAll("[data-dashboard-action]").forEach((button) => {
+dashboardActionButtons.forEach((button) => {
   button.addEventListener("click", async () => {
     const action = button.getAttribute("data-dashboard-action");
     if (action === "search") {

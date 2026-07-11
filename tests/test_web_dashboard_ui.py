@@ -28,7 +28,9 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
     assert app_response.status_code == 200
     assert dashboard_response.status_code == 200
     assert ui_shell_response.status_code == 200
-    assert 'document.querySelector("[data-nav-dashboard]")' in app_response.text
+    elements_response = client.get("/static/js/app-elements.js")
+    assert elements_response.status_code == 200
+    assert 'root.querySelector("[data-nav-dashboard]")' in elements_response.text
     assert (
         'import { createDashboardController } from "/static/js/dashboard.js";' in app_response.text
     )

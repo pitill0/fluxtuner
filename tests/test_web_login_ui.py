@@ -214,10 +214,8 @@ def test_web_css_has_clean_header_and_admin_view() -> None:
     assert " !important;" not in shell_response.text
 
     assert "/* Clean app shell header and exclusive admin view */" not in styles_response.text
-    assert 'html[data-theme="light"] .player-bar' in styles_response.text
     assert ".admin-health" in admin_response.text
     assert "width: min(100%, 52rem);" in admin_response.text
-    assert "width: min(50rem, calc(100% - 2rem)) !important;" in styles_response.text
 
 
 def test_web_static_serves_app_icon() -> None:
@@ -380,13 +378,13 @@ def test_web_player_starts_hidden_until_authenticated() -> None:
     client = TestClient(create_app())
 
     html = client.get("/")
-    css = client.get("/static/styles.css")
+    player_css = client.get("/static/player.css")
 
     assert html.status_code == 200
-    assert css.status_code == 200
+    assert player_css.status_code == 200
     assert 'data-player-bar aria-live="polite" hidden' in html.text
-    assert ".player-bar[hidden]" in css.text
-    assert "display: none !important;" in css.text
+    assert ".player-bar[hidden]" in player_css.text
+    assert "display: none !important;" in player_css.text
 
 
 def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:

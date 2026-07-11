@@ -29,7 +29,9 @@ def test_web_static_js_submits_pending_registration() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert 'document.querySelector("[data-register-form]")' in app_response.text
+    elements_response = client.get("/static/js/app-elements.js")
+    assert elements_response.status_code == 200
+    assert 'root.querySelector("[data-register-form]")' in elements_response.text
     assert (
         'import { createAccountRequestsController } from "/static/js/account-requests.js";'
         in app_response.text

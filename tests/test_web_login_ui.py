@@ -153,7 +153,9 @@ def test_web_static_js_controls_mobile_menu() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert 'document.querySelector("[data-nav-toggle]")' in app_response.text
+    elements_response = client.get("/static/js/app-elements.js")
+    assert elements_response.status_code == 200
+    assert 'root.querySelector("[data-nav-toggle]")' in elements_response.text
     assert "function setMobileMenuOpen(open)" in module_response.text
     assert "function closeMobileMenu()" in module_response.text
     assert "appHeader.dataset.mobileMenuOpen = nextState;" in module_response.text
@@ -276,8 +278,10 @@ def test_web_static_js_formats_admin_health_summary() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert 'document.querySelector("[data-health-state]")' in app_response.text
-    assert 'document.querySelector("[data-health-summary]")' in app_response.text
+    elements_response = client.get("/static/js/app-elements.js")
+    assert elements_response.status_code == 200
+    assert 'root.querySelector("[data-health-state]")' in elements_response.text
+    assert 'root.querySelector("[data-health-summary]")' in elements_response.text
     assert 'from "/static/js/health.js"' in app_response.text
     assert "formatHealthSummary(payload)" in module_response.text
     assert "await checkHealth();" in app_response.text
@@ -343,15 +347,17 @@ def test_web_static_js_controls_theme_without_auth_storage() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    elements_response = client.get("/static/js/app-elements.js")
     theme_response = client.get("/static/js/theme.js")
 
     assert app_response.status_code == 200
+    assert elements_response.status_code == 200
     assert theme_response.status_code == 200
     assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
     assert "function applyTheme(theme)" in theme_response.text
     assert "function toggleTheme()" in theme_response.text
     assert "storedThemePreference() || systemThemePreference()" in theme_response.text
-    assert 'document.querySelector("[data-theme-toggle]")' in app_response.text
+    assert 'themeToggleButton: root.querySelector("[data-theme-toggle]"),' in elements_response.text
     assert "authToken" not in app_response.text
     assert "authToken" not in theme_response.text
     assert "accessToken" not in app_response.text

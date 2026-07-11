@@ -289,7 +289,16 @@ def test_web_css_has_compact_admin_health_bar() -> None:
     assert ".player-debug-actions" not in styles_response.text
     assert "\n.player-debug-export {" not in styles_response.text
     assert "var(--text-muted)" not in admin_response.text
-    assert "!important" not in admin_response.text
+    assert ".player-debug-details" in admin_response.text
+    assert ".player-debug-section" in admin_response.text
+    assert ".player-debug-export-section:has(.player-debug-export[hidden])" in admin_response.text
+    assert ".admin-panel[hidden]" in admin_response.text
+    assert "\n.player-debug-details {" not in styles_response.text
+    assert "\n.player-debug-section {" not in styles_response.text
+    assert (
+        ".player-debug-export-section:has(.player-debug-export[hidden])" not in styles_response.text
+    )
+    assert ".admin-panel[hidden]" not in styles_response.text
 
 
 def test_web_header_has_theme_toggle() -> None:

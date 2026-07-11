@@ -346,22 +346,6 @@ html[data-theme="light"] .panel {
   background: rgba(255, 255, 255, 0.78) !important;
 }
 
-:root {
-  --dialog-backdrop: rgba(3, 7, 18, 0.72);
-  --dialog-bg: linear-gradient(180deg, rgba(10, 25, 43, 0.99), rgba(4, 10, 20, 0.99));
-  --dialog-glow: rgba(110, 231, 216, 0.16);
-  --dialog-text: #edf7ff;
-  --dialog-muted: #b8ccde;
-  --dialog-shadow: rgba(0, 0, 0, 0.65);}
-
-html[data-theme="light"] {
-  --dialog-backdrop: rgba(226, 239, 248, 0.74);
-  --dialog-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(239, 247, 252, 0.99));
-  --dialog-glow: rgba(14, 116, 144, 0.11);
-  --dialog-text: #102033;
-  --dialog-muted: #506b86;
-  --dialog-shadow: rgba(15, 23, 42, 0.24);}
-
 .panel p,
 small {
   color: var(--help-text) !important;

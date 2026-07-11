@@ -406,8 +406,10 @@ def test_web_css_has_accessible_playlist_dialog_theme() -> None:
     assert "--field-muted" not in styles_response.text
     assert "input::placeholder" not in styles_response.text
 
-    assert "--dialog-bg" in styles_response.text
-    assert "--dialog-backdrop" in styles_response.text
+    assert "--dialog-bg" in dialogs_response.text
+    assert "--dialog-backdrop" in dialogs_response.text
+    assert "--dialog-bg" not in styles_response.text
+    assert "--dialog-backdrop" not in styles_response.text
     assert ".playlist-dialog {" in dialogs_response.text
     assert ".playlist-dialog-card {" in dialogs_response.text
     assert 'html[data-theme="light"] .playlist-dialog-card' in dialogs_response.text

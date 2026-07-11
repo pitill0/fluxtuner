@@ -291,8 +291,7 @@ button:disabled {
 }
 
 .panel,
-.hero,
-.player-bar {
+.hero {
   border: 1px solid var(--border);
   border-radius: 1.5rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)), var(--panel);
@@ -426,8 +425,7 @@ footer {
 
 .actions,
 .search-form,
-.station-actions,
-.player-actions {
+.station-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -618,96 +616,6 @@ select:focus {
   background: rgba(127, 29, 29, 0.2);
 }
 
-.player-bar {
-  position: fixed;
-  right: var(--page-inline);
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  left: var(--page-inline);
-  z-index: 28;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 0.9rem 1rem;
-}
-
-.player-bar::before {
-  display: block;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 999px;
-  background: var(--muted);
-  content: "";
-}
-
-.player-info {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.12rem 0.75rem;
-  align-items: center;
-}
-
-.player-info .eyebrow {
-  grid-row: span 2;
-  margin: 0;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-}
-
-.player-info h2,
-.player-info p {
-  overflow: hidden;
-  margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.player-info p {
-  color: var(--muted);
-}
-
-.player-actions {
-  align-items: center;
-  justify-content: end;
-}
-
-.player-actions [data-player-toggle]:not(:disabled) {
-  color: #04111f;
-  border-color: var(--action-fill);
-  background: var(--action-fill);
-}
-
-.player-actions [data-player-toggle]:not(:disabled):hover {
-  color: #ffffff;
-  border-color: var(--action-fill-hover);
-  background: var(--action-fill-hover);
-}
-
-.player-bar[data-state="loading"]::before {
-  background: var(--warning);
-  box-shadow: 0 0 1rem rgba(250, 204, 21, 0.65);
-}
-
-.player-bar[data-state="playing"]::before {
-  background: var(--accent);
-  box-shadow: 0 0 1rem rgba(110, 231, 216, 0.65);
-}
-
-.player-bar[data-state="paused"]::before {
-  background: var(--muted);
-}
-
-.player-bar[data-state="error"]::before {
-  background: var(--danger);
-  box-shadow: 0 0 1rem rgba(252, 165, 165, 0.65);
-}
-
-.player-bar[data-state="loading"] [data-player-status] { color: var(--warning); }
-
-.player-bar[data-state="playing"] [data-player-status] { color: var(--accent); }
-
-.player-bar[data-state="error"] [data-player-status] { color: var(--danger); }
-
 footer {
   margin: 2rem 0 0;
   text-align: center;
@@ -746,19 +654,6 @@ footer {
     width: fit-content;
   }
 
-.player-bar {
-    grid-template-columns: 1fr;
-  }
-
-.player-bar::before {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-  }
-
-.player-actions {
-    justify-content: start;
-  }
 }
 
 @media (max-width: 42rem) {body {
@@ -830,16 +725,13 @@ h1 {
     justify-content: start;
   }
 
-.station-actions,
-.player-actions {
+.station-actions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
 .station-actions button,
-.station-actions a,
-.player-actions button,
-.player-actions a {
+.station-actions a {
     width: 100%;
   }
 }
@@ -847,86 +739,6 @@ h1 {
 .app-content {
   display: grid;
   gap: 1.25rem;
-}
-
-.player-bar {
-  position: fixed !important;
-  right: auto !important;
-  bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-  left: 50% !important;
-  z-index: 60 !important;
-  width: min(50rem, calc(100% - 2rem)) !important;
-  transform: translateX(-50%) !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  gap: 0.75rem !important;
-  align-items: center !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  padding: 0.75rem 0.9rem !important;
-  border: 1px solid rgba(110, 231, 216, 0.34) !important;
-  border-radius: 1.1rem !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.12), transparent 12rem),
-    linear-gradient(180deg, rgba(18, 39, 64, 0.98), rgba(7, 18, 34, 0.98)) !important;
-  box-shadow:
-    0 1rem 3rem rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.035) inset !important;
-}
-
-.player-bar::before {
-  display: none !important;
-  content: none !important;
-}
-
-.player-bar .eyebrow {
-  display: none !important;
-}
-
-.player-bar > div:first-child {
-  min-width: 0 !important;
-}
-
-.player-bar h2 {
-  overflow: hidden !important;
-  margin: 0 !important;
-  font-size: 1rem !important;
-  line-height: 1.15 !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-
-.player-bar p {
-  margin: 0.22rem 0 0 !important;
-  color: var(--muted) !important;
-  font-size: 0.82rem !important;
-}
-
-.player-actions {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  gap: 0.45rem !important;
-  align-items: center !important;
-  justify-content: end !important;
-}
-
-.player-actions button,
-.player-actions a {
-  min-height: 2.1rem !important;
-  padding: 0 0.72rem !important;
-  font-size: 0.82rem !important;
-}
-
-@media (max-width: 42rem) {.player-bar {
-    width: calc(100% - 1rem) !important;
-    bottom: 0.5rem !important;
-    grid-template-columns: 1fr !important;
-    padding: 0.7rem !important;
-  }
-
-.player-actions {
-    justify-content: start !important;
-  }
 }
 
 .admin-panel[hidden],
@@ -1004,15 +816,6 @@ html[data-theme="light"] .station-actions a.station-external-link:hover {
   border-color: rgba(100, 116, 139, 0.34);
   color: #334155;
   background: rgba(241, 245, 249, 0.92);
-}
-
-html[data-theme="light"] .player-bar {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(2, 132, 199, 0.12), transparent 13rem),
-    rgba(255, 255, 255, 0.90) !important;
-  box-shadow:
-    0 1rem 3rem rgba(15, 23, 42, 0.16),
-    0 0 0 1px rgba(255, 255, 255, 0.70) inset !important;
 }
 
 html[data-theme="light"] .admin-health,
@@ -1100,10 +903,6 @@ html[data-theme="light"] .theme-toggle span::before {
     min-width: 3.75rem !important;
     padding: 0 0.68rem !important;
   }
-}
-
-.player-bar[hidden] {
-  display: none !important;
 }
 
 :root {
@@ -1201,81 +1000,6 @@ small {
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.55;
-}
-
-.player-bar {
-  border-color: rgba(110, 231, 216, 0.56) !important;
-  border-radius: 1.25rem !important;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(110, 231, 216, 0.22), transparent 14rem),
-    linear-gradient(180deg, rgba(14, 35, 60, 0.99), rgba(4, 11, 23, 0.99)) !important;
-  box-shadow:
-    0 1.35rem 4rem rgba(0, 0, 0, 0.72),
-    0 0 2rem rgba(110, 231, 216, 0.12),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
-  backdrop-filter: blur(1rem) !important;
-}
-
-.player-bar h2 {
-  font-size: 1.06rem !important;
-}
-
-.player-bar p {
-  font-weight: 750 !important;
-}
-
-.player-actions a {
-  display: inline-flex !important;
-  min-height: 2.1rem !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border: 1px solid rgba(110, 231, 216, 0.28) !important;
-  border-radius: 999px !important;
-  padding: 0 0.72rem !important;
-  color: var(--text) !important;
-  background: rgba(15, 35, 59, 0.72) !important;
-  font: inherit !important;
-  font-size: 0.82rem !important;
-  font-weight: 850 !important;
-  text-decoration: none !important;
-  transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease !important;
-}
-
-.player-actions a:hover {
-  border-color: rgba(110, 231, 216, 0.72) !important;
-  color: var(--accent) !important;
-  transform: translateY(-1px) !important;
-}
-
-.player-bar[data-state="playing"] {
-  border-color: rgba(110, 231, 216, 0.78) !important;
-  box-shadow:
-    0 1.35rem 4rem rgba(0, 0, 0, 0.72),
-    0 0 2.2rem rgba(110, 231, 216, 0.22),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
-}
-
-.player-bar[data-state="loading"] {
-  border-color: rgba(250, 204, 21, 0.58) !important;
-}
-
-.player-bar[data-state="error"] {
-  border-color: rgba(252, 165, 165, 0.62) !important;
-}
-
-html[data-theme="light"] .player-actions a {
-  border-color: rgba(14, 116, 144, 0.22) !important;
-  color: var(--text) !important;
-  background: rgba(255, 255, 255, 0.72) !important;
-}
-
-html[data-theme="light"] .player-actions a:hover {
-  border-color: rgba(14, 116, 144, 0.52) !important;
-  color: var(--accent) !important;
 }
 
 .app-user[hidden],

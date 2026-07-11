@@ -41,17 +41,44 @@ def test_web_static_js_loads_public_stats() -> None:
 def test_web_static_css_styles_public_stats() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    public_response = client.get("/static/public.css")
 
-    assert response.status_code == 200
-    assert ".public-entry" in response.text
-    assert ".public-intro-panel" in response.text
-    assert ".public-stats-panel" in response.text
-    assert ".public-stats-card" in response.text
-    assert ".public-stats-list" in response.text
-    assert ".public-stats-totals" in response.text
-    assert ".public-stat-tile" in response.text
-    assert ".public-stats-message" in response.text
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert public_response.status_code == 200
+
+    auth_link = '<link rel="stylesheet" href="/static/auth.css">'
+    public_link = '<link rel="stylesheet" href="/static/public.css">'
+    dashboard_link = '<link rel="stylesheet" href="/static/dashboard.css">'
+    assert auth_link in page_response.text
+    assert public_link in page_response.text
+    assert dashboard_link in page_response.text
+    assert page_response.text.index(auth_link) < page_response.text.index(public_link)
+    assert page_response.text.index(public_link) < page_response.text.index(dashboard_link)
+
+    owned_selectors = (
+        ".public-entry",
+        ".public-intro-panel",
+        ".public-intro-copy",
+        ".public-intro-points",
+        ".public-entry .auth-panel",
+        ".public-entry .auth-form",
+        ".public-entry .auth-secondary-actions",
+        ".public-stats-panel",
+        ".public-stats-content",
+        ".public-stats-card",
+        ".public-stats-list",
+        ".public-stats-totals",
+        ".public-stat-tile",
+        ".public-stats-message",
+    )
+    for selector in owned_selectors:
+        assert selector in public_response.text
+        assert selector not in styles_response.text
+
+    assert "Public entry, authentication composition" in public_response.text
 
 
 def test_web_static_js_closes_public_dialogs_with_escape() -> None:

@@ -67,9 +67,9 @@ def test_web_css_extracts_shared_forms_domain() -> None:
     assert "small" in styles_response.text
     assert "var(--help-text)" in styles_response.text
 
-    # Dialog variables keep their existing ownership.
-    assert "--dialog-bg" in styles_response.text
-    assert "--dialog-backdrop" in styles_response.text
+    # Dialog variables belong to dialogs.css, not the shared forms layer.
+    assert "--dialog-bg" not in styles_response.text
+    assert "--dialog-backdrop" not in styles_response.text
     assert "--dialog-bg" not in forms_response.text
     assert "--dialog-backdrop" not in forms_response.text
 

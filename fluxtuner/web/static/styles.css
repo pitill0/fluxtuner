@@ -17,8 +17,7 @@
   --shadow: rgba(0, 0, 0, 0.35);
   --danger: #fca5a5;
   --warning: #facc15;
-  --page-inline: clamp(0.85rem, 3vw, 2rem);
-}
+  --page-inline: clamp(0.85rem, 3vw, 2rem);}
 
 * { box-sizing: border-box; }
 
@@ -395,41 +394,6 @@ footer {
   gap: 0.75rem;
 }
 
-label {
-  display: grid;
-  gap: 0.4rem;
-  color: var(--muted);
-  font-weight: 750;
-}
-
-input,
-select {
-  min-height: 2.7rem;
-  min-width: 0;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  padding: 0 1rem;
-  color: var(--text);
-  background: rgba(3, 7, 18, 0.44);
-  font: inherit;
-  font-weight: 700;
-}
-
-input[type="checkbox"] {
-  min-height: auto;
-  width: 1rem;
-  height: 1rem;
-  padding: 0;
-  accent-color: var(--action-fill);
-}
-
-input:focus,
-select:focus {
-  border-color: rgba(110, 231, 216, 0.72);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(110, 231, 216, 0.12);
-}
-
 .auth-form button,
 .setup-form button {
   color: #04111f;
@@ -695,83 +659,22 @@ html[data-theme="light"] .theme-toggle span::before {
 }
 
 :root {
-  --field-bg: rgba(3, 12, 24, 0.72);
-  --field-text: #edf7ff;
-  --field-muted: #a9c0d5;
-  --field-border: rgba(125, 211, 252, 0.30);
-  --field-border-focus: rgba(110, 231, 216, 0.82);
-  --help-text: #b8ccde;
   --dialog-backdrop: rgba(3, 7, 18, 0.72);
   --dialog-bg: linear-gradient(180deg, rgba(10, 25, 43, 0.99), rgba(4, 10, 20, 0.99));
   --dialog-glow: rgba(110, 231, 216, 0.16);
   --dialog-text: #edf7ff;
   --dialog-muted: #b8ccde;
-  --dialog-shadow: rgba(0, 0, 0, 0.65);
-}
+  --dialog-shadow: rgba(0, 0, 0, 0.65);}
 
 html[data-theme="light"] {
-  --field-bg: rgba(255, 255, 255, 0.96);
-  --field-text: #0f1f33;
-  --field-muted: #55708b;
-  --field-border: rgba(14, 116, 144, 0.30);
-  --field-border-focus: rgba(14, 116, 144, 0.78);
-  --help-text: #47637f;
   --dialog-backdrop: rgba(226, 239, 248, 0.74);
   --dialog-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(239, 247, 252, 0.99));
   --dialog-glow: rgba(14, 116, 144, 0.11);
   --dialog-text: #102033;
   --dialog-muted: #506b86;
-  --dialog-shadow: rgba(15, 23, 42, 0.24);
-}
+  --dialog-shadow: rgba(15, 23, 42, 0.24);}
 
-input,
-select,
-textarea {
-  color: var(--field-text) !important;
-  caret-color: var(--accent) !important;
-  background: var(--field-bg) !important;
-  border-color: var(--field-border) !important;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--field-border-focus) !important;
-  box-shadow:
-    0 0 0 1px var(--field-border-focus),
-    0 0 0 0.28rem rgba(110, 231, 216, 0.16) !important;
-  outline: none !important;
-}
-
-html[data-theme="light"] input:focus,
-html[data-theme="light"] select:focus,
-html[data-theme="light"] textarea:focus {
-  box-shadow:
-    0 0 0 1px var(--field-border-focus),
-    0 0 0 0.28rem rgba(14, 116, 144, 0.12) !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: var(--field-muted) !important;
-  opacity: 1 !important;
-}
-
-select:invalid {
-  color: var(--field-muted) !important;
-}
-
-option {
-  color: var(--field-text) !important;
-  background: var(--field-bg) !important;
-}
-
-.form-help,
-.field-help,
-.help-text,
-.hint,
 .panel p,
-.dialog-help,
 small {
   color: var(--help-text) !important;
 }

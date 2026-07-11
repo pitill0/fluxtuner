@@ -6,7 +6,8 @@
  * App shell, header and responsive navigation.
  *
  * This stylesheet is loaded after the base Web styles and before admin.css.
- * Component selectors provide the final shell layout without !important.
+ * Component selectors provide the final shell layout; legacy visibility and
+ * theme-toggle declarations retain their existing !important behavior.
  */
 
 /* Core shell */
@@ -52,6 +53,14 @@
   align-items: center;
   gap: 0.7rem;
   padding: 0;
+  color: var(--text);
+  background: transparent;
+  text-decoration: none;
+}
+
+.app-brand:hover {
+  color: var(--text);
+  transform: none;
 }
 
 .app-brand-icon {
@@ -251,3 +260,40 @@ html[data-theme="light"] .app-menu {
     0 0 0 1px rgba(255, 255, 255, 0.70) inset;
 }
 
+/* Legacy shell ownership completed */
+
+.theme-toggle {
+  min-width: 4.35rem !important;
+  min-height: 2.3rem !important;
+  padding: 0 0.82rem !important;
+  font-size: 0.84rem !important;
+}
+
+.theme-toggle span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.theme-toggle span::before {
+  width: 0.62rem !important;
+  height: 0.62rem !important;
+  border-radius: 999px !important;
+  content: "" !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 0 0.28rem rgba(110, 231, 216, 0.10) !important;
+}
+
+html[data-theme="light"] .theme-toggle span::before {
+  box-shadow: 0 0 0 0.28rem rgba(14, 116, 144, 0.10) !important;
+}
+
+@media (max-width: 38rem) {.theme-toggle {
+    min-width: 3.75rem !important;
+    padding: 0 0.68rem !important;
+  }}
+
+.app-user[hidden],
+.app-content[hidden] {
+  display: none !important;
+}

@@ -200,18 +200,45 @@ def test_web_css_has_clean_header_and_admin_view() -> None:
     assert page_response.text.index(styles_link) < page_response.text.index(shell_link)
     assert page_response.text.index(shell_link) < page_response.text.index(admin_link)
 
-    assert "App shell, header and responsive navigation" in shell_response.text
-    assert ".shell" in shell_response.text
-    assert ".app-header" in shell_response.text
-    assert ".app-brand" in shell_response.text
-    assert ".app-user" in shell_response.text
-    assert ".app-menu-toggle" in shell_response.text
-    assert ".app-menu" in shell_response.text
-    assert ".app-nav" in shell_response.text
+    for selector in (
+        ".shell",
+        ".app-header",
+        ".app-brand",
+        ".app-user",
+        ".app-menu-toggle",
+        ".app-menu",
+        ".app-nav",
+        ".theme-toggle",
+        ".app-user[hidden]",
+        ".app-content[hidden]",
+    ):
+        assert selector in shell_response.text
+
     assert '.app-header[data-mobile-menu-open="true"] .app-menu' in shell_response.text
     assert "@media (max-width: 38rem)" in shell_response.text
     assert "@media (max-width: 30rem)" in shell_response.text
-    assert " !important;" not in shell_response.text
+    assert "/* Legacy shell ownership completed */" in shell_response.text
+    assert "min-width: 4.35rem !important;" in shell_response.text
+    assert "display: none !important;" in shell_response.text
+    assert "text-decoration: none;" in shell_response.text
+    assert ".app-brand:hover" in shell_response.text
+    assert "color: var(--text);" in shell_response.text
+    assert "transform: none;" in shell_response.text
+
+    for selector in (
+        "\n.shell {",
+        "\n.app-header {",
+        "\n.app-brand {",
+        "\n.app-brand-icon {",
+        "\n.app-nav {",
+        "\n.app-user {",
+        "\n.server-tools {",
+        "\n.app-content {",
+        "\n.theme-toggle {",
+        ".app-user[hidden]",
+        ".app-content[hidden]",
+    ):
+        assert selector not in styles_response.text
 
     assert "/* Clean app shell header and exclusive admin view */" not in styles_response.text
     assert ".admin-health" in admin_response.text
@@ -327,13 +354,17 @@ def test_web_static_js_controls_theme_without_auth_storage() -> None:
 def test_web_css_has_light_theme() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    shell_response = client.get("/static/shell.css")
 
-    assert response.status_code == 200
-    assert ':root[data-theme="light"]' in response.text
-    assert 'html[data-theme="light"] body' in response.text
-    assert 'html[data-theme="light"] body::before' in response.text
-    assert ".theme-toggle" in response.text
+    assert styles_response.status_code == 200
+    assert shell_response.status_code == 200
+    assert ':root[data-theme="light"]' in styles_response.text
+    assert 'html[data-theme="light"] body' in styles_response.text
+    assert 'html[data-theme="light"] body::before' in styles_response.text
+    assert ".theme-toggle" in shell_response.text
+    assert 'html[data-theme="light"] .theme-toggle span::before' in shell_response.text
+    assert "\n.theme-toggle {" not in styles_response.text
 
 
 def test_web_static_js_hides_player_without_auth_and_resets_non_admin_view() -> None:

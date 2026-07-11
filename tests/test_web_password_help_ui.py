@@ -17,7 +17,10 @@ def test_web_index_shows_password_requirements() -> None:
 def test_web_static_css_styles_password_help() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    forms_response = client.get("/static/forms.css")
 
-    assert response.status_code == 200
-    assert ".field-help" in response.text
+    assert styles_response.status_code == 200
+    assert forms_response.status_code == 200
+    assert ".field-help" in forms_response.text
+    assert ".field-help" not in styles_response.text

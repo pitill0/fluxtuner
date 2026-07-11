@@ -354,16 +354,20 @@ def test_web_css_has_accessible_playlist_dialog_theme() -> None:
     client = TestClient(create_app())
 
     styles_response = client.get("/static/styles.css")
+    forms_response = client.get("/static/forms.css")
     dialogs_response = client.get("/static/dialogs.css")
 
     assert styles_response.status_code == 200
+    assert forms_response.status_code == 200
     assert dialogs_response.status_code == 200
 
-    assert "--field-muted" in styles_response.text
+    assert "--field-muted" in forms_response.text
+    assert "input::placeholder" in forms_response.text
+    assert "--field-muted" not in styles_response.text
+    assert "input::placeholder" not in styles_response.text
+
     assert "--dialog-bg" in styles_response.text
     assert "--dialog-backdrop" in styles_response.text
-    assert "input::placeholder" in styles_response.text
-
     assert ".playlist-dialog {" in dialogs_response.text
     assert ".playlist-dialog-card {" in dialogs_response.text
     assert 'html[data-theme="light"] .playlist-dialog-card' in dialogs_response.text

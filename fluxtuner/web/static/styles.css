@@ -341,7 +341,6 @@ html[data-theme="light"] .hero-actions a:hover {
   color: var(--accent);
 }
 
-html[data-theme="light"] .admin-health,
 html[data-theme="light"] .panel {
   background: rgba(255, 255, 255, 0.78) !important;
 }

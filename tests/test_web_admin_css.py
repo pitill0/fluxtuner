@@ -47,3 +47,6 @@ def test_web_css_completes_admin_diagnostic_style_ownership() -> None:
     assert "display: none !important;" in admin_response.text
     assert ".player-debug-section + .player-debug-section" in admin_response.text
     assert "margin-top: 0.75rem !important;" in admin_response.text
+    assert 'html[data-theme="light"] .admin-health' in admin_response.text
+    assert 'html[data-theme="light"] .admin-health' not in styles_response.text
+    assert 'html[data-theme="light"] .panel' in styles_response.text

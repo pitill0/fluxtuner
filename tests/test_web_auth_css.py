@@ -46,5 +46,5 @@ def test_web_css_completes_auth_style_ownership() -> None:
         assert selector not in styles_response.text
 
     assert ".panel[hidden]" in styles_response.text
-    assert ".admin-panel[hidden]" in styles_response.text
+    assert ".admin-panel[hidden]" not in styles_response.text
     assert "Shared form controls remain in forms.css." in auth_response.text

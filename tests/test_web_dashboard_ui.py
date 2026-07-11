@@ -60,16 +60,21 @@ def test_web_dashboard_styles_are_isolated() -> None:
     page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
     dashboard_response = client.get("/static/dashboard.css")
+    stations_response = client.get("/static/stations.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert dashboard_response.status_code == 200
+    assert stations_response.status_code == 200
 
     dashboard_link = '<link rel="stylesheet" href="/static/dashboard.css">'
     admin_link = '<link rel="stylesheet" href="/static/admin.css">'
+    stations_link = '<link rel="stylesheet" href="/static/stations.css">'
     assert dashboard_link in page_response.text
     assert admin_link in page_response.text
+    assert stations_link in page_response.text
     assert page_response.text.index(dashboard_link) < page_response.text.index(admin_link)
+    assert page_response.text.index(admin_link) < page_response.text.index(stations_link)
 
     for selector in [
         ".dashboard-panel",
@@ -97,5 +102,6 @@ def test_web_dashboard_styles_are_isolated() -> None:
     ]:
         assert selector not in styles_response.text
 
-    assert ".station-card" in styles_response.text
+    assert ".station-card" in stations_response.text
+    assert ".station-card" not in styles_response.text
     assert ".station-card" not in dashboard_response.text

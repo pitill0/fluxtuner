@@ -608,3 +608,9 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
 .admin-panel[hidden] {
   display: none !important;
 }
+
+/* Completed admin health theme ownership */
+
+html[data-theme="light"] .admin-health {
+  background: rgba(255, 255, 255, 0.78) !important;
+}

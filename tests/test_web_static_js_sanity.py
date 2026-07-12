@@ -151,14 +151,20 @@ def test_web_static_js_uses_admin_module() -> None:
 def test_web_static_js_initializes_setup_before_auth() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    bootstrap_response = client.get("/static/js/app-bootstrap.js")
 
-    assert response.status_code == 200
-    assert "loadAuthState();\nasync function initializeAuthFlow" not in response.text
-    assert "await loadSetupState();" in response.text
-    assert "if (setupController.isSetupAvailable())" in response.text
-    initialize_body = response.text.split("async function initializeAuthFlow()", 1)[1]
-    assert "await loadAuthState();" not in initialize_body
+    assert app_response.status_code == 200
+    assert bootstrap_response.status_code == 200
+    assert "async function initializeAuthFlow" not in app_response.text
+    assert "await loadSetupState();" in bootstrap_response.text
+    assert "updateSetupUi();" in bootstrap_response.text
+    assert "updateAuthUi();" in bootstrap_response.text
+    assert (
+        bootstrap_response.text.index("updateSetupUi();")
+        < bootstrap_response.text.index("updateAuthUi();")
+        < bootstrap_response.text.index("await loadSetupState();")
+    )
 
 
 def test_web_static_js_sanitizes_external_station_urls() -> None:
@@ -904,13 +910,26 @@ def test_web_static_js_initializes_player_runtime() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    bootstrap_response = client.get("/static/js/app-bootstrap.js")
 
     assert app_response.status_code == 200
-    assert "setupMediaSessionHandlers();" in app_response.text
-    assert "playerController.initialize();" in app_response.text
+    assert bootstrap_response.status_code == 200
     assert (
-        app_response.text.index("bindApplicationEvents({")
-        < app_response.text.index("setupMediaSessionHandlers();")
-        < app_response.text.index("playerController.initialize();")
-        < app_response.text.index("initializeAuthFlow();")
+        'import { bootstrapApplication } from "/static/js/app-bootstrap.js";' in app_response.text
     )
+    assert "export async function bootstrapApplication" in bootstrap_response.text
+    assert "bootstrapApplication({" in app_response.text
+    assert "setupMediaSessionHandlers();" in bootstrap_response.text
+    assert "playerController.initialize();" in bootstrap_response.text
+    assert "await loadSetupState();" in bootstrap_response.text
+    assert "setupController.isSetupAvailable()" in bootstrap_response.text
+    assert (
+        bootstrap_response.text.index("setupMediaSessionHandlers();")
+        < bootstrap_response.text.index("playerController.initialize();")
+        < bootstrap_response.text.index("updateSetupUi();")
+        < bootstrap_response.text.index("updateAuthUi();")
+        < bootstrap_response.text.index("await loadSetupState();")
+    )
+    assert "setupMediaSessionHandlers();" not in app_response.text
+    assert "playerController.initialize();" not in app_response.text
+    assert "async function initializeAuthFlow()" not in app_response.text

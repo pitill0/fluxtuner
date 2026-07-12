@@ -898,3 +898,19 @@ def test_web_static_js_uses_app_events_module() -> None:
     assert 'playerDebugEnableInput.addEventListener("change"' in events_response.text
     assert 'document.addEventListener("click"' not in app_response.text
     assert 'document.addEventListener("keydown"' not in app_response.text
+
+
+def test_web_static_js_initializes_player_runtime() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+
+    assert app_response.status_code == 200
+    assert "setupMediaSessionHandlers();" in app_response.text
+    assert "playerController.initialize();" in app_response.text
+    assert (
+        app_response.text.index("bindApplicationEvents({")
+        < app_response.text.index("setupMediaSessionHandlers();")
+        < app_response.text.index("playerController.initialize();")
+        < app_response.text.index("initializeAuthFlow();")
+    )

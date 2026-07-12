@@ -656,6 +656,192 @@ console.log(JSON.stringify({
     }
 
 
+def test_web_player_pause_invalidates_pending_attempt_and_ignores_late_playing(
+    tmp_path: Path,
+) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "player.js",
+        r"""
+const { createPlayerController } = await import(process.argv[1]);
+
+class FakeEventTarget {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  addEventListener(name, callback, options = {}) {
+    const entries = this.listeners.get(name) || [];
+    entries.push({ callback, once: Boolean(options?.once) });
+    this.listeners.set(name, entries);
+  }
+
+  removeEventListener(name, callback) {
+    const entries = this.listeners.get(name) || [];
+    this.listeners.set(
+      name,
+      entries.filter((entry) => entry.callback !== callback),
+    );
+  }
+
+  dispatch(name) {
+    const entries = [...(this.listeners.get(name) || [])];
+    for (const entry of entries) {
+      entry.callback({ type: name });
+      if (entry.once) {
+        this.removeEventListener(name, entry.callback);
+      }
+    }
+  }
+}
+
+const audioNode = new FakeEventTarget();
+Object.assign(audioNode, {
+  attributes: new Map(),
+  paused: true,
+  ended: false,
+  readyState: 0,
+  networkState: 0,
+  currentSrc: "",
+  src: "",
+  crossOrigin: "",
+  title: "",
+  controls: false,
+  preload: "",
+  error: null,
+  getAttribute(name) {
+    return this.attributes.get(name) || "";
+  },
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  },
+  removeAttribute(name) {
+    this.attributes.delete(name);
+    if (name === "src") {
+      this.src = "";
+      this.currentSrc = "";
+    }
+  },
+  load() {
+    this.currentSrc = this.src;
+  },
+  pause() {
+    this.paused = true;
+  },
+  async play() {
+    this.paused = false;
+    this.currentSrc = this.src;
+  },
+});
+
+const playerBar = { dataset: {} };
+const titleNode = { textContent: "" };
+const statusNode = { textContent: "" };
+const history = [];
+const events = [];
+
+const controller = createPlayerController({
+  audioNode,
+  playerBar,
+  titleNode,
+  statusNode,
+  toggleButton: {
+    disabled: false,
+    textContent: "",
+    addEventListener() {},
+  },
+  stopButton: {
+    disabled: false,
+    addEventListener() {},
+  },
+  openLink: {
+    hidden: true,
+    href: "",
+    removeAttribute(name) {
+      if (name === "href") {
+        this.href = "";
+      }
+    },
+  },
+  stationUrl: (station) => station.url,
+  logPlayerEvent(eventName, details = {}) {
+    events.push([eventName, details]);
+  },
+  mediaSessionController: {
+    clearMediaSessionMetadata() {},
+    debugSnapshot() {
+      return null;
+    },
+    reapplyCurrentMetadata() {},
+    setMediaSessionMetadata() {},
+    updateMediaSessionState() {},
+  },
+  async recordHistory(station) {
+    history.push(station.name);
+  },
+  resetRecordedHistory() {},
+  windowRef: {
+    addEventListener() {},
+    clearTimeout,
+    setTimeout,
+  },
+  documentRef: {
+    addEventListener() {},
+    visibilityState: "visible",
+  },
+});
+
+controller.initialize();
+
+const pending = controller.playStation({
+  name: "Flux FM",
+  url: "https://radio.example/stream",
+});
+await Promise.resolve();
+
+const loadingSnapshot = controller.debugSnapshot();
+controller.pauseCurrentStationPlayback("Paused from system controls.");
+const pausedSnapshot = controller.debugSnapshot();
+
+audioNode.dispatch("playing");
+await pending;
+audioNode.dispatch("playing");
+
+const finalSnapshot = controller.debugSnapshot();
+
+console.log(JSON.stringify({
+  loadingSnapshot,
+  pausedSnapshot,
+  finalSnapshot,
+  state: playerBar.dataset.state,
+  status: statusNode.textContent,
+  paused: audioNode.paused,
+  history,
+  playerStateEvents: events
+    .filter(([name]) => name === "player-state")
+    .map(([, details]) => details.state),
+}));
+""",
+    )
+
+    assert result["loadingSnapshot"]["state"] == "loading"
+    assert result["loadingSnapshot"]["flags"]["startingPlayback"] is True
+    assert result["loadingSnapshot"]["playbackRunId"] == 1
+
+    assert result["pausedSnapshot"]["state"] == "paused"
+    assert result["pausedSnapshot"]["flags"]["startingPlayback"] is False
+    assert result["pausedSnapshot"]["playbackRunId"] == 2
+
+    assert result["finalSnapshot"]["state"] == "paused"
+    assert result["finalSnapshot"]["flags"]["startingPlayback"] is False
+    assert result["finalSnapshot"]["playbackRunId"] == 2
+    assert result["state"] == "paused"
+    assert result["status"] == "Paused from system controls."
+    assert result["paused"] is True
+    assert result["history"] == []
+    assert result["playerStateEvents"] == ["loading", "paused"]
+
+
 def test_web_player_controller_exposes_lifecycle_state_changes(tmp_path: Path) -> None:
     result = _run_es_module(
         tmp_path,

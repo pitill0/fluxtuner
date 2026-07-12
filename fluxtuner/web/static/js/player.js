@@ -384,7 +384,9 @@ export function createPlayerController({
   function pauseCurrentStationPlayback(message = "Paused.") {
     if (!audioNode || !currentStation) return;
 
-    logPlayerEvent("playback-pause-request", { message });
+    const runId = nextPlaybackRun();
+    logPlayerEvent("playback-pause-request", { message, runId });
+    startingPlayback = false;
     clearBufferingNotice();
     softPausingPlayback = true;
     audioNode.pause();
@@ -421,6 +423,7 @@ export function createPlayerController({
 
     logPlayerEvent("playback-stop-request");
     const runId = nextPlaybackRun();
+    startingPlayback = false;
     stoppingPlayback = true;
     clearBufferingNotice();
     clearAudioSource();
@@ -474,11 +477,6 @@ export function createPlayerController({
       logPlayerEvent("audio-playing");
       reapplyMediaSessionMetadata("audio-playing-event");
       clearBufferingNotice();
-      if (currentStation) {
-        setPlayerState("playing", "Playing in browser.", "playback-started");
-        recordHistory(currentStation);
-      }
-
       updatePlayerControls();
     });
 

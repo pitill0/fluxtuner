@@ -55,10 +55,15 @@ gradually.
 
 ### Web state model
 
-The Web player has improved after `v1.0.4`, but it still relies on DOM state,
-`currentStation`, audio element state, Media Session state and several flags.
-A clearer model would make future changes safer, especially around browser and
-mobile lifecycle behaviour.
+The Web player now uses an explicit internal state model for `idle`, `loading`,
+`playing`, `paused` and `error`. Allowed transitions are validated, the DOM is a
+UI projection rather than the source of truth, and playback attempt IDs prevent
+obsolete asynchronous work from changing current state.
+
+Browser connectivity, visibility and page lifecycle events reconcile the model,
+audio element and Media Session conservatively. Connectivity recovery keeps the
+station selected and requires an explicit resume instead of restarting playback
+automatically.
 
 ### Feature parity pressure
 
@@ -143,7 +148,8 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 
 Recommended next branches should stay separate:
 
-- Phase 5 Web player state-model completion;
+- Phase 6 metadata `Now Playing`, only through its dedicated backend
+  cache/worker design;
 - search quality/debugging;
 - Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
@@ -159,13 +165,13 @@ Phase 1  Audit and safety rails                          complete
 Phase 2  Extract Web API helpers and routers             complete
 Phase 3  Split storage by domain without changing SQLite complete
 Phase 4  Web JavaScript module boundaries                complete and hardened
-Phase 5  Web player state model                          active / partially complete
-Phase 6  Revisit metadata `Now Playing`                  pending / blocked by Phase 5
+Phase 5  Web player state model                          complete
+Phase 6  Revisit metadata `Now Playing`                  pending / unblocked
 ```
 
-The current active numbered phase is Phase 5. Phase 6 must not begin until the
-player state model, lifecycle and Media Session contracts are sufficiently
-explicit and protected.
+Phase 5 is complete. Phase 6 is now unblocked but has not started; it must remain
+a separate, deliberately scoped metadata/cache/worker series rather than an
+extension of the player-state work.
 
 ## Proposed incremental phases
 
@@ -284,47 +290,64 @@ separate build-pipeline decision is made explicitly.
 
 ### Phase 5: Web player state model
 
-Status: active and partially completed.
+Status: completed.
 
-The Web player lives in a dedicated browser controller with playback attempt IDs,
-lifecycle handling, Media Session updates, debug snapshots and a hardened
-late-bound runtime bridge. Application composition is no longer part of the
-remaining Phase 5 work.
+The Web player remains a dedicated browser controller with a hardened late-bound
+runtime bridge. Its state is now explicit and internal rather than inferred from
+DOM attributes.
 
-The player controller currently owns:
+The completed model defines:
 
-- current station;
-- requested state (`idle`, `loading`, `playing`, `paused`, `error`);
-- current playback attempt id;
-- audio element reconciliation;
-- Media Session metadata/state;
-- lifecycle/debug events.
+- supported states: `idle`, `loading`, `playing`, `paused` and `error`;
+- allowed transitions between those states;
+- `playerBar.dataset.state` as a UI projection rather than a state source;
+- one monotonically increasing playback attempt ID;
+- the active playback attempt as the only path that confirms successful startup
+  and records listening history;
+- permanent audio listeners as observers that cannot confirm obsolete attempts;
+- deterministic invalidation when playback is paused, stopped, replaced or
+  interrupted by connectivity loss;
+- lifecycle reconciliation across visibility, `pagehide`, `pageshow`, `online`
+  and `offline`;
+- conservative connectivity recovery that keeps the station selected in
+  `paused` and requires an explicit user resume;
+- Media Session state as a projection of player transitions and lifecycle
+  reconciliation;
+- debug snapshots that expose internal state, attempt IDs, flags, audio state
+  and lifecycle context.
 
-Remaining work must be based on an audit of `player.js`, `media-session.js`,
-`player-runtime.js`, `player-debug.js` and their tests.
+Executable Node-based contracts cover the state model, DOM projection,
+successful playback, station replacement, stop during startup, pause during
+startup, stale `playing` events, lifecycle reconciliation and Media Session
+action delegation. Source-boundary tests continue to protect module ownership.
 
-Phase 5 can be marked complete when:
+Intentional limits remain:
 
-- requested states and allowed transitions are explicit;
-- play, pause, resume, restart, stop and station replacement are deterministic;
-- stale playback attempts cannot update current state;
-- internal state and the audio element reconcile predictably;
-- lifecycle, visibility, page navigation and connectivity behaviour are defined;
-- Media Session actions map consistently to player transitions;
-- error and recovery behaviour is explicit;
-- important contracts have executable tests;
-- manual browser/mobile smoke tests confirm no regression;
-- this roadmap records the final state and remaining intentional limits.
+- FluxTuner does not promise uninterrupted playback through every mobile
+  background or lock-screen lifecycle;
+- returning online does not automatically restart a stream;
+- a paused live stream resumes by opening a new playback attempt;
+- retry and buffering policy remain local to the player controller;
+- metadata `Now Playing` fetching is not part of this phase.
 
-The goal is not to force mobile lock-screen persistence. The goal is to keep
-FluxTuner's internal state coherent and make Resume/restart behaviour explicit.
+Phase 5 was completed through these focused PRs:
+
+1. `test: add executable Web player lifecycle contracts`
+2. `refactor: define Web player state transitions`
+3. `fix: make Web playback attempts deterministic`
+4. `fix: reconcile Web player lifecycle state`
+5. `docs: complete Web player state model phase`
+
+The goal was not to force mobile lock-screen persistence. The completed model
+keeps FluxTuner's internal state coherent and makes resume, restart, stop,
+replacement and lifecycle recovery behaviour explicit.
 
 ### Phase 6: Revisit metadata `Now Playing`
 
-Status: pending and blocked by Phase 5.
+Status: pending and unblocked.
 
-Only after Phase 5 is complete and documented, implement Web metadata with a
-backend cache/worker design:
+Phase 5 is complete and documented. Phase 6 has not started. When scheduled,
+implement Web metadata through a separate backend cache/worker design:
 
 - short timeouts;
 - strict URL validation and SSRF protection;

@@ -12,20 +12,23 @@
 
 **Website:** [https://fluxtuner.vjml.es](https://fluxtuner.vjml.es)
 
-FluxTuner is a modern internet radio platform for terminal, desktop and web.
+FluxTuner is an internet radio platform for terminal, desktop and self-hosted web.
 
-It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, a browser-based Web/server mode, smart favorites and playlists, theming, live metadata, data usage tracking and modular playback backends.
+It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI and a browser-based Web/server platform with multi-user support, administration tools, favorites, playlists, live metadata, data usage tracking and modular playback backends.
+
+Run the Web/server mode on your own infrastructure and keep accounts, favorites, playlists and listening history under your control. FluxTuner does not add platform tracking or platform-injected advertising; station discovery and playback still rely on external catalog and stream providers.
 
 ## Contents
 
 - [Highlights](#highlights)
+- [Self-hosted Web platform](#self-hosted-web-platform)
 - [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Launch modes](#launch-modes)
 - [Web/server mode](#webserver-mode)
 - [Common commands](#common-commands)
 - [Documentation](#documentation)
-- [License](#license)
+- [Licensing](#licensing)
 - [Support the project](#support-the-project)
 
 ---
@@ -40,6 +43,25 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, a browser-
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
+
+---
+
+## Self-hosted Web platform
+
+FluxTuner can be deployed as a private, non-commercial Web platform for individuals, families and trusted groups.
+
+The Web/server mode includes:
+
+- Multi-user accounts.
+- Registration requests with administrator approval.
+- Private favorites, playlists and listening history.
+- User and session administration.
+- Dashboard metrics.
+- A responsive browser interface.
+- Persistent SQLite storage.
+- Docker- and Podman-friendly deployment.
+
+Run FluxTuner on your own server and access your radio library from any modern browser. See [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) before exposing an instance to a LAN or the internet.
 
 ---
 
@@ -74,6 +96,22 @@ It combines a fast keyboard-oriented Textual TUI, a GTK4 desktop GUI, a browser-
 - Python 3.11+
 - `mpv` recommended, `ffmpeg` / `ffplay` as broad fallback, or optional lightweight `mpg123` / `ogg123` backends
 - Optional GUI dependencies: GTK4 and PyGObject
+
+### Run the Web platform with Docker Compose
+
+From the repository root:
+
+```bash
+docker compose up --build -d
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080
+```
+
+This Compose setup is intended as a convenient starting point. Before exposing FluxTuner to a LAN or the internet, review [`docs/container.md`](docs/container.md) and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for persistent storage, setup-token, HTTPS, secure-cookie and reverse-proxy requirements.
 
 ### Run from source
 
@@ -242,11 +280,12 @@ They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode a
 - [Licensing details](docs/licensing.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)
+- [Engineering process](docs/ENGINEERING-PROCESS.md)
 - [Security policy](SECURITY.md)
 
 ---
 
-## License
+## Licensing
 
 FluxTuner uses a split licensing model:
 
@@ -254,7 +293,12 @@ FluxTuner uses a split licensing model:
 - **FluxTuner Web Non-Commercial License** for Web/server, multi-user,
   authentication, session, first-run setup, admin-user management, and hosted
   service components.
-- **Commercial Web/server use requires a separate written commercial license.**
+
+Private, non-commercial self-hosting is permitted under the Web license.
+Commercial Web/server deployments, SaaS offerings, managed hosting and other
+commercial uses require a separate written commercial license.
+For commercial licensing enquiries, contact the project author through the 
+repository or the project website.
 
 The FluxTuner name, logo, icons, screenshots, project website identity, and
 branding are not licensed with the software.

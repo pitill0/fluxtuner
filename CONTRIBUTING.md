@@ -6,6 +6,12 @@ FluxTuner is a lightweight internet radio platform with a Textual terminal UI, G
 
 This document explains the preferred workflow for local development, pull requests, validation and releases.
 
+## Engineering process
+
+Before contributing, review the project's [engineering process](docs/ENGINEERING-PROCESS.md).
+
+FluxTuner uses an AI-assisted development workflow under human direction. AI tools may assist with implementation, refactoring, testing, documentation and analysis, but proposed changes remain subject to human review, project validation and human acceptance.
+
 ---
 
 ## Project direction

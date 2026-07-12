@@ -85,12 +85,14 @@ def test_web_static_js_closes_public_dialogs_with_escape() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
     navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
+    assert events_response.status_code == 200
     assert navigation_response.status_code == 200
     assert "function closeOpenDialog()" in navigation_response.text
-    assert 'event.key === "Escape"' in app_response.text
-    assert "closeOpenDialog()" in app_response.text
+    assert 'event.key === "Escape"' in events_response.text
+    assert "closeOpenDialog()" in events_response.text
     assert "closeRegisterDialog" in navigation_response.text
     assert "closePasswordChangeDialog" in navigation_response.text

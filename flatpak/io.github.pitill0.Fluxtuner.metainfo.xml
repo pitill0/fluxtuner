@@ -80,6 +80,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.6" date="2026-07-12">
+      <description>
+        <ul>
+          <li>Completed the post-1.0 Web architecture and storage refactor.</li>
+          <li>Added an explicit, deterministic Web player state model with lifecycle reconciliation.</li>
+          <li>Split Web styling into focused feature-local stylesheets.</li>
+          <li>Added executable browser-module and focused storage contract coverage.</li>
+          <li>Clarified self-hosting, licensing and the human-directed AI-assisted engineering process.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.5" date="2026-07-08">
       <description>
         <ul>

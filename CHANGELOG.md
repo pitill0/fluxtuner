@@ -20,6 +20,52 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.6] - 2026-07-12
+
+### Changed
+
+- Completed the post-1.0 Web architecture refactor while keeping `fluxtuner/web/app.py`
+  and `fluxtuner/web/static/app.js` as focused composition roots.
+- Split shared SQLite persistence into focused domain modules for users, profiles,
+  stations, favorites, history, playlists, password changes and public statistics,
+  while retaining compatibility wrappers and schema/bootstrap ownership in `db.py`.
+- Split the Web stylesheet into focused shell, public, auth, forms, dialogs,
+  dashboard, stations, player and admin stylesheets.
+- Made the Web player state model explicit with validated `idle`, `loading`,
+  `playing`, `paused` and `error` transitions.
+- Made playback attempt replacement, pause, stop and lifecycle recovery deterministic,
+  including conservative offline/online behavior that requires explicit resume.
+- Clarified FluxTuner's terminal, desktop and self-hosted Web positioning, private
+  non-commercial Web use, commercial licensing path and external catalog/stream
+  dependencies.
+
+### Fixed
+
+- Prevented stale asynchronous Web playback attempts and late `playing`, `pause` or
+  `waiting` events from overwriting the current player state.
+- Fixed Web lifecycle reconciliation across connectivity, visibility, `pagehide` and
+  `pageshow` events.
+- Fixed responsive Web layout ownership and regressions while extracting feature-local
+  CSS boundaries.
+
+### Documentation
+
+- Added an architecture refactor roadmap and marked the Web JavaScript boundary and
+  player state-model phases complete.
+- Added a transparent engineering-process document describing AI-assisted development
+  under human direction, review, validation and release responsibility.
+- Expanded README guidance for Docker Compose, self-hosting, licensing and platform
+  privacy boundaries.
+
+### Internal
+
+- Added executable Node-based contracts for browser modules, bootstrap ordering,
+  player runtime delegation, state transitions, playback replacement and lifecycle
+  reconciliation.
+- Added focused storage tests and compatibility-boundary coverage for the extracted
+  domain persistence modules.
+- Added source-boundary and CSS ownership tests to protect the completed refactor.
+
 ## [1.0.5] - 2026-07-08
 
 ### Added

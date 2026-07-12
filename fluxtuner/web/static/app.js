@@ -540,6 +540,9 @@ bindApplicationEvents({
   logPlayerEvent,
 });
 
+setupMediaSessionHandlers();
+playerController.initialize();
+
 
 async function initializeAuthFlow() {
   updateSetupUi();

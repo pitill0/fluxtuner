@@ -6,7 +6,23 @@ export function createPlayerRuntime() {
   let controller = null;
 
   function attach(nextController) {
+    if (!nextController || typeof nextController !== "object") {
+      throw new TypeError("Player runtime requires a controller object.");
+    }
+
+    if (controller) {
+      throw new Error("Player runtime controller is already attached.");
+    }
+
     controller = nextController;
+    return controller;
+  }
+
+  function requireController() {
+    if (!controller) {
+      throw new Error("Player runtime controller is not attached.");
+    }
+
     return controller;
   }
 
@@ -18,35 +34,30 @@ export function createPlayerRuntime() {
     return controller?.getCurrentStation() || null;
   }
 
-  function initialize() {
-    return controller?.initialize();
-  }
-
   function pauseCurrentStationPlayback(message) {
-    return controller?.pauseCurrentStationPlayback(message);
+    return requireController().pauseCurrentStationPlayback(message);
   }
 
   function playStation(station) {
-    return controller?.playStation(station);
+    return requireController().playStation(station);
   }
 
   function setPlayerState(...args) {
-    return controller?.setPlayerState(...args);
+    return requireController().setPlayerState(...args);
   }
 
   function startCurrentStationPlayback(message) {
-    return controller?.startCurrentStationPlayback(message);
+    return requireController().startCurrentStationPlayback(message);
   }
 
   function stopPlayback(...args) {
-    return controller?.stopPlayback(...args);
+    return requireController().stopPlayback(...args);
   }
 
   return {
     attach,
     debugSnapshot,
     getCurrentStation,
-    initialize,
     pauseCurrentStationPlayback,
     playStation,
     setPlayerState,

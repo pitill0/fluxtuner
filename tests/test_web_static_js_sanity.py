@@ -933,3 +933,32 @@ def test_web_static_js_initializes_player_runtime() -> None:
     assert "setupMediaSessionHandlers();" not in app_response.text
     assert "playerController.initialize();" not in app_response.text
     assert "async function initializeAuthFlow()" not in app_response.text
+
+
+def test_web_static_js_uses_player_runtime_bridge() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    runtime_response = client.get("/static/js/player-runtime.js")
+
+    assert app_response.status_code == 200
+    assert runtime_response.status_code == 200
+    assert (
+        'import { createPlayerRuntime } from "/static/js/player-runtime.js";' in app_response.text
+    )
+    assert "export function createPlayerRuntime()" in runtime_response.text
+    assert "const playerRuntime = createPlayerRuntime();" in app_response.text
+    assert "playerRuntime.attach(playerController);" in app_response.text
+    assert "getSnapshot: playerRuntime.debugSnapshot," in app_response.text
+    assert "stopPlayback: playerRuntime.stopPlayback," in app_response.text
+    assert "getCurrentStation: playerRuntime.getCurrentStation," in app_response.text
+    assert "onPlayStation: playerRuntime.playStation," in app_response.text
+    assert "setPlayerState: playerRuntime.setPlayerState," in app_response.text
+    assert "let playerController = null;" not in app_response.text
+    assert "let playStation = () => {};" not in app_response.text
+    assert "let setPlayerState = () => {};" not in app_response.text
+    assert "let stopPlayback = () => {};" not in app_response.text
+    assert (
+        "({ playStation, setPlayerState, stopPlayback } = playerController);"
+        not in app_response.text
+    )

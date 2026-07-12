@@ -7,6 +7,7 @@ import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
 import { createAppElements } from "/static/js/app-elements.js";
 import { bindApplicationEvents } from "/static/js/app-events.js";
+import { bootstrapApplication } from "/static/js/app-bootstrap.js";
 import { createAppState } from "/static/js/app-state.js";
 import { createAuthController } from "/static/js/auth.js";
 import { createDashboardController } from "/static/js/dashboard.js";
@@ -540,20 +541,11 @@ bindApplicationEvents({
   logPlayerEvent,
 });
 
-setupMediaSessionHandlers();
-playerController.initialize();
-
-
-async function initializeAuthFlow() {
-  updateSetupUi();
-  updateAuthUi();
-
-  await loadSetupState();
-
-  if (setupController.isSetupAvailable()) {
-    updateSetupUi();
-    updateAuthUi();
-  }
-}
-
-initializeAuthFlow();
+bootstrapApplication({
+  loadSetupState,
+  playerController,
+  setupController,
+  setupMediaSessionHandlers,
+  updateAuthUi,
+  updateSetupUi,
+});

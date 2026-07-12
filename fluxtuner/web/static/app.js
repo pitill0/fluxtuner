@@ -6,6 +6,7 @@ import { createAccountRequestsController } from "/static/js/account-requests.js"
 import { createAdminController } from "/static/js/admin.js";
 import { createApiFetch } from "/static/js/api.js";
 import { createAppElements } from "/static/js/app-elements.js";
+import { createAppState } from "/static/js/app-state.js";
 import { createAuthController } from "/static/js/auth.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
@@ -118,15 +119,12 @@ const {
   themeToggleButton,
 } = createAppElements();
 
+const appState = createAppState();
+
 let playerController = null;
 let playStation = () => {};
 let setPlayerState = () => {};
 let stopPlayback = () => {};
-let currentView = "search";
-let currentPlaylistName = "";
-let currentUser = null;
-let csrfToken = "";
-let dashboardLoaded = false;
 
 const uiShellController = createUiShellController({
   adminPanel,
@@ -140,12 +138,8 @@ const uiShellController = createUiShellController({
   resultsNode,
   resultsTitleNode,
   searchPanel,
-  setCurrentPlaylistName: (value) => {
-    currentPlaylistName = value;
-  },
-  setCurrentView: (value) => {
-    currentView = value;
-  },
+  setCurrentPlaylistName: appState.setCurrentPlaylistName,
+  setCurrentView: appState.setCurrentView,
 });
 
 const {
@@ -197,7 +191,8 @@ const playerDebugController = createPlayerDebugController({
   logNode: playerDebugLogNode,
   exportNode: playerDebugExportNode,
   getSnapshot: (details) => playerController?.debugSnapshot(details) || { details },
-  isVisible: () => Boolean(currentUser?.is_admin) && !isSetupAvailable(),
+  isVisible: () =>
+    Boolean(appState.getCurrentUser()?.is_admin) && !isSetupAvailable(),
 });
 
 const logPlayerEvent = playerDebugController.logEvent;
@@ -226,7 +221,7 @@ function closeOpenDialog() {
 async function navigateToPrivateView(loader) {
   closeMobileMenu();
   showRadioBrowserView();
-  if (!currentUser) {
+  if (!appState.isAuthenticated()) {
     renderAuthRequired();
     scrollToSection(authPanel);
     return;
@@ -243,18 +238,14 @@ function isSetupAvailable() {
 const setupController = createSetupController({
   appContent,
   authPanel,
-  getCurrentUser: () => currentUser,
+  getCurrentUser: appState.getCurrentUser,
   loadAuthState: () => loadAuthState(),
   resetRadioBrowserView,
   scrollToSection,
   searchPanel,
   setAppContentVisible,
-  setCsrfToken: (token) => {
-    csrfToken = token;
-  },
-  setCurrentUser: (user) => {
-    currentUser = user;
-  },
+  setCsrfToken: appState.setCsrfToken,
+  setCurrentUser: appState.setCurrentUser,
   setPlayerVisible,
   setupForm,
   setupMessageNode,
@@ -266,7 +257,8 @@ const setupController = createSetupController({
 const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 
 function updateAuthUi() {
-  const authenticated = Boolean(currentUser);
+  const currentUser = appState.getCurrentUser();
+  const authenticated = appState.isAuthenticated();
 
   setPlayerVisible(!setupController.isSetupAvailable() && authenticated);
 
@@ -354,10 +346,10 @@ function renderAuthRequired() {
 }
 
 const apiFetch = createApiFetch({
-  getCsrfToken: () => csrfToken,
+  getCsrfToken: appState.getCsrfToken,
   onUnauthorized: () => {
-    csrfToken = "";
-    currentUser = null;
+    appState.setCsrfToken("");
+    appState.setCurrentUser(null);
     updateAuthUi();
     renderAuthRequired();
   },
@@ -376,16 +368,9 @@ const dashboardController = createDashboardController({
   renderStation: (station) => renderStation(station),
   bindResultActions: () => bindResultActions(),
   showDashboardView,
-  isAuthenticated: () => Boolean(currentUser),
-  setDashboardLoaded: (value) => {
-    dashboardLoaded = value;
-  },
-  setCurrentView: (value) => {
-    currentView = value;
-  },
-  setCurrentPlaylistName: (value) => {
-    currentPlaylistName = value;
-  },
+  isAuthenticated: appState.isAuthenticated,
+  setCurrentView: appState.setCurrentView,
+  setCurrentPlaylistName: appState.setCurrentPlaylistName,
 });
 const { loadDashboard } = dashboardController;
 
@@ -407,7 +392,7 @@ const adminController = createAdminController({
   createUserForm: adminCreateUserForm,
   passwordForm: adminPasswordForm,
   passwordChangeRequestsNode: adminPasswordChangeRequestsNode,
-  getCurrentUser: () => currentUser,
+  getCurrentUser: appState.getCurrentUser,
   loadDashboard,
 });
 const {
@@ -427,12 +412,8 @@ const authController = createAuthController({
   publicStatsController,
   renderAuthRequired,
   resetRadioBrowserView,
-  setCsrfToken: (token) => {
-    csrfToken = token;
-  },
-  setCurrentUser: (user) => {
-    currentUser = user;
-  },
+  setCsrfToken: appState.setCsrfToken,
+  setCurrentUser: appState.setCurrentUser,
   stopPlayback: () => stopPlayback(),
   updateAuthUi,
 });
@@ -469,8 +450,8 @@ playerController = createPlayerController({
 
 const stationRenderer = createStationRenderer({
   renderState: () => ({
-    currentUser,
-    currentView,
+    currentUser: appState.getCurrentUser(),
+    currentView: appState.getCurrentView(),
   }),
   onPlayStation: (station) => playStation(station),
   onAddFavorite: (station) => addFavorite(station),
@@ -493,8 +474,8 @@ const searchController = createSearchController({
   bindResultActions,
   setSearchView: () => {
     showRadioBrowserView();
-    currentView = "search";
-    currentPlaylistName = "";
+    appState.setCurrentView("search");
+    appState.setCurrentPlaylistName("");
   },
 });
 
@@ -519,8 +500,8 @@ const libraryViewsController = createLibraryViewsController({
   renderPlaylists,
   renderSearchError,
   setLibraryView: (view, playlistName = "") => {
-    currentView = view;
-    currentPlaylistName = playlistName;
+    appState.setCurrentView(view);
+    appState.setCurrentPlaylistName(playlistName);
   },
 });
 
@@ -531,8 +512,8 @@ const favoriteController = createFavoriteController({
   apiFetch,
   stationUrl,
   setPlayerState,
-  isAuthenticated: () => Boolean(currentUser),
-  getCurrentView: () => currentView,
+  isAuthenticated: appState.isAuthenticated,
+  getCurrentView: appState.getCurrentView,
   loadFavorites,
 });
 
@@ -546,8 +527,8 @@ const playlistController = createPlaylistController({
   messageNode: playlistMessageNode,
   stationNameNode: playlistStationNameNode,
   setPlayerState,
-  getCurrentView: () => currentView,
-  getCurrentPlaylistName: () => currentPlaylistName,
+  getCurrentView: appState.getCurrentView,
+  getCurrentPlaylistName: appState.getCurrentPlaylistName,
   loadPlaylists,
   loadPlaylistStations,
 });
@@ -682,7 +663,7 @@ if (themeToggleButton) {
 if (navDashboardButton) {
   navDashboardButton.addEventListener("click", async () => {
     closeMobileMenu();
-    if (!currentUser) {
+    if (!appState.isAuthenticated()) {
       renderAuthRequired();
       scrollToSection(authPanel);
       return;
@@ -739,6 +720,7 @@ if (navAdminButton) {
   navAdminButton.addEventListener("click", async () => {
     closeMobileMenu();
 
+    const currentUser = appState.getCurrentUser();
     if (!currentUser || !currentUser.is_admin || !adminPanel) return;
 
     showAdminView();

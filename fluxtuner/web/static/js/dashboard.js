@@ -27,7 +27,6 @@ export function createDashboardController({
   bindResultActions,
   showDashboardView,
   isAuthenticated,
-  setDashboardLoaded,
   setCurrentView,
   setCurrentPlaylistName,
 }) {
@@ -130,7 +129,6 @@ export function createDashboardController({
 
       const payload = await response.json();
       renderDashboard(payload);
-      setDashboardLoaded(true);
       if (!silent) {
         setDashboardMessage("Dashboard updated.");
       }

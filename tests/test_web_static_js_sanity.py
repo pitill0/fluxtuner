@@ -784,3 +784,30 @@ def test_web_shared_dialog_styles_are_isolated() -> None:
     assert "\n.register-dialog-message {" not in styles_response.text
     assert "[data-register-form]" not in styles_response.text
     assert "[data-password-change-form]" not in styles_response.text
+
+
+def test_web_static_js_uses_application_state_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    state_response = client.get("/static/js/app-state.js")
+    dashboard_response = client.get("/static/js/dashboard.js")
+
+    assert app_response.status_code == 200
+    assert state_response.status_code == 200
+    assert dashboard_response.status_code == 200
+    assert 'import { createAppState } from "/static/js/app-state.js";' in app_response.text
+    assert "export function createAppState()" in state_response.text
+    assert "const appState = createAppState();" in app_response.text
+    assert 'let currentView = "search";' in state_response.text
+    assert 'let currentPlaylistName = "";' in state_response.text
+    assert "let currentUser = null;" in state_response.text
+    assert 'let csrfToken = "";' in state_response.text
+    assert "isAuthenticated: () => Boolean(currentUser)" in state_response.text
+    assert "let currentView =" not in app_response.text
+    assert "let currentPlaylistName =" not in app_response.text
+    assert "let currentUser =" not in app_response.text
+    assert "let csrfToken =" not in app_response.text
+    assert "dashboardLoaded" not in app_response.text
+    assert "setDashboardLoaded" not in app_response.text
+    assert "setDashboardLoaded" not in dashboard_response.text

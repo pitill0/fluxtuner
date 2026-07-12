@@ -18,10 +18,12 @@ Several interface modules carry many responsibilities at once:
   history, favorites, playlists and station payload shaping. The first Web
   refactor pass has reduced it to composition/bootstrap plus a small set of
   setup, dashboard and health endpoints.
-- `fluxtuner/web/static/app.js` is now a small ES module composition layer. It
-  wires focused browser controllers under `fluxtuner/web/static/js/` for auth,
-  admin, dashboard, search, library views, playlists, browser playback, Media
-  Session integration, player debugging and theme/mobile shell behaviour.
+- `fluxtuner/web/static/app.js` is now a small ES module composition root. It
+  collects DOM references, creates shared application state and focused browser
+  controllers, connects late-bound dependencies, binds application events and
+  starts the browser bootstrap sequence. DOM lookup, session UI, navigation,
+  event binding, bootstrap ordering and the player runtime bridge now live in
+  dedicated modules under `fluxtuner/web/static/js/`.
 - `fluxtuner/web/static/styles.css` owns the full Web visual system and has
   become large enough that feature-local CSS is hard to audit.
 - `fluxtuner/tui.py` and `fluxtuner/gui/window.py` contain broad UI orchestration
@@ -123,8 +125,17 @@ Current Web browser modules:
   mobile Media Session handoff and local diagnostics.
 - `theme.js` and `ui-shell.js` for theme preference and responsive app shell
   behavior.
+- `app-elements.js` for the application DOM registry.
+- `app-state.js` for shared browser application state.
+- `session-ui.js` for authentication/setup-driven UI coordination.
+- `navigation.js` for application navigation.
+- `app-events.js` for application-wide event binding.
+- `app-bootstrap.js` for startup ordering.
+- `player-runtime.js` for the single late-bound browser player reference.
 
-
+Executable JavaScript contract tests now run ES modules through Node from
+`tests/test_web_js_modules.py`. Source-boundary and ownership checks remain in
+`tests/test_web_static_js_sanity.py`; both styles protect different failure modes.
 
 Packaging note: new Web subpackages must be included in the setuptools package
 list. The router package is currently listed as `fluxtuner.web.routes` in
@@ -132,19 +143,53 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 
 Recommended next branches should stay separate:
 
+- Phase 5 Web player state-model completion;
 - search quality/debugging;
 - Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
+
+The numbered roadmap remains the source of truth. Search quality, CSS boundaries
+and storage cleanup are parallel workstreams rather than replacements for the
+remaining numbered phases.
+
+## Roadmap progress
+
+```text
+Phase 1  Audit and safety rails                          complete
+Phase 2  Extract Web API helpers and routers             complete
+Phase 3  Split storage by domain without changing SQLite complete
+Phase 4  Web JavaScript module boundaries                complete and hardened
+Phase 5  Web player state model                          active / partially complete
+Phase 6  Revisit metadata `Now Playing`                  pending / blocked by Phase 5
+```
+
+The current active numbered phase is Phase 5. Phase 6 must not begin until the
+player state model, lifecycle and Media Session contracts are sufficiently
+explicit and protected.
 
 ## Proposed incremental phases
 
 ### Phase 1: Audit and safety rails
 
-- Keep `make gate` green after every small patch.
-- Add tests that detect accidental duplicate Web player functions or duplicated
-  Media Session handlers.
-- Document current module responsibilities and known seams.
-- Avoid feature work in the same commits as structural moves.
+Status: completed and continuously enforced.
+
+Completed safety rails include:
+
+- keeping `make gate` green after every small patch;
+- tests that detect accidental duplicate Web player functions or duplicated
+  Media Session handlers;
+- documented module responsibilities and known seams;
+- separation of feature work from structural moves;
+- source-boundary tests that protect module ownership;
+- executable Node-based tests for pure ES module contracts;
+- manual smoke testing after changes to browser composition, session or playback;
+- transactional local transformation scripts with anchor validation, `--check`
+  support and dirty-target protection.
+
+A composition regression during application-event extraction temporarily removed
+Media Session setup and player initialization. It was restored immediately and
+converted into regression coverage. Startup ordering must therefore be protected
+by executable tests rather than source checks alone.
 
 ### Phase 2: Extract Web API helpers and routers
 
@@ -215,28 +260,36 @@ carefully reviewed PRs.
 
 ### Phase 4: Web JavaScript module boundaries
 
-Status: completed in `v1.0.5`.
+Status: completed and hardened after `v1.0.5`.
 
-The browser client now keeps the no-build approach, but `static/app.js` has been
-reduced to a small ES module entrypoint that wires focused modules under
-`fluxtuner/web/static/js/`.
+The browser client keeps the no-build approach. `static/app.js` is now the
+composition root for focused ES modules under `fluxtuner/web/static/js/`.
 
-The current split includes API access, auth/setup/account-request flows,
-dashboard/admin/public stats/health rendering, search, favorites, playlists,
-library rendering, browser playback, Media Session integration, player debug,
-theme preference and responsive shell behaviour.
+The completed boundary work includes API access, auth/setup/account-request
+flows, dashboard/admin/public stats/health rendering, search, favorites,
+playlists, library rendering, playback, Media Session, player debug, theme,
+responsive shell, centralized DOM lookup, shared application state, session UI,
+navigation, event binding, startup ordering and the late-bound player runtime.
+
+The final hardening pass validates player-runtime attachment, prevents accidental
+reattachment, fails fast for invalid early operations and adds executable Node
+tests for runtime delegation and bootstrap ordering.
+
+`app.js` should now remain a composition root. Future changes must not extract
+additional code solely to reduce line count; they should require a concrete
+ownership, lifecycle or testability improvement.
 
 Future JavaScript changes should preserve the no-build module boundary unless a
 separate build-pipeline decision is made explicitly.
 
 ### Phase 5: Web player state model
 
-Status: partially completed in `v1.0.5`.
+Status: active and partially completed.
 
-The Web player now lives in a dedicated browser controller with playback
-attempt IDs, lifecycle handling, Media Session updates and debug snapshots.
-Future work can still simplify the state model further by making requested
-state transitions more explicit.
+The Web player lives in a dedicated browser controller with playback attempt IDs,
+lifecycle handling, Media Session updates, debug snapshots and a hardened
+late-bound runtime bridge. Application composition is no longer part of the
+remaining Phase 5 work.
 
 The player controller currently owns:
 
@@ -247,13 +300,31 @@ The player controller currently owns:
 - Media Session metadata/state;
 - lifecycle/debug events.
 
+Remaining work must be based on an audit of `player.js`, `media-session.js`,
+`player-runtime.js`, `player-debug.js` and their tests.
+
+Phase 5 can be marked complete when:
+
+- requested states and allowed transitions are explicit;
+- play, pause, resume, restart, stop and station replacement are deterministic;
+- stale playback attempts cannot update current state;
+- internal state and the audio element reconcile predictably;
+- lifecycle, visibility, page navigation and connectivity behaviour are defined;
+- Media Session actions map consistently to player transitions;
+- error and recovery behaviour is explicit;
+- important contracts have executable tests;
+- manual browser/mobile smoke tests confirm no regression;
+- this roadmap records the final state and remaining intentional limits.
+
 The goal is not to force mobile lock-screen persistence. The goal is to keep
 FluxTuner's internal state coherent and make Resume/restart behaviour explicit.
 
 ### Phase 6: Revisit metadata `Now Playing`
 
-Only after the previous phases are stable, implement Web metadata with a backend
-cache/worker design:
+Status: pending and blocked by Phase 5.
+
+Only after Phase 5 is complete and documented, implement Web metadata with a
+backend cache/worker design:
 
 - short timeouts;
 - strict URL validation and SSRF protection;
@@ -273,6 +344,21 @@ cache/worker design:
    favorites, playlists, player, Media Session, player debug, theme and shell
    behavior.
 6. Mobile Media Session/player hardening and Player debug UX cleanup.
+7. Application DOM registry extraction.
+8. Browser application-state encapsulation.
+9. Session UI coordinator extraction.
+10. Navigation coordinator extraction.
+11. Application event-binding extraction.
+12. Player initialization regression restoration and ordering protection.
+13. Application bootstrap extraction.
+14. Player runtime bridge encapsulation.
+15. Application composition contract hardening with executable Node tests.
+
+The final `app.js` composition series corresponds to pull requests #119 through
+#127. It is complete and should be treated as the closing hardening pass for
+Phase 4 plus additional Phase 1 safety rails, not as completion of the remaining
+Phase 5 player state-model work.
 
 Future structural PRs should remain small enough to review manually and should
-not change user-visible behaviour unless explicitly stated.
+not change user-visible behaviour unless explicitly stated. Phase status changes
+must be reflected in this roadmap when the corresponding work is merged.

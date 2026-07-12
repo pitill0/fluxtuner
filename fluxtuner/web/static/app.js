@@ -18,6 +18,7 @@ import { createMediaSessionController } from "/static/js/media-session.js";
 import { createNavigationController } from "/static/js/navigation.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlayerController } from "/static/js/player.js";
+import { createPlayerRuntime } from "/static/js/player-runtime.js";
 import { createPlaylistController } from "/static/js/playlists.js";
 import { createPlaylistRenderer } from "/static/js/playlist-renderer.js";
 import { createPublicStatsController } from "/static/js/public-stats.js";
@@ -124,11 +125,7 @@ const {
 } = createAppElements();
 
 const appState = createAppState();
-
-let playerController = null;
-let playStation = () => {};
-let setPlayerState = () => {};
-let stopPlayback = () => {};
+const playerRuntime = createPlayerRuntime();
 
 const uiShellController = createUiShellController({
   adminPanel,
@@ -194,7 +191,7 @@ const playerDebugController = createPlayerDebugController({
   snapshotNode: playerDebugSnapshotNode,
   logNode: playerDebugLogNode,
   exportNode: playerDebugExportNode,
-  getSnapshot: (details) => playerController?.debugSnapshot(details) || { details },
+  getSnapshot: playerRuntime.debugSnapshot,
   isVisible: () =>
     Boolean(appState.getCurrentUser()?.is_admin) && !isSetupAvailable(),
 });
@@ -325,24 +322,22 @@ const authController = createAuthController({
   resetRadioBrowserView,
   setCsrfToken: appState.setCsrfToken,
   setCurrentUser: appState.setCurrentUser,
-  stopPlayback: () => stopPlayback(),
+  stopPlayback: playerRuntime.stopPlayback,
   updateAuthUi,
 });
 const { loadAuthState, login, logout } = authController;
 
 const mediaSessionController = createMediaSessionController({
-  getCurrentStation: () => playerController?.getCurrentStation() || null,
+  getCurrentStation: playerRuntime.getCurrentStation,
   logPlayerEvent,
-  pauseCurrentStationPlayback: (message) =>
-    playerController?.pauseCurrentStationPlayback(message),
-  startCurrentStationPlayback: (message) =>
-    playerController?.startCurrentStationPlayback(message),
-  stopPlayback: () => playerController?.stopPlayback(),
+  pauseCurrentStationPlayback: playerRuntime.pauseCurrentStationPlayback,
+  startCurrentStationPlayback: playerRuntime.startCurrentStationPlayback,
+  stopPlayback: playerRuntime.stopPlayback,
 });
 
 const { setupMediaSessionHandlers } = mediaSessionController;
 
-playerController = createPlayerController({
+const playerController = createPlayerController({
   audioNode,
   playerBar,
   titleNode: playerTitleNode,
@@ -357,20 +352,20 @@ playerController = createPlayerController({
   resetRecordedHistory: () => favoriteController.resetRecordedHistory(),
 });
 
-({ playStation, setPlayerState, stopPlayback } = playerController);
+playerRuntime.attach(playerController);
 
 const stationRenderer = createStationRenderer({
   renderState: () => ({
     currentUser: appState.getCurrentUser(),
     currentView: appState.getCurrentView(),
   }),
-  onPlayStation: (station) => playStation(station),
+  onPlayStation: playerRuntime.playStation,
   onAddFavorite: (station) => addFavorite(station),
   onRemoveFavorite: (station) => removeFavorite(station),
   onAddToPlaylist: (station) => playlistController.addToPlaylist(station),
   onRemoveFromPlaylist: (station) => playlistController.removeFromPlaylist(station),
   onStationActionError: (error) => {
-    setPlayerState("error", `Could not read station data. ${error}`);
+    playerRuntime.setPlayerState("error", `Could not read station data. ${error}`);
   },
 });
 
@@ -422,7 +417,7 @@ const { loadFavorites, loadHistory, loadPlaylists, loadPlaylistStations } = libr
 const favoriteController = createFavoriteController({
   apiFetch,
   stationUrl,
-  setPlayerState,
+  setPlayerState: playerRuntime.setPlayerState,
   isAuthenticated: appState.isAuthenticated,
   getCurrentView: appState.getCurrentView,
   loadFavorites,
@@ -437,7 +432,7 @@ const playlistController = createPlaylistController({
   selectNode: playlistSelect,
   messageNode: playlistMessageNode,
   stationNameNode: playlistStationNameNode,
-  setPlayerState,
+  setPlayerState: playerRuntime.setPlayerState,
   getCurrentView: appState.getCurrentView,
   getCurrentPlaylistName: appState.getCurrentPlaylistName,
   loadPlaylists,

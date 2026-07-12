@@ -5,6 +5,53 @@
 const PLAYBACK_START_TIMEOUT_MS = 12000;
 const BUFFERING_NOTICE_TIMEOUT_MS = 8000;
 
+export const PLAYER_STATES = Object.freeze([
+  "idle",
+  "loading",
+  "playing",
+  "paused",
+  "error",
+]);
+
+export const PLAYER_STATE_TRANSITIONS = Object.freeze({
+  idle: Object.freeze(["idle", "loading", "error"]),
+  loading: Object.freeze(["loading", "playing", "paused", "error", "idle"]),
+  playing: Object.freeze(["playing", "loading", "paused", "error", "idle"]),
+  paused: Object.freeze(["paused", "loading", "playing", "error", "idle"]),
+  error: Object.freeze(["error", "loading", "playing", "paused", "idle"]),
+});
+
+export function createPlayerStateModel(initialState = "idle") {
+  if (!PLAYER_STATES.includes(initialState)) {
+    throw new TypeError(`Unknown player state: ${initialState}`);
+  }
+
+  let currentState = initialState;
+
+  function transition(nextState) {
+    if (!PLAYER_STATES.includes(nextState)) {
+      throw new TypeError(`Unknown player state: ${nextState}`);
+    }
+
+    const allowedStates = PLAYER_STATE_TRANSITIONS[currentState];
+    if (!allowedStates.includes(nextState)) {
+      throw new Error(`Invalid player state transition: ${currentState} -> ${nextState}`);
+    }
+
+    const previousState = currentState;
+    currentState = nextState;
+    return { previousState, state: currentState };
+  }
+
+  return {
+    get current() {
+      return currentState;
+    },
+    transition,
+  };
+}
+
+
 export function createPlayerController({
   audioNode,
   playerBar,
@@ -22,6 +69,7 @@ export function createPlayerController({
   documentRef = document,
 }) {
   let currentStation = null;
+  const playerState = createPlayerStateModel();
   let startingPlayback = false;
   let softPausingPlayback = false;
   let stoppingPlayback = false;
@@ -60,7 +108,7 @@ export function createPlayerController({
 
   function debugSnapshot(details = {}) {
     return {
-      state: playerBar?.dataset.state || "",
+      state: playerState.current,
       station: currentStation
         ? {
             name: currentStation.name || currentStation.custom_name || "",
@@ -127,7 +175,7 @@ export function createPlayerController({
     clearBufferingNotice();
     bufferingNoticeTimeoutId = windowRef.setTimeout(() => {
       bufferingNoticeTimeoutId = 0;
-      if (!currentStation || !isCurrentPlaybackRun(runId) || playerBar?.dataset.state !== "loading") {
+      if (!currentStation || !isCurrentPlaybackRun(runId) || playerState.current !== "loading") {
         return;
       }
 
@@ -142,23 +190,30 @@ export function createPlayerController({
   }
 
   function setPlayerState(state, message, reason = "player-state") {
-    logPlayerEvent("player-state", { state, message, reason });
+    const transition = playerState.transition(state);
+    logPlayerEvent("player-state", {
+      ...transition,
+      message,
+      reason,
+    });
+
     if (playerBar) {
-      playerBar.dataset.state = state;
+      playerBar.dataset.state = transition.state;
     }
 
     if (statusNode) {
       statusNode.textContent = message;
     }
 
-    mediaSessionController.updateMediaSessionState(state, reason);
+    mediaSessionController.updateMediaSessionState(transition.state, reason);
+    return transition;
   }
 
   function updatePlayerControls() {
     if (!audioNode || !toggleButton || !stopButton) return;
 
     const hasStream = Boolean(currentStation && stationUrl(currentStation));
-    const state = playerBar?.dataset.state || "idle";
+    const state = playerState.current;
     const isLoading = state === "loading" || startingPlayback;
 
     toggleButton.disabled = !hasStream || isLoading;
@@ -391,13 +446,13 @@ export function createPlayerController({
 
     logPlayerEvent("playback-toggle");
 
-    if (playerBar?.dataset.state === "loading" || startingPlayback) {
+    if (playerState.current === "loading" || startingPlayback) {
       return;
     }
 
-    if (audioNode.paused || playerBar?.dataset.state === "error") {
+    if (audioNode.paused || playerState.current === "error") {
       await startCurrentStationPlayback(
-        playerBar?.dataset.state === "error" ? "Retrying stream..." : "Resuming stream...",
+        playerState.current === "error" ? "Retrying stream..." : "Resuming stream...",
       );
     } else {
       pauseCurrentStationPlayback("Paused.");
@@ -489,7 +544,7 @@ export function createPlayerController({
         logPlayerEvent("document-visibilitychange", { visibilityReason });
         reapplyMediaSessionMetadata(visibilityReason);
         mediaSessionController.updateMediaSessionState(
-          playerBar?.dataset.state || "idle",
+          playerState.current,
           visibilityReason,
         );
         updatePlayerControls();
@@ -500,7 +555,7 @@ export function createPlayerController({
       logPlayerEvent("window-pagehide");
       reapplyMediaSessionMetadata("window-pagehide");
       mediaSessionController.updateMediaSessionState(
-        playerBar?.dataset.state || "idle",
+        playerState.current,
         "window-pagehide",
       );
     });

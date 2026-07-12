@@ -226,6 +226,147 @@ console.log(JSON.stringify({{ calls }}));
     assert result["calls"] == expected
 
 
+def test_web_player_state_model_enforces_explicit_transitions(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "player.js",
+        r"""
+const {
+  PLAYER_STATES,
+  PLAYER_STATE_TRANSITIONS,
+  createPlayerStateModel,
+} = await import(process.argv[1]);
+
+function capture(action) {
+  try {
+    action();
+    return null;
+  } catch (error) {
+    return { name: error.name, message: error.message };
+  }
+}
+
+const model = createPlayerStateModel();
+const transitions = [
+  model.transition("loading"),
+  model.transition("playing"),
+  model.transition("paused"),
+  model.transition("loading"),
+  model.transition("error"),
+  model.transition("idle"),
+];
+
+const invalidState = capture(() => model.transition("buffering"));
+const invalidTransitionModel = createPlayerStateModel();
+const invalidTransition = capture(() => invalidTransitionModel.transition("paused"));
+
+console.log(JSON.stringify({
+  states: PLAYER_STATES,
+  transitionKeys: Object.keys(PLAYER_STATE_TRANSITIONS),
+  transitions,
+  finalState: model.current,
+  invalidState,
+  invalidTransition,
+  invalidTransitionState: invalidTransitionModel.current,
+}));
+""",
+    )
+
+    assert result["states"] == ["idle", "loading", "playing", "paused", "error"]
+    assert result["transitionKeys"] == ["idle", "loading", "playing", "paused", "error"]
+    assert result["transitions"] == [
+        {"previousState": "idle", "state": "loading"},
+        {"previousState": "loading", "state": "playing"},
+        {"previousState": "playing", "state": "paused"},
+        {"previousState": "paused", "state": "loading"},
+        {"previousState": "loading", "state": "error"},
+        {"previousState": "error", "state": "idle"},
+    ]
+    assert result["finalState"] == "idle"
+    assert result["invalidState"] == {
+        "name": "TypeError",
+        "message": "Unknown player state: buffering",
+    }
+    assert result["invalidTransition"] == {
+        "name": "Error",
+        "message": "Invalid player state transition: idle -> paused",
+    }
+    assert result["invalidTransitionState"] == "idle"
+
+
+def test_web_player_controller_projects_internal_state_to_dom(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "player.js",
+        r"""
+const { createPlayerController } = await import(process.argv[1]);
+
+const playerBar = { dataset: {} };
+const statusNode = { textContent: "" };
+const mediaUpdates = [];
+
+const controller = createPlayerController({
+  audioNode: null,
+  playerBar,
+  titleNode: null,
+  statusNode,
+  toggleButton: null,
+  stopButton: null,
+  openLink: null,
+  stationUrl: () => "",
+  logPlayerEvent: () => {},
+  mediaSessionController: {
+    debugSnapshot() {
+      return null;
+    },
+    updateMediaSessionState(state, reason) {
+      mediaUpdates.push([state, reason]);
+    },
+  },
+  recordHistory: async () => {},
+  resetRecordedHistory: () => {},
+  windowRef: {
+    addEventListener() {},
+    clearTimeout() {},
+    setTimeout() {
+      return 0;
+    },
+  },
+  documentRef: {
+    addEventListener() {},
+    visibilityState: "visible",
+  },
+});
+
+const initial = controller.debugSnapshot();
+const loading = controller.setPlayerState("loading", "Loading stream...", "test-loading");
+const loadingSnapshot = controller.debugSnapshot();
+const error = controller.setPlayerState("error", "Failed.", "test-error");
+
+console.log(JSON.stringify({
+  initial,
+  loading,
+  loadingSnapshot,
+  error,
+  domState: playerBar.dataset.state,
+  status: statusNode.textContent,
+  mediaUpdates,
+}));
+""",
+    )
+
+    assert result["initial"]["state"] == "idle"
+    assert result["loading"] == {"previousState": "idle", "state": "loading"}
+    assert result["loadingSnapshot"]["state"] == "loading"
+    assert result["error"] == {"previousState": "loading", "state": "error"}
+    assert result["domState"] == "error"
+    assert result["status"] == "Failed."
+    assert result["mediaUpdates"] == [
+        ["loading", "test-loading"],
+        ["error", "test-error"],
+    ]
+
+
 def test_web_player_controller_confirms_current_playback_attempt(tmp_path: Path) -> None:
     result = _run_es_module(
         tmp_path,

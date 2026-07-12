@@ -837,3 +837,29 @@ def test_web_static_js_uses_session_ui_module() -> None:
     assert "publicStatsController.loadPublicStats();" in module_response.text
     assert "playerDebugController.updateVisibility();" in module_response.text
     assert "adminController.reset();" in module_response.text
+
+
+def test_web_static_js_uses_navigation_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    navigation_response = client.get("/static/js/navigation.js")
+
+    assert app_response.status_code == 200
+    assert navigation_response.status_code == 200
+    assert (
+        'import { createNavigationController } from "/static/js/navigation.js";'
+        in app_response.text
+    )
+    assert "export function createNavigationController" in navigation_response.text
+    assert "const navigationController = createNavigationController({" in app_response.text
+    assert "function closeOpenDialog()" in navigation_response.text
+    assert "async function navigateToPrivateView(loader)" in navigation_response.text
+    assert "async function navigateToDashboard()" in navigation_response.text
+    assert "function navigateToSearch()" in navigation_response.text
+    assert "async function navigateToAdmin()" in navigation_response.text
+    assert "function closeOpenDialog()" not in app_response.text
+    assert "async function navigateToPrivateView(loader)" not in app_response.text
+    assert 'navDashboardButton.addEventListener("click", navigateToDashboard);' in app_response.text
+    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in app_response.text
+    assert 'navAdminButton.addEventListener("click", navigateToAdmin);' in app_response.text

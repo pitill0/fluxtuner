@@ -13,6 +13,7 @@ import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createMediaSessionController } from "/static/js/media-session.js";
+import { createNavigationController } from "/static/js/navigation.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlayerController } from "/static/js/player.js";
 import { createPlaylistController } from "/static/js/playlists.js";
@@ -199,38 +200,6 @@ const playerDebugController = createPlayerDebugController({
 const logPlayerEvent = playerDebugController.logEvent;
 
 playerDebugController.initialize();
-
-function closeOpenDialog() {
-  if (playlistDialog && !playlistDialog.hidden) {
-    closePlaylistDialog();
-    return true;
-  }
-
-  if (registerDialog && !registerDialog.hidden) {
-    accountRequestsController.closeRegisterDialog();
-    return true;
-  }
-
-  if (passwordChangeDialog && !passwordChangeDialog.hidden) {
-    accountRequestsController.closePasswordChangeDialog();
-    return true;
-  }
-
-  return false;
-}
-
-async function navigateToPrivateView(loader) {
-  closeMobileMenu();
-  showRadioBrowserView();
-  if (!appState.isAuthenticated()) {
-    renderAuthRequired();
-    scrollToSection(authPanel);
-    return;
-  }
-
-  await loader();
-  scrollToSection(searchPanel);
-}
 
 function isSetupAvailable() {
   return setupController.isSetupAvailable();
@@ -473,6 +442,35 @@ const playlistController = createPlaylistController({
   loadPlaylistStations,
 });
 
+const navigationController = createNavigationController({
+  accountRequestsController,
+  adminPanel,
+  appState,
+  authPanel,
+  checkHealth,
+  closeMobileMenu,
+  dashboardPanel,
+  loadAdminUsersIfNeeded,
+  loadDashboard,
+  passwordChangeDialog,
+  playlistController,
+  playlistDialog,
+  registerDialog,
+  renderAuthRequired,
+  resetRadioBrowserView,
+  scrollToSection,
+  searchPanel,
+  showAdminView,
+  showRadioBrowserView,
+});
+const {
+  closeOpenDialog,
+  navigateToAdmin,
+  navigateToDashboard,
+  navigateToPrivateView,
+  navigateToSearch,
+} = navigationController;
+
 if (adminLoadUsersButton) {
   adminLoadUsersButton.addEventListener("click", loadAdminUsers);
 }
@@ -601,17 +599,7 @@ if (themeToggleButton) {
 }
 
 if (navDashboardButton) {
-  navDashboardButton.addEventListener("click", async () => {
-    closeMobileMenu();
-    if (!appState.isAuthenticated()) {
-      renderAuthRequired();
-      scrollToSection(authPanel);
-      return;
-    }
-
-    await loadDashboard();
-    scrollToSection(dashboardPanel);
-  });
+  navDashboardButton.addEventListener("click", navigateToDashboard);
 }
 
 if (dashboardRefreshButton) {
@@ -622,8 +610,7 @@ dashboardActionButtons.forEach((button) => {
   button.addEventListener("click", async () => {
     const action = button.getAttribute("data-dashboard-action");
     if (action === "search") {
-      resetRadioBrowserView();
-      scrollToSection(searchPanel);
+      navigateToSearch();
     } else if (action === "favorites") {
       await navigateToPrivateView(loadFavorites);
     } else if (action === "playlists") {
@@ -637,11 +624,7 @@ dashboardActionButtons.forEach((button) => {
 });
 
 if (navSearchButton) {
-  navSearchButton.addEventListener("click", () => {
-    closeMobileMenu();
-    resetRadioBrowserView();
-    scrollToSection(searchPanel);
-  });
+  navSearchButton.addEventListener("click", navigateToSearch);
 }
 
 if (navFavoritesButton) {
@@ -657,20 +640,7 @@ if (navHistoryButton) {
 }
 
 if (navAdminButton) {
-  navAdminButton.addEventListener("click", async () => {
-    closeMobileMenu();
-
-    const currentUser = appState.getCurrentUser();
-    if (!currentUser || !currentUser.is_admin || !adminPanel) return;
-
-    showAdminView();
-
-    await checkHealth();
-
-    await loadAdminUsersIfNeeded();
-
-    scrollToSection(adminPanel);
-  });
+  navAdminButton.addEventListener("click", navigateToAdmin);
 }
 
 if (searchForm) {

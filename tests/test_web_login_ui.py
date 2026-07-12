@@ -167,16 +167,18 @@ def test_web_static_js_admin_is_exclusive_view() -> None:
 
     app_response = client.get("/static/app.js")
     module_response = client.get("/static/js/ui-shell.js")
+    navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
+    assert navigation_response.status_code == 200
     assert "function showRadioBrowserView()" in module_response.text
     assert "function showAdminView()" in module_response.text
     assert "searchPanel.hidden = true;" in module_response.text
     assert "searchPanel.hidden = false;" in module_response.text
     assert "adminPanel.hidden = true;" in module_response.text
     assert "adminPanel.hidden = false;" in module_response.text
-    assert "showAdminView();" in app_response.text
+    assert "showAdminView();" in navigation_response.text
     assert "adminPanel.hidden = false;\n\n    if (!adminUsersLoaded)" not in app_response.text
 
 
@@ -275,16 +277,18 @@ def test_web_static_js_formats_admin_health_summary() -> None:
 
     app_response = client.get("/static/app.js")
     module_response = client.get("/static/js/health.js")
+    navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
+    assert navigation_response.status_code == 200
     elements_response = client.get("/static/js/app-elements.js")
     assert elements_response.status_code == 200
     assert 'root.querySelector("[data-health-state]")' in elements_response.text
     assert 'root.querySelector("[data-health-summary]")' in elements_response.text
     assert 'from "/static/js/health.js"' in app_response.text
     assert "formatHealthSummary(payload)" in module_response.text
-    assert "await checkHealth();" in app_response.text
+    assert "await checkHealth();" in navigation_response.text
 
 
 def test_web_css_has_compact_admin_health_bar() -> None:
@@ -471,11 +475,13 @@ def test_web_static_js_resets_search_view_on_auth_changes() -> None:
 
     app_response = client.get("/static/app.js")
     module_response = client.get("/static/js/ui-shell.js")
+    navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
+    assert navigation_response.status_code == 200
     assert "function resetRadioBrowserView()" in module_response.text
     assert 'setCurrentView("search");' in module_response.text
     assert 'setCurrentPlaylistName("");' in module_response.text
     assert 'setResultsHeader("Radio Browser", "Search stations");' in module_response.text
-    assert "resetRadioBrowserView();" in app_response.text
+    assert "resetRadioBrowserView();" in navigation_response.text

@@ -49,11 +49,14 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
 def test_web_static_js_resets_search_navigation() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    navigation_response = client.get("/static/js/navigation.js")
 
-    assert response.status_code == 200
-    assert 'navSearchButton.addEventListener("click", () => {' in response.text
-    assert "resetRadioBrowserView();" in response.text
+    assert app_response.status_code == 200
+    assert navigation_response.status_code == 200
+    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in app_response.text
+    assert "function navigateToSearch()" in navigation_response.text
+    assert "resetRadioBrowserView();" in navigation_response.text
 
 
 def test_web_dashboard_styles_are_isolated() -> None:

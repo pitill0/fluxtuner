@@ -50,11 +50,13 @@ def test_web_static_js_resets_search_navigation() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
     navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
+    assert events_response.status_code == 200
     assert navigation_response.status_code == 200
-    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in app_response.text
+    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in events_response.text
     assert "function navigateToSearch()" in navigation_response.text
     assert "resetRadioBrowserView();" in navigation_response.text
 

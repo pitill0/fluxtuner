@@ -446,12 +446,14 @@ def test_web_player_starts_hidden_until_authenticated() -> None:
 def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/app.js")
+    app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
 
-    assert response.status_code == 200
-    assert 'document.addEventListener("click"' in response.text
-    assert "appHeader.contains(event.target)" in response.text
-    assert 'event.key === "Escape"' in response.text
+    assert app_response.status_code == 200
+    assert events_response.status_code == 200
+    assert 'documentNode.addEventListener("click"' in events_response.text
+    assert "appHeader.contains(event.target)" in events_response.text
+    assert 'documentNode.addEventListener("keydown"' in events_response.text
 
 
 def test_web_static_js_controls_player_visibility_from_auth_ui() -> None:

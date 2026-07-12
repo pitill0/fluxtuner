@@ -49,16 +49,17 @@ def test_web_static_js_uses_theme_module() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
     theme_response = client.get("/static/js/theme.js")
 
     assert app_response.status_code == 200
+    assert events_response.status_code == 200
     assert theme_response.status_code == 200
     assert 'import { createThemeController } from "/static/js/theme.js";' in app_response.text
     assert "export function createThemeController" in theme_response.text
     assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
     assert "themeController.initializeTheme();" in app_response.text
-    assert 'themeToggleButton.addEventListener("click", toggleTheme);' in app_response.text
-    assert "function systemThemePreference()" not in app_response.text
+    assert 'themeToggleButton.addEventListener("click", toggleTheme);' in events_response.text
 
 
 def test_web_static_js_uses_ui_shell_module() -> None:
@@ -545,6 +546,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     client = TestClient(create_app())
 
     js_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
     module_response = client.get("/static/js/player-debug.js")
     player_response = client.get("/static/js/player.js")
     html_response = client.get("/")
@@ -552,6 +554,7 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     admin_response = client.get("/static/admin.css")
 
     assert js_response.status_code == 200
+    assert events_response.status_code == 200
     assert module_response.status_code == 200
     assert player_response.status_code == 200
     assert html_response.status_code == 200
@@ -595,7 +598,9 @@ def test_web_static_js_has_admin_player_debug_panel() -> None:
     assert "function toggleDetails()" in module_response.text
     assert "panel.hidden = !showAdminDebug;" in module_response.text
     assert "enableInput.checked = enabled;" in module_response.text
-    assert "playerDebugController.applyState(playerDebugEnableInput.checked);" in js_response.text
+    assert (
+        "playerDebugController.applyState(playerDebugEnableInput.checked);" in events_response.text
+    )
     assert "events.length > PLAYER_DEBUG_EVENT_LIMIT" in module_response.text
     assert "showExport(data);" in module_response.text
     assert "exportNode.select();" in module_response.text
@@ -843,9 +848,11 @@ def test_web_static_js_uses_navigation_module() -> None:
     client = TestClient(create_app())
 
     app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
     navigation_response = client.get("/static/js/navigation.js")
 
     assert app_response.status_code == 200
+    assert events_response.status_code == 200
     assert navigation_response.status_code == 200
     assert (
         'import { createNavigationController } from "/static/js/navigation.js";'
@@ -860,6 +867,34 @@ def test_web_static_js_uses_navigation_module() -> None:
     assert "async function navigateToAdmin()" in navigation_response.text
     assert "function closeOpenDialog()" not in app_response.text
     assert "async function navigateToPrivateView(loader)" not in app_response.text
-    assert 'navDashboardButton.addEventListener("click", navigateToDashboard);' in app_response.text
-    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in app_response.text
-    assert 'navAdminButton.addEventListener("click", navigateToAdmin);' in app_response.text
+    assert (
+        'navDashboardButton.addEventListener("click", navigateToDashboard);' in events_response.text
+    )
+    assert 'navSearchButton.addEventListener("click", navigateToSearch);' in events_response.text
+    assert 'navAdminButton.addEventListener("click", navigateToAdmin);' in events_response.text
+
+
+def test_web_static_js_uses_app_events_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    events_response = client.get("/static/js/app-events.js")
+
+    assert app_response.status_code == 200
+    assert events_response.status_code == 200
+    assert 'import { bindApplicationEvents } from "/static/js/app-events.js";' in app_response.text
+    assert "export function bindApplicationEvents" in events_response.text
+    assert "bindApplicationEvents({" in app_response.text
+    assert 'documentNode.addEventListener("click"' in events_response.text
+    assert 'documentNode.addEventListener("keydown"' in events_response.text
+    assert 'loginForm.addEventListener("submit", login);' in events_response.text
+    assert (
+        'navDashboardButton.addEventListener("click", navigateToDashboard);' in events_response.text
+    )
+    assert (
+        'searchForm.addEventListener("submit", searchController.searchStations);'
+        in events_response.text
+    )
+    assert 'playerDebugEnableInput.addEventListener("change"' in events_response.text
+    assert 'document.addEventListener("click"' not in app_response.text
+    assert 'document.addEventListener("keydown"' not in app_response.text

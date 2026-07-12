@@ -489,7 +489,12 @@ export function createPlayerController({
 
     audioNode.addEventListener("pause", () => {
       logPlayerEvent("audio-pause");
-      if (currentStation && !startingPlayback && !stoppingPlayback) {
+      if (
+        currentStation &&
+        !startingPlayback &&
+        !stoppingPlayback &&
+        playerState.current !== "error"
+      ) {
         clearBufferingNotice();
         mediaSessionController.setMediaSessionMetadata(currentStation, "playback-pause-request");
         setPlayerState("paused", "Paused.", "audio-pause");
@@ -499,7 +504,7 @@ export function createPlayerController({
 
     audioNode.addEventListener("waiting", () => {
       logPlayerEvent("audio-waiting");
-      if (currentStation && !stoppingPlayback) {
+      if (currentStation && !stoppingPlayback && playerState.current !== "error") {
         setPlayerState("loading", "Buffering stream...", "audio-waiting");
         scheduleBufferingNotice(playbackRunId);
       }
@@ -534,47 +539,85 @@ export function createPlayerController({
     });
   }
 
+  function lifecycleMessage(state, reason) {
+    if (reason === "window-online" && state === "paused") {
+      return "Network is back. Resume playback when ready.";
+    }
+
+    if (state === "idle") return "Idle";
+    if (state === "loading") return "Loading stream...";
+    if (state === "playing") return "Playing in browser.";
+    if (state === "paused") return "Paused.";
+    return statusNode?.textContent || "Stream playback failed.";
+  }
+
+  function reconcileLifecycleState(reason, { recoverFromError = false } = {}) {
+    reapplyMediaSessionMetadata(reason);
+
+    let state = playerState.current;
+    if (!currentStation) {
+      state = "idle";
+    } else if (startingPlayback) {
+      state = "loading";
+    } else if (playerState.current === "error" && !recoverFromError) {
+      state = "error";
+    } else if (audioNode?.error) {
+      state = "error";
+    } else if (audioNode?.paused) {
+      state = "paused";
+    } else {
+      state = "playing";
+    }
+
+    const transition = setPlayerState(state, lifecycleMessage(state, reason), reason);
+    updatePlayerControls();
+    return transition;
+  }
+
   function bindLifecycleEvents() {
     if (typeof documentRef !== "undefined") {
       documentRef.addEventListener("visibilitychange", () => {
         const visibilityReason =
           documentRef.visibilityState === "hidden" ? "document-hidden" : "document-visible";
         logPlayerEvent("document-visibilitychange", { visibilityReason });
-        reapplyMediaSessionMetadata(visibilityReason);
-        mediaSessionController.updateMediaSessionState(
-          playerState.current,
-          visibilityReason,
-        );
-        updatePlayerControls();
+        reconcileLifecycleState(visibilityReason);
       });
     }
 
     windowRef.addEventListener("pagehide", () => {
       logPlayerEvent("window-pagehide");
-      reapplyMediaSessionMetadata("window-pagehide");
-      mediaSessionController.updateMediaSessionState(
-        playerState.current,
-        "window-pagehide",
-      );
+      reconcileLifecycleState("window-pagehide");
     });
 
     windowRef.addEventListener("pageshow", () => {
       logPlayerEvent("window-pageshow");
-      reapplyMediaSessionMetadata("window-pageshow");
-      updatePlayerControls();
+      reconcileLifecycleState("window-pageshow");
     });
 
     windowRef.addEventListener("online", () => {
       logPlayerEvent("window-online");
-      reapplyMediaSessionMetadata("window-online");
+      reconcileLifecycleState("window-online", { recoverFromError: true });
     });
 
     windowRef.addEventListener("offline", () => {
       logPlayerEvent("window-offline");
-      if (currentStation) {
-        setPlayerState("error", "Browser is offline. Playback may resume when network returns.", "window-offline");
-        updatePlayerControls();
-      }
+      if (!currentStation) return;
+
+      const runId = nextPlaybackRun();
+      startingPlayback = false;
+      clearBufferingNotice();
+      softPausingPlayback = true;
+      audioNode.pause();
+      setPlayerState(
+        "error",
+        "Browser is offline. Playback may resume when network returns.",
+        "window-offline",
+      );
+      updatePlayerControls();
+      logPlayerEvent("playback-invalidated", { reason: "window-offline", runId });
+      windowRef.setTimeout(() => {
+        softPausingPlayback = false;
+      }, 0);
     });
   }
 

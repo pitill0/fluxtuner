@@ -842,7 +842,7 @@ console.log(JSON.stringify({
     assert result["playerStateEvents"] == ["loading", "paused"]
 
 
-def test_web_player_controller_exposes_lifecycle_state_changes(tmp_path: Path) -> None:
+def test_web_player_controller_reconciles_lifecycle_state(tmp_path: Path) -> None:
     result = _run_es_module(
         tmp_path,
         "player.js",
@@ -907,6 +907,7 @@ Object.assign(audioNode, {
   },
   pause() {
     this.paused = true;
+    queueMicrotask(() => this.dispatch("pause"));
   },
   async play() {
     this.paused = false;
@@ -980,52 +981,91 @@ await controller.playStation({
   url: "https://radio.example/stream",
 });
 
+const playing = controller.debugSnapshot();
+
 windowRef.dispatch("offline");
+await Promise.resolve();
 const offline = {
-  state: playerBar.dataset.state,
+  snapshot: controller.debugSnapshot(),
   status: statusNode.textContent,
 };
 
-windowRef.dispatch("online");
 windowRef.dispatch("pagehide");
-windowRef.dispatch("pageshow");
-
 documentRef.visibilityState = "hidden";
 documentRef.dispatch("visibilitychange");
+const preservedError = controller.debugSnapshot();
+
+windowRef.dispatch("online");
+const online = {
+  snapshot: controller.debugSnapshot(),
+  status: statusNode.textContent,
+};
+
+audioNode.paused = false;
+windowRef.dispatch("pageshow");
+const resumed = {
+  snapshot: controller.debugSnapshot(),
+  status: statusNode.textContent,
+};
+
+audioNode.paused = true;
 documentRef.visibilityState = "visible";
 documentRef.dispatch("visibilitychange");
+const visiblePaused = {
+  snapshot: controller.debugSnapshot(),
+  status: statusNode.textContent,
+};
 
 console.log(JSON.stringify({
+  playing,
   offline,
+  preservedError,
+  online,
+  resumed,
+  visiblePaused,
   eventNames: events.map(([name]) => name),
   mediaUpdates,
 }));
 """,
     )
 
-    assert result["offline"] == {
-        "state": "error",
-        "status": "Browser is offline. Playback may resume when network returns.",
-    }
+    assert result["playing"]["state"] == "playing"
+    assert result["playing"]["playbackRunId"] == 1
+
+    assert result["offline"]["snapshot"]["state"] == "error"
+    assert result["offline"]["snapshot"]["playbackRunId"] == 2
+    assert result["offline"]["snapshot"]["flags"]["startingPlayback"] is False
+    assert result["offline"]["snapshot"]["audio"]["paused"] is True
+    assert result["offline"]["status"] == (
+        "Browser is offline. Playback may resume when network returns."
+    )
+
+    assert result["preservedError"]["state"] == "error"
+
+    assert result["online"]["snapshot"]["state"] == "paused"
+    assert result["online"]["status"] == "Network is back. Resume playback when ready."
+
+    assert result["resumed"]["snapshot"]["state"] == "playing"
+    assert result["resumed"]["status"] == "Playing in browser."
+
+    assert result["visiblePaused"]["snapshot"]["state"] == "paused"
+    assert result["visiblePaused"]["status"] == "Paused."
 
     for event_name in [
         "window-offline",
-        "window-online",
+        "playback-invalidated",
         "window-pagehide",
-        "window-pageshow",
         "document-visibilitychange",
+        "window-online",
+        "window-pageshow",
     ]:
         assert event_name in result["eventNames"]
 
-    assert result["eventNames"].count("document-visibilitychange") == 2
-    assert ["metadata", "window-online"] in result["mediaUpdates"]
-    assert ["metadata", "window-pagehide"] in result["mediaUpdates"]
-    assert ["metadata", "window-pageshow"] in result["mediaUpdates"]
-    assert ["metadata", "document-hidden"] in result["mediaUpdates"]
-    assert ["metadata", "document-visible"] in result["mediaUpdates"]
     assert ["state", "error", "window-pagehide"] in result["mediaUpdates"]
     assert ["state", "error", "document-hidden"] in result["mediaUpdates"]
-    assert ["state", "error", "document-visible"] in result["mediaUpdates"]
+    assert ["state", "paused", "window-online"] in result["mediaUpdates"]
+    assert ["state", "playing", "window-pageshow"] in result["mediaUpdates"]
+    assert ["state", "paused", "document-visible"] in result["mediaUpdates"]
 
 
 def test_web_media_session_handlers_delegate_player_intentions(tmp_path: Path) -> None:

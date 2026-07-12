@@ -92,9 +92,12 @@ def test_web_static_js_uses_public_stats_module() -> None:
         'import { createPublicStatsController } from "/static/js/public-stats.js";'
         in app_response.text
     )
+    session_ui_response = client.get("/static/js/session-ui.js")
+
     assert "export function createPublicStatsController" in public_stats_response.text
+    assert session_ui_response.status_code == 200
     assert 'fetchImpl("/api/public/stats"' in public_stats_response.text
-    assert "publicStatsController.loadPublicStats();" in app_response.text
+    assert "publicStatsController.loadPublicStats();" in session_ui_response.text
     assert "function renderPublicStats" not in app_response.text
 
 
@@ -811,3 +814,26 @@ def test_web_static_js_uses_application_state_module() -> None:
     assert "dashboardLoaded" not in app_response.text
     assert "setDashboardLoaded" not in app_response.text
     assert "setDashboardLoaded" not in dashboard_response.text
+
+
+def test_web_static_js_uses_session_ui_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/session-ui.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert (
+        'import { createSessionUiController } from "/static/js/session-ui.js";' in app_response.text
+    )
+    assert "export function createSessionUiController" in module_response.text
+    assert "const sessionUiController = createSessionUiController({" in app_response.text
+    assert "const { renderAuthRequired, updateAuthUi } = sessionUiController;" in app_response.text
+    assert "function updateAuthUi()" in module_response.text
+    assert "function renderAuthRequired()" in module_response.text
+    assert "function updateAuthUi()" not in app_response.text
+    assert "function renderAuthRequired()" not in app_response.text
+    assert "publicStatsController.loadPublicStats();" in module_response.text
+    assert "playerDebugController.updateVisibility();" in module_response.text
+    assert "adminController.reset();" in module_response.text

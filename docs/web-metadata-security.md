@@ -94,3 +94,27 @@ This pull request does not implement sockets, HTTP, ICY fetching, caching,
 workers, FastAPI endpoints or browser polling. URL normalization, DNS resolution
 and address classification are implemented here and remain independently
 testable without opening network connections.
+
+## Protected transport
+
+The protected transport connects to one exact address returned by the validated
+resolution policy. For HTTPS, TLS SNI continues to use the normalized hostname;
+HTTP `Host` also preserves that hostname. The transport never hands the hostname
+back to a conventional client for a second DNS lookup.
+
+Each request:
+
+- sends no FluxTuner cookies, authorization headers or CSRF data;
+- requests ICY metadata explicitly;
+- applies the configured connect, read and total time budgets;
+- bounds response headers before parsing them;
+- accepts HTTP/1.0, HTTP/1.1 and legacy `ICY` status lines;
+- reads only the first bounded ICY metadata block;
+- closes the remote stream after that block;
+- re-normalizes and re-resolves every redirect target;
+- rejects HTTPS-to-HTTP redirects by default;
+- enforces the configured redirect limit.
+
+This layer remains synchronous and contains no cache, worker or FastAPI
+lifecycle. Later work will execute it behind a bounded background coordinator.
+

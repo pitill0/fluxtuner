@@ -2,6 +2,7 @@
 
 """Contracts for the FluxTuner Web metadata subsystem."""
 
+from .client import MetadataRedirectError, fetch_protected_stream_metadata
 from .contracts import (
     DestinationDecision,
     MetadataFetchPolicy,
@@ -18,11 +19,20 @@ from .network_policy import (
     classify_network_address,
     validate_resolved_target,
 )
+from .transport import (
+    MetadataResponseError,
+    MetadataTransportError,
+    ProtectedHTTPTransport,
+    SystemStreamSocketFactory,
+)
 from .urls import StreamTargetValidationError, normalize_stream_target
 
 __all__ = [
     "DestinationDecision",
     "MetadataFetchPolicy",
+    "MetadataRedirectError",
+    "MetadataResponseError",
+    "MetadataTransportError",
     "NetworkAddressScope",
     "NormalizedStreamTarget",
     "RedirectDecision",
@@ -31,8 +41,11 @@ __all__ = [
     "StreamTargetBlockedError",
     "StreamTargetResolutionError",
     "StreamTargetValidationError",
+    "SystemStreamSocketFactory",
     "SystemStreamTargetResolver",
+    "ProtectedHTTPTransport",
     "classify_network_address",
+    "fetch_protected_stream_metadata",
     "normalize_stream_target",
     "validate_resolved_target",
 ]

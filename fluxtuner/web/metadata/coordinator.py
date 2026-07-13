@@ -157,6 +157,28 @@ class MetadataCoordinator:
 
             return self._snapshot(entry)
 
+    def diagnostics_snapshot(self) -> dict[str, int]:
+        """Return aggregate cache counters without exposing stream identities."""
+        with self._lock:
+            status_counts = {status: 0 for status in MetadataCacheStatus}
+            in_flight = 0
+            total_failures = 0
+
+            for entry in self._entries.values():
+                status_counts[entry.status] += 1
+                in_flight += int(entry.in_flight)
+                total_failures += entry.failure_count
+
+            return {
+                "entries": len(self._entries),
+                "pending": status_counts[MetadataCacheStatus.PENDING],
+                "fresh": status_counts[MetadataCacheStatus.FRESH],
+                "empty": status_counts[MetadataCacheStatus.EMPTY],
+                "error": status_counts[MetadataCacheStatus.ERROR],
+                "in_flight": in_flight,
+                "active_failures": total_failures,
+            }
+
     def peek(self, raw_url: str) -> MetadataCacheSnapshot | None:
         """Return cached state without scheduling remote work."""
         target = normalize_stream_target(raw_url, self._policy)

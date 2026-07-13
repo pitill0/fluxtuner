@@ -289,3 +289,38 @@ def test_close_is_idempotent_and_rejects_new_work() -> None:
 
     with pytest.raises(RuntimeError, match="closed"):
         coordinator.get_or_schedule("https://radio.example/live")
+
+
+def test_diagnostics_snapshot_reports_only_aggregate_state() -> None:
+    submitter = ManualSubmitter()
+
+    def fetcher(url: str) -> dict[str, Any] | None:
+        if "empty" in url:
+            return None
+        if "error" in url:
+            raise RuntimeError("failure")
+        return metadata("Song")
+
+    coordinator = MetadataCoordinator(
+        FakeResolver(),
+        fetcher=fetcher,
+        submitter=submitter,
+    )
+
+    coordinator.get_or_schedule("https://fresh.example/live")
+    submitter.run_next()
+    coordinator.get_or_schedule("https://empty.example/live")
+    submitter.run_next()
+    coordinator.get_or_schedule("https://error.example/live")
+    submitter.run_next()
+    coordinator.get_or_schedule("https://pending.example/live")
+
+    assert coordinator.diagnostics_snapshot() == {
+        "entries": 4,
+        "pending": 1,
+        "fresh": 1,
+        "empty": 1,
+        "error": 1,
+        "in_flight": 1,
+        "active_failures": 1,
+    }

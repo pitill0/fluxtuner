@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Path, Request, Response
+from fastapi import APIRouter, Body, HTTPException, Path, Request, Response
 
 from fluxtuner.core import db
 from fluxtuner.web import admin_actions, password_change_actions
@@ -15,6 +15,7 @@ AUTH_REQUIRED_DETAIL = "Authentication required."
 ADMIN_REQUIRED_DETAIL = "Administrator access required."
 CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
 FIELD_TOO_LONG_DETAIL = "One or more fields exceed the maximum allowed length."
+METADATA_DIAGNOSTICS_UNAVAILABLE_DETAIL = "Metadata diagnostics are unavailable."
 MAX_USERNAME_LENGTH = 80
 MAX_DISPLAY_NAME_LENGTH = 120
 
@@ -35,6 +36,26 @@ def require_admin_user(request: Request) -> dict[str, Any]:
         auth_required_detail=AUTH_REQUIRED_DETAIL,
         admin_required_detail=ADMIN_REQUIRED_DETAIL,
     )
+
+
+@router.get("/api/admin/metadata/diagnostics")
+def admin_metadata_diagnostics(request: Request) -> dict[str, int]:
+    require_admin_user(request)
+    coordinator = getattr(request.app.state, "metadata_coordinator", None)
+    diagnostics = getattr(coordinator, "diagnostics_snapshot", None)
+    if not callable(diagnostics):
+        raise HTTPException(
+            status_code=503,
+            detail=METADATA_DIAGNOSTICS_UNAVAILABLE_DETAIL,
+        )
+
+    try:
+        return diagnostics()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=METADATA_DIAGNOSTICS_UNAVAILABLE_DETAIL,
+        ) from exc
 
 
 @router.get("/api/admin/password-change-requests")

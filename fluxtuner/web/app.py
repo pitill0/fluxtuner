@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
+from contextlib import asynccontextmanager
 from importlib import resources
 from typing import Any
 
@@ -17,6 +19,7 @@ from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
+from fluxtuner.web.metadata import MetadataCoordinator, SystemStreamTargetResolver
 from fluxtuner.web.payloads import public_user_payload
 from fluxtuner.web.security import (
     csrf_token_for_session_token,
@@ -66,7 +69,9 @@ def _read_template(name: str) -> str:
     return template_path.read_text(encoding="utf-8")
 
 
-def create_app() -> Any:
+def create_app(
+    metadata_coordinator_factory: Callable[[], MetadataCoordinator] | None = None,
+) -> Any:
     """Create the experimental FluxTuner Web application."""
     try:
         from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
@@ -76,6 +81,7 @@ def create_app() -> Any:
         from fluxtuner.web.routes import admin as admin_routes
         from fluxtuner.web.routes import auth as auth_routes
         from fluxtuner.web.routes import library as library_routes
+        from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
 
         globals()["Request"] = Request
@@ -98,10 +104,25 @@ def create_app() -> Any:
             admin_required_detail=ADMIN_REQUIRED_DETAIL,
         )
 
+    coordinator_factory = metadata_coordinator_factory or (
+        lambda: MetadataCoordinator(SystemStreamTargetResolver())
+    )
+
+    @asynccontextmanager
+    async def lifespan(app_instance: FastAPI):
+        coordinator = coordinator_factory()
+        app_instance.state.metadata_coordinator = coordinator
+        try:
+            yield
+        finally:
+            coordinator.close(wait=True)
+            del app_instance.state.metadata_coordinator
+
     app = FastAPI(
         title=f"{__app_name__} Web",
         version=__version__,
         description="FluxTuner web/server interface.",
+        lifespan=lifespan,
     )
 
     @app.middleware("http")
@@ -142,6 +163,7 @@ def create_app() -> Any:
     app.include_router(public_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(library_routes.router)
+    app.include_router(metadata_routes.router)
     app.include_router(admin_routes.router)
 
     @app.get("/api/setup/status")

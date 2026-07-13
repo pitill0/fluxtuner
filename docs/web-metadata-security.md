@@ -141,3 +141,22 @@ This pull request does not expose an HTTP endpoint or connect the coordinator to
 the FastAPI lifespan. Those integrations remain separate so lifecycle ownership
 can be reviewed independently.
 
+## FastAPI lifecycle and cached endpoint
+
+The FastAPI application owns exactly one metadata coordinator instance through
+its lifespan. Startup creates the coordinator and stores it in application
+state. Shutdown closes the coordinator and removes the state reference.
+
+`GET /api/metadata?url=...`:
+
+- requires an authenticated FluxTuner Web session;
+- validates the supplied URL through the metadata subsystem;
+- returns the current immutable cache snapshot immediately;
+- may schedule a bounded background refresh;
+- never waits for DNS, TCP, TLS, redirects or ICY reads;
+- exposes no raw transport exception text;
+- returns only normalized URL, cache status, metadata and failure count.
+
+Absolute monotonic timestamps remain internal. They are not serialized because
+their values have meaning only inside the running server process.
+

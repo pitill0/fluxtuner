@@ -39,6 +39,72 @@ def test_parse_stream_title_uses_raw_title_without_artist() -> None:
     }
 
 
+def test_parse_icy_metaint_accepts_bounded_value() -> None:
+    assert stream_metadata.parse_icy_metaint("4") == 4
+    assert stream_metadata.parse_icy_metaint(str(stream_metadata.MAX_METAINT)) == (
+        stream_metadata.MAX_METAINT
+    )
+
+
+def test_parse_icy_metaint_rejects_missing_invalid_and_outside_values() -> None:
+    assert stream_metadata.parse_icy_metaint(None) is None
+    assert stream_metadata.parse_icy_metaint("") is None
+    assert stream_metadata.parse_icy_metaint("invalid") is None
+    assert stream_metadata.parse_icy_metaint("0") is None
+    assert stream_metadata.parse_icy_metaint("-1") is None
+    assert stream_metadata.parse_icy_metaint(str(stream_metadata.MAX_METAINT + 1)) is None
+
+
+def test_read_icy_metadata_block_reads_one_bounded_block() -> None:
+    payload = icy_payload("Artist - Song", metaint=4)
+    stream = BytesIO(payload)
+
+    assert stream_metadata.read_icy_metadata_block(stream, 4) == payload[5:]
+
+
+def test_read_icy_metadata_block_rejects_invalid_interval() -> None:
+    stream = BytesIO(b"")
+
+    assert stream_metadata.read_icy_metadata_block(stream, 0) is None
+    assert (
+        stream_metadata.read_icy_metadata_block(
+            stream,
+            stream_metadata.MAX_METAINT + 1,
+        )
+        is None
+    )
+
+
+def test_read_icy_metadata_block_rejects_missing_empty_and_excessive_blocks() -> None:
+    assert stream_metadata.read_icy_metadata_block(BytesIO(b"a" * 4), 4) is None
+    assert stream_metadata.read_icy_metadata_block(BytesIO(b"a" * 4 + b"\0"), 4) is None
+
+    excessive_blocks = (stream_metadata.MAX_METADATA_SIZE // 16) + 1
+    assert (
+        stream_metadata.read_icy_metadata_block(
+            BytesIO(b"a" * 4 + bytes([excessive_blocks])),
+            4,
+        )
+        is None
+    )
+
+
+def test_parse_icy_metadata_block_parses_stream_title() -> None:
+    metadata = b"StreamTitle='Artist - Song';".ljust(64, b"\0")
+
+    assert stream_metadata.parse_icy_metadata_block(metadata) == {
+        "raw": "Artist - Song",
+        "artist": "Artist",
+        "title": "Song",
+        "source": "icy",
+    }
+
+
+def test_parse_icy_metadata_block_rejects_missing_and_empty_title() -> None:
+    assert stream_metadata.parse_icy_metadata_block(b"StreamUrl='https://example.com';") is None
+    assert stream_metadata.parse_icy_metadata_block(b"StreamTitle='';") is None
+
+
 def test_fetch_stream_metadata_reads_icy_title(monkeypatch) -> None:
     response = FakeResponse(
         headers={"icy-metaint": "4"},

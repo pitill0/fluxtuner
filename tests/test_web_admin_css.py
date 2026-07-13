@@ -11,10 +11,12 @@ def test_web_css_completes_admin_diagnostic_style_ownership() -> None:
     page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
     admin_response = client.get("/static/admin.css")
+    admin_js_response = client.get("/static/js/admin.js")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert admin_response.status_code == 200
+    assert admin_js_response.status_code == 200
 
     styles_link = '<link rel="stylesheet" href="/static/styles.css">'
     admin_link = '<link rel="stylesheet" href="/static/admin.css">'
@@ -50,3 +52,18 @@ def test_web_css_completes_admin_diagnostic_style_ownership() -> None:
     assert 'html[data-theme="light"] .admin-health' in admin_response.text
     assert 'html[data-theme="light"] .admin-health' not in styles_response.text
     assert 'html[data-theme="light"] .panel' in styles_response.text
+
+
+def test_admin_mobile_fields_use_explicit_labels() -> None:
+    client = TestClient(create_app())
+
+    admin_css = client.get("/static/admin.css")
+    admin_js = client.get("/static/js/admin.js")
+
+    assert admin_css.status_code == 200
+    assert admin_js.status_code == 200
+    assert ".admin-cell-label {" in admin_css.text
+    assert "content: attr(data-cell-label);" not in admin_css.text
+
+    for label in ("Admin", "Active", "Status", "Created", "Expires", "Note"):
+        assert f'<span class="admin-cell-label" aria-hidden="true">{label}</span>' in admin_js.text

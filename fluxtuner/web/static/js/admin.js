@@ -140,9 +140,18 @@ export function createAdminController({
                   <strong>${displayName}</strong>
                   <small>${username}</small>
                 </span>
-                <span role="cell" data-cell-label="Admin">${adminLabel}</span>
-                <span role="cell" data-cell-label="Active">${activeLabel}</span>
-                <span role="cell" data-cell-label="Status">${approvalStatus}</span>
+                <span role="cell" data-cell-label="Admin">
+                  <span class="admin-cell-label" aria-hidden="true">Admin</span>
+                  <span>${adminLabel}</span>
+                </span>
+                <span role="cell" data-cell-label="Active">
+                  <span class="admin-cell-label" aria-hidden="true">Active</span>
+                  <span>${activeLabel}</span>
+                </span>
+                <span role="cell" data-cell-label="Status">
+                  <span class="admin-cell-label" aria-hidden="true">Status</span>
+                  <span>${approvalStatus}</span>
+                </span>
                 <span class="admin-user-actions" role="cell" data-cell-label="Actions">
                   <div class="admin-user-actions-normal">
                     ${userActions}
@@ -199,9 +208,18 @@ export function createAdminController({
                   <strong>${displayName}</strong>
                   <small>${username}</small>
                 </span>
-                <span role="cell" data-cell-label="Created">${createdAt}</span>
-                <span role="cell" data-cell-label="Expires">${expiresAt}</span>
-                <span role="cell" data-cell-label="Note"><small>${note}</small></span>
+                <span role="cell" data-cell-label="Created">
+                  <span class="admin-cell-label" aria-hidden="true">Created</span>
+                  <span>${createdAt}</span>
+                </span>
+                <span role="cell" data-cell-label="Expires">
+                  <span class="admin-cell-label" aria-hidden="true">Expires</span>
+                  <span>${expiresAt}</span>
+                </span>
+                <span role="cell" data-cell-label="Note">
+                  <span class="admin-cell-label" aria-hidden="true">Note</span>
+                  <small>${note}</small>
+                </span>
                 <span class="admin-user-actions" role="cell" data-cell-label="Actions">
                   <button type="button" data-admin-password-change-action="approve" data-request-id="${id}">Approve</button>
                   <button type="button" data-admin-password-change-action="reject" data-request-id="${id}">Reject</button>

@@ -279,6 +279,10 @@ html[data-theme="light"] .player-debug-export {
   color: var(--muted);
 }
 
+.admin-cell-label {
+  display: none;
+}
+
 .admin-password-change-requests {
   display: grid;
   gap: 0.8rem;
@@ -463,8 +467,8 @@ html[data-theme="light"] .player-debug-export {
     min-width: 0;
   }
 
-  .admin-users-row [role="cell"]::before {
-    content: attr(data-cell-label);
+  .admin-cell-label {
+    display: block;
     color: var(--muted);
     font-size: 0.78rem;
     font-weight: 850;
@@ -475,12 +479,6 @@ html[data-theme="light"] .player-debug-export {
   .admin-users-row [role="cell"][data-cell-label="User"] {
     order: 1;
     grid-template-columns: 1fr;
-  }
-
-  .admin-users-row [role="cell"][data-cell-label="User"]::before,
-  .admin-users-row [role="cell"][data-cell-label="Actions"]::before,
-  .admin-user-actions::before {
-    display: none;
   }
 
   .admin-users-row [role="cell"][data-cell-label="Actions"] {

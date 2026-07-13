@@ -63,6 +63,7 @@ export function createPlayerController({
   stationUrl,
   logPlayerEvent,
   mediaSessionController,
+  metadataController,
   recordHistory,
   resetRecordedHistory,
   windowRef = window,
@@ -206,6 +207,10 @@ export function createPlayerController({
     }
 
     mediaSessionController.updateMediaSessionState(transition.state, reason);
+    metadataController?.updatePlaybackState(transition.state, {
+      url: currentStreamUrl(),
+      title: currentStationTitle(),
+    });
     return transition;
   }
 
@@ -412,6 +417,7 @@ export function createPlayerController({
     prepareAudioElementForMediaHandoff();
     resetRecordedHistory();
     titleNode.textContent = currentStationTitle();
+    metadataController?.setStation(streamUrl, currentStationTitle());
     openLink.href = streamUrl;
     openLink.hidden = false;
 
@@ -430,6 +436,7 @@ export function createPlayerController({
 
     currentStation = null;
     resetRecordedHistory();
+    metadataController?.clear();
     titleNode.textContent = "Nothing playing yet";
     openLink.hidden = true;
     openLink.removeAttribute("href");

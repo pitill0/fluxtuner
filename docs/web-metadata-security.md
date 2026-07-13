@@ -160,3 +160,23 @@ state. Shutdown closes the coordinator and removes the state reference.
 Absolute monotonic timestamps remain internal. They are not serialized because
 their values have meaning only inside the running server process.
 
+## Browser polling and player rendering
+
+The browser metadata controller is independent from audio playback. The player
+notifies it when the active station or playback state changes.
+
+Polling:
+
+- begins only when the player reaches `playing`;
+- stops while loading, paused, idle or in an error state;
+- uses the authenticated cached endpoint every five seconds;
+- permits only one browser request at a time;
+- invalidates responses from an older station or playback generation;
+- treats endpoint and network failures as metadata-only failures;
+- never pauses, restarts or changes the audio element.
+
+Fresh metadata is rendered with `textContent`. Artist and title are preferred,
+with raw ICY text and the station name as safe fallbacks. The station name is
+shown beneath track metadata so listeners retain stream context. Pending,
+empty and error cache states leave the current safe display unchanged.
+

@@ -15,6 +15,7 @@ import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createMediaSessionController } from "/static/js/media-session.js";
+import { createMetadataController } from "/static/js/metadata.js";
 import { createNavigationController } from "/static/js/navigation.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlayerController } from "/static/js/player.js";
@@ -89,6 +90,7 @@ const {
   playerDebugSummaryNode,
   playerDebugToggleButton,
   playerOpenLink,
+  playerStationNode,
   playerStatusNode,
   playerStopButton,
   playerTitleNode,
@@ -337,6 +339,13 @@ const mediaSessionController = createMediaSessionController({
 
 const { setupMediaSessionHandlers } = mediaSessionController;
 
+const metadataController = createMetadataController({
+  apiFetch,
+  titleNode: playerTitleNode,
+  stationNode: playerStationNode,
+  logPlayerEvent,
+});
+
 const playerController = createPlayerController({
   audioNode,
   playerBar,
@@ -348,6 +357,7 @@ const playerController = createPlayerController({
   stationUrl,
   logPlayerEvent,
   mediaSessionController,
+  metadataController,
   recordHistory: (station) => recordHistory(station),
   resetRecordedHistory: () => favoriteController.resetRecordedHistory(),
 });

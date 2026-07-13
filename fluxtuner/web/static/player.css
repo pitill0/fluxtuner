@@ -47,7 +47,7 @@
 }
 
 .player-info .eyebrow {
-  grid-row: span 2;
+  grid-row: span 3;
   margin: 0;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -297,3 +297,15 @@ html[data-theme="light"] .player-actions a:hover {
   border-color: rgba(14, 116, 144, 0.52) !important;
   color: var(--accent) !important;
 }
+
+.player-station {
+  color: var(--text) !important;
+  font-size: 0.82rem;
+  font-weight: 700 !important;
+  opacity: 0.86;
+}
+
+.player-station[hidden] {
+  display: none !important;
+}
+

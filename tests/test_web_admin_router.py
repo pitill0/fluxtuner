@@ -6,6 +6,7 @@ from fluxtuner.web.app import create_app
 from fluxtuner.web.routes.admin import router
 
 EXPECTED_ADMIN_ROUTES = {
+    "/api/admin/metadata/diagnostics",
     "/api/admin/password-change-requests",
     "/api/admin/password-change-requests/{request_id}/approve",
     "/api/admin/password-change-requests/{request_id}/reject",

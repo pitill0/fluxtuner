@@ -456,3 +456,65 @@ def test_admin_cannot_delete_self(tmp_path, monkeypatch) -> None:
 
     me = client.get("/api/auth/me")
     assert me.status_code == 200
+
+
+class FakeMetadataCoordinator:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def diagnostics_snapshot(self) -> dict[str, int]:
+        if self.closed:
+            raise RuntimeError("closed")
+        return {
+            "entries": 4,
+            "pending": 1,
+            "fresh": 1,
+            "empty": 1,
+            "error": 1,
+            "in_flight": 1,
+            "active_failures": 2,
+        }
+
+    def close(self, *, wait: bool = True) -> None:
+        del wait
+        self.closed = True
+
+
+def test_admin_can_read_metadata_diagnostics(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "metadata-diagnostics.db")
+    monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    db.init_db()
+    create_user("admin", is_admin=True)
+    coordinator = FakeMetadataCoordinator()
+
+    with TestClient(create_app(metadata_coordinator_factory=lambda: coordinator)) as client:
+        login(client, "admin")
+        response = client.get("/api/admin/metadata/diagnostics")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "entries": 4,
+        "pending": 1,
+        "fresh": 1,
+        "empty": 1,
+        "error": 1,
+        "in_flight": 1,
+        "active_failures": 2,
+    }
+    assert "url" not in response.text
+    assert "metadata" not in response.text
+
+
+def test_non_admin_cannot_read_metadata_diagnostics(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "metadata-diagnostics-user.db")
+    monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    db.init_db()
+    create_user("alice")
+    coordinator = FakeMetadataCoordinator()
+
+    with TestClient(create_app(metadata_coordinator_factory=lambda: coordinator)) as client:
+        login(client, "alice")
+        response = client.get("/api/admin/metadata/diagnostics")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": ADMIN_REQUIRED_DETAIL}

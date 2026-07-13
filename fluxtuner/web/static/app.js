@@ -335,6 +335,7 @@ const mediaSessionController = createMediaSessionController({
   pauseCurrentStationPlayback: playerRuntime.pauseCurrentStationPlayback,
   startCurrentStationPlayback: playerRuntime.startCurrentStationPlayback,
   stopPlayback: playerRuntime.stopPlayback,
+  stationUrl,
 });
 
 const { setupMediaSessionHandlers } = mediaSessionController;
@@ -343,6 +344,14 @@ const metadataController = createMetadataController({
   apiFetch,
   titleNode: playerTitleNode,
   stationNode: playerStationNode,
+  onMetadataChange: (metadata, fallbackTitle, streamUrl) => {
+    mediaSessionController.updateNowPlayingMetadata(
+      metadata,
+      fallbackTitle,
+      streamUrl,
+      "metadata-controller",
+    );
+  },
   logPlayerEvent,
 });
 

@@ -180,3 +180,21 @@ with raw ICY text and the station name as safe fallbacks. The station name is
 shown beneath track metadata so listeners retain stream context. Pending,
 empty and error cache states leave the current safe display unchanged.
 
+## Media Session Now Playing
+
+Fresh browser metadata is forwarded to the existing Media Session controller.
+The controller stores a Now Playing override associated with the active stream
+URL and uses it whenever browser or audio lifecycle events reapply metadata.
+
+Media Session uses:
+
+- track title, or raw ICY text, as the system title;
+- artist when available, otherwise the station title;
+- station title as the album/context field;
+- the existing local FluxTuner artwork.
+
+The override is cleared when the station changes or playback is stopped. An
+override is applied only when it still belongs to the current stream URL, so stale
+track data cannot leak across streams. Media Session failures remain isolated
+from browser playback and the visible player.
+

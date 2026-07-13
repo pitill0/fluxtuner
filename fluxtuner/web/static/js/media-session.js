@@ -12,6 +12,28 @@ function stationTitle(station) {
   return station?.name || station?.custom_name || station?.title || station?.url || "Unknown station";
 }
 
+function defaultStationUrl(station) {
+  return cleanText(station?.url_resolved || station?.url);
+}
+
+
+function cleanText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function nowPlayingValues(metadata, fallbackTitle) {
+  const station = cleanText(fallbackTitle) || "Unknown station";
+  const artist = cleanText(metadata?.artist);
+  const title = cleanText(metadata?.title);
+  const raw = cleanText(metadata?.raw);
+
+  return {
+    station,
+    title: title || raw || station,
+    artist: artist || station,
+  };
+}
+
 function absoluteArtworkUrl(src) {
   try {
     return new URL(src, window.location.href).href;
@@ -67,7 +89,12 @@ export function createMediaSessionController({
   pauseCurrentStationPlayback,
   startCurrentStationPlayback,
   stopPlayback,
+  stationUrl = defaultStationUrl,
 }) {
+  let nowPlaying = null;
+  let nowPlayingStationTitle = "";
+  let nowPlayingStreamUrl = "";
+
   let lastUpdate = {
     reason: "",
     state: "",
@@ -103,10 +130,15 @@ export function createMediaSessionController({
     }
 
     try {
+      const fallbackTitle = stationTitle(station);
+      const currentStreamUrl = stationUrl(station);
+      const activeNowPlaying =
+        nowPlaying && nowPlayingStreamUrl === currentStreamUrl ? nowPlaying : null;
+
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: stationTitle(station),
-        artist: "FluxTuner Web",
-        album: "Internet radio",
+        title: activeNowPlaying?.title || fallbackTitle,
+        artist: activeNowPlaying?.artist || "FluxTuner Web",
+        album: fallbackTitle,
         artwork: resolvedArtwork(),
       });
       rememberMediaSessionUpdate(reason);
@@ -117,6 +149,33 @@ export function createMediaSessionController({
       logPlayerEvent("media-session-metadata-error", lastUpdate);
       return false;
     }
+  }
+
+  function updateNowPlayingMetadata(
+    metadata,
+    fallbackTitle,
+    streamUrl,
+    reason = "now-playing",
+  ) {
+    const currentStation = getCurrentStation();
+    const currentTitle = stationTitle(currentStation);
+
+    if (!metadata) {
+      nowPlaying = null;
+      nowPlayingStationTitle = "";
+      nowPlayingStreamUrl = "";
+    } else {
+      nowPlaying = nowPlayingValues(metadata, fallbackTitle);
+      nowPlayingStationTitle = cleanText(fallbackTitle) || currentTitle;
+      nowPlayingStreamUrl = cleanText(streamUrl);
+    }
+
+    if (!currentStation) {
+      rememberMediaSessionUpdate(`${reason}:no-station`);
+      return false;
+    }
+
+    return setMediaSessionMetadata(currentStation, reason);
   }
 
   function reapplyCurrentMetadata(reason = "reapply") {
@@ -136,6 +195,9 @@ export function createMediaSessionController({
     }
 
     try {
+      nowPlaying = null;
+      nowPlayingStationTitle = "";
+      nowPlayingStreamUrl = "";
       navigator.mediaSession.metadata = null;
       navigator.mediaSession.playbackState = "none";
       rememberMediaSessionUpdate("clear", "none");
@@ -178,6 +240,9 @@ export function createMediaSessionController({
     return {
       ...metadataSnapshot(),
       lastUpdate,
+      nowPlaying,
+      nowPlayingStationTitle,
+      nowPlayingStreamUrl,
       defaultArtwork: resolvedArtwork(),
     };
   }
@@ -215,5 +280,6 @@ export function createMediaSessionController({
     setMediaSessionMetadata,
     setupMediaSessionHandlers,
     updateMediaSessionState,
+    updateNowPlayingMetadata,
   };
 }

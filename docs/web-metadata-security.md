@@ -118,3 +118,26 @@ Each request:
 This layer remains synchronous and contains no cache, worker or FastAPI
 lifecycle. Later work will execute it behind a bounded background coordinator.
 
+## Process-wide coordinator
+
+The metadata coordinator owns one bounded cache per server process. Callers ask
+for a normalized stream URL and receive an immutable snapshot immediately;
+remote network work is submitted separately and never runs on the request path.
+
+The coordinator:
+
+- deduplicates work by normalized stream URL;
+- permits at most one in-flight refresh per URL;
+- caps the total submitted/running work count;
+- uses a fixed-size thread pool rather than one worker per user or browser tab;
+- applies separate TTLs to metadata and empty results;
+- applies bounded exponential backoff after failures;
+- retains the last successful value while a refresh is pending;
+- bounds cache entry count and evicts the least recently touched idle entry;
+- exposes no raw exception text or remote URL in normal logs;
+- supports explicit process shutdown.
+
+This pull request does not expose an HTTP endpoint or connect the coordinator to
+the FastAPI lifespan. Those integrations remain separate so lifecycle ownership
+can be reviewed independently.
+

@@ -12,6 +12,11 @@ from .contracts import (
     ResolvedAddress,
     StreamTargetResolver,
 )
+from .coordinator import (
+    MetadataCacheSnapshot,
+    MetadataCacheStatus,
+    MetadataCoordinator,
+)
 from .network_policy import (
     StreamTargetBlockedError,
     StreamTargetResolutionError,
@@ -29,6 +34,9 @@ from .urls import StreamTargetValidationError, normalize_stream_target
 
 __all__ = [
     "DestinationDecision",
+    "MetadataCacheSnapshot",
+    "MetadataCacheStatus",
+    "MetadataCoordinator",
     "MetadataFetchPolicy",
     "MetadataRedirectError",
     "MetadataResponseError",

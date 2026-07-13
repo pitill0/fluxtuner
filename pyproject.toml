@@ -89,6 +89,7 @@ packages = [
     "fluxtuner.players",
     "fluxtuner.themes",
     "fluxtuner.web.routes",
+    "fluxtuner.web.metadata",
     "fluxtuner.web",
     "fluxtuner.web.static",
     "fluxtuner.web.templates",

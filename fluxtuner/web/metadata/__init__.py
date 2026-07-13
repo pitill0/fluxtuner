@@ -11,6 +11,14 @@ from .contracts import (
     ResolvedAddress,
     StreamTargetResolver,
 )
+from .network_policy import (
+    StreamTargetBlockedError,
+    StreamTargetResolutionError,
+    SystemStreamTargetResolver,
+    classify_network_address,
+    validate_resolved_target,
+)
+from .urls import StreamTargetValidationError, normalize_stream_target
 
 __all__ = [
     "DestinationDecision",
@@ -20,4 +28,11 @@ __all__ = [
     "RedirectDecision",
     "ResolvedAddress",
     "StreamTargetResolver",
+    "StreamTargetBlockedError",
+    "StreamTargetResolutionError",
+    "StreamTargetValidationError",
+    "SystemStreamTargetResolver",
+    "classify_network_address",
+    "normalize_stream_target",
+    "validate_resolved_target",
 ]

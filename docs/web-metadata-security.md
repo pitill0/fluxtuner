@@ -90,7 +90,7 @@ Future work must also provide:
 
 ## Out of scope for this contract pull request
 
-This pull request does not implement URL parsing, DNS resolution, address
-classification, redirect handling, sockets, HTTP, ICY parsing, caching, workers,
-FastAPI endpoints or browser polling. Those responsibilities remain split across
-subsequent Phase 6 pull requests.
+This pull request does not implement sockets, HTTP, ICY fetching, caching,
+workers, FastAPI endpoints or browser polling. URL normalization, DNS resolution
+and address classification are implemented here and remain independently
+testable without opening network connections.

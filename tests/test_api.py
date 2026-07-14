@@ -29,6 +29,33 @@ def test_country_api_filters_detects_country_code() -> None:
     assert api._country_api_filters(None) == (None, None)
 
 
+def test_search_relevance_rank_orders_match_kinds() -> None:
+    query = "  ROCK   FM "
+
+    assert api._search_relevance_rank({"name": "Rock FM"}, query) == 0
+    assert api._search_relevance_rank({"name": "Rock FM Classic"}, query) == 1
+    assert api._search_relevance_rank({"name": "Best Rock FM Radio"}, query) == 2
+    assert (
+        api._search_relevance_rank(
+            {"name": "Music Station", "tags": "pop,rock   fm,classic"},
+            query,
+        )
+        == 3
+    )
+    assert (
+        api._search_relevance_rank(
+            {"name": "Jazz Station", "tags": "jazz"},
+            query,
+        )
+        == 4
+    )
+
+
+def test_search_relevance_rank_is_neutral_without_query() -> None:
+    assert api._search_relevance_rank({"name": "Any Station"}, "") == 0
+    assert api._search_relevance_rank({"name": "Any Station"}, "   ") == 0
+
+
 def test_search_stations_filtered_returns_empty_for_empty_filters() -> None:
     assert api.search_stations_filtered("", use_cache=False) == []
 
@@ -227,6 +254,74 @@ def test_search_stations_filtered_debug_reports_source_counts(monkeypatch) -> No
             },
         },
     }
+
+
+def test_search_stations_filtered_ranks_exact_name_before_earlier_candidates(
+    monkeypatch,
+) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {
+                    "name": "Rock Around the Clock",
+                    "url": "https://example.com/contains",
+                    "tags": "oldies",
+                },
+                {"name": "Rock Radio", "url": "https://example.com/prefix", "tags": "rock"},
+            ]
+        return [
+            {"name": "Rock", "url": "https://example.com/exact", "tags": "rock"},
+            {"name": "Music Station", "url": "https://example.com/tag", "tags": "rock"},
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+    results = api.search_stations_filtered("rock", limit=2, use_cache=False)
+
+    assert [station["name"] for station in results] == [
+        "Rock",
+        "Rock Around the Clock",
+    ]
+
+
+def test_search_stations_filtered_preserves_original_order_for_equal_rank(monkeypatch) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {"name": "Rock One", "url": "https://example.com/one"},
+                {"name": "Rock Two", "url": "https://example.com/two"},
+            ]
+        return [
+            {"name": "Rock Three", "url": "https://example.com/three"},
+            {"name": "Rock Four", "url": "https://example.com/four"},
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+    results = api.search_stations_filtered("rock", limit=4, use_cache=False)
+
+    assert [station["name"] for station in results] == [
+        "Rock One",
+        "Rock Three",
+        "Rock Two",
+        "Rock Four",
+    ]
+
+
+def test_search_stations_filtered_returns_empty_for_negative_limit(monkeypatch) -> None:
+    def fake_search_stations(**_kwargs: Any) -> list[dict[str, Any]]:
+        return [{"name": "Rock", "url": "https://example.com/rock"}]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+
+    results, debug = api.search_stations_filtered_debug(
+        "rock",
+        limit=-1,
+        use_cache=False,
+    )
+
+    assert results == []
+    assert debug["returned_results"] == 0
+    assert debug["name_returned_results"] == 0
+    assert debug["tag_returned_results"] == 0
 
 
 def test_search_stations_filtered_interleaves_name_and_tag_results(monkeypatch) -> None:

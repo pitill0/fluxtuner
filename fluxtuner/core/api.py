@@ -224,6 +224,26 @@ def _station_bitrate(station: dict[str, Any]) -> int:
         return 0
 
 
+def _search_relevance_rank(station: dict[str, Any], query: str) -> int:
+    """Return a local relevance tier; lower values are more relevant."""
+    needle = " ".join((query or "").casefold().split())
+    if not needle:
+        return 0
+
+    name = " ".join(str(station.get("name") or "").casefold().split())
+    tags = " ".join(str(station.get("tags") or "").casefold().split())
+
+    if name == needle:
+        return 0
+    if name.startswith(needle):
+        return 1
+    if needle in name:
+        return 2
+    if needle in tags:
+        return 3
+    return 4
+
+
 def _empty_search_debug(
     *,
     query: str,
@@ -354,11 +374,11 @@ def _filtered_search_result(
         if country and not any(items for _, items in raw_batches):
             add_batch("fallback_country", limit=api_limit)
 
-    results: list[dict[str, Any]] = []
+    candidates: list[tuple[str, dict[str, Any]]] = []
     seen_urls: set[str] = set()
     batch_positions = [0 for _source, _items in raw_batches]
 
-    while len(results) < limit:
+    while True:
         advanced = False
         for batch_index, (source, items) in enumerate(raw_batches):
             item_index = batch_positions[batch_index]
@@ -381,14 +401,18 @@ def _filtered_search_result(
                 continue
 
             seen_urls.add(url)
-            results.append(station)
-            debug[f"{source}_returned_results"] += 1
-
-            if len(results) >= limit:
-                break
+            candidates.append((source, station))
 
         if not advanced:
             break
+
+    if query:
+        candidates.sort(key=lambda item: _search_relevance_rank(item[1], query))
+
+    selected = candidates[: max(0, limit)]
+    results = [station for _source, station in selected]
+    for source, _station in selected:
+        debug[f"{source}_returned_results"] += 1
 
     if use_cache:
         set_cached_search(cache_key, results)

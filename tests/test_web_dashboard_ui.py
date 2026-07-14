@@ -76,6 +76,45 @@ def test_web_static_js_resets_search_navigation() -> None:
     assert "resetRadioBrowserView();" in navigation_response.text
 
 
+def test_web_search_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    search_response = client.get("/static/search.css")
+    stations_response = client.get("/static/stations.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert search_response.status_code == 200
+    assert stations_response.status_code == 200
+
+    search_link = '<link rel="stylesheet" href="/static/search.css">'
+    stations_link = '<link rel="stylesheet" href="/static/stations.css">'
+    assert search_link in page_response.text
+    assert stations_link in page_response.text
+    assert page_response.text.index(search_link) < page_response.text.index(stations_link)
+
+    for selector in [
+        ".search-form",
+        ".search-form label",
+        ".search-debug-label",
+        ".search-debug-panel",
+        ".search-debug-panel summary",
+        ".search-debug-panel dl",
+        ".search-debug-panel dt",
+        ".search-debug-panel dd",
+        ".search-form button",
+    ]:
+        assert selector in search_response.text
+        assert selector not in stations_response.text
+        assert selector not in styles_response.text
+
+    assert "@media (max-width: 58rem)" in search_response.text
+    assert ".station-card" in stations_response.text
+    assert ".station-actions" in stations_response.text
+
+
 def test_web_dashboard_styles_are_isolated() -> None:
     client = TestClient(create_app())
 

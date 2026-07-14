@@ -309,3 +309,221 @@ html[data-theme="light"] .player-actions a:hover {
   display: none !important;
 }
 
+/* Compact Now Playing hierarchy and icon controls. */
+.player-info {
+  display: flex !important;
+  min-width: 0;
+  flex-direction: column !important;
+  gap: 0.12rem !important;
+}
+
+.player-info .player-station {
+  order: -1;
+  color: var(--accent) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: none;
+  opacity: 0.92;
+}
+
+.player-info h2 {
+  font-size: 1rem !important;
+  line-height: 1.2 !important;
+}
+
+.player-info .player-message {
+  color: var(--muted) !important;
+  font-size: 0.78rem !important;
+  font-weight: 650 !important;
+  line-height: 1.25;
+}
+
+.player-actions {
+  flex-wrap: nowrap !important;
+  gap: 0.5rem !important;
+}
+
+.player-actions .player-control {
+  display: inline-flex !important;
+  width: 2.75rem !important;
+  min-width: 2.75rem !important;
+  height: 2.75rem !important;
+  min-height: 2.75rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+}
+
+.player-control-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.player-control[data-player-mode="pause"] .player-control-icon {
+  font-size: 0.82rem;
+  letter-spacing: -0.16em;
+  transform: translateX(-0.06em);
+}
+
+.player-control[data-player-mode="loading"] .player-control-icon {
+  animation: player-control-pulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes player-control-pulse {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 42rem) {
+  .player-bar {
+    position: fixed !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.45rem !important;
+    padding: 0.72rem !important;
+  }
+
+  .player-info {
+    display: flex !important;
+    min-width: 0 !important;
+    flex-direction: column !important;
+    gap: 0.12rem !important;
+  }
+
+  .player-actions {
+    width: 100% !important;
+    align-self: auto !important;
+    justify-content: center !important;
+  }
+
+  .player-info h2,
+  .player-info .player-station,
+  .player-info .player-message {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 24rem) {
+  .player-actions {
+    gap: 0.35rem !important;
+  }
+
+  .player-actions .player-control {
+    width: 2.75rem !important;
+    min-width: 2.75rem !important;
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-control[data-player-mode="loading"] .player-control-icon {
+    animation: none;
+  }
+}
+
+/* Copyable, overflow-aware current track. */
+.player-track {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+  overflow: hidden;
+}
+
+.player-track-copy {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.35rem;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: copy;
+}
+
+.player-track-copy:disabled {
+  color: inherit;
+  cursor: default;
+  opacity: 1;
+}
+
+.player-track-copy:not(:disabled):hover,
+.player-track-copy:not(:disabled):focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.player-track-copy:not(:disabled):focus-visible {
+  box-shadow: 0 0 0 2px rgba(110, 231, 216, 0.36);
+}
+
+.player-track-text {
+  display: inline-block;
+  min-width: max-content;
+  transform: translateX(0);
+  will-change: transform;
+}
+
+.player-track-copy[data-overflow="true"] .player-track-text {
+  animation:
+    player-track-scroll var(--player-track-duration, 10s)
+    ease-in-out infinite alternate;
+}
+
+.player-track-copy[data-overflow="true"]:hover .player-track-text,
+.player-track-copy[data-overflow="true"]:focus-visible .player-track-text {
+  animation-play-state: paused;
+}
+
+@keyframes player-track-scroll {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+
+  85%,
+  100% {
+    transform: translateX(var(--player-track-distance, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-track-copy[data-overflow="true"] .player-track-text {
+    animation: none;
+  }
+}
+
+/* Bound station labels inside the fixed player on every viewport. */
+.player-bar,
+.player-info,
+.player-station {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.player-info {
+  width: 100%;
+  overflow: hidden;
+}
+
+.player-info .player-station {
+  display: block;
+  width: 100%;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+

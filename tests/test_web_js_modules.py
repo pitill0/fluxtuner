@@ -1127,3 +1127,80 @@ console.log(JSON.stringify({
     ]
     assert result["playbackState"] == "none"
     assert result["metadataTitle"] == "Flux FM"
+
+
+def test_web_metadata_clipboard_and_overflow_helpers(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "metadata.js",
+        r"""
+const { copyTextToClipboard, trackOverflowDistance } = await import(process.argv[1]);
+
+const clipboardWrites = [];
+await copyTextToClipboard("Massive Attack — Unfinished Sympathy", {
+  navigatorRef: {
+    clipboard: {
+      async writeText(value) {
+        clipboardWrites.push(value);
+      },
+    },
+  },
+  documentRef: {},
+});
+
+const fallback = {
+  value: "",
+  selected: false,
+  removed: false,
+  attributes: new Map(),
+  style: {},
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  },
+  select() {
+    this.selected = true;
+  },
+  remove() {
+    this.removed = true;
+  },
+};
+const appended = [];
+await copyTextToClipboard("Portishead — Roads", {
+  navigatorRef: {},
+  documentRef: {
+    body: {
+      append(node) {
+        appended.push(node);
+      },
+    },
+    createElement(name) {
+      if (name !== "textarea") throw new Error("unexpected element");
+      return fallback;
+    },
+    execCommand(command) {
+      return command === "copy";
+    },
+  },
+});
+
+console.log(JSON.stringify({
+  clipboardWrites,
+  fallbackValue: fallback.value,
+  fallbackSelected: fallback.selected,
+  fallbackRemoved: fallback.removed,
+  appendedCount: appended.length,
+  overflow: trackOverflowDistance(420, 300),
+  noOverflow: trackOverflowDistance(250, 300),
+}));
+""",
+    )
+
+    assert result == {
+        "clipboardWrites": ["Massive Attack — Unfinished Sympathy"],
+        "fallbackValue": "Portishead — Roads",
+        "fallbackSelected": True,
+        "fallbackRemoved": True,
+        "appendedCount": 1,
+        "overflow": 120,
+        "noOverflow": 0,
+    }

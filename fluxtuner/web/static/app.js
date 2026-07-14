@@ -90,6 +90,7 @@ const {
   playerDebugSummaryNode,
   playerDebugToggleButton,
   playerOpenLink,
+  playerCopyButton,
   playerStationNode,
   playerStatusNode,
   playerStopButton,
@@ -343,7 +344,9 @@ const { setupMediaSessionHandlers } = mediaSessionController;
 const metadataController = createMetadataController({
   apiFetch,
   titleNode: playerTitleNode,
+  copyButton: playerCopyButton,
   stationNode: playerStationNode,
+  statusNode: playerStatusNode,
   onMetadataChange: (metadata, fallbackTitle, streamUrl) => {
     mediaSessionController.updateNowPlayingMetadata(
       metadata,

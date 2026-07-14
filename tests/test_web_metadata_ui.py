@@ -24,6 +24,7 @@ def test_web_player_loads_metadata_controller() -> None:
 
     assert "data-player-station" in page.text
     assert 'root.querySelector("[data-player-station]")' in elements.text
+    assert 'root.querySelector("[data-player-copy]")' in elements.text
     assert 'import { createMetadataController } from "/static/js/metadata.js";' in app.text
     assert "const metadataController = createMetadataController({" in app.text
     assert "metadataController," in app.text
@@ -39,6 +40,14 @@ def test_web_player_loads_metadata_controller() -> None:
     assert "updateNowPlayingMetadata" in app.text
     assert "updateNowPlayingMetadata" in client.get("/static/js/media-session.js").text
     assert ".player-station" in styles.text
+    assert "data-player-control-icon" in page.text
+    assert 'role="group" aria-label="Playback controls"' in page.text
+    assert "setPlayerControl(toggleButton" in player.text
+    assert ".player-control" in styles.text
+    assert "grid-template-columns: minmax(0, 1fr) !important;" in styles.text
+    assert "width: 100% !important;" in styles.text
+    assert "flex-direction: column !important;" in styles.text
+    assert "justify-content: center !important;" in styles.text
 
 
 def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
@@ -47,7 +56,7 @@ def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
 
     assert "textContent =" in module
     assert "innerHTML" not in module
-    assert "DEFAULT_POLL_INTERVAL_MS = 5000" in module
+    assert "DEFAULT_POLL_INTERVAL_MS = 15000" in module
     assert "windowRef.setTimeout" in module
     assert "windowRef.clearTimeout" in module
     assert 'payload?.status === "fresh"' in module
@@ -62,3 +71,15 @@ def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
     assert module.count("requestInFlight = false;") == 2
     assert "onMetadataChange(metadata, fallbackTitle, streamUrl);" in module
     assert "onMetadataChange(null, fallbackTitle, streamUrl);" in module
+    assert (
+        'titleNode.textContent = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";'
+        in module
+    )
+    assert "stationNode.textContent = fallbackTitle;" in module
+    assert "copyTextToClipboard" in module
+    assert "dataOverflow" not in module
+    assert 'copyButton.dataset.overflow = "true";' in module
+    styles = client.get("/static/player.css").text
+    assert "prefers-reduced-motion" in styles
+    assert "Bound station labels inside the fixed player on every viewport." in styles
+    assert "overflow: hidden !important;" in styles

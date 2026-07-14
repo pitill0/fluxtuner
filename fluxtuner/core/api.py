@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import perf_counter
 from typing import Any
 
 import requests
@@ -16,6 +17,36 @@ DEFAULT_HEADERS = {"User-Agent": f"FluxTuner/{__version__} (+https://github.com/
 DEFAULT_TIMEOUT = 12
 
 logger = get_logger(__name__)
+
+REQUEST_STATUS_OK = "ok"
+REQUEST_STATUS_REQUEST_ERROR = "request_error"
+REQUEST_STATUS_HTTP_ERROR = "http_error"
+REQUEST_STATUS_INVALID_JSON = "invalid_json"
+REQUEST_STATUS_UNEXPECTED_PAYLOAD = "unexpected_payload"
+
+
+def _record_request_diagnostics(
+    diagnostics: dict[str, Any] | None,
+    *,
+    started_at: float,
+    status: str,
+    fetched: int = 0,
+    http_status: int | None = None,
+    skipped_items: int = 0,
+) -> None:
+    if diagnostics is None:
+        return
+
+    diagnostics.update(
+        {
+            "status": status,
+            "elapsed_ms": round((perf_counter() - started_at) * 1000, 3),
+            "http_status": http_status,
+            "error_kind": None if status == REQUEST_STATUS_OK else status,
+            "fetched": fetched,
+            "skipped_items": skipped_items,
+        }
+    )
 
 
 def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
@@ -36,24 +67,19 @@ def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _safe_response_json(response: requests.Response) -> Any | None:
-    try:
-        return response.json()
-    except ValueError:
-        logger.debug("Radio Browser API returned invalid JSON", exc_info=True)
-        return None
-
-
 def _safe_get_json_list(
     url: str,
     *,
     params: dict[str, Any],
     timeout: int = DEFAULT_TIMEOUT,
+    diagnostics: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     logger.debug(
         "Requesting Radio Browser API endpoint with filters: %s",
         sorted(params.keys()),
     )
+    started_at = perf_counter()
+    response: requests.Response | None = None
 
     try:
         response = requests.get(
@@ -63,13 +89,44 @@ def _safe_get_json_list(
             timeout=timeout,
         )
         response.raise_for_status()
+    except requests.HTTPError:
+        logger.debug("Radio Browser API returned an HTTP error", exc_info=True)
+        _record_request_diagnostics(
+            diagnostics,
+            started_at=started_at,
+            status=REQUEST_STATUS_HTTP_ERROR,
+            http_status=getattr(response, "status_code", None),
+        )
+        return []
     except requests.RequestException:
         logger.debug("Radio Browser API request failed", exc_info=True)
+        _record_request_diagnostics(
+            diagnostics,
+            started_at=started_at,
+            status=REQUEST_STATUS_REQUEST_ERROR,
+        )
         return []
 
-    data = _safe_response_json(response)
+    try:
+        data = response.json()
+    except ValueError:
+        logger.debug("Radio Browser API returned invalid JSON", exc_info=True)
+        _record_request_diagnostics(
+            diagnostics,
+            started_at=started_at,
+            status=REQUEST_STATUS_INVALID_JSON,
+            http_status=getattr(response, "status_code", None),
+        )
+        return []
+
     if not isinstance(data, list):
         logger.debug("Radio Browser API returned unexpected response type: %s", type(data).__name__)
+        _record_request_diagnostics(
+            diagnostics,
+            started_at=started_at,
+            status=REQUEST_STATUS_UNEXPECTED_PAYLOAD,
+            http_status=getattr(response, "status_code", None),
+        )
         return []
 
     valid_items = [item for item in data if isinstance(item, dict)]
@@ -79,6 +136,14 @@ def _safe_get_json_list(
         logger.debug("Skipped %s invalid Radio Browser API item(s)", skipped_items)
 
     logger.debug("Radio Browser API returned %s valid station item(s)", len(valid_items))
+    _record_request_diagnostics(
+        diagnostics,
+        started_at=started_at,
+        status=REQUEST_STATUS_OK,
+        fetched=len(valid_items),
+        http_status=getattr(response, "status_code", None),
+        skipped_items=skipped_items,
+    )
 
     return valid_items
 
@@ -89,6 +154,8 @@ def search_stations(
     country: str | None = None,
     countrycode: str | None = None,
     limit: int = 25,
+    *,
+    _diagnostics: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Search radio stations using the Radio Browser API."""
     params: dict[str, Any] = {
@@ -110,6 +177,7 @@ def search_stations(
     return _safe_get_json_list(
         f"{BASE_URL}/stations/search",
         params=params,
+        diagnostics=_diagnostics,
     )
 
 
@@ -188,6 +256,7 @@ def _empty_search_debug(
         "country_filtered_results": 0,
         "bitrate_filtered_results": 0,
         "returned_results": 0,
+        "sources": {},
     }
 
 
@@ -233,48 +302,57 @@ def _filtered_search_result(
 
     raw_batches: list[tuple[str, list[dict[str, Any]]]] = []
 
-    def add_batch(source: str, items: list[dict[str, Any]]) -> None:
+    def add_batch(source: str, **filters: Any) -> None:
+        source_debug: dict[str, Any] = {}
+        items = search_stations(**filters, _diagnostics=source_debug)
+        if not source_debug:
+            source_debug.update(
+                {
+                    "status": REQUEST_STATUS_OK,
+                    "elapsed_ms": None,
+                    "http_status": None,
+                    "error_kind": None,
+                    "fetched": len(items),
+                    "skipped_items": 0,
+                }
+            )
+
         debug[f"{source}_results"] = len(items)
         debug["raw_results"] += len(items)
+        debug["sources"][source] = source_debug
         raw_batches.append((source, items))
 
     if query:
         add_batch(
             "name",
-            search_stations(
-                name=query,
-                country=api_country,
-                countrycode=api_countrycode,
-                limit=api_limit,
-            ),
+            name=query,
+            country=api_country,
+            countrycode=api_countrycode,
+            limit=api_limit,
         )
         add_batch(
             "tag",
-            search_stations(
-                tag=query,
-                country=api_country,
-                countrycode=api_countrycode,
-                limit=api_limit,
-            ),
+            tag=query,
+            country=api_country,
+            countrycode=api_countrycode,
+            limit=api_limit,
         )
 
         # If the API country filter was too strict, fallback to a broad search
         # and apply the country filter locally.
         if country and not any(items for _, items in raw_batches):
-            add_batch("fallback_name", search_stations(name=query, limit=api_limit))
-            add_batch("fallback_tag", search_stations(tag=query, limit=api_limit))
+            add_batch("fallback_name", name=query, limit=api_limit)
+            add_batch("fallback_tag", tag=query, limit=api_limit)
     else:
         add_batch(
             "country",
-            search_stations(
-                country=api_country,
-                countrycode=api_countrycode,
-                limit=api_limit,
-            ),
+            country=api_country,
+            countrycode=api_countrycode,
+            limit=api_limit,
         )
 
         if country and not any(items for _, items in raw_batches):
-            add_batch("fallback_country", search_stations(limit=api_limit))
+            add_batch("fallback_country", limit=api_limit)
 
     results: list[dict[str, Any]] = []
     seen_urls: set[str] = set()

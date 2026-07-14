@@ -208,6 +208,24 @@ def test_search_stations_filtered_debug_reports_source_counts(monkeypatch) -> No
         "country_filtered_results": 1,
         "bitrate_filtered_results": 1,
         "returned_results": 2,
+        "sources": {
+            "name": {
+                "status": "ok",
+                "elapsed_ms": None,
+                "http_status": None,
+                "error_kind": None,
+                "fetched": 3,
+                "skipped_items": 0,
+            },
+            "tag": {
+                "status": "ok",
+                "elapsed_ms": None,
+                "http_status": None,
+                "error_kind": None,
+                "fetched": 2,
+                "skipped_items": 0,
+            },
+        },
     }
 
 
@@ -293,10 +311,12 @@ class FakeResponse:
         *,
         status_error: Exception | None = None,
         json_error: Exception | None = None,
+        status_code: int | None = 200,
     ) -> None:
         self.data = data
         self.status_error = status_error
         self.json_error = json_error
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         if self.status_error:
@@ -375,6 +395,116 @@ def test_search_stations_returns_empty_list_for_non_list_json(monkeypatch) -> No
     monkeypatch.setattr(api.requests, "get", fake_get)
 
     assert api.search_stations(name="test") == []
+
+
+def test_search_stations_diagnostics_distinguish_valid_empty_response(monkeypatch) -> None:
+    monkeypatch.setattr(api.requests, "get", lambda *_args, **_kwargs: FakeResponse([]))
+    diagnostics: dict[str, Any] = {}
+
+    assert api.search_stations(name="test", _diagnostics=diagnostics) == []
+
+    assert diagnostics["status"] == "ok"
+    assert diagnostics["error_kind"] is None
+    assert diagnostics["fetched"] == 0
+    assert diagnostics["http_status"] == 200
+    assert isinstance(diagnostics["elapsed_ms"], float)
+
+
+def test_search_stations_diagnostics_capture_request_error(monkeypatch) -> None:
+    def fake_get(*_args: Any, **_kwargs: Any) -> FakeResponse:
+        raise requests.Timeout("timeout")
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+    diagnostics: dict[str, Any] = {}
+
+    assert api.search_stations(name="test", _diagnostics=diagnostics) == []
+
+    assert diagnostics["status"] == "request_error"
+    assert diagnostics["error_kind"] == "request_error"
+    assert diagnostics["http_status"] is None
+
+
+def test_search_stations_diagnostics_capture_http_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        lambda *_args, **_kwargs: FakeResponse(
+            [],
+            status_error=requests.HTTPError("unavailable"),
+            status_code=503,
+        ),
+    )
+    diagnostics: dict[str, Any] = {}
+
+    assert api.search_stations(name="test", _diagnostics=diagnostics) == []
+
+    assert diagnostics["status"] == "http_error"
+    assert diagnostics["error_kind"] == "http_error"
+    assert diagnostics["http_status"] == 503
+
+
+def test_search_stations_diagnostics_capture_invalid_json(monkeypatch) -> None:
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        lambda *_args, **_kwargs: FakeResponse(json_error=ValueError("invalid")),
+    )
+    diagnostics: dict[str, Any] = {}
+
+    assert api.search_stations(name="test", _diagnostics=diagnostics) == []
+
+    assert diagnostics["status"] == "invalid_json"
+    assert diagnostics["error_kind"] == "invalid_json"
+
+
+def test_search_stations_diagnostics_capture_unexpected_payload(monkeypatch) -> None:
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        lambda *_args, **_kwargs: FakeResponse({"unexpected": "object"}),
+    )
+    diagnostics: dict[str, Any] = {}
+
+    assert api.search_stations(name="test", _diagnostics=diagnostics) == []
+
+    assert diagnostics["status"] == "unexpected_payload"
+    assert diagnostics["error_kind"] == "unexpected_payload"
+
+
+def test_search_stations_filtered_debug_preserves_partial_request_outcomes(
+    monkeypatch,
+) -> None:
+    def fake_get(*_args: Any, **kwargs: Any) -> FakeResponse:
+        params = kwargs["params"]
+        if "name" in params:
+            raise requests.Timeout("name request timed out")
+        return FakeResponse(
+            [
+                {
+                    "name": "Tag Result",
+                    "url": "https://example.com/tag-result",
+                    "country": "Spain",
+                    "countrycode": "ES",
+                    "tags": "rock",
+                    "bitrate": 128,
+                }
+            ]
+        )
+
+    monkeypatch.setattr(api.requests, "get", fake_get)
+
+    results, debug = api.search_stations_filtered_debug(
+        "rock",
+        limit=10,
+        use_cache=False,
+    )
+
+    assert [station["name"] for station in results] == ["Tag Result"]
+    assert debug["sources"]["name"]["status"] == "request_error"
+    assert debug["sources"]["name"]["fetched"] == 0
+    assert debug["sources"]["tag"]["status"] == "ok"
+    assert debug["sources"]["tag"]["fetched"] == 1
+    assert debug["returned_results"] == 1
 
 
 def test_search_stations_filters_non_dict_items(monkeypatch) -> None:

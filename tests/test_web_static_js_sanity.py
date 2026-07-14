@@ -233,6 +233,28 @@ def test_web_static_js_defers_dashboard_station_renderer_callbacks() -> None:
     assert dashboard_index < station_renderer_index
 
 
+def test_web_media_session_uses_now_playing_metadata() -> None:
+    client = TestClient(create_app())
+
+    app = client.get("/static/app.js")
+    media_session = client.get("/static/js/media-session.js")
+
+    assert app.status_code == 200
+    assert media_session.status_code == 200
+    assert "updateNowPlayingMetadata" in app.text
+    assert "function updateNowPlayingMetadata" in media_session.text
+    assert "stationUrl = defaultStationUrl" in media_session.text
+    assert "const currentStreamUrl = stationUrl(station);" in media_session.text
+    assert "stationUrl," in app.text
+    assert "nowPlayingStreamUrl === currentStreamUrl" in media_session.text
+    assert "title: activeNowPlaying?.title || fallbackTitle" in media_session.text
+    assert 'artist: activeNowPlaying?.artist || "FluxTuner Web"' in media_session.text
+    assert "album: fallbackTitle" in media_session.text
+    assert "nowPlaying = null;" in media_session.text
+    assert 'nowPlayingStationTitle = "";' in media_session.text
+    assert 'nowPlayingStreamUrl = "";' in media_session.text
+
+
 def test_web_manifest_is_valid_json() -> None:
     client = TestClient(create_app())
 

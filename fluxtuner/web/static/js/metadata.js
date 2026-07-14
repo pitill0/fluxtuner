@@ -22,6 +22,7 @@ export function createMetadataController({
   apiFetch,
   titleNode,
   stationNode,
+  onMetadataChange = () => {},
   logPlayerEvent = () => {},
   windowRef = window,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
@@ -39,7 +40,11 @@ export function createMetadataController({
     timeoutId = 0;
   }
 
-  function renderFallback() {
+  function renderFallback({ notify = false } = {}) {
+    if (notify) {
+      onMetadataChange(null, fallbackTitle, streamUrl);
+    }
+
     if (titleNode) {
       titleNode.textContent = fallbackTitle || "Nothing playing yet";
     }
@@ -51,6 +56,7 @@ export function createMetadataController({
 
   function renderMetadata(metadata) {
     const displayTitle = metadataDisplayTitle(metadata, fallbackTitle);
+    onMetadataChange(metadata, fallbackTitle, streamUrl);
 
     if (titleNode) {
       titleNode.textContent = displayTitle;
@@ -151,7 +157,7 @@ export function createMetadataController({
       clearTimer();
     }
 
-    renderFallback();
+    renderFallback({ notify: changed });
   }
 
   function updatePlaybackState(state, station = {}) {
@@ -186,7 +192,7 @@ export function createMetadataController({
     clearTimer();
     streamUrl = "";
     fallbackTitle = "";
-    renderFallback();
+    renderFallback({ notify: true });
   }
 
   return {

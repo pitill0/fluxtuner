@@ -35,6 +35,9 @@ def test_web_player_loads_metadata_controller() -> None:
     assert "metadataController?.updatePlaybackState" in player.text
     assert "metadataController?.setStation" in player.text
     assert "metadataController?.clear" in player.text
+    assert "onMetadataChange:" in app.text
+    assert "updateNowPlayingMetadata" in app.text
+    assert "updateNowPlayingMetadata" in client.get("/static/js/media-session.js").text
     assert ".player-station" in styles.text
 
 
@@ -57,3 +60,5 @@ def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
     assert "scheduleNext(generation);" not in module
     assert "requestInFlight = false;" in module
     assert module.count("requestInFlight = false;") == 2
+    assert "onMetadataChange(metadata, fallbackTitle, streamUrl);" in module
+    assert "onMetadataChange(null, fallbackTitle, streamUrl);" in module

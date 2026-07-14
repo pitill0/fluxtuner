@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-const DEFAULT_POLL_INTERVAL_MS = 5000;
+const DEFAULT_POLL_INTERVAL_MS = 15000;
 
 function cleanText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -18,13 +18,60 @@ export function metadataDisplayTitle(metadata, fallbackTitle) {
   return title || raw || fallback;
 }
 
+export async function copyTextToClipboard(
+  text,
+  { navigatorRef = navigator, documentRef = document } = {},
+) {
+  const value = cleanText(text);
+  if (!value) {
+    throw new Error("No track information is available to copy.");
+  }
+
+  try {
+    if (navigatorRef?.clipboard?.writeText) {
+      await navigatorRef.clipboard.writeText(value);
+      return;
+    }
+  } catch {
+    // Private HTTP deployments may expose the API but reject writes.
+  }
+
+  const textarea = documentRef?.createElement?.("textarea");
+  if (!textarea || !documentRef?.body || !documentRef.execCommand) {
+    throw new Error("Clipboard access is unavailable.");
+  }
+
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  documentRef.body.append(textarea);
+  textarea.select();
+
+  try {
+    if (!documentRef.execCommand("copy")) {
+      throw new Error("Clipboard copy command was rejected.");
+    }
+  } finally {
+    textarea.remove();
+  }
+}
+
+export function trackOverflowDistance(scrollWidth, clientWidth) {
+  return Math.max(0, Number(scrollWidth) - Number(clientWidth));
+}
+
 export function createMetadataController({
   apiFetch,
   titleNode,
+  copyButton,
   stationNode,
+  statusNode,
   onMetadataChange = () => {},
   logPlayerEvent = () => {},
   windowRef = window,
+  navigatorRef = navigator,
+  documentRef = document,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 }) {
   let streamUrl = "";
@@ -33,6 +80,100 @@ export function createMetadataController({
   let timeoutId = 0;
   let requestGeneration = 0;
   let requestInFlight = false;
+  let currentTrackText = "";
+  let feedbackTimeoutId = 0;
+  let overflowFrameId = 0;
+
+  const requestFrame =
+    windowRef.requestAnimationFrame?.bind(windowRef) ||
+    ((callback) => windowRef.setTimeout(callback, 0));
+  const cancelFrame =
+    windowRef.cancelAnimationFrame?.bind(windowRef) ||
+    ((frameId) => windowRef.clearTimeout(frameId));
+
+  function clearFeedbackTimer() {
+    if (!feedbackTimeoutId) return;
+    windowRef.clearTimeout(feedbackTimeoutId);
+    feedbackTimeoutId = 0;
+  }
+
+  function showCopyFeedback(message) {
+    if (!statusNode) return;
+
+    clearFeedbackTimer();
+    const previousMessage = statusNode.textContent;
+    statusNode.textContent = message;
+    feedbackTimeoutId = windowRef.setTimeout(() => {
+      feedbackTimeoutId = 0;
+      if (statusNode.textContent === message) {
+        statusNode.textContent = previousMessage;
+      }
+    }, 1800);
+  }
+
+  function refreshTrackOverflow() {
+    overflowFrameId = 0;
+    if (!copyButton || !titleNode) return;
+
+    copyButton.dataset.overflow = "false";
+    copyButton.style.removeProperty("--player-track-distance");
+    copyButton.style.removeProperty("--player-track-duration");
+
+    const distance = trackOverflowDistance(titleNode.scrollWidth, copyButton.clientWidth);
+    if (distance <= 1 || copyButton.disabled) return;
+
+    copyButton.style.setProperty("--player-track-distance", `-${distance}px`);
+    copyButton.style.setProperty(
+      "--player-track-duration",
+      `${Math.max(8, Math.round(distance / 22) + 5)}s`,
+    );
+    copyButton.dataset.overflow = "true";
+  }
+
+  function scheduleTrackOverflowRefresh() {
+    if (overflowFrameId) {
+      cancelFrame(overflowFrameId);
+    }
+    overflowFrameId = requestFrame(refreshTrackOverflow);
+  }
+
+  function setCopyTrack(text) {
+    currentTrackText = cleanText(text);
+    if (!copyButton) return;
+
+    copyButton.disabled = !currentTrackText;
+    const label = currentTrackText
+      ? `Copy current track: ${currentTrackText}`
+      : "Current track information unavailable";
+    copyButton.setAttribute("aria-label", label);
+    copyButton.setAttribute("title", label);
+    scheduleTrackOverflowRefresh();
+  }
+
+  async function copyCurrentTrack() {
+    if (!currentTrackText) return;
+
+    try {
+      await copyTextToClipboard(currentTrackText, { navigatorRef, documentRef });
+      showCopyFeedback("Track copied to clipboard.");
+      logPlayerEvent("metadata-track-copied");
+    } catch (error) {
+      showCopyFeedback("Could not copy track information.");
+      logPlayerEvent("metadata-track-copy-failed", {
+        error: String(error),
+      });
+    }
+  }
+
+  copyButton?.addEventListener("click", () => {
+    void copyCurrentTrack();
+  });
+  windowRef.addEventListener?.("resize", scheduleTrackOverflowRefresh);
+
+  if (copyButton && typeof windowRef.ResizeObserver === "function") {
+    const observer = new windowRef.ResizeObserver(scheduleTrackOverflowRefresh);
+    observer.observe(copyButton);
+  }
 
   function clearTimer() {
     if (!timeoutId) return;
@@ -45,28 +186,28 @@ export function createMetadataController({
       onMetadataChange(null, fallbackTitle, streamUrl);
     }
 
-    if (titleNode) {
-      titleNode.textContent = fallbackTitle || "Nothing playing yet";
-    }
     if (stationNode) {
-      stationNode.textContent = "";
-      stationNode.hidden = true;
+      stationNode.textContent = fallbackTitle;
+      stationNode.hidden = !fallbackTitle;
     }
+    if (titleNode) {
+      titleNode.textContent = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";
+    }
+    setCopyTrack("");
   }
 
   function renderMetadata(metadata) {
     const displayTitle = metadataDisplayTitle(metadata, fallbackTitle);
     onMetadataChange(metadata, fallbackTitle, streamUrl);
 
+    if (stationNode) {
+      stationNode.textContent = fallbackTitle;
+      stationNode.hidden = !fallbackTitle;
+    }
     if (titleNode) {
       titleNode.textContent = displayTitle;
     }
-
-    if (stationNode) {
-      const showStation = Boolean(fallbackTitle && displayTitle !== fallbackTitle);
-      stationNode.textContent = showStation ? fallbackTitle : "";
-      stationNode.hidden = !showStation;
-    }
+    setCopyTrack(displayTitle);
   }
 
   function scheduleNext(generation) {

@@ -431,7 +431,10 @@ def test_web_static_js_keeps_station_available_after_media_pause() -> None:
         in player_response.text
     )
     assert "toggleButton.disabled = !hasStream || isLoading;" in player_response.text
-    assert 'toggleButton.textContent = "Retry";' in player_response.text
+    assert (
+        'setPlayerControl(toggleButton, "Retry playback", "↻", "retry", "Retry");'
+        in player_response.text
+    )
     assert "function pauseCurrentStationPlayback" in player_response.text
     assert "function stopPlayback()" in player_response.text
     assert "currentStation = null;" in player_response.text

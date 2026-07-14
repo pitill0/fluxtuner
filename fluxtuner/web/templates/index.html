@@ -649,16 +649,58 @@
     <aside id="player-bar" class="player-bar" data-player-bar aria-live="polite" hidden>
       <div class="player-info">
         <p class="eyebrow">Browser playback</p>
-        <h2 data-player-title>Nothing playing yet</h2>
         <p class="player-station" data-player-station hidden></p>
-        <p data-player-status>Idle</p>
+        <h2 class="player-track">
+          <button
+            class="player-track-copy"
+            type="button"
+            data-player-copy
+            aria-label="Current track information unavailable"
+            title="Current track information unavailable"
+            disabled
+          >
+            <span class="player-track-text" data-player-title>Nothing playing yet</span>
+          </button>
+        </h2>
+        <p class="player-message" data-player-status>Idle</p>
       </div>
 
-      <div class="player-actions">
-        <button type="button" data-player-toggle disabled>Pause</button>
-        <button type="button" data-player-stop disabled>Stop</button>
-        <a href="#" data-player-open target="_blank" rel="noopener noreferrer" hidden>
-          Open externally
+      <div class="player-actions" role="group" aria-label="Playback controls">
+        <button
+          class="player-control"
+          type="button"
+          data-player-toggle
+          data-player-mode="pause"
+          aria-label="Pause"
+          title="Pause"
+          disabled
+        >
+          <span class="player-control-icon" data-player-control-icon aria-hidden="true">❚❚</span>
+          <span class="sr-only" data-player-control-label>Pause</span>
+        </button>
+        <button
+          class="player-control"
+          type="button"
+          data-player-stop
+          aria-label="Stop"
+          title="Stop"
+          disabled
+        >
+          <span class="player-control-icon" aria-hidden="true">■</span>
+          <span class="sr-only">Stop</span>
+        </button>
+        <a
+          class="player-control"
+          href="#"
+          data-player-open
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open stream externally"
+          title="Open stream externally"
+          hidden
+        >
+          <span class="player-control-icon" aria-hidden="true">↗</span>
+          <span class="sr-only">Open stream externally</span>
         </a>
       </div>
 

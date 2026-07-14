@@ -214,6 +214,26 @@ export function createPlayerController({
     return transition;
   }
 
+  function setPlayerControl(button, label, icon, mode, fallbackText = label) {
+    const iconNode = button.querySelector?.("[data-player-control-icon]");
+    const labelNode = button.querySelector?.("[data-player-control-label]");
+
+    if (iconNode) {
+      iconNode.textContent = icon;
+    }
+    if (labelNode) {
+      labelNode.textContent = label;
+    } else if (!iconNode) {
+      button.textContent = fallbackText;
+    }
+
+    button.setAttribute?.("aria-label", label);
+    button.setAttribute?.("title", label);
+    if (button.dataset) {
+      button.dataset.playerMode = mode;
+    }
+  }
+
   function updatePlayerControls() {
     if (!audioNode || !toggleButton || !stopButton) return;
 
@@ -225,13 +245,13 @@ export function createPlayerController({
     stopButton.disabled = !hasStream;
 
     if (isLoading) {
-      toggleButton.textContent = "Loading...";
+      setPlayerControl(toggleButton, "Loading stream", "…", "loading", "Loading...");
     } else if (state === "error") {
-      toggleButton.textContent = "Retry";
+      setPlayerControl(toggleButton, "Retry playback", "↻", "retry", "Retry");
     } else if (audioNode.paused) {
-      toggleButton.textContent = "Resume";
+      setPlayerControl(toggleButton, "Resume playback", "▶", "play", "Resume");
     } else {
-      toggleButton.textContent = "Pause";
+      setPlayerControl(toggleButton, "Pause playback", "❚❚", "pause", "Pause");
     }
 
     if (openLink) {

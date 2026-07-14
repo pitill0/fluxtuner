@@ -80,6 +80,7 @@ export function createAppElements(root = document) {
     playerBar: root.querySelector("[data-player-bar]"),
     audioNode: root.querySelector("[data-audio]"),
     playerTitleNode: root.querySelector("[data-player-title]"),
+    playerCopyButton: root.querySelector("[data-player-copy]"),
     playerStationNode: root.querySelector("[data-player-station]"),
     playerStatusNode: root.querySelector("[data-player-status]"),
     playerToggleButton: root.querySelector("[data-player-toggle]"),

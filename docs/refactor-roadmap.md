@@ -126,8 +126,9 @@ Current Web browser modules:
 - `search.js`, `favorites.js`, `playlists.js`, `library-views.js`,
   `station-renderer.js` and `playlist-renderer.js` for Radio Browser search and
   profile-owned library interactions.
-- `player.js`, `media-session.js` and `player-debug.js` for browser playback,
-  mobile Media Session handoff and local diagnostics.
+- `player.js`, `metadata.js`, `media-session.js` and `player-debug.js` for
+  browser playback, cached Now Playing metadata, mobile Media Session handoff
+  and local diagnostics.
 - `theme.js` and `ui-shell.js` for theme preference and responsive app shell
   behavior.
 - `app-elements.js` for the application DOM registry.
@@ -148,15 +149,13 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 
 Recommended next branches should stay separate:
 
-- Phase 6 metadata `Now Playing`, only through its dedicated backend
-  cache/worker design;
 - search quality/debugging;
 - Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
 
-The numbered roadmap remains the source of truth. Search quality, CSS boundaries
-and storage cleanup are parallel workstreams rather than replacements for the
-remaining numbered phases.
+The numbered roadmap remains the source of truth. The first six phases are
+complete. Search quality, CSS boundaries and storage cleanup are follow-up
+workstreams and should remain independently scoped.
 
 ## Roadmap progress
 
@@ -166,12 +165,12 @@ Phase 2  Extract Web API helpers and routers             complete
 Phase 3  Split storage by domain without changing SQLite complete
 Phase 4  Web JavaScript module boundaries                complete and hardened
 Phase 5  Web player state model                          complete
-Phase 6  Revisit metadata `Now Playing`                  pending / unblocked
+Phase 6  Revisit metadata `Now Playing`                  complete
 ```
 
-Phase 5 is complete. Phase 6 is now unblocked but has not started; it must remain
-a separate, deliberately scoped metadata/cache/worker series rather than an
-extension of the player-state work.
+The first six phases are complete. Future work should continue through small,
+independently reviewable branches rather than extending the completed player and
+metadata series opportunistically.
 
 ## Proposed incremental phases
 
@@ -344,16 +343,54 @@ replacement and lifecycle recovery behaviour explicit.
 
 ### Phase 6: Revisit metadata `Now Playing`
 
-Status: pending and unblocked.
+Status: completed.
 
-Phase 5 is complete and documented. Phase 6 has not started. When scheduled,
-implement Web metadata through a separate backend cache/worker design:
+The completed Web metadata design keeps network parsing and browser rendering
+behind separate, explicit boundaries.
 
-- short timeouts;
-- strict URL validation and SSRF protection;
-- cache per stream URL;
-- frontend polling with conservative intervals;
-- safe Media Session metadata updates when available.
+Backend responsibilities now include:
+
+- strict stream URL validation and SSRF protection;
+- short connection and read timeouts;
+- one cache entry per canonical stream URL;
+- background metadata refresh through a coordinator/worker boundary;
+- deduplication of concurrent refresh work for the same stream;
+- bounded cache state for fresh, empty and failed results;
+- failure isolation so metadata errors do not interrupt audio playback;
+- a cached metadata endpoint that does not make browser requests block on stream
+  parsing;
+- administrative diagnostics with aggregate counters only and no sensitive
+  stream data.
+
+Browser responsibilities now include:
+
+- an immediate metadata request when playback starts;
+- conservative polling every 15 seconds while playback remains active;
+- request-generation and canonical-URL checks that reject stale responses;
+- safe `textContent` rendering for station, artist and track values;
+- station fallback while track metadata is unavailable;
+- forwarding fresh metadata to Media Session without changing playback state;
+- a compact responsive Now Playing hierarchy for desktop and mobile;
+- accessible icon controls with keyboard and touch support;
+- overflow-aware track scrolling only when the rendered title does not fit;
+- respect for `prefers-reduced-motion`;
+- copying the current artist and track with a private-HTTP clipboard fallback.
+
+The completed architecture intentionally does not add:
+
+- WebSocket or server-sent event delivery;
+- metadata persistence or listening-history enrichment;
+- remote station or album artwork;
+- configurable browser polling intervals;
+- automatic playback changes in response to metadata failures.
+
+Phase 6 was delivered as a focused series covering backend safety, cache and
+worker coordination, endpoint integration, visible Now Playing rendering, Media
+Session updates, diagnostics and final responsive player refinement.
+
+The result keeps metadata optional: playback remains authoritative, metadata
+remains cache-backed and best-effort, and failures remain observable without
+becoming user-facing audio failures.
 
 ## Completed first Web refactor PRs after v1.0.4
 

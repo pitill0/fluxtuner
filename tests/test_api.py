@@ -235,6 +235,30 @@ def test_search_stations_filtered_debug_reports_source_counts(monkeypatch) -> No
         "country_filtered_results": 1,
         "bitrate_filtered_results": 1,
         "returned_results": 2,
+        "ranking": {
+            "applied": True,
+            "tiers": {
+                "exact_name": 0,
+                "name_prefix": 2,
+                "name_contains": 0,
+                "tag_contains": 0,
+                "other": 0,
+            },
+            "selected": [
+                {
+                    "name": "Rock One",
+                    "url": "https://example.com/rock",
+                    "tier": 1,
+                    "reason": "name_prefix",
+                },
+                {
+                    "name": "Rock Tag",
+                    "url": "https://example.com/tag",
+                    "tier": 1,
+                    "reason": "name_prefix",
+                },
+            ],
+        },
         "sources": {
             "name": {
                 "status": "ok",
@@ -322,6 +346,57 @@ def test_search_stations_filtered_returns_empty_for_negative_limit(monkeypatch) 
     assert debug["returned_results"] == 0
     assert debug["name_returned_results"] == 0
     assert debug["tag_returned_results"] == 0
+
+
+def test_search_stations_filtered_debug_explains_ranking(monkeypatch) -> None:
+    def fake_search_stations(**kwargs: Any) -> list[dict[str, Any]]:
+        if "name" in kwargs:
+            return [
+                {"name": "Best Rock Radio", "url": "https://example.com/contains"},
+                {"name": "Rock Plus", "url": "https://example.com/prefix"},
+            ]
+        return [
+            {"name": "Rock", "url": "https://example.com/exact", "tags": "rock"},
+            {"name": "Music", "url": "https://example.com/tag", "tags": "rock"},
+        ]
+
+    monkeypatch.setattr(api, "search_stations", fake_search_stations)
+
+    results, debug = api.search_stations_filtered_debug("rock", limit=4, use_cache=False)
+
+    assert [station["name"] for station in results] == [
+        "Rock",
+        "Rock Plus",
+        "Best Rock Radio",
+        "Music",
+    ]
+    assert debug["ranking"]["tiers"] == {
+        "exact_name": 1,
+        "name_prefix": 1,
+        "name_contains": 1,
+        "tag_contains": 1,
+        "other": 0,
+    }
+    assert [item["reason"] for item in debug["ranking"]["selected"]] == [
+        "exact_name",
+        "name_prefix",
+        "name_contains",
+        "tag_contains",
+    ]
+    assert [item["tier"] for item in debug["ranking"]["selected"]] == [0, 1, 2, 3]
+
+
+def test_search_stations_filtered_debug_explains_cached_ranking(monkeypatch) -> None:
+    cached = [{"name": "Rock", "url": "https://example.com/exact", "tags": "rock"}]
+    monkeypatch.setattr(api, "get_cached_search", lambda _key: cached)
+
+    results, debug = api.search_stations_filtered_debug("rock", use_cache=True)
+
+    assert results == cached
+    assert debug["cache_hit"] is True
+    assert debug["ranking"]["applied"] is True
+    assert debug["ranking"]["tiers"]["exact_name"] == 1
+    assert debug["ranking"]["selected"][0]["reason"] == "exact_name"
 
 
 def test_search_stations_filtered_interleaves_name_and_tag_results(monkeypatch) -> None:

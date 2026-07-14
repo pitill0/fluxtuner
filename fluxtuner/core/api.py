@@ -244,6 +244,42 @@ def _search_relevance_rank(station: dict[str, Any], query: str) -> int:
     return 4
 
 
+SEARCH_RELEVANCE_REASONS = {
+    0: "exact_name",
+    1: "name_prefix",
+    2: "name_contains",
+    3: "tag_contains",
+    4: "other",
+}
+
+
+def _search_ranking_debug(
+    stations: list[dict[str, Any]],
+    query: str,
+) -> dict[str, Any]:
+    applied = bool((query or "").strip())
+    tiers = {reason: 0 for reason in SEARCH_RELEVANCE_REASONS.values()}
+    selected: list[dict[str, Any]] = []
+
+    if not applied:
+        return {"applied": False, "tiers": tiers, "selected": selected}
+
+    for station in stations:
+        tier = _search_relevance_rank(station, query)
+        reason = SEARCH_RELEVANCE_REASONS[tier]
+        tiers[reason] += 1
+        selected.append(
+            {
+                "name": station.get("name") or "Unknown station",
+                "url": station_key(station),
+                "tier": tier,
+                "reason": reason,
+            }
+        )
+
+    return {"applied": True, "tiers": tiers, "selected": selected}
+
+
 def _empty_search_debug(
     *,
     query: str,
@@ -276,6 +312,7 @@ def _empty_search_debug(
         "country_filtered_results": 0,
         "bitrate_filtered_results": 0,
         "returned_results": 0,
+        "ranking": _search_ranking_debug([], query),
         "sources": {},
     }
 
@@ -314,6 +351,7 @@ def _filtered_search_result(
             logger.debug("Returning %s cached search result(s)", len(cached_results))
             debug["cache_hit"] = True
             debug["returned_results"] = len(cached_results)
+            debug["ranking"] = _search_ranking_debug(cached_results, query)
             return cached_results, debug
 
     api_limit = max(limit * 4, 200)
@@ -420,6 +458,7 @@ def _filtered_search_result(
     logger.debug("Search returned %s filtered result(s)", len(results))
 
     debug["returned_results"] = len(results)
+    debug["ranking"] = _search_ranking_debug(results, query)
     return results, debug
 
 

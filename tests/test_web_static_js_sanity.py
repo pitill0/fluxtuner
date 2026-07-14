@@ -420,12 +420,12 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     app_response = client.get("/static/app.js")
     search_response = client.get("/static/js/search.js")
     html_response = client.get("/")
-    stations_css_response = client.get("/static/stations.css")
+    search_css_response = client.get("/static/search.css")
 
     assert app_response.status_code == 200
     assert search_response.status_code == 200
     assert html_response.status_code == 200
-    assert stations_css_response.status_code == 200
+    assert search_css_response.status_code == 200
 
     assert 'from "/static/js/search.js"' in app_response.text
     assert 'name="debug" type="checkbox" value="1"' in html_response.text
@@ -436,10 +436,10 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert "cache_bypassed" in search_response.text
     assert "name returned" in search_response.text
     assert "tag returned" in search_response.text
-    assert ".search-debug-panel" in stations_css_response.text
-    assert ".search-debug-label" in stations_css_response.text
-    assert "min-width: 0;" in stations_css_response.text
-    assert "minmax(9rem, 0.85fr)" in stations_css_response.text
+    assert ".search-debug-panel" in search_css_response.text
+    assert ".search-debug-label" in search_css_response.text
+    assert "min-width: 0;" in search_css_response.text
+    assert "minmax(9rem, 0.85fr)" in search_css_response.text
 
 
 def test_web_static_js_allows_min_bitrate_only_search() -> None:

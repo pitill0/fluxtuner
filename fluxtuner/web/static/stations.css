@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-/* Search controls, result lists, station cards and responsive behavior. */
+/* Result lists, station cards and responsive behavior. */
 
 .station-actions a {
   display: inline-flex;
@@ -38,84 +38,10 @@
   background: rgba(15, 23, 42, 0.58);
 }
 
-.search-form,
 .station-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-}
-
-.search-form {
-  display: grid;
-  grid-template-columns:
-    minmax(13rem, 1.25fr) minmax(9rem, 0.85fr) minmax(6.5rem, 0.4fr)
-    minmax(6.5rem, 0.35fr) auto auto;
-  align-items: end;
-}
-
-.search-form label {
-  min-width: 0;
-}
-
-.search-debug-label {
-  display: flex;
-  min-height: 2.7rem;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.search-debug-panel {
-  border: 1px solid rgba(110, 231, 216, 0.2);
-  border-radius: 1rem;
-  padding: 0.85rem 1rem;
-  color: var(--muted);
-  background: rgba(3, 7, 18, 0.2);
-}
-
-.search-debug-panel summary {
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 800;
-}
-
-.search-debug-panel dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-  gap: 0.65rem;
-  margin: 0.85rem 0 0;
-}
-
-.search-debug-panel div {
-  border: 1px solid rgba(155, 180, 206, 0.16);
-  border-radius: 0.85rem;
-  padding: 0.55rem 0.7rem;
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.search-debug-panel dt {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.search-debug-panel dd {
-  margin: 0.2rem 0 0;
-  color: var(--text);
-  font-weight: 900;
-}
-
-.search-form button {
-  color: #04111f;
-  border-color: var(--action-fill);
-  background: var(--action-fill);
-}
-
-.search-form button:not(:disabled):hover {
-  color: #ffffff;
-  border-color: var(--action-fill-hover);
-  background: var(--action-fill-hover);
 }
 
 .results {
@@ -175,14 +101,6 @@
   border-color: rgba(252, 165, 165, 0.3);
   background: rgba(127, 29, 29, 0.2);
 }
-
-@media (max-width: 58rem) {.search-form {
-    grid-template-columns: 1fr;
-  }
-
-.search-form button {
-    width: fit-content;
-  }}
 
 @media (max-width: 42rem) {.station-card header {
     display: grid;

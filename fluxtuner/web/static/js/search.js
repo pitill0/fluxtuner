@@ -50,21 +50,43 @@ export function createSearchController({
   bindResultActions,
   setSearchView,
 }) {
+  let activeSearchController = null;
+  let searchRequestId = 0;
+
   function renderResults(payload) {
     if (!resultsNode || !resultCountNode) return;
 
     const stations = payload.stations || [];
+    const status = payload.status || "ok";
     const debugPanel = renderSearchDebug(payload.debug);
+
+    if (status === "unavailable") {
+      resultCountNode.textContent = "Search unavailable.";
+      resultsNode.innerHTML = `${debugPanel}<p class="error">Radio Browser is temporarily unavailable. Please try again.</p>`;
+      return;
+    }
+
     resultCountNode.textContent = `${payload.count ?? stations.length} result${
       stations.length === 1 ? "" : "s"
     }`;
 
+    const partialNotice =
+      status === "partial"
+        ? '<p class="empty">Some search sources were unavailable. Showing available results.</p>'
+        : "";
+
     if (!stations.length) {
-      resultsNode.innerHTML = `${debugPanel}<p class="empty">No stations found.</p>`;
+      const emptyMessage =
+        status === "partial"
+          ? "No stations found in the available search sources."
+          : "No stations found.";
+      resultsNode.innerHTML = `${debugPanel}${partialNotice}<p class="empty">${emptyMessage}</p>`;
       return;
     }
 
-    resultsNode.innerHTML = `${debugPanel}${stations.map(renderStation).join("")}`;
+    resultsNode.innerHTML = `${debugPanel}${partialNotice}${stations
+      .map(renderStation)
+      .join("")}`;
     bindResultActions();
   }
 
@@ -72,13 +94,19 @@ export function createSearchController({
     if (!resultsNode || !resultCountNode) return;
 
     resultCountNode.textContent = "Search failed.";
-    resultsNode.innerHTML = `<p class="error">${escapeHtml(error)}</p>`;
+    const message = error?.message || String(error);
+    resultsNode.innerHTML = `<p class="error">${escapeHtml(message)}</p>`;
   }
 
   async function searchStations(event) {
     event.preventDefault();
 
     if (!searchForm || !resultsNode || !resultCountNode) return;
+
+    activeSearchController?.abort();
+    const requestId = ++searchRequestId;
+    const controller = new AbortController();
+    activeSearchController = controller;
 
     const formData = new FormData(searchForm);
     const params = new URLSearchParams();
@@ -108,6 +136,7 @@ export function createSearchController({
         headers: {
           Accept: "application/json",
         },
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -115,9 +144,15 @@ export function createSearchController({
       }
 
       const payload = await response.json();
+      if (requestId !== searchRequestId) return;
       renderResults(payload);
     } catch (error) {
+      if (error?.name === "AbortError" || requestId !== searchRequestId) return;
       renderSearchError(error);
+    } finally {
+      if (requestId === searchRequestId) {
+        activeSearchController = null;
+      }
     }
   }
 

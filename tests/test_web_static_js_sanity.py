@@ -65,6 +65,25 @@ def test_web_search_module_handles_status_and_concurrency() -> None:
     assert 'error?.name === "AbortError"' in response.text
 
 
+def test_web_search_debug_panel_explains_ranking() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/js/search.js")
+
+    assert response.status_code == 200
+    assert "const ranking = debug.ranking || {};" in response.text
+    assert "const tiers = ranking.tiers || {};" in response.text
+    assert '["ranking applied", ranking.applied ? "yes" : "no"]' in response.text
+    assert '["exact name", tiers.exact_name]' in response.text
+    assert '["name prefix", tiers.name_prefix]' in response.text
+    assert '["name contains", tiers.name_contains]' in response.text
+    assert '["tag contains", tiers.tag_contains]' in response.text
+    assert '["other rank", tiers.other]' in response.text
+    assert "selectedRanking.length" in response.text
+    assert 'item.reason || "other"' in response.text
+    assert "escapeHtml(String(item.name" in response.text
+
+
 def test_web_static_js_uses_theme_module() -> None:
     client = TestClient(create_app())
 

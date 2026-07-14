@@ -8,6 +8,9 @@ function renderSearchDebug(debug) {
   if (!debug) return "";
 
   const cacheState = debug.cache_bypassed ? "bypassed" : debug.cache_hit ? "hit" : "miss";
+  const ranking = debug.ranking || {};
+  const tiers = ranking.tiers || {};
+  const selectedRanking = Array.isArray(ranking.selected) ? ranking.selected : [];
   const items = [
     ["cache", cacheState],
     ["name fetched", debug.name_results],
@@ -19,6 +22,12 @@ function renderSearchDebug(debug) {
     ["country filtered", debug.country_filtered_results],
     ["bitrate filtered", debug.bitrate_filtered_results],
     ["returned", debug.returned_results],
+    ["ranking applied", ranking.applied ? "yes" : "no"],
+    ["exact name", tiers.exact_name],
+    ["name prefix", tiers.name_prefix],
+    ["name contains", tiers.name_contains],
+    ["tag contains", tiers.tag_contains],
+    ["other rank", tiers.other],
     ["api limit", debug.api_limit],
   ];
 
@@ -37,6 +46,18 @@ function renderSearchDebug(debug) {
           )
           .join("")}
       </dl>
+      ${
+        selectedRanking.length
+          ? `<ol>${selectedRanking
+              .map(
+                (item) =>
+                  `<li>${escapeHtml(String(item.name || "Unknown station"))}: tier ${escapeHtml(
+                    String(item.tier ?? ""),
+                  )} (${escapeHtml(String(item.reason || "other"))})</li>`,
+              )
+              .join("")}</ol>`
+          : ""
+      }
     </details>
   `;
 }

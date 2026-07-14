@@ -15,24 +15,25 @@ def configure_files(tmp_path, monkeypatch) -> None:
 def test_search_payload_normalizes_filters(monkeypatch) -> None:
     seen: dict[str, object] = {}
 
-    def fake_search_stations_filtered(**kwargs):
+    def fake_search_stations_filtered_debug(**kwargs):
         seen.update(kwargs)
-        return [
-            {
-                "name": "Alice Radio",
-                "url": "https://example.com/alice",
-                "country": "Spain",
-                "bitrate": 128,
-            }
-        ]
+        return (
+            [
+                {
+                    "name": "Alice Radio",
+                    "url": "https://example.com/alice",
+                    "country": "Spain",
+                    "bitrate": 128,
+                }
+            ],
+            {"cache_hit": False, "sources": {"name": {"status": "ok"}}},
+        )
 
-    monkeypatch.setattr(library, "search_stations_filtered", fake_search_stations_filtered)
-
+    monkeypatch.setattr(
+        library, "search_stations_filtered_debug", fake_search_stations_filtered_debug
+    )
     payload = library.search_payload(
-        query="  alice  ",
-        country="  Spain  ",
-        min_bitrate=128,
-        limit=10,
+        query="  alice  ", country="  Spain  ", min_bitrate=128, limit=10
     )
 
     assert seen == {
@@ -40,12 +41,15 @@ def test_search_payload_normalizes_filters(monkeypatch) -> None:
         "country": "Spain",
         "min_bitrate": 128,
         "limit": 10,
+        "use_cache": True,
     }
+    assert payload["status"] == "ok"
     assert payload["query"] == "alice"
     assert payload["country"] == "Spain"
     assert payload["min_bitrate"] == 128
     assert payload["count"] == 1
     assert payload["stations"][0]["name"] == "Alice Radio"
+    assert "debug" not in payload
 
 
 def test_search_payload_can_include_debug_metadata(monkeypatch) -> None:
@@ -54,33 +58,24 @@ def test_search_payload_can_include_debug_metadata(monkeypatch) -> None:
     def fake_search_stations_filtered_debug(**kwargs):
         seen.update(kwargs)
         return (
-            [
-                {
-                    "name": "Tag Radio",
-                    "url": "https://example.com/tag",
-                    "tags": "rock",
-                }
-            ],
+            [{"name": "Tag Radio", "url": "https://example.com/tag", "tags": "rock"}],
             {
                 "query": "rock",
                 "name_results": 1,
                 "tag_results": 1,
                 "returned_results": 1,
+                "sources": {
+                    "name": {"status": "ok"},
+                    "tag": {"status": "ok"},
+                },
             },
         )
 
     monkeypatch.setattr(
-        library,
-        "search_stations_filtered_debug",
-        fake_search_stations_filtered_debug,
+        library, "search_stations_filtered_debug", fake_search_stations_filtered_debug
     )
-
     payload = library.search_payload(
-        query=" rock ",
-        country=" ",
-        min_bitrate=0,
-        limit=25,
-        debug=True,
+        query=" rock ", country=" ", min_bitrate=0, limit=25, debug=True
     )
 
     assert seen == {
@@ -90,6 +85,7 @@ def test_search_payload_can_include_debug_metadata(monkeypatch) -> None:
         "limit": 25,
         "use_cache": False,
     }
+    assert payload["status"] == "ok"
     assert payload["count"] == 1
     assert payload["stations"][0]["tags"] == "rock"
     assert payload["debug"] == {
@@ -97,22 +93,93 @@ def test_search_payload_can_include_debug_metadata(monkeypatch) -> None:
         "name_results": 1,
         "tag_results": 1,
         "returned_results": 1,
+        "sources": {
+            "name": {"status": "ok"},
+            "tag": {"status": "ok"},
+        },
     }
+
+
+def test_search_payload_reports_partial_when_sources_are_mixed(monkeypatch) -> None:
+    monkeypatch.setattr(
+        library,
+        "search_stations_filtered_debug",
+        lambda **_kwargs: (
+            [{"name": "Tag Radio", "url": "https://example.com/tag"}],
+            {
+                "sources": {
+                    "name": {"status": "request_error"},
+                    "tag": {"status": "ok"},
+                }
+            },
+        ),
+    )
+
+    payload = library.search_payload(query="rock", country="", min_bitrate=0, limit=25)
+    assert payload["status"] == "partial"
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Tag Radio"
+    assert "debug" not in payload
+
+
+def test_search_payload_reports_unavailable_when_all_sources_fail(monkeypatch) -> None:
+    monkeypatch.setattr(
+        library,
+        "search_stations_filtered_debug",
+        lambda **_kwargs: (
+            [],
+            {
+                "sources": {
+                    "name": {"status": "request_error"},
+                    "tag": {"status": "http_error"},
+                }
+            },
+        ),
+    )
+
+    payload = library.search_payload(query="rock", country="", min_bitrate=0, limit=25)
+    assert payload["status"] == "unavailable"
+    assert payload["count"] == 0
+    assert payload["stations"] == []
+
+
+def test_search_payload_reports_ok_for_cached_results(monkeypatch) -> None:
+    def fake_search_stations_filtered_debug(**kwargs):
+        assert kwargs["use_cache"] is True
+        return (
+            [{"name": "Cached Radio", "url": "https://example.com/cached"}],
+            {"cache_hit": True, "sources": {}},
+        )
+
+    monkeypatch.setattr(
+        library, "search_stations_filtered_debug", fake_search_stations_filtered_debug
+    )
+    payload = library.search_payload(query="rock", country="", min_bitrate=0, limit=25)
+    assert payload["status"] == "ok"
+    assert payload["count"] == 1
 
 
 def test_search_payload_omits_empty_optional_filters(monkeypatch) -> None:
     seen: dict[str, object] = {}
 
-    def fake_search_stations_filtered(**kwargs):
+    def fake_search_stations_filtered_debug(**kwargs):
         seen.update(kwargs)
-        return []
+        return [], {"cache_hit": False, "sources": {}}
 
-    monkeypatch.setattr(library, "search_stations_filtered", fake_search_stations_filtered)
-
+    monkeypatch.setattr(
+        library, "search_stations_filtered_debug", fake_search_stations_filtered_debug
+    )
     payload = library.search_payload(query="", country="  ", min_bitrate=0, limit=25)
 
-    assert seen == {"query": "", "country": None, "min_bitrate": None, "limit": 25}
+    assert seen == {
+        "query": "",
+        "country": None,
+        "min_bitrate": None,
+        "limit": 25,
+        "use_cache": True,
+    }
     assert payload == {
+        "status": "ok",
         "query": "",
         "country": "",
         "min_bitrate": 0,

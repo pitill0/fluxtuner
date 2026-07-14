@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fluxtuner.core.api import search_stations_filtered, search_stations_filtered_debug
+from fluxtuner.core.api import search_stations_filtered_debug
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.manual_playlists import (
@@ -16,6 +16,23 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.web.payloads import station_payload
+
+SEARCH_STATUS_OK = "ok"
+SEARCH_STATUS_PARTIAL = "partial"
+SEARCH_STATUS_UNAVAILABLE = "unavailable"
+
+
+def _aggregate_search_status(debug_info: dict[str, Any]) -> str:
+    sources = debug_info.get("sources")
+    if not isinstance(sources, dict) or not sources:
+        return SEARCH_STATUS_OK
+
+    statuses = [source.get("status") for source in sources.values() if isinstance(source, dict)]
+    if not statuses or all(status == SEARCH_STATUS_OK for status in statuses):
+        return SEARCH_STATUS_OK
+    if any(status == SEARCH_STATUS_OK for status in statuses):
+        return SEARCH_STATUS_PARTIAL
+    return SEARCH_STATUS_UNAVAILABLE
 
 
 def search_payload(
@@ -30,24 +47,16 @@ def search_payload(
     country_filter = country.strip() or None
     bitrate_filter = min_bitrate if min_bitrate > 0 else None
 
-    debug_info: dict[str, Any] | None = None
-    if debug:
-        stations, debug_info = search_stations_filtered_debug(
-            query=normalized_query,
-            country=country_filter,
-            min_bitrate=bitrate_filter,
-            limit=limit,
-            use_cache=False,
-        )
-    else:
-        stations = search_stations_filtered(
-            query=normalized_query,
-            country=country_filter,
-            min_bitrate=bitrate_filter,
-            limit=limit,
-        )
+    stations, debug_info = search_stations_filtered_debug(
+        query=normalized_query,
+        country=country_filter,
+        min_bitrate=bitrate_filter,
+        limit=limit,
+        use_cache=not debug,
+    )
 
     payload = {
+        "status": _aggregate_search_status(debug_info),
         "query": normalized_query,
         "country": country_filter or "",
         "min_bitrate": min_bitrate,
@@ -55,7 +64,7 @@ def search_payload(
         "count": len(stations),
         "stations": [station_payload(station) for station in stations],
     }
-    if debug_info is not None:
+    if debug:
         payload["debug"] = debug_info
 
     return payload

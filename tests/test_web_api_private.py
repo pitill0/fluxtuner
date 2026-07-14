@@ -255,26 +255,30 @@ def test_authenticated_user_can_search_stations(tmp_path, monkeypatch) -> None:
     create_user("alice")
     login(client, "alice")
 
-    def fake_search_stations_filtered(**_kwargs):
-        return [
-            {
-                "name": "Alice Radio",
-                "url": "https://example.com/alice",
-                "country": "Spain",
-                "codec": "MP3",
-                "bitrate": 128,
-            }
-        ]
+    def fake_search_stations_filtered_debug(**_kwargs):
+        return (
+            [
+                {
+                    "name": "Alice Radio",
+                    "url": "https://example.com/alice",
+                    "country": "Spain",
+                    "codec": "MP3",
+                    "bitrate": 128,
+                }
+            ],
+            {"sources": {"name": {"status": "ok"}}},
+        )
 
     monkeypatch.setattr(
-        "fluxtuner.web.library.search_stations_filtered",
-        fake_search_stations_filtered,
+        "fluxtuner.web.library.search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
     )
 
     response = client.get("/api/search?q=alice")
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["status"] == "ok"
     assert payload["query"] == "alice"
     assert payload["count"] == 1
     assert payload["stations"][0]["name"] == "Alice Radio"
@@ -286,26 +290,36 @@ def test_authenticated_user_can_search_by_min_bitrate_only(tmp_path, monkeypatch
     login(client, "alice")
     seen: dict[str, object] = {}
 
-    def fake_search_stations_filtered(**kwargs):
+    def fake_search_stations_filtered_debug(**kwargs):
         seen.update(kwargs)
-        return [
-            {
-                "name": "High Bitrate Radio",
-                "url": "https://example.com/high",
-                "bitrate": 320,
-            }
-        ]
+        return (
+            [
+                {
+                    "name": "High Bitrate Radio",
+                    "url": "https://example.com/high",
+                    "bitrate": 320,
+                }
+            ],
+            {"sources": {"country": {"status": "ok"}}},
+        )
 
     monkeypatch.setattr(
-        "fluxtuner.web.library.search_stations_filtered",
-        fake_search_stations_filtered,
+        "fluxtuner.web.library.search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
     )
 
     response = client.get("/api/search?min_bitrate=256")
 
     assert response.status_code == 200
-    assert seen == {"query": "", "country": None, "min_bitrate": 256, "limit": 25}
+    assert seen == {
+        "query": "",
+        "country": None,
+        "min_bitrate": 256,
+        "limit": 25,
+        "use_cache": True,
+    }
     payload = response.json()
+    assert payload["status"] == "ok"
     assert payload["query"] == ""
     assert payload["country"] == ""
     assert payload["min_bitrate"] == 256
@@ -318,19 +332,21 @@ def test_authenticated_user_can_request_up_to_100_search_results(tmp_path, monke
     login(client, "alice")
     seen: dict[str, object] = {}
 
-    def fake_search_stations_filtered(**kwargs):
+    def fake_search_stations_filtered_debug(**kwargs):
         seen.update(kwargs)
-        return []
+        return [], {"sources": {"name": {"status": "ok"}}}
 
     monkeypatch.setattr(
-        "fluxtuner.web.library.search_stations_filtered",
-        fake_search_stations_filtered,
+        "fluxtuner.web.library.search_stations_filtered_debug",
+        fake_search_stations_filtered_debug,
     )
 
     response = client.get("/api/search?q=alice&limit=100")
 
     assert response.status_code == 200
     assert seen["limit"] == 100
+    assert seen["use_cache"] is True
+    assert response.json()["status"] == "ok"
     assert response.json()["limit"] == 100
 
 

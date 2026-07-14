@@ -45,6 +45,26 @@ def test_web_static_js_uses_application_dom_registry() -> None:
     assert "document.getElementsByTagName(" not in app_response.text
 
 
+def test_web_search_module_handles_status_and_concurrency() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/js/search.js")
+
+    assert response.status_code == 200
+    assert 'const status = payload.status || "ok";' in response.text
+    assert 'status === "partial"' in response.text
+    assert 'status === "unavailable"' in response.text
+    assert "Radio Browser is temporarily unavailable. Please try again." in response.text
+    assert "Some search sources were unavailable. Showing available results." in response.text
+    assert "let activeSearchController = null;" in response.text
+    assert "let searchRequestId = 0;" in response.text
+    assert "activeSearchController?.abort();" in response.text
+    assert "const controller = new AbortController();" in response.text
+    assert "signal: controller.signal" in response.text
+    assert "requestId !== searchRequestId" in response.text
+    assert 'error?.name === "AbortError"' in response.text
+
+
 def test_web_static_js_uses_theme_module() -> None:
     client = TestClient(create_app())
 

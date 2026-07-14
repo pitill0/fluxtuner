@@ -46,6 +46,21 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
     assert "function renderDashboard(payload)" not in app_response.text
 
 
+def test_web_search_controller_is_loaded_as_a_module() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    search_response = client.get("/static/js/search.js")
+
+    assert app_response.status_code == 200
+    assert search_response.status_code == 200
+    assert 'import { createSearchController } from "/static/js/search.js";' in app_response.text
+    assert "export function createSearchController" in search_response.text
+    assert "const searchController = createSearchController({" in app_response.text
+    assert "function renderSearchError(" not in app_response.text
+    assert "renderResults(payload)" not in app_response.text
+
+
 def test_web_static_js_resets_search_navigation() -> None:
     client = TestClient(create_app())
 

@@ -12,19 +12,24 @@ def test_web_panel_styles_are_isolated() -> None:
     styles_response = client.get("/static/styles.css")
     shell_response = client.get("/static/shell.css")
     panels_response = client.get("/static/panels.css")
+    buttons_response = client.get("/static/buttons.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert shell_response.status_code == 200
     assert panels_response.status_code == 200
+    assert buttons_response.status_code == 200
 
     shell_link = '<link rel="stylesheet" href="/static/shell.css">'
     panels_link = '<link rel="stylesheet" href="/static/panels.css">'
+    buttons_link = '<link rel="stylesheet" href="/static/buttons.css">'
     forms_link = '<link rel="stylesheet" href="/static/forms.css">'
     assert shell_link in page_response.text
     assert panels_link in page_response.text
+    assert buttons_link in page_response.text
     assert forms_link in page_response.text
-    assert page_response.text.index(shell_link) < page_response.text.index(panels_link)
+    assert page_response.text.index(shell_link) < page_response.text.index(buttons_link)
+    assert page_response.text.index(buttons_link) < page_response.text.index(panels_link)
     assert page_response.text.index(panels_link) < page_response.text.index(forms_link)
 
     for selector in (
@@ -47,8 +52,51 @@ def test_web_panel_styles_are_isolated() -> None:
     assert "@media (max-width: 58rem)" in panels_response.text
     assert "@media (max-width: 42rem)" in panels_response.text
     assert 'html[data-theme="light"] .panel' in panels_response.text
-    assert "button," in styles_response.text
+    assert "button," not in styles_response.text
+    assert "button," in buttons_response.text
     assert ".empty," in styles_response.text
+
+
+def test_web_button_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    panels_response = client.get("/static/panels.css")
+    buttons_response = client.get("/static/buttons.css")
+    forms_response = client.get("/static/forms.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert panels_response.status_code == 200
+    assert buttons_response.status_code == 200
+    assert forms_response.status_code == 200
+
+    panels_link = '<link rel="stylesheet" href="/static/panels.css">'
+    buttons_link = '<link rel="stylesheet" href="/static/buttons.css">'
+    forms_link = '<link rel="stylesheet" href="/static/forms.css">'
+    assert panels_link in page_response.text
+    assert buttons_link in page_response.text
+    assert forms_link in page_response.text
+    assert page_response.text.index(buttons_link) < page_response.text.index(panels_link)
+    assert page_response.text.index(panels_link) < page_response.text.index(forms_link)
+
+    for selector in (
+        "\nbutton,",
+        "\na.button,",
+        "\n.hero-actions a {",
+        "\nbutton:not(:disabled):hover,",
+        "\nbutton:disabled {",
+        'html[data-theme="light"] button,',
+        'html[data-theme="light"] button:not(:disabled):hover,',
+    ):
+        assert selector in buttons_response.text
+        assert selector not in styles_response.text
+
+    assert "\n.hero-actions {" in panels_response.text
+    assert "\n.hero-actions a:first-child {" in panels_response.text
+    assert "\n.hero-actions a {" not in panels_response.text
+    assert "Shared button and button-link behavior" in buttons_response.text
 
 
 def test_web_index_exposes_dashboard_ui() -> None:

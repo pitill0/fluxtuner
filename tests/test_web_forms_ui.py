@@ -34,12 +34,14 @@ def test_web_css_extracts_shared_forms_domain() -> None:
     page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
     shell_response = client.get("/static/shell.css")
+    panels_response = client.get("/static/panels.css")
     forms_response = client.get("/static/forms.css")
     dialogs_response = client.get("/static/dialogs.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert shell_response.status_code == 200
+    assert panels_response.status_code == 200
     assert forms_response.status_code == 200
     assert dialogs_response.status_code == 200
 
@@ -61,11 +63,13 @@ def test_web_css_extracts_shared_forms_domain() -> None:
         assert selector in forms_response.text
         assert selector not in styles_response.text
 
-    # Shared help-text consumers remain in the base stylesheet and may
-    # legitimately reference the variable declared by forms.css.
-    assert ".panel p" in styles_response.text
+    # Shared help-text consumers retain ownership in their component
+    # stylesheet and may reference the variable declared by forms.css.
+    assert ".panel p" not in styles_response.text
+    assert ".panel p" in panels_response.text
     assert "small" in styles_response.text
     assert "var(--help-text)" in styles_response.text
+    assert "var(--help-text)" in panels_response.text
 
     # Dialog variables belong to dialogs.css, not the shared forms layer.
     assert "--dialog-bg" not in styles_response.text

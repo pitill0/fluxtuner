@@ -5,6 +5,52 @@ from fastapi.testclient import TestClient
 from fluxtuner.web.app import create_app
 
 
+def test_web_panel_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    shell_response = client.get("/static/shell.css")
+    panels_response = client.get("/static/panels.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert shell_response.status_code == 200
+    assert panels_response.status_code == 200
+
+    shell_link = '<link rel="stylesheet" href="/static/shell.css">'
+    panels_link = '<link rel="stylesheet" href="/static/panels.css">'
+    forms_link = '<link rel="stylesheet" href="/static/forms.css">'
+    assert shell_link in page_response.text
+    assert panels_link in page_response.text
+    assert forms_link in page_response.text
+    assert page_response.text.index(shell_link) < page_response.text.index(panels_link)
+    assert page_response.text.index(panels_link) < page_response.text.index(forms_link)
+
+    for selector in (
+        "\n.panel,",
+        "\n.panel-heading {",
+        "\n.panel-tools {",
+        "\n.panel[hidden] {",
+        "\n.hero {",
+        "\n.app-hero {",
+        "\n.hero-card {",
+        "\n.hero-actions {",
+        "\n.eyebrow {",
+        "\n.lede {",
+        "\n.panel p {",
+    ):
+        assert selector in panels_response.text
+        assert selector not in styles_response.text
+        assert selector not in shell_response.text
+
+    assert "@media (max-width: 58rem)" in panels_response.text
+    assert "@media (max-width: 42rem)" in panels_response.text
+    assert 'html[data-theme="light"] .panel' in panels_response.text
+    assert "button," in styles_response.text
+    assert ".empty," in styles_response.text
+
+
 def test_web_index_exposes_dashboard_ui() -> None:
     client = TestClient(create_app())
 

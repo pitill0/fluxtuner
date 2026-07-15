@@ -10,10 +10,12 @@ def test_web_css_completes_auth_style_ownership() -> None:
 
     page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
+    panels_response = client.get("/static/panels.css")
     auth_response = client.get("/static/auth.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
+    assert panels_response.status_code == 200
     assert auth_response.status_code == 200
 
     auth_link = '<link rel="stylesheet" href="/static/auth.css">'
@@ -45,6 +47,7 @@ def test_web_css_completes_auth_style_ownership() -> None:
     ):
         assert selector not in styles_response.text
 
-    assert ".panel[hidden]" in styles_response.text
+    assert ".panel[hidden]" not in styles_response.text
+    assert ".panel[hidden]" in panels_response.text
     assert ".admin-panel[hidden]" not in styles_response.text
     assert "Shared form controls remain in forms.css." in auth_response.text

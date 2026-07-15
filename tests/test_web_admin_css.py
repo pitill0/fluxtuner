@@ -10,11 +10,13 @@ def test_web_css_completes_admin_diagnostic_style_ownership() -> None:
 
     page_response = client.get("/")
     styles_response = client.get("/static/styles.css")
+    panels_response = client.get("/static/panels.css")
     admin_response = client.get("/static/admin.css")
     admin_js_response = client.get("/static/js/admin.js")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
+    assert panels_response.status_code == 200
     assert admin_response.status_code == 200
     assert admin_js_response.status_code == 200
 
@@ -44,14 +46,16 @@ def test_web_css_completes_admin_diagnostic_style_ownership() -> None:
     ):
         assert snippet not in styles_response.text
 
-    assert styles_response.text.count(".panel[hidden]") == 1
+    assert styles_response.text.count(".panel[hidden]") == 0
+    assert panels_response.text.count(".panel[hidden]") == 1
     assert "display: grid !important;" in admin_response.text
     assert "display: none !important;" in admin_response.text
     assert ".player-debug-section + .player-debug-section" in admin_response.text
     assert "margin-top: 0.75rem !important;" in admin_response.text
     assert 'html[data-theme="light"] .admin-health' in admin_response.text
     assert 'html[data-theme="light"] .admin-health' not in styles_response.text
-    assert 'html[data-theme="light"] .panel' in styles_response.text
+    assert 'html[data-theme="light"] .panel' not in styles_response.text
+    assert 'html[data-theme="light"] .panel' in panels_response.text
 
 
 def test_admin_mobile_fields_use_explicit_labels() -> None:

@@ -55,13 +55,6 @@ body::before {
 
 a { color: var(--accent); }
 
-.status {
-  overflow-x: auto;
-  padding: 1rem;
-  color: var(--muted);
-  white-space: pre-wrap;
-}
-
 h1,
 h2,
 h3 {
@@ -89,21 +82,6 @@ footer {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-}
-
-.empty,
-.error {
-  margin: 0;
-  border: 1px dashed var(--border);
-  border-radius: 1rem;
-  padding: 1rem;
-  color: var(--muted);
-  background: rgba(3, 7, 18, 0.18);
-}
-
-.error {
-  color: var(--danger);
-  border-color: rgba(252, 165, 165, 0.35);
 }
 
 footer {

@@ -1,0 +1,27 @@
+/*
+ * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+ */
+
+/* Shared status, empty-state and error feedback. */
+
+.status {
+  overflow-x: auto;
+  padding: 1rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.empty,
+.error {
+  margin: 0;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: var(--muted);
+  background: rgba(3, 7, 18, 0.18);
+}
+
+.error {
+  color: var(--danger);
+  border-color: rgba(252, 165, 165, 0.35);
+}

@@ -13,12 +13,14 @@ def test_web_panel_styles_are_isolated() -> None:
     shell_response = client.get("/static/shell.css")
     panels_response = client.get("/static/panels.css")
     buttons_response = client.get("/static/buttons.css")
+    feedback_response = client.get("/static/feedback.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert shell_response.status_code == 200
     assert panels_response.status_code == 200
     assert buttons_response.status_code == 200
+    assert feedback_response.status_code == 200
 
     shell_link = '<link rel="stylesheet" href="/static/shell.css">'
     panels_link = '<link rel="stylesheet" href="/static/panels.css">'
@@ -54,7 +56,8 @@ def test_web_panel_styles_are_isolated() -> None:
     assert 'html[data-theme="light"] .panel' in panels_response.text
     assert "button," not in styles_response.text
     assert "button," in buttons_response.text
-    assert ".empty," in styles_response.text
+    assert ".empty," not in styles_response.text
+    assert ".empty," in feedback_response.text
 
 
 def test_web_button_styles_are_isolated() -> None:
@@ -97,6 +100,42 @@ def test_web_button_styles_are_isolated() -> None:
     assert "\n.hero-actions a:first-child {" in panels_response.text
     assert "\n.hero-actions a {" not in panels_response.text
     assert "Shared button and button-link behavior" in buttons_response.text
+
+
+def test_web_feedback_styles_are_isolated() -> None:
+    client = TestClient(create_app())
+
+    page_response = client.get("/")
+    styles_response = client.get("/static/styles.css")
+    forms_response = client.get("/static/forms.css")
+    feedback_response = client.get("/static/feedback.css")
+    dialogs_response = client.get("/static/dialogs.css")
+
+    assert page_response.status_code == 200
+    assert styles_response.status_code == 200
+    assert forms_response.status_code == 200
+    assert feedback_response.status_code == 200
+    assert dialogs_response.status_code == 200
+
+    forms_link = '<link rel="stylesheet" href="/static/forms.css">'
+    feedback_link = '<link rel="stylesheet" href="/static/feedback.css">'
+    dialogs_link = '<link rel="stylesheet" href="/static/dialogs.css">'
+    assert forms_link in page_response.text
+    assert feedback_link in page_response.text
+    assert dialogs_link in page_response.text
+    assert page_response.text.index(forms_link) < page_response.text.index(feedback_link)
+    assert page_response.text.index(feedback_link) < page_response.text.index(dialogs_link)
+
+    for selector in (
+        "\n.status {",
+        "\n.empty,",
+        "\n.error {",
+    ):
+        assert selector in feedback_response.text
+        assert selector not in styles_response.text
+
+    assert "\n.actions {" in styles_response.text
+    assert "Shared status, empty-state and error feedback" in feedback_response.text
 
 
 def test_web_index_exposes_dashboard_ui() -> None:

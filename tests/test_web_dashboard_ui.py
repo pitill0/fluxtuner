@@ -83,11 +83,13 @@ def test_web_search_styles_are_isolated() -> None:
     styles_response = client.get("/static/styles.css")
     search_response = client.get("/static/search.css")
     stations_response = client.get("/static/stations.css")
+    actions_response = client.get("/static/station-actions.css")
 
     assert page_response.status_code == 200
     assert styles_response.status_code == 200
     assert search_response.status_code == 200
     assert stations_response.status_code == 200
+    assert actions_response.status_code == 200
 
     search_link = '<link rel="stylesheet" href="/static/search.css">'
     stations_link = '<link rel="stylesheet" href="/static/stations.css">'
@@ -112,7 +114,8 @@ def test_web_search_styles_are_isolated() -> None:
 
     assert "@media (max-width: 58rem)" in search_response.text
     assert ".station-card" in stations_response.text
-    assert ".station-actions" in stations_response.text
+    assert ".station-actions" in actions_response.text
+    assert ".station-actions" not in stations_response.text
 
 
 def test_web_dashboard_styles_are_isolated() -> None:

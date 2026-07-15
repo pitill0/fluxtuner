@@ -55,38 +55,6 @@ body::before {
 
 a { color: var(--accent); }
 
-button,
-a.button,
-.hero-actions a {
-  display: inline-flex;
-  min-height: 2.55rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(110, 231, 216, 0.26);
-  border-radius: 999px;
-  padding: 0 1rem;
-  color: var(--text);
-  background: rgba(15, 35, 59, 0.72);
-  font: inherit;
-  font-weight: 850;
-  text-decoration: none;
-  cursor: pointer;
-  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, transform 160ms ease;
-}
-
-button:not(:disabled):hover,
-a.button:hover,
-.hero-actions a:hover {
-  border-color: rgba(110, 231, 216, 0.72);
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
-}
-
 .status {
   overflow-x: auto;
   padding: 1rem;
@@ -187,21 +155,6 @@ html[data-theme="light"] body::before {
   background:
     linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
-}
-
-html[data-theme="light"] button,
-html[data-theme="light"] a.button,
-html[data-theme="light"] .hero-actions a {
-  border-color: rgba(14, 116, 144, 0.22);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-html[data-theme="light"] button:not(:disabled):hover,
-html[data-theme="light"] a.button:hover,
-html[data-theme="light"] .hero-actions a:hover {
-  border-color: rgba(14, 116, 144, 0.52);
-  color: var(--accent);
 }
 
 small {

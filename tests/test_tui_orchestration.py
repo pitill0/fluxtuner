@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from fluxtuner import tui
+from fluxtuner.tui_playback import coordinate_playback_start, coordinate_playback_stop
 
 
 def _station() -> dict[str, object]:
@@ -18,143 +19,130 @@ def _station() -> dict[str, object]:
 def _playback_harness(*, player: Mock | None = None) -> SimpleNamespace:
     player = player or Mock()
     player.is_playing.return_value = True
-
-    harness = SimpleNamespace(
+    return SimpleNamespace(
         player=player,
         player_backend_name="mpv",
         profile_name="default",
         usage_tracker=Mock(),
         playing_station=None,
         last_station=None,
-        _last_metadata_fetch_at=42.0,
         station_supported=Mock(return_value=True),
         station_url=Mock(side_effect=lambda station: str(station.get("url_resolved", ""))),
-        _clear_metadata=Mock(),
         _start_usage_tracking=Mock(),
         apply_restored_playback_preferences=Mock(),
         persist_player_state=Mock(),
-        update_now_playing=Mock(),
-        refresh_active_station_marker=Mock(),
-        _refresh_current_station_view_after_marker_change=Mock(),
-        update_play_button=Mock(),
-        set_status=Mock(),
-        notify=Mock(),
     )
-    return harness
 
 
-def test_tui_play_station_commits_successful_playback_once(monkeypatch) -> None:
+def _start(harness: SimpleNamespace, station: dict[str, object], add_history: Mock):
+    return coordinate_playback_start(
+        station,
+        player=harness.player,
+        player_backend_name=harness.player_backend_name,
+        profile_name=harness.profile_name,
+        station_supported=harness.station_supported,
+        station_url=harness.station_url,
+        start_usage_tracking=harness._start_usage_tracking,
+        add_history_entry=add_history,
+        apply_restored_preferences=harness.apply_restored_playback_preferences,
+        persist_playback_state=harness.persist_player_state,
+    )
+
+
+def test_tui_playback_coordinator_commits_successful_playback_once() -> None:
     station = _station()
     harness = _playback_harness()
     add_history = Mock()
-    monkeypatch.setattr(tui, "add_history", add_history)
 
-    result = tui.FluxTunerTUI.play_station(harness, station)
+    result = _start(harness, station, add_history)
 
-    assert result is True
+    assert result.success is True
+    assert result.station is station
+    assert result.status == "Playing: Flux FM"
+    assert result.error_notification is None
     harness.station_supported.assert_called_once_with(station)
     harness.station_url.assert_called_once_with(station)
     harness.player.play.assert_called_once_with("https://radio.example/stream")
-    assert harness.playing_station is station
-    assert harness.last_station is station
-    harness._clear_metadata.assert_called_once_with()
-    assert harness._last_metadata_fetch_at == 0.0
     harness._start_usage_tracking.assert_called_once_with(station)
     add_history.assert_called_once_with(station, profile_name="default")
     harness.apply_restored_playback_preferences.assert_called_once_with()
     harness.persist_player_state.assert_called_once_with(last_station=station)
-    harness.update_now_playing.assert_called_once_with()
-    harness.refresh_active_station_marker.assert_called_once_with()
-    harness._refresh_current_station_view_after_marker_change.assert_called_once_with()
-    harness.update_play_button.assert_called_once_with()
-    harness.set_status.assert_called_once_with("Playing: Flux FM")
-    harness.notify.assert_not_called()
 
 
-def test_tui_play_station_rejects_unsupported_station_before_player(monkeypatch) -> None:
+def test_tui_playback_coordinator_rejects_unsupported_station(monkeypatch) -> None:
     station = _station()
     harness = _playback_harness()
     harness.station_supported.return_value = False
     add_history = Mock()
-    monkeypatch.setattr(tui, "add_history", add_history)
-    monkeypatch.setattr(tui, "unsupported_station_message", lambda *_args: "Unsupported.")
+    monkeypatch.setattr(
+        "fluxtuner.tui_playback.unsupported_station_message",
+        lambda *_args: "Unsupported.",
+    )
 
-    result = tui.FluxTunerTUI.play_station(harness, station)
+    result = _start(harness, station, add_history)
 
-    assert result is False
+    assert result.success is False
+    assert result.status == "Unsupported."
     harness.station_url.assert_not_called()
     harness.player.play.assert_not_called()
     add_history.assert_not_called()
-    assert harness.playing_station is None
-    assert harness.last_station is None
-    harness.set_status.assert_called_once_with("Unsupported.")
 
 
-def test_tui_play_station_rejects_missing_url_before_player(monkeypatch) -> None:
+def test_tui_playback_coordinator_rejects_missing_url() -> None:
     station = {"name": "No URL"}
     harness = _playback_harness()
     harness.station_url.return_value = ""
     add_history = Mock()
-    monkeypatch.setattr(tui, "add_history", add_history)
 
-    result = tui.FluxTunerTUI.play_station(harness, station)
+    result = _start(harness, station, add_history)
 
-    assert result is False
+    assert result.success is False
+    assert result.status == "Selected station has no playable URL."
     harness.player.play.assert_not_called()
     add_history.assert_not_called()
-    assert harness.playing_station is None
-    assert harness.last_station is None
-    harness.set_status.assert_called_once_with("Selected station has no playable URL.")
 
 
-def test_tui_play_station_failure_does_not_commit_state_or_history(monkeypatch) -> None:
+def test_tui_playback_coordinator_failure_does_not_commit_side_effects() -> None:
     station = _station()
     player = Mock()
     player.play.side_effect = RuntimeError("backend unavailable")
     harness = _playback_harness(player=player)
     add_history = Mock()
-    monkeypatch.setattr(tui, "add_history", add_history)
 
-    result = tui.FluxTunerTUI.play_station(harness, station)
+    result = _start(harness, station, add_history)
 
-    assert result is False
+    assert result.success is False
+    assert result.status == "Playback failed: backend unavailable"
+    assert result.error_notification == "Playback failed: backend unavailable"
     add_history.assert_not_called()
-    assert harness.playing_station is None
-    assert harness.last_station is None
     harness._start_usage_tracking.assert_not_called()
     harness.persist_player_state.assert_not_called()
-    harness.set_status.assert_called_once_with("Playback failed: backend unavailable")
-    harness.notify.assert_called_once_with(
-        "Playback failed: backend unavailable",
-        severity="error",
-    )
 
 
-def test_tui_stop_playback_stops_tracking_and_projects_idle_state() -> None:
+def test_tui_playback_coordinator_stops_player_and_tracking() -> None:
     harness = _playback_harness()
-    harness.playing_station = _station()
 
-    tui.FluxTunerTUI.stop_playback(harness)
+    result = coordinate_playback_stop(
+        player=harness.player,
+        usage_tracker=harness.usage_tracker,
+    )
 
     harness.player.stop.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()
-    assert harness.playing_station is None
-    harness.update_now_playing.assert_called_once_with()
-    harness.refresh_active_station_marker.assert_called_once_with()
-    harness._refresh_current_station_view_after_marker_change.assert_called_once_with()
-    harness.update_play_button.assert_called_once_with()
-    harness.set_status.assert_called_once_with("Playback stopped.")
+    assert result.status == "Playback stopped."
 
 
-def test_tui_stop_playback_tolerates_usage_tracker_failure() -> None:
+def test_tui_playback_coordinator_tolerates_tracker_stop_failure() -> None:
     harness = _playback_harness()
     harness.usage_tracker.stop.side_effect = RuntimeError("tracker stopped")
 
-    tui.FluxTunerTUI.stop_playback(harness)
+    result = coordinate_playback_stop(
+        player=harness.player,
+        usage_tracker=harness.usage_tracker,
+    )
 
     harness.player.stop.assert_called_once_with()
-    assert harness.playing_station is None
-    harness.set_status.assert_called_once_with("Playback stopped.")
+    assert result.status == "Playback stopped."
 
 
 @pytest.mark.parametrize(

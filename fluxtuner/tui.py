@@ -19,7 +19,6 @@ from fluxtuner.config import get_playback_state, save_playback_state, set_config
 from fluxtuner.core.compatibility import (
     filter_supported_stations,
     station_is_supported,
-    unsupported_station_message,
 )
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
 from fluxtuner.core.favorites import (
@@ -71,6 +70,7 @@ from fluxtuner.tui_details import (
     station_details_text,
     theme_details_text,
 )
+from fluxtuner.tui_playback import coordinate_playback_start, coordinate_playback_stop
 from fluxtuner.tui_table import (
     add_playlist_columns,
     add_station_columns,
@@ -986,35 +986,33 @@ class FluxTunerTUI(App[None]):
         self.play_station(self.selected_station)
 
     def play_station(self, station: dict[str, Any]) -> bool:
-        if not self.station_supported(station):
-            self.set_status(unsupported_station_message(station, self.player_backend_name))
+        result = coordinate_playback_start(
+            station,
+            player=self.player,
+            player_backend_name=self.player_backend_name,
+            profile_name=self.profile_name,
+            station_supported=self.station_supported,
+            station_url=self.station_url,
+            start_usage_tracking=self._start_usage_tracking,
+            add_history_entry=add_history,
+            apply_restored_preferences=self.apply_restored_playback_preferences,
+            persist_playback_state=self.persist_player_state,
+        )
+        if not result.success:
+            self.set_status(result.status)
+            if result.error_notification:
+                self.notify(result.error_notification, severity="error")
             return False
 
-        url = self.station_url(station)
-        if not url:
-            self.set_status("Selected station has no playable URL.")
-            return False
-
-        try:
-            self.player.play(url)
-        except Exception as exc:  # noqa: BLE001
-            self.set_status(f"Playback failed: {exc}")
-            self.notify(f"Playback failed: {exc}", severity="error")
-            return False
-
-        self.playing_station = station
-        self.last_station = station
+        self.playing_station = result.station
+        self.last_station = result.station
         self._clear_metadata()
         self._last_metadata_fetch_at = 0.0
-        self._start_usage_tracking(station)
-        add_history(station, profile_name=self.profile_name)
-        self.apply_restored_playback_preferences()
-        self.persist_player_state(last_station=station)
         self.update_now_playing()
         self.refresh_active_station_marker()
         self._refresh_current_station_view_after_marker_change()
         self.update_play_button()
-        self.set_status(f"Playing: {favorite_display_name(station)}")
+        self.set_status(result.status)
         return True
 
     def update_play_button(self) -> None:
@@ -1022,15 +1020,16 @@ class FluxTunerTUI(App[None]):
         button.label = "■ Stop" if self.player.is_playing() else "▶ Play"
 
     def stop_playback(self) -> None:
-        self.player.stop()
-        with suppress(Exception):
-            self.usage_tracker.stop()
+        result = coordinate_playback_stop(
+            player=self.player,
+            usage_tracker=self.usage_tracker,
+        )
         self.playing_station = None
         self.update_now_playing()
         self.refresh_active_station_marker()
         self._refresh_current_station_view_after_marker_change()
         self.update_play_button()
-        self.set_status("Playback stopped.")
+        self.set_status(result.status)
 
     def add_selected_to_favorites(self) -> None:
         if self.view_mode == "themes":

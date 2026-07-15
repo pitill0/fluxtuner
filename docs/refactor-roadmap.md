@@ -24,8 +24,11 @@ Several interface modules carry many responsibilities at once:
   starts the browser bootstrap sequence. DOM lookup, session UI, navigation,
   event binding, bootstrap ordering and the player runtime bridge now live in
   dedicated modules under `fluxtuner/web/static/js/`.
-- `fluxtuner/web/static/styles.css` owns the full Web visual system and has
-  become large enough that feature-local CSS is hard to audit.
+- The Web visual system is now split into focused stylesheets for the global
+  base, shell, buttons, panels, forms, feedback, dialogs and feature-local
+  components. Stylesheet ownership and load order are protected by regression
+  tests; future CSS changes should extend the matching component boundary rather
+  than rebuilding a monolithic `styles.css`.
 - `fluxtuner/tui.py` and `fluxtuner/gui/window.py` contain broad UI orchestration
   plus player, metadata, favorites, history and playlist behaviour.
 
@@ -150,12 +153,15 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 Recommended next branches should stay separate:
 
 - search quality/debugging;
-- Web CSS/component styling boundaries for `fluxtuner/web/static/styles.css`;
+- TUI orchestration auditing and focused boundary work;
+- GTK orchestration auditing, including a least-privilege review of
+  `flatpak/io.github.pitill0.Fluxtuner.yml` finish arguments;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
 
-The numbered roadmap remains the source of truth. The first six phases are
-complete. Search quality, CSS boundaries and storage cleanup are follow-up
-workstreams and should remain independently scoped.
+The numbered roadmap remains the source of truth. The first six phases and the
+Web CSS/component boundary workstream are complete. Search quality, local
+interface audits and storage cleanup are follow-up workstreams and should remain
+independently scoped.
 
 ## Roadmap progress
 
@@ -168,9 +174,45 @@ Phase 5  Web player state model                          complete
 Phase 6  Revisit metadata `Now Playing`                  complete
 ```
 
-The first six phases are complete. Future work should continue through small,
-independently reviewable branches rather than extending the completed player and
-metadata series opportunistically.
+### Completed follow-up workstreams
+
+#### Web CSS and component styling boundaries
+
+Status: completed.
+
+The Web visual system now uses focused stylesheets with explicit ownership:
+
+```text
+styles.css              global tokens, document base and typography
+shell.css               application shell
+buttons.css             shared button behavior
+panels.css              hero and panel surfaces
+forms.css               shared form controls
+feedback.css            status, empty-state and error feedback
+dialogs.css             dialogs
+auth.css                authentication and setup
+public.css              public entry and statistics
+dashboard.css           authenticated dashboard
+admin.css               administration
+search.css              search controls and diagnostics
+stations.css            station lists and cards
+station-actions.css     station actions
+player.css              player and Now Playing
+```
+
+Source-boundary tests verify that selectors remain in their owning stylesheet.
+Load-order tests protect intentional cascade relationships, including shared
+buttons before panel-specific hero overrides and shared feedback before
+feature-specific status rules.
+
+`styles.css` should remain a small global base. Future visual changes should be
+made in the matching component stylesheet, and new files should only be added
+when they introduce a clear ownership boundary.
+
+The first six phases and the CSS follow-up workstream are complete. Future work
+should continue through small, independently reviewable branches rather than
+extending completed Web composition, player, metadata or CSS series
+opportunistically.
 
 ## Proposed incremental phases
 
@@ -422,3 +464,32 @@ Phase 5 player state-model work.
 Future structural PRs should remain small enough to review manually and should
 not change user-visible behaviour unless explicitly stated. Phase status changes
 must be reflected in this roadmap when the corresponding work is merged.
+
+## Next interface audit sequence
+
+The next structural work should begin with documentation-only audits rather than
+immediate code movement:
+
+1. Audit `fluxtuner/tui.py` responsibilities and identify focused seams with
+   matching safety tests.
+2. Extract the first TUI boundary only where ownership, lifecycle or testability
+   clearly improves.
+3. Audit `fluxtuner/gui/window.py` using the same approach.
+4. During the GTK audit, review the Flatpak sandbox permissions in
+   `flatpak/io.github.pitill0.Fluxtuner.yml` and verify whether each current
+   `finish-args` entry remains necessary:
+
+   ```yaml
+   - --share=network
+   - --share=ipc
+   - --socket=fallback-x11
+   - --socket=wayland
+   - --socket=pulseaudio
+   - --device=dri
+   ```
+
+   Any permission reduction must be validated against GTK startup, Wayland and
+   X11 fallback behavior, audio playback, rendering and network radio access.
+5. Introduce cross-interface application services only after equivalent behavior
+   and duplicated orchestration have been demonstrated in at least two
+   interfaces.

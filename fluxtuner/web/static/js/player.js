@@ -134,10 +134,12 @@ export function createPlayerController({
   }
 
   function currentStationTitle() {
+    if (!currentStation) return "Unknown station";
+
     return (
-      currentStation?.name ||
-      currentStation?.custom_name ||
-      currentStation?.title ||
+      currentStation.name ||
+      currentStation.custom_name ||
+      currentStation.title ||
       stationUrl(currentStation) ||
       "Unknown station"
     );

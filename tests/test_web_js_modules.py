@@ -313,7 +313,10 @@ const controller = createPlayerController({
   toggleButton: null,
   stopButton: null,
   openLink: null,
-  stationUrl: () => "",
+  stationUrl: (station) => {
+    if (!station) throw new Error("stationUrl requires a station");
+    return station.url || "";
+  },
   logPlayerEvent: () => {},
   mediaSessionController: {
     debugSnapshot() {

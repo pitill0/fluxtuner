@@ -30,7 +30,9 @@ Several interface modules carry many responsibilities at once:
   tests; future CSS changes should extend the matching component boundary rather
   than rebuilding a monolithic `styles.css`.
 - `fluxtuner/tui.py` and `fluxtuner/gui/window.py` contain broad UI orchestration
-  plus player, metadata, favorites, history and playlist behaviour.
+  plus player, metadata, favorites, history and playlist behaviour. The current
+  TUI responsibility map, test gaps and proposed extraction order are documented
+  in `docs/tui-orchestration-audit.md`.
 
 These files are still workable, but new features increasingly require scanning a
 large surface area.
@@ -153,7 +155,8 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 Recommended next branches should stay separate:
 
 - search quality/debugging;
-- TUI orchestration auditing and focused boundary work;
+- TUI orchestration safety contracts followed by focused boundary work, based
+  on `docs/tui-orchestration-audit.md`;
 - GTK orchestration auditing, including a least-privilege review of
   `flatpak/io.github.pitill0.Fluxtuner.yml` finish arguments;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.

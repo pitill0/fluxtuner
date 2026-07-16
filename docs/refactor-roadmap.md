@@ -155,9 +155,9 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 Recommended next branches should stay separate:
 
 - search quality/debugging;
-- TUI orchestration safety contracts and playback coordination are complete;
-  the remaining view/selection-state pressure is mapped in
-  `docs/tui-view-state-audit.md`;
+- TUI playback coordination and view-state transitions are complete;
+  the remaining stream-metadata lifecycle, race risks and extraction sequence
+  are mapped in `docs/tui-metadata-lifecycle-audit.md`;
 - GTK orchestration auditing, including a least-privilege review of
   `flatpak/io.github.pitill0.Fluxtuner.yml` finish arguments;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.

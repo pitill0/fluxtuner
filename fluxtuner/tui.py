@@ -202,6 +202,7 @@ class FluxTunerTUI(App[None]):
         self.current_artist = "—"
         self.current_track = "—"
         self._metadata_task: asyncio.Task[None] | None = None
+        self._metadata_request_id = 0
         self._last_metadata_raw: str | None = None
         self._last_metadata_fetch_at = 0.0
         self.selected_station: dict[str, Any] | None = None
@@ -290,8 +291,7 @@ class FluxTunerTUI(App[None]):
 
     def on_unmount(self) -> None:
         self.cancel_pending_search()
-        if self._metadata_task and not self._metadata_task.done():
-            self._metadata_task.cancel()
+        self._cancel_metadata_request()
         with suppress(Exception):
             self.usage_tracker.stop()
         self.player.stop()
@@ -1039,6 +1039,7 @@ class FluxTunerTUI(App[None]):
                 self.notify(result.error_notification, severity="error")
             return False
 
+        self._cancel_metadata_request()
         self.playing_station = result.station
         self.last_station = result.station
         self._clear_metadata()
@@ -1059,6 +1060,7 @@ class FluxTunerTUI(App[None]):
             player=self.player,
             usage_tracker=self.usage_tracker,
         )
+        self._cancel_metadata_request()
         self.playing_station = None
         self.update_now_playing()
         self.refresh_active_station_marker()
@@ -1688,6 +1690,18 @@ class FluxTunerTUI(App[None]):
         if self.is_mounted:
             self.query_one("#metadata", Static).update("[b]Metadata[/b]\nArtist: —\nTrack: —")
 
+    def _cancel_metadata_request(self) -> None:
+        self._metadata_request_id += 1
+        task = self._metadata_task
+        self._metadata_task = None
+        if task and not task.done():
+            task.cancel()
+
+    def _metadata_request_is_current(self, request_id: int, stream_url: str) -> bool:
+        if request_id != self._metadata_request_id or not self.playing_station:
+            return False
+        return self.station_url(self.playing_station) == stream_url
+
     def _maybe_fetch_metadata(self) -> None:
         if not self.playing_station:
             return
@@ -1700,10 +1714,23 @@ class FluxTunerTUI(App[None]):
         if not url:
             return
         self._last_metadata_fetch_at = now
-        self._metadata_task = asyncio.create_task(self._fetch_metadata(url))
+        self._metadata_request_id += 1
+        request_id = self._metadata_request_id
+        self._metadata_task = asyncio.create_task(self._fetch_metadata(url, request_id))
 
-    async def _fetch_metadata(self, stream_url: str) -> None:
-        metadata = await asyncio.to_thread(fetch_stream_metadata, stream_url)
+    async def _fetch_metadata(self, stream_url: str, request_id: int) -> None:
+        try:
+            metadata = await asyncio.to_thread(fetch_stream_metadata, stream_url)
+        except Exception:  # noqa: BLE001
+            logger.debug("Could not fetch stream metadata", exc_info=True)
+            return
+        finally:
+            current_task = asyncio.current_task()
+            if current_task is self._metadata_task:
+                self._metadata_task = None
+
+        if not self._metadata_request_is_current(request_id, stream_url):
+            return
         if not metadata:
             return
         raw = metadata.get("raw") or ""

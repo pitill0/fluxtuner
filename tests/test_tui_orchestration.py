@@ -178,10 +178,12 @@ def test_tui_unmount_cancels_tasks_and_stops_runtime_dependencies() -> None:
     metadata_task.done.return_value = False
     harness = SimpleNamespace(
         _metadata_task=metadata_task,
+        _metadata_request_id=0,
         cancel_pending_search=Mock(),
         usage_tracker=Mock(),
         player=Mock(),
     )
+    harness._cancel_metadata_request = lambda: tui.FluxTunerTUI._cancel_metadata_request(harness)
 
     tui.FluxTunerTUI.on_unmount(harness)
 
@@ -197,10 +199,12 @@ def test_tui_unmount_does_not_cancel_completed_metadata_task() -> None:
     metadata_task.done.return_value = True
     harness = SimpleNamespace(
         _metadata_task=metadata_task,
+        _metadata_request_id=0,
         cancel_pending_search=Mock(),
         usage_tracker=Mock(),
         player=Mock(),
     )
+    harness._cancel_metadata_request = lambda: tui.FluxTunerTUI._cancel_metadata_request(harness)
 
     tui.FluxTunerTUI.on_unmount(harness)
 

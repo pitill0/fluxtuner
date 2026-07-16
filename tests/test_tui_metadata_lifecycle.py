@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -16,6 +16,7 @@ def _metadata_harness(*, mounted: bool = False) -> SimpleNamespace:
         current_artist="Old artist",
         current_track="Old track",
         _metadata_task=None,
+        _metadata_request_id=0,
         _last_metadata_raw="old raw",
         _last_metadata_fetch_at=0.0,
         is_mounted=mounted,
@@ -23,6 +24,14 @@ def _metadata_harness(*, mounted: bool = False) -> SimpleNamespace:
         station_url=Mock(return_value="https://radio.example/stream"),
     )
     harness.metadata_widget = widget
+    harness._metadata_request_is_current = MethodType(
+        tui.FluxTunerTUI._metadata_request_is_current,
+        harness,
+    )
+    harness._cancel_metadata_request = MethodType(
+        tui.FluxTunerTUI._cancel_metadata_request,
+        harness,
+    )
     return harness
 
 
@@ -103,6 +112,7 @@ def test_successful_playback_resets_metadata_and_allows_immediate_poll(monkeypat
         playing_station={"name": "Old station"},
         last_station={"name": "Old station"},
         _clear_metadata=clear_metadata,
+        _cancel_metadata_request=Mock(),
         _last_metadata_fetch_at=99.0,
         update_now_playing=Mock(),
         refresh_active_station_marker=Mock(),
@@ -119,6 +129,7 @@ def test_successful_playback_resets_metadata_and_allows_immediate_poll(monkeypat
     assert played is True
     assert harness.playing_station is station
     assert harness.last_station is station
+    harness._cancel_metadata_request.assert_called_once_with()
     clear_metadata.assert_called_once_with()
     assert harness._last_metadata_fetch_at == 0.0
 
@@ -129,7 +140,7 @@ def test_metadata_poll_records_schedule_time_and_stores_task(monkeypatch) -> Non
     scheduled_task = Mock()
     create_task = Mock(return_value=scheduled_task)
 
-    async def fake_fetch(_url):
+    async def fake_fetch(_url, _request_id):
         return None
 
     harness._fetch_metadata = fake_fetch
@@ -160,6 +171,7 @@ def test_metadata_fetch_projects_artist_and_track_fallbacks(
     expected_track: str,
 ) -> None:
     harness = _metadata_harness(mounted=True)
+    harness.playing_station = {"name": "Flux FM"}
     harness._last_metadata_raw = None
 
     async def run_inline(function, *args):
@@ -168,7 +180,13 @@ def test_metadata_fetch_projects_artist_and_track_fallbacks(
     monkeypatch.setattr(asyncio, "to_thread", run_inline)
     monkeypatch.setattr(tui, "fetch_stream_metadata", lambda _url: metadata)
 
-    asyncio.run(tui.FluxTunerTUI._fetch_metadata(harness, "https://radio.example/stream"))
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/stream",
+            harness._metadata_request_id,
+        )
+    )
 
     assert harness.current_artist == expected_artist
     assert harness.current_track == expected_track
@@ -187,7 +205,13 @@ def test_empty_metadata_does_not_change_projection(monkeypatch) -> None:
     monkeypatch.setattr(asyncio, "to_thread", run_inline)
     monkeypatch.setattr(tui, "fetch_stream_metadata", lambda _url: None)
 
-    asyncio.run(tui.FluxTunerTUI._fetch_metadata(harness, "https://radio.example/stream"))
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/stream",
+            harness._metadata_request_id,
+        )
+    )
 
     assert harness.current_artist == "Old artist"
     assert harness.current_track == "Old track"
@@ -213,7 +237,13 @@ def test_duplicate_raw_metadata_does_not_reproject(monkeypatch) -> None:
         },
     )
 
-    asyncio.run(tui.FluxTunerTUI._fetch_metadata(harness, "https://radio.example/stream"))
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/stream",
+            harness._metadata_request_id,
+        )
+    )
 
     assert harness.current_artist == "Old artist"
     assert harness.current_track == "Old track"
@@ -236,6 +266,8 @@ def test_unmount_cancels_active_metadata_task() -> None:
     task.done.return_value = False
     harness = SimpleNamespace(
         _metadata_task=task,
+        _metadata_request_id=0,
+        _cancel_metadata_request=Mock(),
         usage_tracker=Mock(),
         player=Mock(),
         cancel_pending_search=Mock(),
@@ -244,6 +276,129 @@ def test_unmount_cancels_active_metadata_task() -> None:
     tui.FluxTunerTUI.on_unmount(harness)
 
     harness.cancel_pending_search.assert_called_once_with()
-    task.cancel.assert_called_once_with()
+    harness._cancel_metadata_request.assert_called_once_with()
+    task.cancel.assert_not_called()
     harness.usage_tracker.stop.assert_called_once_with()
     harness.player.stop.assert_called_once_with()
+
+
+def test_stale_metadata_result_is_rejected(monkeypatch) -> None:
+    harness = _metadata_harness(mounted=True)
+    harness.playing_station = {"name": "Station B"}
+    harness._metadata_request_id = 2
+    harness.station_url.return_value = "https://radio.example/station-b"
+
+    async def run_inline(function, *args):
+        return function(*args)
+
+    monkeypatch.setattr(asyncio, "to_thread", run_inline)
+    monkeypatch.setattr(
+        tui,
+        "fetch_stream_metadata",
+        lambda _url: {
+            "artist": "Station A artist",
+            "title": "Station A track",
+            "raw": "Station A artist - Station A track",
+        },
+    )
+
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/station-a",
+            1,
+        )
+    )
+
+    assert harness.current_artist == "Old artist"
+    assert harness.current_track == "Old track"
+    assert harness._last_metadata_raw == "old raw"
+    harness.metadata_widget.update.assert_not_called()
+
+
+def test_previous_request_for_same_station_is_rejected(monkeypatch) -> None:
+    harness = _metadata_harness(mounted=True)
+    harness.playing_station = {"name": "Flux FM"}
+    harness._metadata_request_id = 2
+    harness.station_url.return_value = "https://radio.example/stream"
+
+    async def run_inline(function, *args):
+        return function(*args)
+
+    monkeypatch.setattr(asyncio, "to_thread", run_inline)
+    monkeypatch.setattr(
+        tui,
+        "fetch_stream_metadata",
+        lambda _url: {
+            "artist": "Old request artist",
+            "title": "Old request track",
+            "raw": "Old request artist - Old request track",
+        },
+    )
+
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/stream",
+            1,
+        )
+    )
+
+    assert harness.current_artist == "Old artist"
+    assert harness.current_track == "Old track"
+    assert harness._last_metadata_raw == "old raw"
+    harness.metadata_widget.update.assert_not_called()
+
+
+def test_metadata_fetch_exception_is_contained(monkeypatch) -> None:
+    harness = _metadata_harness(mounted=True)
+    harness.playing_station = {"name": "Flux FM"}
+    harness._metadata_request_id = 1
+
+    async def run_inline(function, *args):
+        return function(*args)
+
+    def fail(_url):
+        raise RuntimeError("metadata unavailable")
+
+    monkeypatch.setattr(asyncio, "to_thread", run_inline)
+    monkeypatch.setattr(tui, "fetch_stream_metadata", fail)
+
+    asyncio.run(
+        tui.FluxTunerTUI._fetch_metadata(
+            harness,
+            "https://radio.example/stream",
+            1,
+        )
+    )
+
+    assert harness.current_artist == "Old artist"
+    assert harness.current_track == "Old track"
+    harness.metadata_widget.update.assert_not_called()
+
+
+def test_stop_invalidates_and_cancels_metadata_request(monkeypatch) -> None:
+    task = Mock()
+    task.done.return_value = False
+    harness = SimpleNamespace(
+        _metadata_task=task,
+        _metadata_request_id=4,
+        playing_station={"name": "Flux FM"},
+        player=Mock(),
+        usage_tracker=Mock(),
+        update_now_playing=Mock(),
+        refresh_active_station_marker=Mock(),
+        _refresh_current_station_view_after_marker_change=Mock(),
+        update_play_button=Mock(),
+        set_status=Mock(),
+    )
+    harness._cancel_metadata_request = lambda: tui.FluxTunerTUI._cancel_metadata_request(harness)
+    result = SimpleNamespace(status="Playback stopped.")
+    monkeypatch.setattr(tui, "coordinate_playback_stop", lambda **_kwargs: result)
+
+    tui.FluxTunerTUI.stop_playback(harness)
+
+    assert harness._metadata_request_id == 5
+    assert harness._metadata_task is None
+    assert harness.playing_station is None
+    task.cancel.assert_called_once_with()

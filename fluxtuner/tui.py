@@ -538,6 +538,72 @@ class FluxTunerTUI(App[None]):
     def edit_tags_from_button(self) -> None:
         self.prepare_favorite_tags_edit()
 
+    def _clear_view_selection(self) -> None:
+        self.selected_station = None
+        self.selected_theme = None
+        self.selected_tag = None
+        self.selected_playlist = None
+
+    def _set_view_mode(self, mode: str) -> None:
+        self.view_mode = mode
+
+    def _clear_station_view_selection(self) -> None:
+        self._clear_view_selection()
+        self.active_playlist_name = None
+        self.update_details(None)
+
+    def _enter_playlists_view(self) -> None:
+        self.view_mode = "playlists"
+        self.active_playlist_name = None
+
+    def _enter_playlist_stations_view(self, playlist_name: str) -> None:
+        self.view_mode = "playlist_stations"
+        self.active_playlist_name = playlist_name
+
+    def _clear_playlist_station_selection(self, playlist_name: str) -> None:
+        self.selected_station = None
+        self.selected_theme = None
+        self.selected_tag = None
+        self.selected_playlist = playlist_name
+        self.update_details(None)
+
+    def _enter_themes_view(self) -> None:
+        self.view_mode = "themes"
+
+    def _clear_theme_selection(self) -> None:
+        self.selected_station = None
+        self.selected_tag = None
+
+    def _select_station(
+        self,
+        station: dict[str, Any],
+        *,
+        preserve_playlist: bool = False,
+    ) -> None:
+        self.selected_station = station
+        self.selected_theme = None
+        self.selected_tag = None
+        if not preserve_playlist:
+            self.selected_playlist = None
+
+    def _select_theme(self, theme_name: str) -> None:
+        self.selected_theme = theme_name
+        self.selected_station = None
+        self.selected_tag = None
+        self.selected_playlist = None
+
+    def _select_playlist(self, playlist_name: str) -> None:
+        self.selected_playlist = playlist_name
+        self.selected_tag = None
+        self.selected_station = None
+        self.selected_theme = None
+
+    def _select_tag(self, tag: str) -> None:
+        self.selected_tag = tag
+        self.selected_playlist = None
+        self.selected_station = None
+        self.selected_theme = None
+
     @on(DataTable.RowHighlighted, "#stations")
     def item_highlighted(self, event: DataTable.RowHighlighted) -> None:
         payload = self.selected_payload_from_event(event)
@@ -545,32 +611,21 @@ class FluxTunerTUI(App[None]):
             return
         kind, item_payload = payload
         if kind == "station":
-            self.selected_station = item_payload
-            self.selected_theme = None
-            self.selected_tag = None
-            self.selected_playlist = (
-                None if self.view_mode != "playlist_stations" else self.selected_playlist
+            self._select_station(
+                item_payload,
+                preserve_playlist=self.view_mode == "playlist_stations",
             )
             self.update_details(item_payload)
             self.update_play_button()
         elif kind == "theme":
-            self.selected_theme = item_payload
-            self.selected_station = None
-            self.selected_tag = None
-            self.selected_playlist = None
+            self._select_theme(item_payload)
             self.update_theme_details(item_payload)
             self.preview_theme(item_payload, announce=False)
         elif kind == "playlist":
-            self.selected_playlist = item_payload["name"]
-            self.selected_tag = None
-            self.selected_station = None
-            self.selected_theme = None
+            self._select_playlist(item_payload["name"])
             self.update_persistent_playlist_details(item_payload["name"], item_payload["count"])
         elif kind == "tag":
-            self.selected_tag = item_payload["tag"]
-            self.selected_playlist = None
-            self.selected_station = None
-            self.selected_theme = None
+            self._select_tag(item_payload["tag"])
             self.update_playlist_details(item_payload["tag"], item_payload["count"])
 
     @on(DataTable.RowSelected, "#stations")
@@ -635,18 +690,13 @@ class FluxTunerTUI(App[None]):
             self.set_status("Type a station name/genre, or use country/min kbps filters.")
             return
 
-        self.view_mode = "search"
+        self._set_view_mode("search")
         self._search_task = None
         self.update_mode_title("Search results")
         self.set_status(f"Live searching: {query} ..." if live else f"Searching: {query} ...")
         list_view = self.query_one("#stations", DataTable)
         list_view.clear(columns=True)
-        self.selected_station = None
-        self.selected_theme = None
-        self.selected_tag = None
-        self.selected_playlist = None
-        self.active_playlist_name = None
-        self.update_details(None)
+        self._clear_station_view_selection()
 
         try:
             min_bitrate = None
@@ -692,7 +742,7 @@ class FluxTunerTUI(App[None]):
 
     async def show_favorites(self, tag_filter: str | None = None) -> None:
         self.restore_active_theme_if_previewing()
-        self.view_mode = "favorites"
+        self._set_view_mode("favorites")
         self.favorite_tag_filter = tag_filter
         title = "Favorites" if not tag_filter else f"Favorites · tag: {tag_filter}"
         self.update_mode_title(title)
@@ -704,12 +754,7 @@ class FluxTunerTUI(App[None]):
         favorites = sorted(favorites, key=lambda item: favorite_display_name(item).lower())
         list_view = self.query_one("#stations", DataTable)
         list_view.clear(columns=True)
-        self.selected_station = None
-        self.selected_theme = None
-        self.selected_tag = None
-        self.selected_playlist = None
-        self.active_playlist_name = None
-        self.update_details(None)
+        self._clear_station_view_selection()
         await self.populate_station_list(favorites)
         self.query_one("#stations", DataTable).focus()
         if tag_filter:
@@ -721,33 +766,24 @@ class FluxTunerTUI(App[None]):
 
     async def show_history(self) -> None:
         self.restore_active_theme_if_previewing()
-        self.view_mode = "history"
+        self._set_view_mode("history")
         self.update_mode_title("Recently played")
         history = load_history(profile_name=self.profile_name)
         list_view = self.query_one("#stations", DataTable)
         list_view.clear(columns=True)
-        self.selected_station = None
-        self.selected_theme = None
-        self.selected_tag = None
-        self.selected_playlist = None
-        self.active_playlist_name = None
-        self.update_details(None)
+        self._clear_station_view_selection()
         await self.populate_station_list(history)
         self.query_one("#stations", DataTable).focus()
         self.set_status(f"Loaded {len(history)} recently played station(s).")
 
     async def show_playlists(self) -> None:
         self.restore_active_theme_if_previewing()
-        self.view_mode = "playlists"
-        self.active_playlist_name = None
+        self._enter_playlists_view()
         self.update_mode_title("Playlists")
         manual_counts = playlist_counts(profile_name=self.profile_name)
         tag_counts = get_tag_counts(profile_name=self.profile_name)
         table = self.reset_playlist_table()
-        self.selected_station = None
-        self.selected_theme = None
-        self.selected_tag = None
-        self.selected_playlist = None
+        self._clear_view_selection()
 
         if not manual_counts and not tag_counts:
             table.add_row(
@@ -790,10 +826,10 @@ class FluxTunerTUI(App[None]):
             table.move_cursor(row=0)
             kind, payload = self.table_items[first_actionable_key]
             if kind == "playlist":
-                self.selected_playlist = payload["name"]
+                self._select_playlist(payload["name"])
                 self.update_persistent_playlist_details(payload["name"], payload["count"])
             elif kind == "tag":
-                self.selected_tag = payload["tag"]
+                self._select_tag(payload["tag"])
                 self.update_playlist_details(payload["tag"], payload["count"])
 
         table.focus()
@@ -802,11 +838,10 @@ class FluxTunerTUI(App[None]):
         )
 
     async def show_themes(self) -> None:
-        self.view_mode = "themes"
+        self._enter_themes_view()
         self.update_mode_title("Themes")
         table = self.reset_playlist_table()
-        self.selected_station = None
-        self.selected_tag = None
+        self._clear_theme_selection()
         themes = list_themes()
 
         for theme_name in themes:
@@ -1169,15 +1204,10 @@ class FluxTunerTUI(App[None]):
         self.set_status("No playlist selected.")
 
     async def show_persistent_playlist_stations(self, playlist_name: str) -> None:
-        self.view_mode = "playlist_stations"
-        self.active_playlist_name = playlist_name
+        self._enter_playlist_stations_view(playlist_name)
         self.update_mode_title(f"Playlist · {playlist_name}")
         stations = get_playlist_stations(playlist_name, profile_name=self.profile_name)
-        self.selected_station = None
-        self.selected_theme = None
-        self.selected_tag = None
-        self.selected_playlist = playlist_name
-        self.update_details(None)
+        self._clear_playlist_station_selection(playlist_name)
         await self.populate_station_list(stations)
         self.query_one("#stations", DataTable).focus()
         self.set_status(

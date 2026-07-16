@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -10,7 +10,7 @@ from fluxtuner import tui
 
 
 def _selection_harness(*, view_mode: str = "search") -> SimpleNamespace:
-    return SimpleNamespace(
+    harness = SimpleNamespace(
         view_mode=view_mode,
         selected_station={"name": "Old station"},
         selected_theme="old-theme",
@@ -38,6 +38,23 @@ def _selection_harness(*, view_mode: str = "search") -> SimpleNamespace:
         add_table_payload=Mock(),
         selected_payload_from_event=Mock(),
     )
+    for method_name in (
+        "_clear_view_selection",
+        "_set_view_mode",
+        "_clear_station_view_selection",
+        "_enter_playlists_view",
+        "_enter_playlist_stations_view",
+        "_clear_playlist_station_selection",
+        "_enter_themes_view",
+        "_clear_theme_selection",
+        "_select_station",
+        "_select_theme",
+        "_select_playlist",
+        "_select_tag",
+    ):
+        method = getattr(tui.FluxTunerTUI, method_name)
+        setattr(harness, method_name, MethodType(method, harness))
+    return harness
 
 
 def _table() -> Mock:

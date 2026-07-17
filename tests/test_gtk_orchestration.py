@@ -6,6 +6,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
+from fluxtuner.gui.gtk_metadata import MetadataLifecycle
 from fluxtuner.gui.gtk_playback import (
     coordinate_playback_start,
     coordinate_playback_stop,
@@ -319,90 +320,93 @@ def test_gtk_playback_stop_coordinator_stops_player_and_usage() -> None:
     usage_tracker.stop.assert_called_once_with()
 
 
-def test_gtk_metadata_ignores_stale_projection() -> None:
+def test_gtk_metadata_lifecycle_rejects_stale_and_duplicate_projection() -> None:
+    lifecycle = MetadataLifecycle()
+    generation = lifecycle.start()
+    metadata = {
+        "artist": "Current artist",
+        "title": "Current title",
+        "raw": "Current artist - Current title",
+    }
+
+    assert lifecycle.accept(generation - 1, metadata) is None
+
+    projection = lifecycle.accept(generation, metadata)
+
+    assert projection is not None
+    assert projection.artist == "Current artist"
+    assert projection.track == "Current title"
+    assert projection.raw == "Current artist - Current title"
+    assert lifecycle.accept(generation, metadata) is None
+
+
+def test_gtk_metadata_lifecycle_stale_finish_does_not_unlock_current_fetch() -> None:
+    lifecycle = MetadataLifecycle()
+    generation = lifecycle.start()
+
+    assert lifecycle.begin_fetch() == generation
+    assert lifecycle.begin_fetch() is None
+
+    lifecycle.finish_fetch(generation - 1)
+
+    assert lifecycle.fetch_in_progress is True
+
+    lifecycle.finish_fetch(generation)
+
+    assert lifecycle.fetch_in_progress is False
+
+
+def test_gtk_metadata_projection_remains_in_main_window() -> None:
+    lifecycle = MetadataLifecycle()
+    generation = lifecycle.start()
     harness = SimpleNamespace(
-        _metadata_generation=2,
-        _last_metadata_raw=None,
+        _metadata_lifecycle=lifecycle,
         artist_detail_label=Mock(),
         track_detail_label=Mock(),
     )
-
-    result = window.MainWindow._update_metadata_labels(
-        harness,
-        1,
-        "Old artist",
-        "Old title",
-        "Old artist - Old title",
-    )
-
-    assert result is False
-    assert harness._last_metadata_raw is None
-    harness.artist_detail_label.set_text.assert_not_called()
-    harness.track_detail_label.set_text.assert_not_called()
-
-
-def test_gtk_metadata_accepts_current_projection_once() -> None:
-    harness = SimpleNamespace(
-        _metadata_generation=3,
-        _last_metadata_raw=None,
-        artist_detail_label=Mock(),
-        track_detail_label=Mock(),
-    )
+    metadata = {
+        "artist": "Current artist",
+        "title": "Current title",
+        "raw": "Current artist - Current title",
+    }
 
     first = window.MainWindow._update_metadata_labels(
         harness,
-        3,
-        "Current artist",
-        "Current title",
-        "Current artist - Current title",
+        generation,
+        metadata,
     )
     second = window.MainWindow._update_metadata_labels(
         harness,
-        3,
-        "Current artist",
-        "Current title",
-        "Current artist - Current title",
+        generation,
+        metadata,
     )
 
     assert first is False
     assert second is False
-    assert harness._last_metadata_raw == "Current artist - Current title"
     harness.artist_detail_label.set_text.assert_called_once_with("Current artist")
     harness.track_detail_label.set_text.assert_called_once_with("Current title")
-
-
-def test_gtk_stale_metadata_finish_does_not_unlock_current_fetch() -> None:
-    harness = SimpleNamespace(
-        _metadata_generation=4,
-        _metadata_fetch_in_progress=True,
-    )
-
-    result = window.MainWindow._metadata_fetch_finished(harness, 3)
-
-    assert result is False
-    assert harness._metadata_fetch_in_progress is True
-
-    window.MainWindow._metadata_fetch_finished(harness, 4)
-
-    assert harness._metadata_fetch_in_progress is False
 
 
 def test_gtk_stop_invalidates_in_flight_metadata(monkeypatch) -> None:
     source_remove = Mock()
     monkeypatch.setattr(window.GLib, "source_remove", source_remove, raising=False)
+    lifecycle = MetadataLifecycle()
+    lifecycle.start()
+    assert lifecycle.begin_fetch() is not None
+    previous_generation = lifecycle.generation
 
     harness = SimpleNamespace(
-        _metadata_generation=7,
+        _metadata_lifecycle=lifecycle,
         _metadata_timer_id=42,
-        _metadata_fetch_in_progress=True,
         _clear_metadata_labels=Mock(),
     )
 
     window.MainWindow._stop_metadata_polling(harness)
 
-    assert harness._metadata_generation == 8
+    assert lifecycle.generation == previous_generation + 1
+    assert lifecycle.fetch_in_progress is False
+    assert lifecycle.last_raw is None
     assert harness._metadata_timer_id is None
-    assert harness._metadata_fetch_in_progress is False
     source_remove.assert_called_once_with(42)
     harness._clear_metadata_labels.assert_called_once_with()
 

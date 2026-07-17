@@ -41,6 +41,7 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_url,
 )
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
+from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
@@ -69,9 +70,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.selected_station: dict[str, Any] | None = None
         self.current_station: dict[str, Any] | None = None
         self._metadata_timer_id: int | None = None
-        self._metadata_fetch_in_progress = False
-        self._metadata_generation = 0
-        self._last_metadata_raw: str | None = None
+        self._metadata_lifecycle = MetadataLifecycle()
         self.last_search_results: list[dict[str, Any]] = []
         self.current_view = "search"
         self.active_playlist_tag: str | None = None
@@ -695,41 +694,28 @@ class MainWindow(Gtk.ApplicationWindow):
         finally:
             GLib.idle_add(self._metadata_fetch_finished, generation)
 
-        if not metadata:
-            return
-
-        artist = metadata.get("artist") or "—"
-        title = metadata.get("title") or metadata.get("raw") or "—"
-        raw = metadata.get("raw") or f"{artist} - {title}"
-
-        GLib.idle_add(
-            self._update_metadata_labels,
-            generation,
-            artist,
-            title,
-            raw,
-        )
+        if metadata:
+            GLib.idle_add(
+                self._update_metadata_labels,
+                generation,
+                metadata,
+            )
 
     def _update_metadata_labels(
         self,
         generation: int,
-        artist: str,
-        title: str,
-        raw: str,
+        metadata: dict[str, Any],
     ) -> bool:
-        if generation != self._metadata_generation:
-            return False
-        if raw == self._last_metadata_raw:
+        projection = self._metadata_lifecycle.accept(generation, metadata)
+        if projection is None:
             return False
 
-        self._last_metadata_raw = raw
-        self.artist_detail_label.set_text(artist)
-        self.track_detail_label.set_text(title)
+        self.artist_detail_label.set_text(projection.artist)
+        self.track_detail_label.set_text(projection.track)
         return False
 
     def _metadata_fetch_finished(self, generation: int) -> bool:
-        if generation == self._metadata_generation:
-            self._metadata_fetch_in_progress = False
+        self._metadata_lifecycle.finish_fetch(generation)
         return False
 
     def _clear_metadata_labels(self) -> None:
@@ -737,11 +723,9 @@ class MainWindow(Gtk.ApplicationWindow):
             self.artist_detail_label.set_text("—")
         if hasattr(self, "track_detail_label"):
             self.track_detail_label.set_text("—")
-        self._last_metadata_raw = None
 
     def _start_metadata_polling(self) -> None:
-        self._metadata_generation += 1
-        self._metadata_fetch_in_progress = False
+        self._metadata_lifecycle.start()
 
         if self._metadata_timer_id is None:
             self._metadata_timer_id = GLib.timeout_add_seconds(15, self._tick_metadata)
@@ -749,11 +733,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._tick_metadata()
 
     def _stop_metadata_polling(self) -> None:
-        self._metadata_generation += 1
+        self._metadata_lifecycle.stop()
         if self._metadata_timer_id is not None:
             GLib.source_remove(self._metadata_timer_id)
             self._metadata_timer_id = None
-        self._metadata_fetch_in_progress = False
         self._clear_metadata_labels()
 
     def _tick_metadata(self) -> bool:
@@ -761,15 +744,14 @@ class MainWindow(Gtk.ApplicationWindow):
             self._stop_metadata_polling()
             return False
 
-        if self._metadata_fetch_in_progress:
-            return True
-
         stream_url = self._station_url(self.current_station)
         if not stream_url:
             return True
 
-        self._metadata_fetch_in_progress = True
-        generation = self._metadata_generation
+        generation = self._metadata_lifecycle.begin_fetch()
+        if generation is None:
+            return True
+
         threading.Thread(
             target=self._metadata_worker,
             args=(stream_url, generation),

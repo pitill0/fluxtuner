@@ -11,5 +11,9 @@ class SearchLifecycle:
         self.generation += 1
         return self.generation
 
+    def invalidate(self) -> int:
+        self.generation += 1
+        return self.generation
+
     def is_current(self, generation: int) -> bool:
         return generation == self.generation

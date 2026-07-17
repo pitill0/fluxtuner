@@ -611,6 +611,7 @@ class MainWindow(Gtk.ApplicationWindow):
     ) -> bool:
         if not self._search_lifecycle.is_current(generation):
             return False
+        self.current_view = "search"
         self.active_playlist_tag = None
         self.last_search_results = stations
         self.stations = stations
@@ -1055,6 +1056,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _show_all_favorites(self) -> int:
         """Show all saved favorites and reset playlist filtering state."""
+        self._search_lifecycle.invalidate()
         self.current_view = "favorites"
         self.active_playlist_tag = None
         self._refresh_favorite_cache()
@@ -1076,6 +1078,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _show_history(self) -> int:
         """Show recently played stations in the main results list."""
+        self._search_lifecycle.invalidate()
         self.current_view = "history"
         self.active_playlist_tag = None
         self._refresh_favorite_cache()
@@ -1124,6 +1127,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         stations = self._favorites_matching_favorite_tag(tag)
+        self._search_lifecycle.invalidate()
         self.current_view = "tag_playlist"
         self.active_playlist_tag = tag
         self._refresh_favorite_cache()
@@ -1153,6 +1157,8 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text(f"No compatible favorite stations found for tag: {tag}")
             return
 
+        self._search_lifecycle.invalidate()
+        self.current_view = "tag_playlist"
         self.active_playlist_tag = tag
         self._refresh_favorite_cache()
         self.stations = stations

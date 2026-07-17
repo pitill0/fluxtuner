@@ -317,3 +317,114 @@ def test_gtk_playback_stop_coordinator_stops_player_and_usage() -> None:
     assert result.status == "Stopped"
     player.stop.assert_called_once_with()
     usage_tracker.stop.assert_called_once_with()
+
+
+def test_gtk_metadata_ignores_stale_projection() -> None:
+    harness = SimpleNamespace(
+        _metadata_generation=2,
+        _last_metadata_raw=None,
+        artist_detail_label=Mock(),
+        track_detail_label=Mock(),
+    )
+
+    result = window.MainWindow._update_metadata_labels(
+        harness,
+        1,
+        "Old artist",
+        "Old title",
+        "Old artist - Old title",
+    )
+
+    assert result is False
+    assert harness._last_metadata_raw is None
+    harness.artist_detail_label.set_text.assert_not_called()
+    harness.track_detail_label.set_text.assert_not_called()
+
+
+def test_gtk_metadata_accepts_current_projection_once() -> None:
+    harness = SimpleNamespace(
+        _metadata_generation=3,
+        _last_metadata_raw=None,
+        artist_detail_label=Mock(),
+        track_detail_label=Mock(),
+    )
+
+    first = window.MainWindow._update_metadata_labels(
+        harness,
+        3,
+        "Current artist",
+        "Current title",
+        "Current artist - Current title",
+    )
+    second = window.MainWindow._update_metadata_labels(
+        harness,
+        3,
+        "Current artist",
+        "Current title",
+        "Current artist - Current title",
+    )
+
+    assert first is False
+    assert second is False
+    assert harness._last_metadata_raw == "Current artist - Current title"
+    harness.artist_detail_label.set_text.assert_called_once_with("Current artist")
+    harness.track_detail_label.set_text.assert_called_once_with("Current title")
+
+
+def test_gtk_stale_metadata_finish_does_not_unlock_current_fetch() -> None:
+    harness = SimpleNamespace(
+        _metadata_generation=4,
+        _metadata_fetch_in_progress=True,
+    )
+
+    result = window.MainWindow._metadata_fetch_finished(harness, 3)
+
+    assert result is False
+    assert harness._metadata_fetch_in_progress is True
+
+    window.MainWindow._metadata_fetch_finished(harness, 4)
+
+    assert harness._metadata_fetch_in_progress is False
+
+
+def test_gtk_stop_invalidates_in_flight_metadata(monkeypatch) -> None:
+    source_remove = Mock()
+    monkeypatch.setattr(window.GLib, "source_remove", source_remove, raising=False)
+
+    harness = SimpleNamespace(
+        _metadata_generation=7,
+        _metadata_timer_id=42,
+        _metadata_fetch_in_progress=True,
+        _clear_metadata_labels=Mock(),
+    )
+
+    window.MainWindow._stop_metadata_polling(harness)
+
+    assert harness._metadata_generation == 8
+    assert harness._metadata_timer_id is None
+    assert harness._metadata_fetch_in_progress is False
+    source_remove.assert_called_once_with(42)
+    harness._clear_metadata_labels.assert_called_once_with()
+
+
+def test_gtk_metadata_worker_contains_fetch_failure(monkeypatch) -> None:
+    idle_add = Mock()
+    monkeypatch.setattr(window.GLib, "idle_add", idle_add, raising=False)
+    monkeypatch.setattr(
+        window,
+        "fetch_stream_metadata",
+        Mock(side_effect=RuntimeError("metadata unavailable")),
+    )
+
+    harness = SimpleNamespace(
+        _metadata_fetch_finished=Mock(),
+        _update_metadata_labels=Mock(),
+    )
+
+    window.MainWindow._metadata_worker(
+        harness,
+        "https://radio.example/stream",
+        9,
+    )
+
+    idle_add.assert_called_once_with(harness._metadata_fetch_finished, 9)

@@ -71,6 +71,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_station: dict[str, Any] | None = None
         self._metadata_timer_id: int | None = None
         self._metadata_lifecycle = MetadataLifecycle()
+        self._search_generation = 0
         self.last_search_results: list[dict[str, Any]] = []
         self.current_view = "search"
         self.active_playlist_tag: str | None = None
@@ -574,6 +575,8 @@ class MainWindow(Gtk.ApplicationWindow):
         min_bitrate_text = self.min_bitrate_entry.get_text().strip()
         min_bitrate = int(min_bitrate_text) if min_bitrate_text.isdigit() else None
 
+        self._search_generation += 1
+        generation = self._search_generation
         self.status_label.set_text("Searching…")
 
         def worker() -> None:
@@ -588,18 +591,26 @@ class MainWindow(Gtk.ApplicationWindow):
                 )
                 stations = result.stations
             except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
-                GLib.idle_add(self._search_failed, str(exc))
+                GLib.idle_add(self._search_failed, generation, str(exc))
                 return
 
-            GLib.idle_add(self._search_finished, stations)
+            GLib.idle_add(self._search_finished, generation, stations)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _search_failed(self, message: str) -> bool:
+    def _search_failed(self, generation: int, message: str) -> bool:
+        if generation != self._search_generation:
+            return False
         self.status_label.set_text(f"Search failed: {message}")
         return False
 
-    def _search_finished(self, stations: list[dict[str, Any]]) -> bool:
+    def _search_finished(
+        self,
+        generation: int,
+        stations: list[dict[str, Any]],
+    ) -> bool:
+        if generation != self._search_generation:
+            return False
         self.active_playlist_tag = None
         self.last_search_results = stations
         self.stations = stations

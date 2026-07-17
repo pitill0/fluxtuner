@@ -70,6 +70,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_station: dict[str, Any] | None = None
         self._metadata_timer_id: int | None = None
         self._metadata_fetch_in_progress = False
+        self._metadata_generation = 0
         self._last_metadata_raw: str | None = None
         self.last_search_results: list[dict[str, Any]] = []
         self.current_view = "search"
@@ -686,11 +687,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_play_stop_button()
         self._render_results()
 
-    def _metadata_worker(self, stream_url: str) -> None:
+    def _metadata_worker(self, stream_url: str, generation: int) -> None:
         try:
             metadata = fetch_stream_metadata(stream_url)
+        except Exception:  # noqa: BLE001 - metadata failure must not escape the worker.
+            metadata = None
         finally:
-            GLib.idle_add(self._metadata_fetch_finished)
+            GLib.idle_add(self._metadata_fetch_finished, generation)
 
         if not metadata:
             return
@@ -699,9 +702,23 @@ class MainWindow(Gtk.ApplicationWindow):
         title = metadata.get("title") or metadata.get("raw") or "—"
         raw = metadata.get("raw") or f"{artist} - {title}"
 
-        GLib.idle_add(self._update_metadata_labels, artist, title, raw)
+        GLib.idle_add(
+            self._update_metadata_labels,
+            generation,
+            artist,
+            title,
+            raw,
+        )
 
-    def _update_metadata_labels(self, artist: str, title: str, raw: str) -> bool:
+    def _update_metadata_labels(
+        self,
+        generation: int,
+        artist: str,
+        title: str,
+        raw: str,
+    ) -> bool:
+        if generation != self._metadata_generation:
+            return False
         if raw == self._last_metadata_raw:
             return False
 
@@ -710,8 +727,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_detail_label.set_text(title)
         return False
 
-    def _metadata_fetch_finished(self) -> bool:
-        self._metadata_fetch_in_progress = False
+    def _metadata_fetch_finished(self, generation: int) -> bool:
+        if generation == self._metadata_generation:
+            self._metadata_fetch_in_progress = False
         return False
 
     def _clear_metadata_labels(self) -> None:
@@ -722,13 +740,16 @@ class MainWindow(Gtk.ApplicationWindow):
         self._last_metadata_raw = None
 
     def _start_metadata_polling(self) -> None:
-        if self._metadata_timer_id is not None:
-            return
+        self._metadata_generation += 1
+        self._metadata_fetch_in_progress = False
 
-        self._metadata_timer_id = GLib.timeout_add_seconds(15, self._tick_metadata)
+        if self._metadata_timer_id is None:
+            self._metadata_timer_id = GLib.timeout_add_seconds(15, self._tick_metadata)
+
         self._tick_metadata()
 
     def _stop_metadata_polling(self) -> None:
+        self._metadata_generation += 1
         if self._metadata_timer_id is not None:
             GLib.source_remove(self._metadata_timer_id)
             self._metadata_timer_id = None
@@ -748,9 +769,10 @@ class MainWindow(Gtk.ApplicationWindow):
             return True
 
         self._metadata_fetch_in_progress = True
+        generation = self._metadata_generation
         threading.Thread(
             target=self._metadata_worker,
-            args=(stream_url,),
+            args=(stream_url, generation),
             daemon=True,
         ).start()
 

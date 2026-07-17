@@ -1,9 +1,19 @@
 # TUI orchestration audit
 
+## Status
+
+Completed as a historical audit and decision record.
+
+The first focused TUI workstream subsequently added executable orchestration
+contracts and isolated playback coordination, view-state transitions and the
+stream-metadata lifecycle. This document remains useful as the original
+responsibility map; statements describing the pre-extraction shape should be
+read in that historical context.
+
 ## Purpose
 
-This document maps the current responsibilities of `fluxtuner/tui.py` before
-moving code.
+This document maps the responsibilities of `fluxtuner/tui.py` before the first
+focused extractions.
 
 The goal is not to split the file by line count. The goal is to identify seams
 that improve ownership, lifecycle safety and executable testability while

@@ -46,6 +46,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 
@@ -71,7 +72,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_station: dict[str, Any] | None = None
         self._metadata_timer_id: int | None = None
         self._metadata_lifecycle = MetadataLifecycle()
-        self._search_generation = 0
+        self._search_lifecycle = SearchLifecycle()
         self.last_search_results: list[dict[str, Any]] = []
         self.current_view = "search"
         self.active_playlist_tag: str | None = None
@@ -575,8 +576,7 @@ class MainWindow(Gtk.ApplicationWindow):
         min_bitrate_text = self.min_bitrate_entry.get_text().strip()
         min_bitrate = int(min_bitrate_text) if min_bitrate_text.isdigit() else None
 
-        self._search_generation += 1
-        generation = self._search_generation
+        generation = self._search_lifecycle.begin()
         self.status_label.set_text("Searching…")
 
         def worker() -> None:
@@ -599,7 +599,7 @@ class MainWindow(Gtk.ApplicationWindow):
         threading.Thread(target=worker, daemon=True).start()
 
     def _search_failed(self, generation: int, message: str) -> bool:
-        if generation != self._search_generation:
+        if not self._search_lifecycle.is_current(generation):
             return False
         self.status_label.set_text(f"Search failed: {message}")
         return False
@@ -609,7 +609,7 @@ class MainWindow(Gtk.ApplicationWindow):
         generation: int,
         stations: list[dict[str, Any]],
     ) -> bool:
-        if generation != self._search_generation:
+        if not self._search_lifecycle.is_current(generation):
             return False
         self.active_playlist_tag = None
         self.last_search_results = stations

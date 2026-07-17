@@ -2,18 +2,65 @@
 
 ## Purpose
 
-This document maps the responsibilities currently owned by
-`fluxtuner/gui/window.py` before moving code.
+This document records the GTK orchestration audit, the boundaries extracted
+from `fluxtuner/gui/window.py` and the ownership that remains in `MainWindow`.
 
-The goal is not to split `MainWindow` by line count. The goal is to identify
+The goal was not to split `MainWindow` by line count. The work identified
 boundaries that improve ownership, lifecycle safety and executable testability
 while preserving the GTK4 interface and player behavior.
 
 The Flatpak manifest is reviewed here only as a permission inventory. Permission
-changes must remain in a later branch after the GTK orchestration work is stable
-and can be tested across Xorg and Wayland environments.
+changes remain a separate branch and must be tested across Xorg and Wayland
+environments.
 
-## Current shape
+## Completion status
+
+The GTK orchestration workstream is complete.
+
+The work was delivered as a sequence of focused contract, hardening and
+extraction changes:
+
+- GTK orchestration contracts for playback, stop and close;
+- GTK playback coordination extraction;
+- metadata close cleanup, lifecycle hardening and lifecycle extraction;
+- search lifecycle hardening and extraction;
+- view-transition hardening;
+- logical view-state extraction.
+
+Each boundary was validated with focused orchestration tests, the full project
+gate, CI and manual desktop smoke checks before merge.
+
+The resulting ownership is intentionally interface-specific. GTK retains its
+GLib, thread and widget boundary rather than forcing reuse of TUI lifecycle
+objects whose runtime contracts differ.
+
+## Final ownership boundaries
+
+`MainWindow` remains responsible for the GTK interface boundary:
+
+- widget construction and direct widget mutation;
+- GTK signals and gestures;
+- daemon thread creation and `GLib.idle_add` handoff;
+- GLib timeout creation and removal;
+- search request construction and service invocation;
+- station-list data, selection and row rendering;
+- favorites and history service calls;
+- status, playlist and Now Playing projection.
+
+Focused GTK modules now own isolated decisions:
+
+- `fluxtuner/gui/gtk_playback.py`: playback start/stop coordination and results;
+- `fluxtuner/gui/gtk_metadata.py`: metadata generation, fetch-slot lifecycle,
+  stale-result rejection and deduplication;
+- `fluxtuner/gui/gtk_search.py`: search request identity and stale-callback
+  rejection;
+- `fluxtuner/gui/gtk_view_state.py`: logical view identity and active
+  playlist-tag transitions.
+
+No broad generic GUI service was introduced, and no cross-interface abstraction
+was forced where GTK and TUI runtime semantics remain different.
+
+## Original shape
 
 `MainWindow` is both the GTK application window and the primary orchestration
 object for the desktop interface.
@@ -208,90 +255,45 @@ The GTK interface already delegates important behavior to:
 Future work should build on these seams rather than creating a broad generic
 `gui_service.py`.
 
-## Current test gap
+## Executable contracts
 
-Current smoke coverage proves that GTK modules can import and that renderer or
-application bootstrap paths remain available, but it does not adequately execute
-`MainWindow` orchestration.
+`tests/test_gtk_orchestration.py` now exercises the extracted and retained
+boundaries without requiring network access, real audio processes or a live GTK
+desktop.
 
-Before functional extraction, contracts should cover at least:
+The contracts cover:
 
-- successful playback commits current station and side effects exactly once;
-- unsupported and URL-less stations never call the player;
-- player failures do not commit current station or history;
-- stop clears current station, usage tracking and UI-facing state;
-- volume and mute failures remain user-facing but contained;
-- search success and failure return through the GLib boundary;
-- late search completion cannot replace a newer view;
-- close removes timers and stops runtime dependencies;
-- metadata completion after station replacement or stop is rejected;
-- list re-render preserves or resets selection intentionally.
+- successful, failed and invalid playback starts;
+- playback stop and close cleanup;
+- metadata generation, fetch-slot ownership, stale completion, deduplication and
+  contained worker failure;
+- search generation binding and stale success/failure rejection;
+- search invalidation when changing to favorites, history or tag playlists;
+- logical view and active-tag transitions;
+- normal and random tag-playlist behavior;
+- GTK projection remaining in `MainWindow`.
 
-Tests should use mocked GTK/runtime dependencies and deterministic GLib callback
-execution. They must not require real network access or audio processes.
+Manual smoke checks were also performed throughout the workstream for playback,
+rapid stop, station replacement, concurrent searches, local-view transitions,
+tag playlists and close during runtime work.
 
-## Recommended branch sequence
+## Workstream result and next branch
 
-### 1. Add GTK orchestration contracts
+The original branch sequence has been completed. Playback, metadata, search and
+view state were hardened before extraction, with each change kept in a focused
+PR.
 
-Branch:
+No further GTK orchestration extraction is recommended solely to reduce
+`MainWindow` line count. Future movement should require a new behavior,
+lifecycle risk or independently testable ownership boundary.
 
-`test/gtk-orchestration-contracts`
-
-Suggested title:
-
-`test: add GTK orchestration contracts`
-
-Start with playback success, playback failure, stop and close lifecycle. Add
-search and metadata contracts in separate focused groups if the first test file
-would otherwise become broad.
-
-### 2. Extract GTK playback coordination
-
-Branch:
-
-`refactor/gtk-playback-coordinator`
-
-Suggested title:
-
-`refactor: isolate GTK playback coordination`
-
-The first extraction should own the transactional, non-widget sequence:
-
-- compatibility and URL validation;
-- player start and stop;
-- preference application;
-- current-station result;
-- data-usage start/stop;
-- history recording;
-- a small result object for GTK status projection.
-
-Keep GTK widgets, row rendering, timers and metadata integration in
-`MainWindow`.
-
-During this phase, compare the resulting dependencies with
-`fluxtuner/tui_playback.py`. Promote shared behavior only if the two interfaces
-now demonstrate equivalent rules without forcing GTK-specific callbacks into a
-generic abstraction.
-
-### 3. Reassess view state, search and metadata
-
-After playback is isolated, compare:
-
-- view/selection transitions;
-- search request generation and stale-result protection;
-- metadata request identity and GLib worker lifecycle;
-- favorites and tag-playlist mutation coordination.
-
-Choose the next seam based on lifecycle risk and test value, not file length.
-
-### 4. Review Flatpak permissions
-
-Only after the GTK refactor work is stable, open a dedicated branch:
+The next independent workstream is the Flatpak permission review:
 
 `security/review-flatpak-permissions`
 
-Do not combine permission changes with orchestration refactors.
+Permission changes must not be combined with GTK orchestration refactors. The
+review should use the inventory and environment matrix below, removing only one
+candidate permission at a time.
 
 ## Flatpak permission inventory
 

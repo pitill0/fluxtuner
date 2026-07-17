@@ -12,6 +12,7 @@ from fluxtuner.gui.gtk_playback import (
     coordinate_playback_stop,
 )
 from fluxtuner.gui.gtk_search import SearchLifecycle
+from fluxtuner.gui.gtk_view_state import ViewState
 
 
 def _import_window_module():
@@ -455,7 +456,7 @@ def test_gtk_stale_search_success_does_not_replace_current_view() -> None:
     lifecycle.begin()
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        active_playlist_tag="focus",
+        _view_state=ViewState(active_playlist_tag="focus"),
         last_search_results=current_stations,
         stations=current_stations,
         _render_results=Mock(),
@@ -470,7 +471,7 @@ def test_gtk_stale_search_success_does_not_replace_current_view() -> None:
     )
 
     assert result is False
-    assert harness.active_playlist_tag == "focus"
+    assert harness._view_state.active_playlist_tag == "focus"
     assert harness.last_search_results is current_stations
     assert harness.stations is current_stations
     harness._render_results.assert_not_called()
@@ -484,7 +485,7 @@ def test_gtk_current_search_success_projects_results() -> None:
     generation = lifecycle.begin()
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        active_playlist_tag="focus",
+        _view_state=ViewState(active_playlist_tag="focus"),
         last_search_results=[],
         stations=[],
         _render_results=Mock(),
@@ -499,7 +500,7 @@ def test_gtk_current_search_success_projects_results() -> None:
     )
 
     assert result is False
-    assert harness.active_playlist_tag is None
+    assert harness._view_state.active_playlist_tag is None
     assert harness.last_search_results is stations
     assert harness.stations is stations
     harness._render_results.assert_called_once_with()
@@ -601,8 +602,10 @@ def test_gtk_search_success_restores_search_view() -> None:
     stations = [{"name": "Current"}]
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        current_view="favorites",
-        active_playlist_tag="focus",
+        _view_state=ViewState(
+            current_view="favorites",
+            active_playlist_tag="focus",
+        ),
         last_search_results=[],
         stations=[],
         _render_results=Mock(),
@@ -617,8 +620,8 @@ def test_gtk_search_success_restores_search_view() -> None:
     )
 
     assert result is False
-    assert harness.current_view == "search"
-    assert harness.active_playlist_tag is None
+    assert harness._view_state.current_view == "search"
+    assert harness._view_state.active_playlist_tag is None
     assert harness.last_search_results is stations
     assert harness.stations is stations
 
@@ -631,8 +634,10 @@ def test_gtk_show_favorites_invalidates_pending_search(monkeypatch) -> None:
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        current_view="search",
-        active_playlist_tag="focus",
+        _view_state=ViewState(
+            current_view="search",
+            active_playlist_tag="focus",
+        ),
         profile_name="default",
         stations=[],
         selected_station={"name": "Selected"},
@@ -645,8 +650,8 @@ def test_gtk_show_favorites_invalidates_pending_search(monkeypatch) -> None:
 
     assert count == 1
     assert lifecycle.is_current(pending_generation) is False
-    assert harness.current_view == "favorites"
-    assert harness.active_playlist_tag is None
+    assert harness._view_state.current_view == "favorites"
+    assert harness._view_state.active_playlist_tag is None
     assert harness.stations is favorites
     assert harness.selected_station is None
 
@@ -659,8 +664,10 @@ def test_gtk_show_history_invalidates_pending_search(monkeypatch) -> None:
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        current_view="search",
-        active_playlist_tag="focus",
+        _view_state=ViewState(
+            current_view="search",
+            active_playlist_tag="focus",
+        ),
         profile_name="default",
         stations=[],
         selected_station={"name": "Selected"},
@@ -673,8 +680,8 @@ def test_gtk_show_history_invalidates_pending_search(monkeypatch) -> None:
 
     assert count == 1
     assert lifecycle.is_current(pending_generation) is False
-    assert harness.current_view == "history"
-    assert harness.active_playlist_tag is None
+    assert harness._view_state.current_view == "history"
+    assert harness._view_state.active_playlist_tag is None
     assert harness.stations is history
     assert harness.selected_station is None
 
@@ -685,8 +692,10 @@ def test_gtk_tag_playlist_invalidates_pending_search() -> None:
     stations = [{"name": "Focus FM"}]
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        current_view="search",
-        active_playlist_tag=None,
+        _view_state=ViewState(
+            current_view="search",
+            active_playlist_tag=None,
+        ),
         stations=[],
         selected_station={"name": "Selected"},
         _playlist_tag_value=Mock(return_value="focus"),
@@ -702,8 +711,8 @@ def test_gtk_tag_playlist_invalidates_pending_search() -> None:
     window.MainWindow.on_show_tag_playlist_clicked(harness, Mock())
 
     assert lifecycle.is_current(pending_generation) is False
-    assert harness.current_view == "tag_playlist"
-    assert harness.active_playlist_tag == "focus"
+    assert harness._view_state.current_view == "tag_playlist"
+    assert harness._view_state.active_playlist_tag == "focus"
     assert harness.stations is stations
     assert harness.selected_station is None
     harness._set_view_status.assert_called_once_with(
@@ -727,8 +736,10 @@ def test_gtk_random_tag_invalidates_pending_search(monkeypatch) -> None:
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
-        current_view="search",
-        active_playlist_tag=None,
+        _view_state=ViewState(
+            current_view="search",
+            active_playlist_tag=None,
+        ),
         stations=[],
         selected_station=None,
         player_capabilities=object(),
@@ -750,10 +761,33 @@ def test_gtk_random_tag_invalidates_pending_search(monkeypatch) -> None:
     window.MainWindow.on_random_tag_clicked(harness, Mock())
 
     assert lifecycle.is_current(pending_generation) is False
-    assert harness.current_view == "tag_playlist"
-    assert harness.active_playlist_tag == "focus"
+    assert harness._view_state.current_view == "tag_playlist"
+    assert harness._view_state.active_playlist_tag == "focus"
     assert harness.stations is stations
     assert harness.selected_station is selected
     harness._render_results.assert_called_once_with()
     harness._update_playlist_status.assert_called_once_with()
     harness.play_selected_station.assert_called_once_with()
+
+
+def test_gtk_view_state_transitions_own_view_and_playlist_identity() -> None:
+    state = ViewState()
+
+    assert state.current_view == "search"
+    assert state.active_playlist_tag is None
+
+    state.show_tag_playlist("focus")
+    assert state.current_view == "tag_playlist"
+    assert state.active_playlist_tag == "focus"
+
+    state.show_history()
+    assert state.current_view == "history"
+    assert state.active_playlist_tag is None
+
+    state.show_favorites()
+    assert state.current_view == "favorites"
+    assert state.active_playlist_tag is None
+
+    state.show_search()
+    assert state.current_view == "search"
+    assert state.active_playlist_tag is None

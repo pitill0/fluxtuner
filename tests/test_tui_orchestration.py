@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from fluxtuner import tui
+from fluxtuner.tui_metadata import MetadataLifecycle
 from fluxtuner.tui_playback import coordinate_playback_start, coordinate_playback_stop
 
 
@@ -177,12 +178,12 @@ def test_tui_unmount_cancels_tasks_and_stops_runtime_dependencies() -> None:
     metadata_task = Mock()
     metadata_task.done.return_value = False
     harness = SimpleNamespace(
-        _metadata_task=metadata_task,
-        _metadata_request_id=0,
+        metadata_lifecycle=MetadataLifecycle(),
         cancel_pending_search=Mock(),
         usage_tracker=Mock(),
         player=Mock(),
     )
+    harness.metadata_lifecycle.task = metadata_task
     harness._cancel_metadata_request = lambda: tui.FluxTunerTUI._cancel_metadata_request(harness)
 
     tui.FluxTunerTUI.on_unmount(harness)
@@ -198,12 +199,12 @@ def test_tui_unmount_does_not_cancel_completed_metadata_task() -> None:
     metadata_task = Mock()
     metadata_task.done.return_value = True
     harness = SimpleNamespace(
-        _metadata_task=metadata_task,
-        _metadata_request_id=0,
+        metadata_lifecycle=MetadataLifecycle(),
         cancel_pending_search=Mock(),
         usage_tracker=Mock(),
         player=Mock(),
     )
+    harness.metadata_lifecycle.task = metadata_task
     harness._cancel_metadata_request = lambda: tui.FluxTunerTUI._cancel_metadata_request(harness)
 
     tui.FluxTunerTUI.on_unmount(harness)

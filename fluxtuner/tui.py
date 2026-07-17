@@ -70,6 +70,7 @@ from fluxtuner.tui_details import (
     station_details_text,
     theme_details_text,
 )
+from fluxtuner.tui_metadata import MetadataLifecycle
 from fluxtuner.tui_playback import coordinate_playback_start, coordinate_playback_stop
 from fluxtuner.tui_table import (
     add_playlist_columns,
@@ -201,10 +202,7 @@ class FluxTunerTUI(App[None]):
         self.usage_tracker = DataUsageTracker()
         self.current_artist = "—"
         self.current_track = "—"
-        self._metadata_task: asyncio.Task[None] | None = None
-        self._metadata_request_id = 0
-        self._last_metadata_raw: str | None = None
-        self._last_metadata_fetch_at = 0.0
+        self.metadata_lifecycle = MetadataLifecycle()
         self.selected_station: dict[str, Any] | None = None
         self.selected_theme: str | None = None
         self.previewed_theme: str | None = None
@@ -1043,7 +1041,7 @@ class FluxTunerTUI(App[None]):
         self.playing_station = result.station
         self.last_station = result.station
         self._clear_metadata()
-        self._last_metadata_fetch_at = 0.0
+        self.metadata_lifecycle.allow_immediate_poll()
         self.update_now_playing()
         self.refresh_active_station_marker()
         self._refresh_current_station_view_after_marker_change()
@@ -1686,37 +1684,25 @@ class FluxTunerTUI(App[None]):
     def _clear_metadata(self) -> None:
         self.current_artist = "—"
         self.current_track = "—"
-        self._last_metadata_raw = None
+        self.metadata_lifecycle.reset_projection()
         if self.is_mounted:
             self.query_one("#metadata", Static).update("[b]Metadata[/b]\nArtist: —\nTrack: —")
 
     def _cancel_metadata_request(self) -> None:
-        self._metadata_request_id += 1
-        task = self._metadata_task
-        self._metadata_task = None
-        if task and not task.done():
-            task.cancel()
-
-    def _metadata_request_is_current(self, request_id: int, stream_url: str) -> bool:
-        if request_id != self._metadata_request_id or not self.playing_station:
-            return False
-        return self.station_url(self.playing_station) == stream_url
+        self.metadata_lifecycle.cancel()
 
     def _maybe_fetch_metadata(self) -> None:
         if not self.playing_station:
             return
-        now = time.monotonic()
-        if now - self._last_metadata_fetch_at < 15:
-            return
-        if self._metadata_task and not self._metadata_task.done():
-            return
         url = self.station_url(self.playing_station)
         if not url:
             return
-        self._last_metadata_fetch_at = now
-        self._metadata_request_id += 1
-        request_id = self._metadata_request_id
-        self._metadata_task = asyncio.create_task(self._fetch_metadata(url, request_id))
+        now = time.monotonic()
+        if not self.metadata_lifecycle.can_schedule(url, now=now):
+            return
+        request_id = self.metadata_lifecycle.begin_request(now=now)
+        task = asyncio.create_task(self._fetch_metadata(url, request_id))
+        self.metadata_lifecycle.attach_task(task)
 
     async def _fetch_metadata(self, stream_url: str, request_id: int) -> None:
         try:
@@ -1725,20 +1711,20 @@ class FluxTunerTUI(App[None]):
             logger.debug("Could not fetch stream metadata", exc_info=True)
             return
         finally:
-            current_task = asyncio.current_task()
-            if current_task is self._metadata_task:
-                self._metadata_task = None
+            self.metadata_lifecycle.complete_task(asyncio.current_task())
 
-        if not self._metadata_request_is_current(request_id, stream_url):
+        current_url = self.station_url(self.playing_station) if self.playing_station else None
+        projection = self.metadata_lifecycle.accept(
+            request_id,
+            stream_url,
+            metadata,
+            current_stream_url=current_url,
+        )
+        if projection is None:
             return
-        if not metadata:
-            return
-        raw = metadata.get("raw") or ""
-        if raw and raw == self._last_metadata_raw:
-            return
-        self._last_metadata_raw = raw
-        self.current_artist = metadata.get("artist") or "—"
-        self.current_track = metadata.get("title") or metadata.get("raw") or "—"
+
+        self.current_artist = projection.artist
+        self.current_track = projection.track
         if self.is_mounted:
             self.query_one("#metadata", Static).update(
                 f"[b]Metadata[/b]\nArtist: {self.current_artist}\nTrack: {self.current_track}"

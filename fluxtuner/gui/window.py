@@ -41,6 +41,10 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_url,
 )
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
+from fluxtuner.gui.gtk_playback import (  # noqa: E402
+    coordinate_playback_start,
+    coordinate_playback_stop,
+)
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 
@@ -652,39 +656,34 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Select a station first.")
             return
 
-        if not station_is_supported(self.selected_station, self.player_capabilities):
-            self.status_label.set_text(
-                unsupported_station_message(self.selected_station, self.player_backend_name)
-            )
+        result = coordinate_playback_start(
+            self.selected_station,
+            player=self.player,
+            player_backend_name=self.player_backend_name,
+            player_capabilities=self.player_capabilities,
+            profile_name=self.profile_name,
+            restored_muted=self.restored_muted,
+            station_supported=station_is_supported,
+            unsupported_message=unsupported_station_message,
+            station_url=self._station_url,
+            announce_buffering=lambda: self.status_label.set_text("Buffering…"),
+            apply_preferences_before_start=self._apply_player_preferences_before_start,
+            apply_volume_after_start=self._set_player_volume_from_scale,
+            apply_mute_after_start=self._set_player_mute,
+            usage_tracker=self.usage_tracker,
+            add_history_entry=add_history,
+        )
+        self.status_label.set_text(result.status)
+        if not result.success or result.station is None:
             return
 
-        url = self._station_url(self.selected_station)
-        if not url:
-            self.status_label.set_text("Selected station has no playable URL.")
-            return
-
-        try:
-            self.status_label.set_text("Buffering…")
-            self._apply_player_preferences_before_start()
-            self.player.play(url)
-            self._set_player_volume_from_scale()
-            if self.player.supports_mute():
-                self._set_player_mute(self.restored_muted)
-
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
-            self.status_label.set_text(f"Playback failed: {exc}")
-            return
-
-        self.current_station = self.selected_station
-        self.usage_tracker.start(self.current_station)
-        add_history(self.current_station, profile_name=self.profile_name)
+        self.current_station = result.station
         self.update_now_playing()
         self.update_data_usage()
         self.update_player_state()
         self._ensure_usage_timer()
         self._ensure_player_state_timer()
         self._update_play_stop_button()
-        self.status_label.set_text("Playing")
         self._render_results()
 
     def _metadata_worker(self, stream_url: str) -> None:
@@ -1157,15 +1156,17 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()
         self._stop_player_state_timer()
-        self.player.stop()
+        result = coordinate_playback_stop(
+            player=self.player,
+            usage_tracker=self.usage_tracker,
+        )
         self._stop_metadata_polling()
-        self.usage_tracker.stop()
         self.update_data_usage()
         self.current_station = None
         self.update_now_playing()
         self.update_player_state()
         self._update_play_stop_button()
-        self.status_label.set_text("Stopped")
+        self.status_label.set_text(result.status)
         self._render_results()
 
     def _ensure_player_state_timer(self) -> None:

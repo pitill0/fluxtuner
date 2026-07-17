@@ -6,6 +6,11 @@ from unittest.mock import Mock, call
 
 import pytest
 
+from fluxtuner.gui.gtk_playback import (
+    coordinate_playback_start,
+    coordinate_playback_stop,
+)
+
 
 def _import_window_module():
     try:
@@ -229,3 +234,86 @@ def test_gtk_close_contains_player_stop_failure() -> None:
     assert result is False
     harness._stop_metadata_polling.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()
+
+
+def test_gtk_playback_coordinator_applies_supported_preferences() -> None:
+    station = {"name": "Flux FM"}
+    player = Mock()
+    player.supports_mute.return_value = True
+    usage_tracker = Mock()
+    before_start = Mock()
+    after_start = Mock()
+    apply_mute = Mock()
+    add_history = Mock()
+
+    result = coordinate_playback_start(
+        station,
+        player=player,
+        player_backend_name="mpv",
+        player_capabilities=object(),
+        profile_name="default",
+        restored_muted=True,
+        station_supported=lambda *_args: True,
+        unsupported_message=lambda *_args: "unsupported",
+        station_url=lambda _station: "https://radio.example/stream",
+        announce_buffering=Mock(),
+        apply_preferences_before_start=before_start,
+        apply_volume_after_start=after_start,
+        apply_mute_after_start=apply_mute,
+        usage_tracker=usage_tracker,
+        add_history_entry=add_history,
+    )
+
+    assert result.success is True
+    assert result.station is station
+    before_start.assert_called_once_with()
+    player.play.assert_called_once_with("https://radio.example/stream")
+    after_start.assert_called_once_with()
+    apply_mute.assert_called_once_with(True)
+    usage_tracker.start.assert_called_once_with(station)
+    add_history.assert_called_once_with(station, profile_name="default")
+
+
+def test_gtk_playback_coordinator_rejects_before_side_effects() -> None:
+    station = {"name": "Unsupported"}
+    player = Mock()
+    usage_tracker = Mock()
+    add_history = Mock()
+
+    result = coordinate_playback_start(
+        station,
+        player=player,
+        player_backend_name="mpv",
+        player_capabilities=object(),
+        profile_name="default",
+        restored_muted=False,
+        station_supported=lambda *_args: False,
+        unsupported_message=lambda *_args: "Unsupported station",
+        station_url=lambda _station: "https://radio.example/stream",
+        announce_buffering=Mock(),
+        apply_preferences_before_start=Mock(),
+        apply_volume_after_start=Mock(),
+        apply_mute_after_start=Mock(),
+        usage_tracker=usage_tracker,
+        add_history_entry=add_history,
+    )
+
+    assert result.success is False
+    assert result.status == "Unsupported station"
+    player.play.assert_not_called()
+    usage_tracker.start.assert_not_called()
+    add_history.assert_not_called()
+
+
+def test_gtk_playback_stop_coordinator_stops_player_and_usage() -> None:
+    player = Mock()
+    usage_tracker = Mock()
+
+    result = coordinate_playback_stop(
+        player=player,
+        usage_tracker=usage_tracker,
+    )
+
+    assert result.status == "Stopped"
+    player.stop.assert_called_once_with()
+    usage_tracker.stop.assert_called_once_with()

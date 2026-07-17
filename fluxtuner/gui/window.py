@@ -47,6 +47,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_stop,
 )
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
+from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 
 
@@ -73,9 +74,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._metadata_timer_id: int | None = None
         self._metadata_lifecycle = MetadataLifecycle()
         self._search_lifecycle = SearchLifecycle()
+        self._view_state = ViewState()
         self.last_search_results: list[dict[str, Any]] = []
-        self.current_view = "search"
-        self.active_playlist_tag: str | None = None
         self.favorite_urls = self._favorite_url_set()
         self.restored_volume: int | None = None
         self.restored_muted: bool = False
@@ -611,8 +611,7 @@ class MainWindow(Gtk.ApplicationWindow):
     ) -> bool:
         if not self._search_lifecycle.is_current(generation):
             return False
-        self.current_view = "search"
-        self.active_playlist_tag = None
+        self._view_state.show_search()
         self.last_search_results = stations
         self.stations = stations
         self._render_results()
@@ -1044,7 +1043,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if remove_favorite(key, profile_name=self.profile_name):
             self._refresh_favorite_cache()
             self.status_label.set_text("Removed from favorites.")
-            if self.current_view == "favorites":
+            if self._view_state.current_view == "favorites":
                 self.stations = load_favorites(profile_name=self.profile_name)
                 self.selected_station = None
             self._render_results()
@@ -1057,8 +1056,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _show_all_favorites(self) -> int:
         """Show all saved favorites and reset playlist filtering state."""
         self._search_lifecycle.invalidate()
-        self.current_view = "favorites"
-        self.active_playlist_tag = None
+        self._view_state.show_favorites()
         self._refresh_favorite_cache()
         self.stations = load_favorites(profile_name=self.profile_name)
         self.selected_station = None
@@ -1079,8 +1077,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _show_history(self) -> int:
         """Show recently played stations in the main results list."""
         self._search_lifecycle.invalidate()
-        self.current_view = "history"
-        self.active_playlist_tag = None
+        self._view_state.show_history()
         self._refresh_favorite_cache()
         self.stations = load_history(profile_name=self.profile_name)
         self.selected_station = None
@@ -1099,8 +1096,10 @@ class MainWindow(Gtk.ApplicationWindow):
     def _update_playlist_status(self) -> None:
         if not hasattr(self, "playlist_status_label"):
             return
-        if self.active_playlist_tag:
-            self.playlist_status_label.set_text(f"Active tag: {self.active_playlist_tag}")
+        if self._view_state.active_playlist_tag:
+            self.playlist_status_label.set_text(
+                f"Active tag: {self._view_state.active_playlist_tag}"
+            )
         else:
             self.playlist_status_label.set_text("No playlist filter")
 
@@ -1128,8 +1127,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         stations = self._favorites_matching_favorite_tag(tag)
         self._search_lifecycle.invalidate()
-        self.current_view = "tag_playlist"
-        self.active_playlist_tag = tag
+        self._view_state.show_tag_playlist(tag)
         self._refresh_favorite_cache()
         self.stations = stations
         self.selected_station = None
@@ -1158,8 +1156,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self._search_lifecycle.invalidate()
-        self.current_view = "tag_playlist"
-        self.active_playlist_tag = tag
+        self._view_state.show_tag_playlist(tag)
         self._refresh_favorite_cache()
         self.stations = stations
         self.selected_station = secrets.choice(stations)
@@ -1168,7 +1165,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_selected_station()
 
     def on_clear_playlist_filter_clicked(self, _button: Gtk.Button) -> None:
-        self.active_playlist_tag = None
         if hasattr(self, "playlist_tag_entry"):
             self.playlist_tag_entry.set_text("")
 

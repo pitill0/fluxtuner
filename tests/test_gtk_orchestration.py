@@ -11,6 +11,7 @@ from fluxtuner.gui.gtk_playback import (
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_search import SearchLifecycle
 
 
 def _import_window_module():
@@ -434,11 +435,26 @@ def test_gtk_metadata_worker_contains_fetch_failure(monkeypatch) -> None:
     idle_add.assert_called_once_with(harness._metadata_fetch_finished, 9)
 
 
+def test_gtk_search_lifecycle_only_accepts_latest_generation() -> None:
+    lifecycle = SearchLifecycle()
+
+    first = lifecycle.begin()
+    second = lifecycle.begin()
+
+    assert first == 1
+    assert second == 2
+    assert lifecycle.is_current(first) is False
+    assert lifecycle.is_current(second) is True
+
+
 def test_gtk_stale_search_success_does_not_replace_current_view() -> None:
     current_stations = [{"name": "Current"}]
     stale_stations = [{"name": "Stale"}]
+    lifecycle = SearchLifecycle()
+    lifecycle.begin()
+    lifecycle.begin()
     harness = SimpleNamespace(
-        _search_generation=2,
+        _search_lifecycle=lifecycle,
         active_playlist_tag="focus",
         last_search_results=current_stations,
         stations=current_stations,
@@ -464,8 +480,10 @@ def test_gtk_stale_search_success_does_not_replace_current_view() -> None:
 
 def test_gtk_current_search_success_projects_results() -> None:
     stations = [{"name": "Current"}]
+    lifecycle = SearchLifecycle()
+    generation = lifecycle.begin()
     harness = SimpleNamespace(
-        _search_generation=3,
+        _search_lifecycle=lifecycle,
         active_playlist_tag="focus",
         last_search_results=[],
         stations=[],
@@ -476,7 +494,7 @@ def test_gtk_current_search_success_projects_results() -> None:
 
     result = window.MainWindow._search_finished(
         harness,
-        3,
+        generation,
         stations,
     )
 
@@ -490,14 +508,17 @@ def test_gtk_current_search_success_projects_results() -> None:
 
 
 def test_gtk_stale_search_failure_does_not_replace_current_status() -> None:
+    lifecycle = SearchLifecycle()
+    stale_generation = lifecycle.begin()
+    current_generation = lifecycle.begin()
     harness = SimpleNamespace(
-        _search_generation=5,
+        _search_lifecycle=lifecycle,
         status_label=Mock(),
     )
 
     result = window.MainWindow._search_failed(
         harness,
-        4,
+        stale_generation,
         "old failure",
     )
 
@@ -506,14 +527,14 @@ def test_gtk_stale_search_failure_does_not_replace_current_status() -> None:
 
     window.MainWindow._search_failed(
         harness,
-        5,
+        current_generation,
         "current failure",
     )
 
     harness.status_label.set_text.assert_called_once_with("Search failed: current failure")
 
 
-def test_gtk_search_worker_binds_callbacks_to_generation(monkeypatch) -> None:
+def test_gtk_search_worker_binds_callbacks_to_lifecycle_generation(monkeypatch) -> None:
     idle_add = Mock()
     monkeypatch.setattr(window.GLib, "idle_add", idle_add, raising=False)
 
@@ -527,8 +548,12 @@ def test_gtk_search_worker_binds_callbacks_to_generation(monkeypatch) -> None:
 
     monkeypatch.setattr(window.threading, "Thread", ImmediateThread)
 
+    lifecycle = SearchLifecycle()
+    for _ in range(7):
+        lifecycle.begin()
+
     harness = SimpleNamespace(
-        _search_generation=7,
+        _search_lifecycle=lifecycle,
         search_entry=SimpleNamespace(get_text=lambda: " jazz "),
         country_entry=SimpleNamespace(get_text=lambda: " Spain "),
         min_bitrate_entry=SimpleNamespace(get_text=lambda: "128"),
@@ -546,7 +571,7 @@ def test_gtk_search_worker_binds_callbacks_to_generation(monkeypatch) -> None:
 
     window.MainWindow.on_search_clicked(harness, Mock())
 
-    assert harness._search_generation == 8
+    assert lifecycle.generation == 8
     harness.status_label.set_text.assert_called_once_with("Searching…")
     request = harness.search_service.search.call_args.args[0]
     assert request.query == "jazz"

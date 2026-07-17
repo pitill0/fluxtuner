@@ -1272,9 +1272,10 @@ class MainWindow(Gtk.ApplicationWindow):
         return True
 
     def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Persist usage and stop mpv when closing the GTK window."""
+        """Stop GTK runtime work and the player when closing the window."""
         self._stop_usage_timer()
         self._stop_player_state_timer()
+        self._stop_metadata_polling()
         self.usage_tracker.stop()
         with suppress(Exception):
             self.player.stop()

@@ -201,6 +201,7 @@ def test_gtk_close_stops_runtime_dependencies() -> None:
         usage_tracker=Mock(),
         _stop_usage_timer=Mock(),
         _stop_player_state_timer=Mock(),
+        _stop_metadata_polling=Mock(),
     )
 
     result = window.MainWindow.on_close_request(harness, Mock())
@@ -208,6 +209,7 @@ def test_gtk_close_stops_runtime_dependencies() -> None:
     assert result is False
     harness._stop_usage_timer.assert_called_once_with()
     harness._stop_player_state_timer.assert_called_once_with()
+    harness._stop_metadata_polling.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()
     harness.player.stop.assert_called_once_with()
 
@@ -218,10 +220,12 @@ def test_gtk_close_contains_player_stop_failure() -> None:
         usage_tracker=Mock(),
         _stop_usage_timer=Mock(),
         _stop_player_state_timer=Mock(),
+        _stop_metadata_polling=Mock(),
     )
     harness.player.stop.side_effect = RuntimeError("already gone")
 
     result = window.MainWindow.on_close_request(harness, Mock())
 
     assert result is False
+    harness._stop_metadata_polling.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()

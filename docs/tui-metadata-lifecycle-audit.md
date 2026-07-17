@@ -1,9 +1,19 @@
 # TUI metadata lifecycle audit
 
+## Status
+
+Completed as a historical audit and decision record.
+
+The recommended sequence was delivered through contracts, race hardening and
+the `MetadataLifecycle` extraction. Request identity, throttling, active-task
+ownership, cancellation, stale-result rejection, deduplication and projection
+fallbacks now live behind the focused lifecycle boundary. Textual scheduling,
+fetch delegation, logging and widget rendering remain in `tui.py`.
+
 ## Purpose
 
-This document audits the stream-metadata lifecycle currently coordinated by
-`fluxtuner/tui.py`.
+This document audits the stream-metadata lifecycle as it existed before the
+hardening and extraction sequence.
 
 The goal is to identify a safe extraction boundary after playback coordination
 and view-state transitions were centralized.

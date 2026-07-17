@@ -155,10 +155,10 @@ list. The router package is currently listed as `fluxtuner.web.routes` in
 Recommended next branches should stay separate:
 
 - search quality/debugging;
-- TUI playback coordination and view-state transitions are complete;
-  the remaining stream-metadata lifecycle, race risks and extraction sequence
-  are mapped in `docs/tui-metadata-lifecycle-audit.md`;
-- GTK orchestration auditing, including a least-privilege review of
+- the first TUI orchestration workstream is complete: playback coordination,
+  view-state transitions and stream-metadata lifecycle are isolated behind
+  executable contracts;
+- GTK orchestration auditing is next, including a least-privilege review of
   `flatpak/io.github.pitill0.Fluxtuner.yml` finish arguments;
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
 
@@ -179,6 +179,28 @@ Phase 6  Revisit metadata `Now Playing`                  complete
 ```
 
 ### Completed follow-up workstreams
+
+#### TUI orchestration boundaries
+
+Status: completed for the first focused workstream.
+
+The completed TUI work established and hardened three explicit boundaries:
+
+- playback coordination, including success, failure and stop side effects;
+- view and selection-state transitions across search, favorites, history,
+  playlists, playlist stations and themes;
+- stream-metadata lifecycle state, including throttle, request identity, task
+  ownership, cancellation, stale-result rejection, deduplication and fallback
+  projection.
+
+`fluxtuner/tui.py` remains the Textual composition and projection boundary.
+Focused modules own behavior only where lifecycle safety or executable
+testability clearly improved. Favorites, playlists, search and themes remain
+interface-local until a future audit demonstrates a stronger seam.
+
+The workstream was delivered through separate audit, contract, hardening and
+extraction PRs. It intentionally introduced no GTK changes and no generic
+cross-interface application service.
 
 #### Web CSS and component styling boundaries
 
@@ -471,15 +493,12 @@ must be reflected in this roadmap when the corresponding work is merged.
 
 ## Next interface audit sequence
 
-The next structural work should begin with documentation-only audits rather than
-immediate code movement:
+The first TUI audit and extraction sequence is complete. The next structural
+work should continue with another documentation-only audit before moving code:
 
-1. Audit `fluxtuner/tui.py` responsibilities and identify focused seams with
-   matching safety tests.
-2. Extract the first TUI boundary only where ownership, lifecycle or testability
-   clearly improves.
-3. Audit `fluxtuner/gui/window.py` using the same approach.
-4. During the GTK audit, review the Flatpak sandbox permissions in
+1. Audit `fluxtuner/gui/window.py` using the same responsibility-map and
+   contract-first approach used for the TUI.
+2. During the GTK audit, review the Flatpak sandbox permissions in
    `flatpak/io.github.pitill0.Fluxtuner.yml` and verify whether each current
    `finish-args` entry remains necessary:
 
@@ -494,6 +513,6 @@ immediate code movement:
 
    Any permission reduction must be validated against GTK startup, Wayland and
    X11 fallback behavior, audio playback, rendering and network radio access.
-5. Introduce cross-interface application services only after equivalent behavior
+3. Introduce cross-interface application services only after equivalent behavior
    and duplicated orchestration have been demonstrated in at least two
    interfaces.

@@ -432,3 +432,129 @@ def test_gtk_metadata_worker_contains_fetch_failure(monkeypatch) -> None:
     )
 
     idle_add.assert_called_once_with(harness._metadata_fetch_finished, 9)
+
+
+def test_gtk_stale_search_success_does_not_replace_current_view() -> None:
+    current_stations = [{"name": "Current"}]
+    stale_stations = [{"name": "Stale"}]
+    harness = SimpleNamespace(
+        _search_generation=2,
+        active_playlist_tag="focus",
+        last_search_results=current_stations,
+        stations=current_stations,
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        _set_view_status=Mock(),
+    )
+
+    result = window.MainWindow._search_finished(
+        harness,
+        1,
+        stale_stations,
+    )
+
+    assert result is False
+    assert harness.active_playlist_tag == "focus"
+    assert harness.last_search_results is current_stations
+    assert harness.stations is current_stations
+    harness._render_results.assert_not_called()
+    harness._update_playlist_status.assert_not_called()
+    harness._set_view_status.assert_not_called()
+
+
+def test_gtk_current_search_success_projects_results() -> None:
+    stations = [{"name": "Current"}]
+    harness = SimpleNamespace(
+        _search_generation=3,
+        active_playlist_tag="focus",
+        last_search_results=[],
+        stations=[],
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        _set_view_status=Mock(),
+    )
+
+    result = window.MainWindow._search_finished(
+        harness,
+        3,
+        stations,
+    )
+
+    assert result is False
+    assert harness.active_playlist_tag is None
+    assert harness.last_search_results is stations
+    assert harness.stations is stations
+    harness._render_results.assert_called_once_with()
+    harness._update_playlist_status.assert_called_once_with()
+    harness._set_view_status.assert_called_once_with("Search results", 1)
+
+
+def test_gtk_stale_search_failure_does_not_replace_current_status() -> None:
+    harness = SimpleNamespace(
+        _search_generation=5,
+        status_label=Mock(),
+    )
+
+    result = window.MainWindow._search_failed(
+        harness,
+        4,
+        "old failure",
+    )
+
+    assert result is False
+    harness.status_label.set_text.assert_not_called()
+
+    window.MainWindow._search_failed(
+        harness,
+        5,
+        "current failure",
+    )
+
+    harness.status_label.set_text.assert_called_once_with("Search failed: current failure")
+
+
+def test_gtk_search_worker_binds_callbacks_to_generation(monkeypatch) -> None:
+    idle_add = Mock()
+    monkeypatch.setattr(window.GLib, "idle_add", idle_add, raising=False)
+
+    class ImmediateThread:
+        def __init__(self, *, target, daemon):
+            assert daemon is True
+            self.target = target
+
+        def start(self) -> None:
+            self.target()
+
+    monkeypatch.setattr(window.threading, "Thread", ImmediateThread)
+
+    harness = SimpleNamespace(
+        _search_generation=7,
+        search_entry=SimpleNamespace(get_text=lambda: " jazz "),
+        country_entry=SimpleNamespace(get_text=lambda: " Spain "),
+        min_bitrate_entry=SimpleNamespace(get_text=lambda: "128"),
+        status_label=Mock(),
+        search_service=SimpleNamespace(
+            search=Mock(
+                return_value=SimpleNamespace(
+                    stations=[{"name": "Jazz FM"}],
+                )
+            )
+        ),
+        _search_failed=Mock(),
+        _search_finished=Mock(),
+    )
+
+    window.MainWindow.on_search_clicked(harness, Mock())
+
+    assert harness._search_generation == 8
+    harness.status_label.set_text.assert_called_once_with("Searching…")
+    request = harness.search_service.search.call_args.args[0]
+    assert request.query == "jazz"
+    assert request.country == "Spain"
+    assert request.min_bitrate == 128
+    assert request.limit == 50
+    idle_add.assert_called_once_with(
+        harness._search_finished,
+        8,
+        [{"name": "Jazz FM"}],
+    )

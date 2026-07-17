@@ -583,3 +583,177 @@ def test_gtk_search_worker_binds_callbacks_to_lifecycle_generation(monkeypatch) 
         8,
         [{"name": "Jazz FM"}],
     )
+
+
+def test_gtk_search_lifecycle_invalidate_rejects_in_flight_request() -> None:
+    lifecycle = SearchLifecycle()
+    generation = lifecycle.begin()
+
+    invalidated_generation = lifecycle.invalidate()
+
+    assert invalidated_generation == generation + 1
+    assert lifecycle.is_current(generation) is False
+
+
+def test_gtk_search_success_restores_search_view() -> None:
+    lifecycle = SearchLifecycle()
+    generation = lifecycle.begin()
+    stations = [{"name": "Current"}]
+    harness = SimpleNamespace(
+        _search_lifecycle=lifecycle,
+        current_view="favorites",
+        active_playlist_tag="focus",
+        last_search_results=[],
+        stations=[],
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        _set_view_status=Mock(),
+    )
+
+    result = window.MainWindow._search_finished(
+        harness,
+        generation,
+        stations,
+    )
+
+    assert result is False
+    assert harness.current_view == "search"
+    assert harness.active_playlist_tag is None
+    assert harness.last_search_results is stations
+    assert harness.stations is stations
+
+
+def test_gtk_show_favorites_invalidates_pending_search(monkeypatch) -> None:
+    lifecycle = SearchLifecycle()
+    pending_generation = lifecycle.begin()
+    favorites = [{"name": "Favorite"}]
+    monkeypatch.setattr(window, "load_favorites", Mock(return_value=favorites))
+
+    harness = SimpleNamespace(
+        _search_lifecycle=lifecycle,
+        current_view="search",
+        active_playlist_tag="focus",
+        profile_name="default",
+        stations=[],
+        selected_station={"name": "Selected"},
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+    )
+
+    count = window.MainWindow._show_all_favorites(harness)
+
+    assert count == 1
+    assert lifecycle.is_current(pending_generation) is False
+    assert harness.current_view == "favorites"
+    assert harness.active_playlist_tag is None
+    assert harness.stations is favorites
+    assert harness.selected_station is None
+
+
+def test_gtk_show_history_invalidates_pending_search(monkeypatch) -> None:
+    lifecycle = SearchLifecycle()
+    pending_generation = lifecycle.begin()
+    history = [{"name": "Recent"}]
+    monkeypatch.setattr(window, "load_history", Mock(return_value=history))
+
+    harness = SimpleNamespace(
+        _search_lifecycle=lifecycle,
+        current_view="search",
+        active_playlist_tag="focus",
+        profile_name="default",
+        stations=[],
+        selected_station={"name": "Selected"},
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+    )
+
+    count = window.MainWindow._show_history(harness)
+
+    assert count == 1
+    assert lifecycle.is_current(pending_generation) is False
+    assert harness.current_view == "history"
+    assert harness.active_playlist_tag is None
+    assert harness.stations is history
+    assert harness.selected_station is None
+
+
+def test_gtk_tag_playlist_invalidates_pending_search() -> None:
+    lifecycle = SearchLifecycle()
+    pending_generation = lifecycle.begin()
+    stations = [{"name": "Focus FM"}]
+    harness = SimpleNamespace(
+        _search_lifecycle=lifecycle,
+        current_view="search",
+        active_playlist_tag=None,
+        stations=[],
+        selected_station={"name": "Selected"},
+        _playlist_tag_value=Mock(return_value="focus"),
+        _all_favorite_playlist_tags=Mock(return_value=[]),
+        _favorites_matching_favorite_tag=Mock(return_value=stations),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        _set_view_status=Mock(),
+        status_label=Mock(),
+    )
+
+    window.MainWindow.on_show_tag_playlist_clicked(harness, Mock())
+
+    assert lifecycle.is_current(pending_generation) is False
+    assert harness.current_view == "tag_playlist"
+    assert harness.active_playlist_tag == "focus"
+    assert harness.stations is stations
+    assert harness.selected_station is None
+    harness._set_view_status.assert_called_once_with(
+        "Tag playlist",
+        1,
+        detail="focus",
+    )
+
+
+def test_gtk_random_tag_invalidates_pending_search(monkeypatch) -> None:
+    lifecycle = SearchLifecycle()
+    pending_generation = lifecycle.begin()
+    stations = [{"name": "Focus FM"}]
+    selected = stations[0]
+
+    monkeypatch.setattr(
+        window,
+        "filter_supported_stations",
+        Mock(return_value=stations),
+    )
+
+    harness = SimpleNamespace(
+        _search_lifecycle=lifecycle,
+        current_view="search",
+        active_playlist_tag=None,
+        stations=[],
+        selected_station=None,
+        player_capabilities=object(),
+        _playlist_tag_value=Mock(return_value="focus"),
+        _all_favorite_playlist_tags=Mock(return_value=[]),
+        _favorites_matching_favorite_tag=Mock(return_value=stations),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        play_selected_station=Mock(),
+        status_label=Mock(),
+    )
+
+    monkeypatch.setattr(
+        "secrets.choice",
+        Mock(return_value=selected),
+    )
+
+    window.MainWindow.on_random_tag_clicked(harness, Mock())
+
+    assert lifecycle.is_current(pending_generation) is False
+    assert harness.current_view == "tag_playlist"
+    assert harness.active_playlist_tag == "focus"
+    assert harness.stations is stations
+    assert harness.selected_station is selected
+    harness._render_results.assert_called_once_with()
+    harness._update_playlist_status.assert_called_once_with()
+    harness.play_selected_station.assert_called_once_with()

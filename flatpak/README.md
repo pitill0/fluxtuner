@@ -98,8 +98,10 @@ Current permissions:
 - `--socket=pulseaudio`: required for audio playback.
 - `--socket=wayland`: required for the GTK GUI on Wayland sessions.
 - `--socket=fallback-x11`: allows X11 only when Wayland is unavailable.
-- `--share=ipc`: kept for compatibility with graphical sessions and toolkit behavior.
 - `--device=dri`: kept for GTK/GNOME rendering compatibility.
+
+`--share=ipc` was removed after successful validation on CRUX Xorg, CRUX
+Wayland and Ubuntu Xorg. See `docs/validation/permission-share-ipc.md`.
 
 The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache and SQLite library database through Flatpak-managed application data paths. The library database contains favorites, playback history and manual playlists.
 

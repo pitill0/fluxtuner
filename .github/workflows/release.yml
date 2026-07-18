@@ -27,6 +27,26 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
 
+      - name: Verify tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import tomllib
+
+          version = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"]
+          expected_tag = f"v{version}"
+          release_tag = os.environ["RELEASE_TAG"]
+
+          if release_tag != expected_tag:
+              raise SystemExit(
+                  f"Release tag {release_tag!r} does not match package version {version!r}; "
+                  f"expected {expected_tag!r}"
+              )
+          PY
+
       - name: Build package
         run: |
           python -m build
@@ -35,6 +55,16 @@ jobs:
         run: |
           test -n "$(ls dist/*.tar.gz)"
           test -n "$(ls dist/*.whl)"
+
+      - name: Install and smoke-test wheel
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python -m pip install --force-reinstall dist/*.whl
+          test "$(fluxtuner --version)" = "${RELEASE_TAG#v}"
+          fluxtuner --help
+          fluxtuner --list-players
+          fluxtuner --list-themes
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4

@@ -3,10 +3,10 @@
   <id>io.github.pitill0.Fluxtuner</id>
 
   <name>FluxTuner</name>
-  <summary>Modern internet radio player with GTK and terminal interfaces</summary>
+  <summary>Internet radio for GTK and terminal interfaces</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>MIT AND LicenseRef-FluxTuner-Web-NC</project_license>
 
   <developer id="io.github.pitill0">
     <name>Victor Martinez</name>
@@ -18,8 +18,9 @@
 
   <description>
     <p>
-      FluxTuner is a lightweight internet radio player featuring both a modern
-      GTK4 graphical interface and a fast Textual terminal interface.
+      FluxTuner is the local desktop and terminal edition of the FluxTuner
+      internet radio platform, featuring a GTK4 graphical interface and a fast
+      Textual terminal interface.
     </p>
 
     <p>

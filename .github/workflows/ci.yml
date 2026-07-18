@@ -110,3 +110,11 @@ jobs:
         run: |
           test -n "$(ls dist/*.tar.gz)"
           test -n "$(ls dist/*.whl)"
+
+      - name: Install and smoke-test wheel
+        run: |
+          python -m pip install --force-reinstall dist/*.whl
+          fluxtuner --version
+          fluxtuner --help
+          fluxtuner --list-players
+          fluxtuner --list-themes

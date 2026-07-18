@@ -319,13 +319,14 @@ sudo dnf install mpv ffmpeg python3-gobject gtk4
 python -m fluxtuner --help
 python -m fluxtuner --version
 python -m fluxtuner --list-players
+python -m fluxtuner --list-themes
 ```
 
 Expected:
 
 - help output is readable
 - version matches `pyproject.toml`
-- player diagnostics are correct
+- player and theme diagnostics are correct
 
 Review visually:
 
@@ -364,17 +365,25 @@ Recommended manual checks:
 
 # 13. Suggested release smoke test
 
-Before a release candidate:
+Before a release candidate, run the canonical gate and smoke-test the
+generated wheel rather than only the source checkout:
 
 ```bash
-python -m compileall fluxtuner tests
-node --check fluxtuner/web/static/app.js
-node --check fluxtuner/web/static/js/*.js
-python -m fluxtuner --version
-python -m fluxtuner --help
-python -m fluxtuner --list-players
-python -m fluxtuner
-python -m fluxtuner --gui
+make gate
+rm -rf build dist *.egg-info
+python -m build
+python -m pip install --force-reinstall dist/*.whl
+fluxtuner --version
+fluxtuner --help
+fluxtuner --list-players
+fluxtuner --list-themes
+```
+
+Then perform the manual interface checks against the installed package:
+
+```bash
+fluxtuner
+fluxtuner --gui
 FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-smoke FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080
 ```
 

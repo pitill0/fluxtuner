@@ -58,51 +58,46 @@ For completed refactor milestones and larger internal cleanup plans, see [`docs/
 
 ```mermaid
 flowchart LR
-    User["User"] --> Entry["fluxtuner command"]
-    Entry --> TUI["Textual TUI"]
-    Entry --> GUI["GTK4 GUI"]
+    User["User"] --> Entry["Command entrypoints"]
+
+    Entry --> TUI["Textual TUI<br/>fluxtuner/tui.py"]
+    Entry --> GTK["GTK4 GUI<br/>fluxtuner/gui/app.py"]
     Entry --> CLI["Legacy CLI"]
-    Entry --> Web["Web mode"]
-    Web --> WebAuth["Web auth/session"]
+    Entry --> Web["Web/server mode<br/>fluxtuner/web/app.py"]
 
-    TUI --> ProfileResolution["Profile resolution"]
-    GUI --> ProfileResolution
-    CLI --> ProfileResolution
-    WebAuth --> ProfileResolution
+    TUI --> TUIOrchestration["TUI orchestration helpers<br/>tui_playback.py<br/>tui_metadata.py<br/>tui_table.py<br/>tui_details.py<br/>tui_themes.py"]
+    GTK --> GTKWindow["MainWindow owns GTK widgets<br/>fluxtuner/gui/window.py"]
+    GTKWindow --> GTKOrchestration["GTK orchestration helpers<br/>gtk_playback.py<br/>gtk_metadata.py<br/>gtk_search.py<br/>gtk_view_state.py"]
+    Web --> WebRoutes["FastAPI routes and Web actions"]
 
-    ProfileResolution --> Services["Core services"]
+    TUI --> Core["Shared core services"]
+    TUIOrchestration --> Core
+    GTKWindow --> Core
+    GTKOrchestration --> Core
+    CLI --> Core
+    WebRoutes --> Core
 
-    Services --> Search["SearchService"]
-    Services --> Compatibility["Station compatibility"]
-    Services --> Library["Profile-scoped library"]
-    Services --> Metadata["Stream metadata"]
-    Services --> Usage["Data usage tracking"]
-    Services --> Config["Config and playback state"]
-    Services --> PlayerRegistry["Player registry"]
+    Core --> Search["SearchService and Radio Browser API"]
+    Core --> Library["Profile-scoped SQLite library"]
+    Core --> Metadata["Stream metadata parsing"]
+    Core --> Usage["Data usage tracking"]
+    Core --> Config["Config and XDG storage"]
+    Core --> Compatibility["Station compatibility"]
+
+    Compatibility --> Capabilities["PlayerCapabilities"]
+    Capabilities --> Registry["Player registry"]
+    Registry --> MPV["mpv"]
+    Registry --> FFPLAY["ffplay"]
+    Registry --> MPG123["mpg123"]
+    Registry --> OGG123["ogg123"]
 
     Search --> RadioBrowser["Radio Browser API"]
-    Search --> Compatibility
-    Compatibility --> Capabilities["PlayerCapabilities"]
-    Capabilities --> PlayerRegistry
-
-    PlayerRegistry --> MPV["mpv backend"]
-    PlayerRegistry --> FFPLAY["ffplay backend"]
-    PlayerRegistry --> MPG123["mpg123 backend"]
-    PlayerRegistry --> OGG123["ogg123 backend"]
-
     MPV --> Streams["Online radio streams"]
     FFPLAY --> Streams
     MPG123 --> Streams
     OGG123 --> Streams
 
-    Config --> ActiveProfile["active_profile"]
-    ProfileResolution --> ActiveProfile
-    Library --> LibraryDB["SQLite library database"]
-    LibraryDB --> Profiles["profiles"]
-    Profiles --> Favorites["favorites"]
-    Profiles --> History["playback history"]
-    Profiles --> ManualPlaylists["manual playlists"]
-
+    Library --> Profiles["users / profiles / favorites / history / playlists"]
     Usage --> DataStorage["XDG data files"]
     Config --> ConfigStorage["XDG config file"]
     Search --> CacheStorage["XDG cache file"]
@@ -117,35 +112,37 @@ a small ES module entrypoint that composes focused controllers.
 
 ```mermaid
 flowchart LR
-    Browser["Browser"] --> HTML["index.html"]
-    HTML --> AppJS["static/app.js<br/>ES module entrypoint"]
-    HTML --> CSS["styles.css"]
-    HTML --> Manifest["site.webmanifest"]
+    Browser["Browser"] --> HTML["fluxtuner/web/templates/index.html"]
+    HTML --> AppJS["fluxtuner/web/static/app.js<br/>ES module entrypoint"]
+    HTML --> CSS["fluxtuner/web/static/*.css"]
+    HTML --> Manifest["fluxtuner/web/static/site.webmanifest"]
 
-    AppJS --> AuthJS["auth/account controllers"]
-    AppJS --> AdminJS["admin/dashboard controllers"]
-    AppJS --> LibraryJS["search/favorites/playlists controllers"]
-    AppJS --> PlayerJS["player controller"]
-    PlayerJS --> Audio["HTML audio element"]
-    PlayerJS --> MediaSession["Media Session metadata/actions"]
-    PlayerJS --> PlayerDebug["Player debug diagnostics"]
+    AppJS --> Bootstrap["static/js/app-bootstrap.js"]
+    AppJS --> SessionUI["session-ui.js / auth.js / account-requests.js"]
+    AppJS --> AdminUI["admin.js / dashboard.js"]
+    AppJS --> LibraryUI["search.js / favorites.js / playlists.js"]
+    AppJS --> PlayerUI["player.js / player-runtime.js / metadata.js"]
 
-    AuthJS --> ApiFetch["api.js CSRF-aware fetch"]
-    AdminJS --> ApiFetch
-    LibraryJS --> ApiFetch
-    PlayerDebug --> ApiFetch
+    SessionUI --> ApiFetch["static/js/api.js<br/>CSRF-aware fetch"]
+    AdminUI --> ApiFetch
+    LibraryUI --> ApiFetch
+    PlayerUI --> ApiFetch
 
-    ApiFetch --> FastAPI["FastAPI app"]
-    FastAPI --> PublicRoutes["routes/public.py"]
-    FastAPI --> AuthRoutes["routes/auth.py"]
-    FastAPI --> LibraryRoutes["routes/library.py"]
-    FastAPI --> AdminRoutes["routes/admin.py"]
+    ApiFetch --> FastAPI["fluxtuner/web/app.py"]
+    FastAPI --> PublicRoutes["fluxtuner/web/routes/public.py"]
+    FastAPI --> AuthRoutes["fluxtuner/web/routes/auth.py"]
+    FastAPI --> LibraryRoutes["fluxtuner/web/routes/library.py"]
+    FastAPI --> MetadataRoutes["fluxtuner/web/routes/metadata.py"]
+    FastAPI --> AdminRoutes["fluxtuner/web/routes/admin.py"]
 
-    AuthRoutes --> WebGuards["context/guards/security"]
-    LibraryRoutes --> WebGuards
-    AdminRoutes --> WebGuards
-    WebGuards --> WebActions["Web helper/action modules"]
-    WebActions --> Core["Core services and SQLite library"]
+    AuthRoutes --> Guards["context.py / guards.py / security.py"]
+    LibraryRoutes --> Guards
+    MetadataRoutes --> MetadataPipeline["web/metadata coordinator,<br/>network policy and transport"]
+    AdminRoutes --> Guards
+
+    Guards --> Actions["Web action and payload modules"]
+    Actions --> Core["Shared core services and SQLite library"]
+    MetadataPipeline --> StreamMetadata["core/stream_metadata.py"]
 ```
 
 This no-build JavaScript structure keeps the deployed Web UI inspectable while
@@ -153,6 +150,47 @@ avoiding one large browser script. New Web client behavior should be added to a
 focused module under `fluxtuner/web/static/js/` and wired from `static/app.js`.
 
 
+
+## Interface orchestration boundaries
+
+The refactor keeps toolkit ownership inside each frontend while extracting
+small, testable orchestration components.
+
+### Textual TUI
+
+`fluxtuner/tui.py` owns the Textual application, widgets, event handlers and
+screen-level state. It delegates focused behavior to:
+
+- `fluxtuner/tui_playback.py` for playback start/stop coordination;
+- `fluxtuner/tui_metadata.py` for metadata lifecycle and projection state;
+- `fluxtuner/tui_table.py` for table construction and row-key handling;
+- `fluxtuner/tui_details.py` for detail-panel projection text;
+- `fluxtuner/tui_themes.py` for theme-related status messages.
+
+These helpers do not own Textual widgets or the application lifecycle.
+
+### GTK GUI
+
+`fluxtuner/gui/window.py` owns `MainWindow`, GTK widgets, signal handlers,
+selection and rendered view state. It delegates focused behavior to:
+
+- `fluxtuner/gui/gtk_playback.py` for playback coordination contracts;
+- `fluxtuner/gui/gtk_metadata.py` for metadata lifecycle and projection;
+- `fluxtuner/gui/gtk_search.py` for stale-search suppression;
+- `fluxtuner/gui/gtk_view_state.py` for logical view transitions.
+
+The extracted helpers remain independent of GTK widget construction. GTK
+updates and lifecycle decisions stay in `MainWindow`, including applying
+worker results on the GLib main context. Window shutdown stops active timers,
+metadata polling, usage tracking and player playback.
+
+### Web/server mode
+
+The Web interface separates browser controllers, FastAPI route adapters,
+guards/security, action modules and shared core services. Stream metadata uses
+an additional protected pipeline under `fluxtuner/web/metadata/` for URL
+normalization, address policy, redirect handling, transport and bounded
+coordination.
 
 ## Frontends
 
@@ -193,21 +231,24 @@ Important areas:
 
 ```text
 fluxtuner/core/
-  api.py                   Radio Browser API integration
+  api.py                   Radio Browser API integration and diagnostics
   cache.py                 Search cache
-  data_usage.py            Playback data usage tracking
-  db.py                    SQLite schema and persistence helpers
-  profiles.py              Profile selection helpers
-  favorites.py             Favorites persistence and updates
-  history.py               Playback history
-  importers.py             Import validation for favorites/playlists
-  manual_playlists.py      User-managed playlists
-  playlists.py             Built-in playlist/tag helpers
   compatibility.py         Station/backend compatibility helpers
+  data_usage.py            Playback data usage tracking
+  db.py                    SQLite connection, schema and compatibility facade
+  favorites.py             Favorites persistence, migration and updates
+  history.py               Playback history persistence and migration
+  importers.py             Import validation for favorites/playlists
+  manual_playlists.py      User-managed playlist service
+  password_changes.py      Password-change request persistence
+  playlists.py             Tag playlists and playlist persistence helpers
+  profiles.py              Profile persistence and effective-profile resolution
+  public_stats.py          Public activity statistics
   search_service.py        Shared station search service
-  stations.py              Station normalization helpers
+  stations.py              Station normalization and persistence helpers
   storage.py               Atomic JSON writes for remaining JSON files
   stream_metadata.py       ICY stream metadata parsing
+  users.py                 Web user persistence
 ```
 
 ## Search flow

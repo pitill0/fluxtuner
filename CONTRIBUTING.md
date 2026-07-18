@@ -81,9 +81,9 @@ python -m fluxtuner --cli
 Use a feature branch for any functional, UX, packaging or documentation change:
 
 ```bash
-git checkout main
-git pull
-git checkout -b feature/<short-description>
+git switch main
+git pull --ff-only
+git switch -c feature/<short-description>
 ```
 
 Make the change locally, then run the checks and manual validation relevant to the change.

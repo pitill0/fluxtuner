@@ -149,23 +149,37 @@ fluxtuner/
   logging_config.py        Project logging configuration
   paths.py                 XDG/user data path helpers
   theme_runtime.py         Runtime theme application helpers
+  tui.py                   Textual application and widget/lifecycle owner
+  tui_details.py           Detail-panel projection helpers
+  tui_metadata.py          Metadata lifecycle and projection
+  tui_playback.py          Playback coordination
+  tui_table.py             Table and row-key helpers
+  tui_themes.py            Theme-related status helpers
 
 fluxtuner/core/
   api.py                   Radio Browser API integration
   cache.py                 Search cache
+  compatibility.py         Station/backend compatibility
   data_usage.py            Playback data usage tracking
+  db.py                    SQLite schema and compatibility facade
   favorites.py             Favorites persistence and updates
   history.py               Playback history
   importers.py             Import validation for favorites/playlists
   manual_playlists.py      User-managed playlists
-  playlists.py             Built-in playlist/tag helpers
+  password_changes.py      Password-change request persistence
+  playlists.py             Tag playlists and persistence helpers
+  profiles.py              Profile persistence and resolution
+  public_stats.py          Public activity statistics
+  search_service.py        Shared station search service
   stations.py              Station normalization helpers
   storage.py               Atomic JSON writes
   stream_metadata.py       ICY stream metadata parsing
+  users.py                 Web user persistence
 
 fluxtuner/web/
   app.py                   FastAPI Web/server composition/bootstrap
-  routes/                  Public, auth, library and admin API routers
+  routes/                  Public, auth, library, metadata and admin routers
+  metadata/                Protected metadata URL, network and transport pipeline
   auth.py                  Password hashing, sessions and Web auth helpers
   admin_cli.py             Emergency Web user administration CLI
   templates/               Browser UI shell
@@ -175,13 +189,20 @@ fluxtuner/web/
 
 fluxtuner/players/
   base.py                  Player interface and errors
+  capabilities.py          Backend capability declarations
   ffplay.py                ffplay backend
+  mpg123.py                mpg123 backend
   mpv.py                   mpv backend
+  ogg123.py                ogg123 backend
   security.py              Player executable and stream URL validation
 
 fluxtuner/gui/
   app.py                   GTK GUI entry point
-  window.py                GTK GUI window
+  gtk_metadata.py          Metadata lifecycle and projection
+  gtk_playback.py          Playback coordination
+  gtk_search.py            Search lifecycle
+  gtk_view_state.py        Logical view state
+  window.py                GTK widget and lifecycle owner
 
 tests/
   test_*.py                Unit and regression tests

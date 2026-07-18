@@ -63,7 +63,9 @@ python -m fluxtuner --player mpv
 python -m fluxtuner --player ffplay
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
-FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Legacy CLI mode:
@@ -202,7 +204,6 @@ Use when touching GUI, playback, favorites, history, playlists or status message
 ```bash
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
-FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Common checks:
@@ -219,6 +220,20 @@ Common checks:
 - `mpv` volume and mute controls work live.
 - `ffplay` volume and mute controls are disabled or clearly unsupported.
 - Closing the window does not leave backend processes running.
+
+### Web/server validation
+
+Use when touching Web routes, browser controllers, authentication, sessions,
+metadata, account administration or responsive layout:
+
+```bash
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+```
+
+Use an isolated data directory and validate the smallest affected authenticated,
+administrator and browser playback flows.
 
 ---
 
@@ -336,7 +351,9 @@ python -m fluxtuner --player mpv
 python -m fluxtuner --player ffplay
 python -m fluxtuner --gui --player mpv
 python -m fluxtuner --gui --player ffplay
-FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Then:
@@ -346,7 +363,7 @@ Then:
 3. Move `[Unreleased]` entries into a new release section in `CHANGELOG.md`.
 4. Update AppStream metadata when the Flatpak package is affected.
 5. Commit the release change.
-6. Create a git tag, for example `v0.2.8`.
+6. Create a git tag matching the release version, for example `vX.Y.Z`.
 7. Publish a GitHub release.
 8. Update the Flathub manifest when appropriate.
 
@@ -373,7 +390,7 @@ Do not rename the app-id just to silence this warning. Keep the app-id consisten
 For local Flatpak builds:
 
 ```bash
-flatpak-builder --force-clean build-dir io.github.pitill0.Fluxtuner.yml
+flatpak-builder --force-clean build-dir flatpak/io.github.pitill0.Fluxtuner.yml
 ```
 
 On CRUX Linux, use:
@@ -383,24 +400,25 @@ flatpak-builder \
   --force-clean \
   --disable-rofiles-fuse \
   build-dir \
-  io.github.pitill0.Fluxtuner.yml
+  flatpak/io.github.pitill0.Fluxtuner.yml
 ```
 
 ---
 
 ## Documentation and validation logs
 
-Manual validation records can be stored under:
+Flatpak manual validation records are stored under:
 
 ```text
-docs/validation/
+flatpak/docs/validation/
 ```
 
-Use one file per relevant release when useful:
+Historical release evidence and focused permission reviews use one Markdown
+file per validation scope, for example:
 
 ```text
-docs/validation/v0.2.6.md
-docs/validation/v0.2.7.md
+flatpak/docs/validation/v0.2.6.md
+flatpak/docs/validation/permission-share-ipc.md
 ```
 
 These files are meant to capture manual QA evidence and should complement, not replace, `CHANGELOG.md`.

@@ -91,19 +91,29 @@ pipx uninstall fluxtuner
 
 ## Launch modes
 
-FluxTuner provides three interfaces that share the same core services, playback layer and user data.
+FluxTuner provides four user-facing modes that share core services and
+library behavior: the Textual TUI, GTK4 GUI, legacy numbered CLI and
+browser-based Web/server mode.
 
 ```bash
-fluxtuner              # Textual TUI, default
-fluxtuner --gui        # GTK4 desktop GUI
-fluxtuner --cli        # legacy numbered CLI
+fluxtuner                                      # Textual TUI, default
+fluxtuner --gui                                # GTK4 desktop GUI
+fluxtuner --cli                                # legacy numbered CLI
+fluxtuner-web --host 127.0.0.1 --port 8080    # Web/server mode
 ```
 
-When running from source, replace `fluxtuner` with:
+The Web/server command requires the optional Web dependencies, installed with
+`python -m pip install -e ".[web]"` from a source checkout.
+
+The examples in this guide use the installed `fluxtuner` command. When
+working directly from a source checkout, use the equivalent module form:
 
 ```bash
 python -m fluxtuner
 ```
+
+Options are identical, so `fluxtuner --doctor` becomes
+`python -m fluxtuner --doctor`, for example.
 
 ## Player backends
 

@@ -298,9 +298,9 @@ bandit -r fluxtuner -c pyproject.toml
 Recommended workflow:
 
 ```bash
-git checkout main
-git pull
-git checkout -b area/short-description
+git switch main
+git pull --ff-only
+git switch -c area/short-description
 ```
 
 Make focused changes, then run validation.

@@ -331,41 +331,61 @@ A release should have at least one clear reason:
 - Meaningful documentation or validation update.
 - Small coherent UX polish batch.
 
-Release checklist:
+Before preparing a release, start from an up-to-date, clean `main` branch:
 
 ```bash
-python -m ruff check .
-python -m ruff format --check .
-python -m compileall fluxtuner tests
-python -m pytest
-python -m fluxtuner --version
-python -m fluxtuner --help
-python -m fluxtuner --list-players
-python -m fluxtuner --list-themes
+git switch main
+git pull --ff-only
+git status --short
 ```
 
-Manual validation, depending on the change:
+Prepare the release metadata:
+
+1. Update the version in `pyproject.toml`. This is the package version source;
+   `fluxtuner.__version__` is resolved from installed package metadata and must
+   not be edited separately.
+2. Move the relevant `[Unreleased]` entries into a dated release section in
+   `CHANGELOG.md`.
+3. Add the release to
+   `flatpak/io.github.pitill0.Fluxtuner.metainfo.xml` when publishing a new
+   Flatpak-facing release.
+4. Update Flatpak source metadata or validation evidence only when that release
+   changes the Flatpak package or its permissions.
+
+Run the complete release-quality gate and build both distribution artifacts:
 
 ```bash
-python -m fluxtuner --player mpv
-python -m fluxtuner --player ffplay
-python -m fluxtuner --gui --player mpv
-python -m fluxtuner --gui --player ffplay
-FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
-FLUXTUNER_WEB_SECURE_COOKIES=false \
-fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+make gate
+rm -rf build dist *.egg-info
+python -m build
+python -m pip install --force-reinstall dist/*.whl
+fluxtuner --version
+fluxtuner --help
+fluxtuner --list-players
+fluxtuner --list-themes
+```
+
+Perform the smallest relevant manual validation from the sections above for
+TUI, GTK, Web/server and Flatpak behavior affected by the release.
+
+Commit the release preparation and open a pull request. Create the release tag
+only after that pull request has passed CI and has been merged:
+
+```bash
+git switch main
+git pull --ff-only
+git tag -a vX.Y.Z -m "FluxTuner X.Y.Z"
+git push origin vX.Y.Z
 ```
 
 Then:
 
-1. Update the version in `pyproject.toml`.
-2. Update the version in `fluxtuner/__init__.py` if it declares `__version__`.
-3. Move `[Unreleased]` entries into a new release section in `CHANGELOG.md`.
-4. Update AppStream metadata when the Flatpak package is affected.
-5. Commit the release change.
-6. Create a git tag matching the release version, for example `vX.Y.Z`.
-7. Publish a GitHub release.
-8. Update the Flathub manifest when appropriate.
+1. Publish the GitHub release from the pushed tag.
+2. Attach or verify the generated source and wheel artifacts as appropriate.
+3. Update the Flathub manifest to the immutable release tag and source checksum
+   when the release is intended for Flathub.
+4. Build and validate the resulting Flatpak before submitting the Flathub
+   change.
 
 ---
 

@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/flatpak
   pull_request:
 
 env:

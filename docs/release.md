@@ -99,17 +99,18 @@ After moving entries, reset `Unreleased` to:
 
 ## Pre-release checklist
 
-Start from a clean `main` branch:
+Start from an up-to-date, clean `main` branch:
 
 ```bash
-git checkout main
-git pull
+git switch main
+git pull --ff-only
+git status --short
 ```
 
 Create a release branch:
 
 ```bash
-git checkout -b release/x.y.z
+git switch -c release/x.y.z
 ```
 
 Update files:
@@ -119,32 +120,26 @@ pyproject.toml
 CHANGELOG.md
 ```
 
-Then run local validation:
+Then run the complete release-quality gate and build from a clean artifact
+directory:
 
 ```bash
-ruff check .
-ruff format --check .
-python -m compileall fluxtuner tests
-python -m pytest
-python -m mypy --follow-imports=skip fluxtuner/
-node --check fluxtuner/web/static/app.js
-node --check fluxtuner/web/static/js/*.js
+make gate
+rm -rf build dist *.egg-info
 python -m build
-pip-audit --local
-bandit -r fluxtuner -c pyproject.toml
 ```
 
-Check that build artifacts exist:
+Check that both distribution artifacts exist, install the generated wheel and
+smoke-test the installed commands:
 
 ```bash
-ls dist/*.tar.gz dist/*.whl
-```
-
-Inspect package metadata if needed:
-
-```bash
-python -m pip install dist/*.whl
-python -m fluxtuner --version
+test -n "$(ls dist/*.tar.gz)"
+test -n "$(ls dist/*.whl)"
+python -m pip install --force-reinstall dist/*.whl
+fluxtuner --version
+fluxtuner --help
+fluxtuner --list-players
+fluxtuner --list-themes
 ```
 
 ## Pull request
@@ -182,35 +177,31 @@ Changes include:
 
 ## Validation
 
-- [ ] `ruff check .`
-- [ ] `ruff format --check .`
-- [ ] `python -m compileall fluxtuner tests`
-- [ ] `python -m pytest`
-- [ ] `python -m mypy --follow-imports=skip fluxtuner/`
-- [ ] `node --check fluxtuner/web/static/app.js`
+- [ ] `make gate`
+- [ ] `rm -rf build dist *.egg-info`
 - [ ] `python -m build`
-- [ ] `pip-audit --local`
-- [ ] `bandit -r fluxtuner -c pyproject.toml`
+- [ ] Wheel installed with `python -m pip install --force-reinstall dist/*.whl`
+- [ ] Installed CLI smoke tests passed
 ```
 
 Merge the PR only after CI is green.
 
 ## Tagging
 
-After the release PR is merged:
+After the release PR is merged and CI is green:
 
 ```bash
-git checkout main
-git pull
-git tag vx.y.z
+git switch main
+git pull --ff-only
+git tag -a vx.y.z -m "FluxTuner x.y.z"
 git push origin vx.y.z
 ```
 
 Example:
 
 ```bash
-git tag v0.2.10
-git push origin v0.2.10
+git tag -a v1.0.7 -m "FluxTuner 1.0.7"
+git push origin v1.0.7
 ```
 
 Pushing a version tag triggers the release artifact workflow.
@@ -271,9 +262,13 @@ dist/*.tar.gz
 dist/*.whl
 ```
 
-and uploads them as GitHub Actions artifacts.
+The workflow verifies that the pushed tag matches the version declared in
+`pyproject.toml`, installs and smoke-tests the generated wheel, uploads both
+files as GitHub Actions artifacts and attaches them to the GitHub release.
 
-This workflow does not publish to PyPI automatically. Publishing should remain manual until credentials, trusted publishing, and release ownership are explicitly configured.
+This workflow does not publish to PyPI automatically. Publishing should remain
+manual until credentials, trusted publishing and release ownership are
+explicitly configured.
 
 ## Flatpak release notes
 
@@ -300,22 +295,22 @@ Avoid force-moving published tags unless the release was never announced and no 
 
 ## Release gate
 
-Before creating or moving a release tag, run the full release gate from a clean
-working tree:
+Before creating a release tag, run the canonical release-quality gate from a
+clean working tree:
 
-    python -m ruff format --check .
-    python -m ruff check .
-    python -m compileall fluxtuner tests
-    python -m pytest
-    python -m mypy --follow-imports=skip fluxtuner/
-    node --check fluxtuner/web/static/app.js
-    pip-audit --local
-    bandit -r fluxtuner -c pyproject.toml
+```bash
+make gate
+```
 
-Do not create the tag until all checks pass. If `ruff format --check` reports
-changes, run:
+Build, install and smoke-test the release artifacts using the commands in the
+pre-release checklist above. Do not create the tag until local validation and
+the release pull request CI have both passed.
 
-    python -m ruff format .
+If `ruff format --check` reports changes, run:
+
+```bash
+python -m ruff format .
+```
 
 Then commit the formatting changes and restart the release gate before tagging.
 

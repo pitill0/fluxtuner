@@ -2,7 +2,10 @@
 
 # FluxTuner licensing
 
-FluxTuner uses a split licensing model starting with the 0.9.0 development line.
+FluxTuner has used a split licensing model since version 0.9.0, when the
+Web/server and multi-user components were introduced. The existing local
+application components remain MIT-licensed, while the identified Web/server
+components are licensed under the FluxTuner Web Non-Commercial License.
 
 ## Summary
 

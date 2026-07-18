@@ -24,7 +24,7 @@ python -m pip install -e ".[web]"
 Start the web server:
 
 ```bash
-fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+FLUXTUNER_WEB_SECURE_COOKIES=false fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
 Open:
@@ -111,21 +111,26 @@ For web development, testing, containers, demos, or isolated instances, set
 `FLUXTUNER_DATA_DIR`:
 
 ```bash
-FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev fluxtuner-web --host 127.0.0.1 --port 8080 --reload
+FLUXTUNER_DATA_DIR=/tmp/fluxtuner-web-dev \
+FLUXTUNER_WEB_SECURE_COOKIES=false \
+fluxtuner-web --host 127.0.0.1 --port 8080 --reload
 ```
 
-This keeps web playback history, favorites, and playlists outside your normal
-FluxTuner profile.
+This keeps the entire Web instance database and migrated library data outside
+your normal FluxTuner data directory.
 
 `FLUXTUNER_DATA_DIR` only changes the data directory. Config and cache still use
 their XDG locations unless `XDG_CONFIG_HOME` or `XDG_CACHE_HOME` are also set.
 
 ## Containers
 
-FluxTuner Web can also run in Docker or Podman.
+FluxTuner Web can also run in Docker or Podman. The repository includes a
+`compose.yaml` configured for localhost HTTP development. It requires
+`FLUXTUNER_WEB_SETUP_TOKEN`, binds to `127.0.0.1` and explicitly disables
+Secure cookies for that local HTTP origin.
 
-See [`docs/container.md`](container.md) for build, run, Compose, and persistent
-volume examples.
+See [`docs/container.md`](container.md) for direct container runs, Compose,
+persistent volumes and production deployment differences.
 
 ## Users and profiles
 

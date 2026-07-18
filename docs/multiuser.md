@@ -237,15 +237,16 @@ Strategy:
 
 ## Web routes
 
-Public/setup/auth routes:
+Representative public/setup/auth routes:
 
 - `GET /`
 - `GET /api/setup/status`
 - `POST /api/setup/admin`
 - `POST /api/auth/login`
 - `POST /api/auth/register`
+- `GET /api/public/stats`
 
-Authenticated routes:
+Representative authenticated routes:
 
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
@@ -261,8 +262,11 @@ Authenticated routes:
 - `GET /api/playlists/{name}/stations`
 - `POST /api/playlists/{name}/stations`
 - `DELETE /api/playlists/{name}/stations`
+- `GET /api/stream-metadata`
+- authenticated password-change request routes
 
-Admin-only routes are implemented for Web user management. They require an
+Admin-only routes are implemented for Web user management, password-change
+review and metadata diagnostics. They require an
 authenticated active administrator session. Administrators can create users,
 reset passwords, activate/deactivate users, grant/revoke admin access, approve
 or reject pending account requests, and delete users from the Admin UI/API.
@@ -291,19 +295,18 @@ Rejected bootstrap options:
 Web user CLI commands:
 
     fluxtuner web users list
-    fluxtuner web users create alice --admin
-    fluxtuner web users password alice
-    fluxtuner web users activate alice
+    fluxtuner web users create-admin alice
+    fluxtuner web users set-password alice
     fluxtuner web users deactivate alice
-    python -m fluxtuner --web-disable-user alice
-    python -m fluxtuner --web-reset-password alice
+
+The same subcommands can be invoked as `python -m fluxtuner web users ...`
+from a source checkout.
 
 First-user bootstrap must be explicit.
 
 ## Web UX notes
 
-FluxTuner Web 1.0.1 improves the private-server browser experience without
-changing the authentication model or storage format:
+The current private-server browser experience includes:
 
 - The authenticated header displays the user's display name when available.
 - The persistent player bar has stronger visual contrast and clearer playback state.

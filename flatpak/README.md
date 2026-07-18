@@ -84,9 +84,11 @@ flatpak install --user ./fluxtuner.flatpak
   - `ogg123` lightweight Ogg/Vorbis/Opus/FLAC-style fallback
 - The local development manifest does not currently bundle player binaries explicitly.
   Use `flatpak run io.github.pitill0.Fluxtuner --list-players` to confirm which backends are available inside the sandbox.
-- `appstream-compose: false` is currently enabled for local development builds.
-- The local development manifest may fetch Python dependencies from PyPI during build.
-  The Flathub manifest should use vendored or generated dependency modules such as `python3-requirements.json`.
+- Python dependencies are installed from the checked-in
+  `python3-requirements.json` module using pinned source URLs and checksums.
+  Flatpak builds should not resolve application dependencies from the network
+  through `pip`.
+- AppStream metadata is installed and validated as part of the Flatpak build.
 
 ## Sandbox permissions
 

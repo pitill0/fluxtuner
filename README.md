@@ -133,13 +133,19 @@ pipx install git+https://github.com/pitill0/fluxtuner.git
 fluxtuner
 ```
 
-### Run from source tarball
+### Run from a tagged source archive
 
-You can run FluxTuner directly from a tagged source archive:
+Choose a release tag from the GitHub Releases page, then download and extract
+that version. For example:
 
-    wget https://github.com/pitill0/fluxtuner/archive/refs/tags/v1.0.6.tar.gz
-    tar xvf v1.0.6.tar.gz
-    cd fluxtuner-1.0.6
+Set `VERSION` to the release you want to run:
+
+```bash
+VERSION=X.Y.Z
+wget "https://github.com/pitill0/fluxtuner/archive/refs/tags/v${VERSION}.tar.gz"
+tar xvf "v${VERSION}.tar.gz"
+cd "fluxtuner-${VERSION}"
+```
 
 Install the Python dependencies required by the terminal interface.
 
@@ -234,18 +240,25 @@ See [`docs/web.md`](docs/web.md) for Web/server usage, [`docs/container.md`](doc
 
 ## Common commands
 
-    fluxtuner --help
-    fluxtuner --version
-    fluxtuner --list-players
-    python -m fluxtuner --list-profiles
-    python -m fluxtuner --profile work --set-active-profile
-    python -m fluxtuner --show-active-profile
-    python -m fluxtuner --clear-active-profile
-    python -m fluxtuner --profile work --export-favs work-favorites.json
-    python -m fluxtuner --profile work --import-favs work-favorites.json
-    python -m fluxtuner --profile work --export-playlists work-playlists.json
-    python -m fluxtuner --profile work --import-playlists work-playlists.json
-    python -m fluxtuner --cli --profile work
+Use the installed `fluxtuner` command for normal use:
+
+```bash
+fluxtuner --help
+fluxtuner --version
+fluxtuner --list-players
+fluxtuner --list-profiles
+fluxtuner --profile work --set-active-profile
+fluxtuner --show-active-profile
+fluxtuner --clear-active-profile
+fluxtuner --profile work --export-favs work-favorites.json
+fluxtuner --profile work --import-favs work-favorites.json
+fluxtuner --profile work --export-playlists work-playlists.json
+fluxtuner --profile work --import-playlists work-playlists.json
+fluxtuner --cli --profile work
+```
+
+When working directly from a source checkout, the equivalent form is
+`python -m fluxtuner ...`.
 
 `--profile NAME` targets a named profile for profile-aware commands. When omitted,
 FluxTuner uses the persisted active profile if one is configured, otherwise it

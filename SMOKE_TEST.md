@@ -50,24 +50,23 @@ Expected:
 python -m fluxtuner --list-players
 ```
 
-Expected example:
+Expected behavior:
 
-```text
-Supported player backends:
-  ✓ mpv (auto)
-  ✓ ffplay
-```
+- all four supported backends are listed: `mpv`, `ffplay`, `mpg123` and
+  `ogg123`;
+- each backend is reported as available or missing;
+- the automatically selected available backend is marked;
+- capability and installation hints remain readable.
 
-Acceptable variants:
-
-- `mpv` only
-- `ffplay` only
-- both available
+Any subset may be available locally, but at least one backend is required for
+manual playback tests.
 
 If no backend is available, install one of:
 
 - `mpv`
 - `ffmpeg` / `ffplay`
+- `mpg123`
+- `vorbis-tools` / `ogg123`
 
 ---
 

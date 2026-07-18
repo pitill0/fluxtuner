@@ -102,6 +102,7 @@ Run FluxTuner on your own server and access your radio library from any modern b
 From the repository root:
 
 ```bash
+export FLUXTUNER_WEB_SETUP_TOKEN="$(openssl rand -hex 32)"
 docker compose up --build -d
 ```
 
@@ -111,7 +112,12 @@ Then open:
 http://127.0.0.1:8080
 ```
 
-This Compose setup is intended as a convenient starting point. Before exposing FluxTuner to a LAN or the internet, review [`docs/container.md`](docs/container.md) and [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) for persistent storage, setup-token, HTTPS, secure-cookie and reverse-proxy requirements.
+The included Compose file is intentionally limited to local HTTP development:
+it binds to `127.0.0.1`, requires a first-run setup token and disables Secure
+cookies for the localhost HTTP origin. Before exposing FluxTuner to a LAN or
+the internet, review [`docs/container.md`](docs/container.md) and
+[`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) and use HTTPS,
+Secure cookies and a reverse proxy or private container network.
 
 ### Run from source
 

@@ -36,7 +36,7 @@ The following areas are considered in scope:
 - Build, packaging, or release workflow issues that could affect distributed artifacts.
 - Flatpak or packaging permissions that are broader than necessary.
 - Logs that expose sensitive local paths, stream URLs, or unnecessary user data.
-- Web/server authentication, session handling, CSRF protection, account approval, administrator actions, or cross-user data isolation.
+- Web/server authentication, session handling, CSRF protection, account approval, administrator actions, cross-user data isolation, or server-side stream metadata fetching.
 
 The following areas are usually out of scope unless they expose a concrete security risk:
 
@@ -91,6 +91,9 @@ Security-sensitive handling expectations:
 - Stream metadata should be read with explicit limits.
 - Malformed stream responses should not crash FluxTuner.
 - External stream data should not be trusted as safe input.
+- Server-side Web metadata fetching must normalize targets, reject unsupported
+  schemes, block private/reserved destinations after DNS resolution, validate
+  redirects and enforce bounded time/read budgets.
 
 ## External player backends
 
@@ -135,6 +138,7 @@ FluxTuner includes several hardening measures:
 - Static security analysis with Bandit.
 - Full-package mypy validation for typed regressions.
 - Web/server session, CSRF, pending-registration and admin-user tests.
+- Protected Web metadata URL, DNS, redirect, transport and coordination tests.
 - Atomic JSON writes for local user data.
 - Validation of imported favorites and playlists.
 - Validation of stream URLs before player execution.

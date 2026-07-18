@@ -106,8 +106,11 @@ For a fresh deployment:
 7. Open the web UI.
 8. Create the first administrator.
 9. Review pending account requests from Admin before granting access.
-10. Remove the setup token from shell history or secret notes if it was copied there.
-11. Confirm that `/api/setup/status` no longer reports setup as available.
+10. Remove `FLUXTUNER_WEB_SETUP_TOKEN` from the long-running service
+    environment after the first administrator exists.
+11. Remove the token from shell history or temporary secret notes if it was
+    copied there.
+12. Confirm that `/api/setup/status` no longer reports setup as available.
 
 Once a configured active administrator exists, the setup endpoint is no longer
 available for creating another first admin.
@@ -157,7 +160,9 @@ A reverse proxy should provide at least:
 - HTTP-to-HTTPS redirect.
 - Proxying to the local `fluxtuner-web` listener.
 - Request body limits appropriate for the application.
-- Access logs suitable for auditing.
+- Conservative connect, read and idle timeouts.
+- Access logs suitable for auditing without logging cookies, setup tokens,
+  CSRF tokens or request bodies.
 
 Example shape:
 
@@ -192,6 +197,8 @@ After deployment, verify:
 - The session cookie has `Secure` when served through HTTPS.
 - Logout invalidates the current session.
 - Unsafe API requests require the CSRF header.
+- Web metadata requests reject unsupported schemes, private/reserved
+  destinations and unsafe redirects.
 - Non-admin users cannot access `/api/admin/users`.
 - Public account requests create pending inactive users and do not grant immediate access.
 - Pending users are not notified by email; they must try signing in later to check approval state.

@@ -129,31 +129,27 @@ deployment checklist.
 
 ## Compose
 
-No Compose file is required. If you use Compose, keep the same deployment rules:
+The repository includes `compose.yaml` as a localhost HTTP development
+baseline. Generate a first-run setup token before starting it:
 
-```yaml
-services:
-  fluxtuner-web:
-    image: fluxtuner-web:dev
-    build:
-      context: .
-      dockerfile: Containerfile
-    ports:
-      - "127.0.0.1:8080:8080"
-    environment:
-      FLUXTUNER_DATA_DIR: /data
-      FLUXTUNER_WEB_SETUP_TOKEN: "${FLUXTUNER_WEB_SETUP_TOKEN}"
-      FLUXTUNER_WEB_SECURE_COOKIES: "false"
-      FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS: "86400"
-    volumes:
-      - fluxtuner-data:/data
-
-volumes:
-  fluxtuner-data:
+```bash
+export FLUXTUNER_WEB_SETUP_TOKEN="$(openssl rand -hex 32)"
+docker compose up --build -d
 ```
 
-For HTTPS deployments, set `FLUXTUNER_WEB_SECURE_COOKIES=true` and expose the
-service through your reverse proxy rather than directly.
+The checked-in Compose file:
+
+- binds the published port to `127.0.0.1`;
+- stores application data in the `fluxtuner-data` volume;
+- requires the setup token from the host environment;
+- sets `FLUXTUNER_WEB_SECURE_COOKIES=false` only because the documented origin
+  is local plain HTTP;
+- sets a one-day session maximum age.
+
+Do not reuse this local HTTP cookie setting for LAN or internet exposure. For
+HTTPS deployments, keep `FLUXTUNER_WEB_SECURE_COOKIES=true` and expose the
+service through a reverse proxy or private container network instead of
+publishing it directly.
 
 ## Persistent data
 

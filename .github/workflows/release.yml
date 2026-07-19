@@ -61,7 +61,20 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python -m pip install --force-reinstall dist/*.whl
-          test "$(fluxtuner --version)" = "${RELEASE_TAG#v}"
+          python - <<'PY'
+          import os
+          from importlib.metadata import version
+
+          expected_version = os.environ["RELEASE_TAG"].removeprefix("v")
+          installed_version = version("fluxtuner")
+
+          if installed_version != expected_version:
+              raise SystemExit(
+                  f"Installed package version {installed_version!r} does not match "
+                  f"release tag version {expected_version!r}"
+              )
+          PY
+          fluxtuner --version
           fluxtuner --help
           fluxtuner --list-players
           fluxtuner --list-themes

@@ -20,6 +20,46 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.0.7] - 2026-07-19
+
+### Changed
+
+- Consolidated the post-1.0 architecture, documentation and maintenance workflow
+  after completing the Web refactor.
+- Aligned README, usage, development, contribution, deployment, security,
+  licensing, Flatpak and release documentation with the current platform.
+- Clarified the split between the MIT-licensed local interfaces and the
+  non-commercial Web/server edition.
+- Standardized release preparation around `make gate`, clean package builds,
+  installed-wheel smoke tests and annotated tags created only after CI and merge.
+- Updated GitHub Actions checkout and Python setup actions to their current major
+  versions across CI, release and Flatpak workflows.
+
+### Fixed
+
+- Removed an obsolete Flatpak workflow trigger for the deleted
+  `feature/flatpak` branch.
+- Fixed stale and duplicated release instructions that could validate the source
+  checkout without validating the generated wheel.
+- Fixed Flatpak documentation that no longer matched the checked-in dependency
+  manifest and AppStream validation flow.
+
+### Documentation
+
+- Added and expanded architecture, usage, development, Web, container,
+  deployment, security, licensing, release and smoke-test guidance.
+- Documented the canonical package version source, release gate, artifact
+  workflow and separation between upstream releases and Flathub updates.
+- Preserved refactor roadmaps and validation records as historical engineering
+  context while removing active documentation drift.
+
+### Internal
+
+- Added package artifact smoke tests to CI and release workflows.
+- Added release tag-to-package-version validation.
+- Aligned CI, release and Flatpak workflow maintenance after the repository-wide
+  cleanup and consolidation pass.
+
 ## [1.0.6] - 2026-07-12
 
 ### Changed

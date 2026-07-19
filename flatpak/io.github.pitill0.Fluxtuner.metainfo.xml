@@ -81,6 +81,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.7" date="2026-07-19">
+      <description>
+        <ul>
+          <li>Completed the repository-wide architecture, documentation and workflow consolidation.</li>
+          <li>Aligned release preparation around the canonical quality gate and installed-wheel smoke tests.</li>
+          <li>Clarified local, Web/server, licensing and Flatpak boundaries across project documentation.</li>
+          <li>Hardened CI and release workflows with package and tag/version validation.</li>
+          <li>Updated GitHub Actions and removed obsolete Flatpak workflow configuration.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.6" date="2026-07-12">
       <description>
         <ul>

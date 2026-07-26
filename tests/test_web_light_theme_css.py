@@ -12,7 +12,7 @@ def test_light_theme_defines_complete_color_tokens() -> None:
     assert styles_response.status_code == 200
     assert forms_response.status_code == 200
 
-    assert "--action-fill: #0891b2;" in styles_response.text
+    assert styles_response.text.count("--action-fill: #6ee7d8;") == 2
     assert "--action-fill-hover: #0e7490;" in styles_response.text
 
     assert "--help-text: #b8ccde;" in forms_response.text
@@ -20,7 +20,7 @@ def test_light_theme_defines_complete_color_tokens() -> None:
     assert "--help-text:" not in styles_response.text
 
 
-def test_light_theme_primary_actions_use_light_palette() -> None:
+def test_primary_actions_share_the_same_palette_across_themes() -> None:
     client = TestClient(create_app())
 
     search_css = client.get("/static/search.css").text
@@ -28,13 +28,15 @@ def test_light_theme_primary_actions_use_light_palette() -> None:
     station_css = client.get("/static/station-actions.css").text
     admin_css = client.get("/static/admin.css").text
 
-    assert 'html[data-theme="light"] .search-form button' in search_css
-    assert 'html[data-theme="light"] .auth-form button' in auth_css
-    assert 'html[data-theme="light"] .station-actions button[data-play-station]' in station_css
-    assert 'html[data-theme="light"] .admin-user-form button' in admin_css
+    assert ".search-form button {" in search_css
+    assert ".auth-form button," in auth_css
+    assert ".station-actions button[data-play-station] {" in station_css
+    assert ".admin-user-form button {" in admin_css
 
-    for css in (search_css, auth_css, station_css, admin_css):
-        assert "color: #ffffff;" in css
+    assert 'html[data-theme="light"] .search-form button' not in search_css
+    assert 'html[data-theme="light"] .auth-form button' not in auth_css
+    assert 'html[data-theme="light"] .station-actions button[data-play-station]' not in station_css
+    assert 'html[data-theme="light"] .admin-user-form button' not in admin_css
 
 
 def test_light_theme_overrides_dark_diagnostic_and_destructive_surfaces() -> None:

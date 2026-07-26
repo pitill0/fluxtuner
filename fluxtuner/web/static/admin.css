@@ -537,7 +537,7 @@ html[data-theme="light"] .player-debug-export {
 /* User management: light theme */
 
 html[data-theme="light"] .admin-user-form button {
-  color: #04111f;
+  color: #ffffff;
   border-color: var(--action-fill);
   background: var(--action-fill);
 }
@@ -562,6 +562,35 @@ html[data-theme="light"] .admin-user-actions [data-admin-user-action="deactivate
   color: #92400e;
   border-color: rgba(217, 119, 6, 0.28);
   background: rgba(254, 243, 199, 0.82);
+}
+
+html[data-theme="light"] .admin-user-form,
+html[data-theme="light"] .admin-users-row {
+  border-color: rgba(100, 116, 139, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .admin-users-head {
+  background: transparent;
+}
+
+html[data-theme="light"] .admin-user-actions [data-admin-user-action="reject"],
+html[data-theme="light"] .admin-user-actions [data-admin-password-change-action="reject"] {
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(254, 226, 226, 0.82);
+}
+
+html[data-theme="light"] .admin-user-actions [data-admin-user-action="delete"] {
+  color: #ffffff;
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
+html[data-theme="light"] .admin-user-actions [data-admin-user-action="delete"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: #991b1b;
+  background: #991b1b;
 }
 
 /* Completed admin diagnostic ownership */

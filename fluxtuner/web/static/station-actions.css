@@ -97,3 +97,22 @@ html[data-theme="light"] .station-actions a.station-external-link:hover {
   color: #334155;
   background: rgba(241, 245, 249, 0.92);
 }
+
+html[data-theme="light"] .station-actions button[data-play-station] {
+  color: #ffffff;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+html[data-theme="light"] .station-actions button[data-play-station]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+html[data-theme="light"] .station-actions [data-delete-playlist],
+html[data-theme="light"] .station-actions [data-remove-from-playlist] {
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(254, 226, 226, 0.82);
+}

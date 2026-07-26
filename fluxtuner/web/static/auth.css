@@ -106,7 +106,7 @@
 
 html[data-theme="light"] .auth-form button,
 html[data-theme="light"] .setup-form button {
-  color: #04111f;
+  color: #ffffff;
   border-color: var(--action-fill);
   background: var(--action-fill);
 }

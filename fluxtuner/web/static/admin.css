@@ -536,18 +536,6 @@ html[data-theme="light"] .player-debug-export {
 
 /* User management: light theme */
 
-html[data-theme="light"] .admin-user-form button {
-  color: #ffffff;
-  border-color: var(--action-fill);
-  background: var(--action-fill);
-}
-
-html[data-theme="light"] .admin-user-form button:not(:disabled):hover {
-  color: #ffffff;
-  border-color: var(--action-fill-hover);
-  background: var(--action-fill-hover);
-}
-
 html[data-theme="light"] .admin-user-danger-zone {
   border-color: rgba(220, 38, 38, 0.34);
   background: linear-gradient(135deg, rgba(254, 226, 226, 0.9), rgba(255, 247, 237, 0.72));

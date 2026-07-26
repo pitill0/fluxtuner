@@ -35,10 +35,7 @@ def test_primary_actions_share_the_same_palette_across_themes() -> None:
 
     assert 'html[data-theme="light"] .search-form button' not in search_css
     assert 'html[data-theme="light"] .auth-form button' not in auth_css
-    assert (
-        'html[data-theme="light"] .station-actions button[data-play-station]'
-        not in station_css
-    )
+    assert 'html[data-theme="light"] .station-actions button[data-play-station]' not in station_css
     assert 'html[data-theme="light"] .admin-user-form button' not in admin_css
 
 

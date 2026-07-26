@@ -68,7 +68,7 @@ function renderPublicStats(contentNode, payload) {
       ${renderPublicStatTile(plays, "play", "plays")}
       ${renderPublicStatTile(favorites, "saved station", "saved stations")}
       ${renderPublicStatTile(playlists, "playlist", "playlists")}
-      ${renderPublicStatTile(users, "user", "users")}
+      ${renderPublicStatTile(users, "active user", "active users")}
     </div>
   `;
 }

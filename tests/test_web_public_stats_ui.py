@@ -35,7 +35,7 @@ def test_web_static_js_loads_public_stats() -> None:
     assert "renderPublicStats" in public_stats_response.text
     assert "renderPublicStatTile" in public_stats_response.text
     assert "No public activity yet." in public_stats_response.text
-    assert '"user", "users"' in public_stats_response.text
+    assert '"active user", "active users"' in public_stats_response.text
 
 
 def test_web_static_css_styles_public_stats() -> None:

@@ -367,9 +367,21 @@ html[data-theme="light"] .player-actions a:hover {
 }
 
 .player-control[data-player-mode="pause"] .player-control-icon {
-  font-size: 0.82rem;
-  letter-spacing: -0.16em;
-  transform: translateX(-0.06em);
+  position: relative;
+  gap: 0.2rem;
+  font-size: 0;
+  letter-spacing: 0;
+  transform: none;
+}
+
+.player-control[data-player-mode="pause"] .player-control-icon::before,
+.player-control[data-player-mode="pause"] .player-control-icon::after {
+  display: block;
+  width: 0.2rem;
+  height: 0.9rem;
+  border-radius: 0.08rem;
+  background: currentColor;
+  content: "";
 }
 
 .player-control[data-player-mode="loading"] .player-control-icon {

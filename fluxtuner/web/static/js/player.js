@@ -253,7 +253,7 @@ export function createPlayerController({
     } else if (audioNode.paused) {
       setPlayerControl(toggleButton, "Resume playback", "▶", "play", "Resume");
     } else {
-      setPlayerControl(toggleButton, "Pause playback", "❚❚", "pause", "Pause");
+      setPlayerControl(toggleButton, "Pause playback", "", "pause", "Pause");
     }
 
     if (openLink) {

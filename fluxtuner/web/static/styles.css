@@ -8,6 +8,7 @@
   --panel-strong: #132942;
   --text: #e8f4ff;
   --muted: #9bb4ce;
+  --help-text: #9bb4ce;
   --accent: #6ee7d8;
   --accent-strong: #38bdf8;
   --action-fill: #6ee7d8;
@@ -111,9 +112,10 @@ h1 {
   --panel-strong: #dcecf6;
   --text: #122033;
   --muted: #52677d;
+  --help-text: #52677d;
   --accent: #0f766e;
   --accent-strong: #0284c7;
-  --action-fill: #6ee7d8;
+  --action-fill: #0891b2;
   --action-fill-hover: #0e7490;
   --border: rgba(14, 116, 144, 0.24);
   --border-soft: rgba(14, 116, 144, 0.14);

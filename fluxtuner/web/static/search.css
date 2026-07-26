@@ -87,3 +87,25 @@
     width: fit-content;
   }
 }
+
+html[data-theme="light"] .search-form button {
+  color: #ffffff;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+html[data-theme="light"] .search-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+
+html[data-theme="light"] .search-debug-panel {
+  border-color: rgba(14, 116, 144, 0.2);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+html[data-theme="light"] .search-debug-panel div {
+  border-color: rgba(100, 116, 139, 0.16);
+  background: rgba(241, 245, 249, 0.82);
+}

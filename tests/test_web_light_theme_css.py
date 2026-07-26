@@ -6,14 +6,18 @@ from fluxtuner.web.app import create_app
 def test_light_theme_defines_complete_color_tokens() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/static/styles.css")
+    styles_response = client.get("/static/styles.css")
+    forms_response = client.get("/static/forms.css")
 
-    assert response.status_code == 200
-    css = response.text
-    assert "--help-text: #9bb4ce;" in css
-    assert "--help-text: #52677d;" in css
-    assert "--action-fill: #0891b2;" in css
-    assert "--action-fill-hover: #0e7490;" in css
+    assert styles_response.status_code == 200
+    assert forms_response.status_code == 200
+
+    assert "--action-fill: #0891b2;" in styles_response.text
+    assert "--action-fill-hover: #0e7490;" in styles_response.text
+
+    assert "--help-text: #b8ccde;" in forms_response.text
+    assert "--help-text: #47637f;" in forms_response.text
+    assert "--help-text:" not in styles_response.text
 
 
 def test_light_theme_primary_actions_use_light_palette() -> None:
@@ -43,5 +47,11 @@ def test_light_theme_overrides_dark_diagnostic_and_destructive_surfaces() -> Non
     assert 'html[data-theme="light"] .search-debug-panel' in search_css
     assert 'html[data-theme="light"] .search-debug-panel div' in search_css
     assert 'html[data-theme="light"] .station-actions [data-delete-playlist]' in station_css
-    assert 'html[data-theme="light"] .admin-user-actions [data-admin-user-action="reject"]' in admin_css
-    assert 'html[data-theme="light"] .admin-user-actions [data-admin-user-action="delete"]' in admin_css
+    assert (
+        'html[data-theme="light"] .admin-user-actions [data-admin-user-action="reject"]'
+        in admin_css
+    )
+    assert (
+        'html[data-theme="light"] .admin-user-actions [data-admin-user-action="delete"]'
+        in admin_css
+    )

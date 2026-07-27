@@ -20,23 +20,41 @@ def test_light_theme_defines_complete_color_tokens() -> None:
     assert "--help-text:" not in styles_response.text
 
 
-def test_primary_actions_share_the_same_palette_across_themes() -> None:
+def test_search_primary_action_is_owned_by_shared_buttons_css() -> None:
     client = TestClient(create_app())
 
+    buttons_css = client.get("/static/buttons.css").text
     search_css = client.get("/static/search.css").text
-    auth_css = client.get("/static/auth.css").text
-    station_css = client.get("/static/station-actions.css").text
-    admin_css = client.get("/static/admin.css").text
 
-    assert ".search-form button {" in search_css
-    assert ".auth-form button," in auth_css
-    assert ".station-actions button[data-play-station] {" in station_css
-    assert ".admin-user-form button {" in admin_css
+    assert 'html .search-form button[type="submit"] {' in buttons_css
+    assert "color: #04111f;" in buttons_css
+    assert "border-color: var(--action-fill);" in buttons_css
+    assert "background: var(--action-fill);" in buttons_css
+    assert 'html .search-form button[type="submit"]:not(:disabled):hover {' in buttons_css
+    assert "border-color: var(--action-fill-hover);" in buttons_css
+    assert "background: var(--action-fill-hover);" in buttons_css
 
-    assert 'html[data-theme="light"] .search-form button' not in search_css
-    assert 'html[data-theme="light"] .auth-form button' not in auth_css
-    assert 'html[data-theme="light"] .station-actions button[data-play-station]' not in station_css
-    assert 'html[data-theme="light"] .admin-user-form button' not in admin_css
+    assert (
+        """\\
+.search-form button {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+"""
+        not in search_css
+    )
+
+    assert (
+        """\\
+.search-form button:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}
+"""
+        not in search_css
+    )
 
 
 def test_light_theme_overrides_dark_diagnostic_and_destructive_surfaces() -> None:

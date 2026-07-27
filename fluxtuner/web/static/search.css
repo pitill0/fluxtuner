@@ -66,18 +66,6 @@
   font-weight: 900;
 }
 
-.search-form button {
-  color: #04111f;
-  border-color: var(--action-fill);
-  background: var(--action-fill);
-}
-
-.search-form button:not(:disabled):hover {
-  color: #ffffff;
-  border-color: var(--action-fill-hover);
-  background: var(--action-fill-hover);
-}
-
 @media (max-width: 58rem) {
   .search-form {
     grid-template-columns: 1fr;

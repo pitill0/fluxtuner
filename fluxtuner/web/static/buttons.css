@@ -50,3 +50,17 @@ html[data-theme="light"] .hero-actions a:hover {
   border-color: rgba(14, 116, 144, 0.52);
   color: var(--accent);
 }
+
+
+/* Primary search action: same palette and hover behavior in every theme. */
+html .search-form button[type="submit"] {
+  color: #04111f;
+  border-color: var(--action-fill);
+  background: var(--action-fill);
+}
+
+html .search-form button[type="submit"]:not(:disabled):hover {
+  color: #ffffff;
+  border-color: var(--action-fill-hover);
+  background: var(--action-fill-hover);
+}

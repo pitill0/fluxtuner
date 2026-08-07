@@ -50,6 +50,20 @@ def test_web_player_loads_metadata_controller() -> None:
     assert "justify-content: center !important;" in styles.text
 
 
+def test_web_unauthorized_api_response_stops_active_playback() -> None:
+    client = TestClient(create_app())
+
+    app = client.get("/static/app.js")
+
+    assert app.status_code == 200
+    unauthorized_block = app.text.split("onUnauthorized: () => {", 1)[1].split(
+        "  },",
+        1,
+    )[0]
+    assert "playerRuntime.getCurrentStation()" in unauthorized_block
+    assert "playerRuntime.stopPlayback();" in unauthorized_block
+
+
 def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
     client = TestClient(create_app())
     module = client.get("/static/js/metadata.js").text

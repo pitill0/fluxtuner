@@ -231,6 +231,9 @@ const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 const apiFetch = createApiFetch({
   getCsrfToken: appState.getCsrfToken,
   onUnauthorized: () => {
+    if (playerRuntime.getCurrentStation()) {
+      playerRuntime.stopPlayback();
+    }
     appState.setCsrfToken("");
     appState.setCurrentUser(null);
     updateAuthUi();

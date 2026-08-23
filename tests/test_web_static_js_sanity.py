@@ -597,6 +597,11 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
         "window-pageshow",
         "window-online",
         "window-offline",
+        "network-recovery-started",
+        "network-recovery-attempt",
+        "network-recovery-succeeded",
+        "network-recovery-exhausted",
+        "network-recovery-cancelled",
     ]:
         assert event_name in player_response.text
 
@@ -610,6 +615,7 @@ def test_web_static_js_logs_player_lifecycle_events_when_debug_enabled() -> None
     assert "networkState: audioNode.networkState" in player_response.text
     assert 'currentSrc: audioNode["currentSrc"] || ""' in player_response.text
     assert "errorCode: audioNode.error?.code || null" in player_response.text
+    assert "[0, 2000, 5000, 10000, 20000, 30000]" in player_response.text
 
 
 def test_web_static_js_has_admin_player_debug_panel() -> None:

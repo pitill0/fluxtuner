@@ -22,7 +22,12 @@ from fluxtuner.web import setup as web_setup
 from fluxtuner.web.metadata import MetadataCoordinator, SystemStreamTargetResolver
 from fluxtuner.web.payloads import public_user_payload
 from fluxtuner.web.security import (
+    SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
+    session_absolute_max_age,
+    session_cookie_max_age,
+    session_initial_max_age,
+    session_renewal_interval,
     set_session_cookie,
 )
 
@@ -56,6 +61,13 @@ ACCOUNT_CHANGE_NOT_FOUND_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_FOU
 ACCOUNT_CHANGE_NOT_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_PENDING_DETAIL
 ACCOUNT_CHANGE_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_PENDING_DETAIL
 ACCOUNT_CHANGE_EXPIRED_DETAIL = password_change_actions.ACCOUNT_CHANGE_EXPIRED_DETAIL
+SESSION_COOKIE_MUTATION_PATHS = frozenset(
+    {
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/setup/create-admin",
+    }
+)
 
 
 def _missing_web_dependency_message() -> str:
@@ -124,6 +136,47 @@ def create_app(
         description="FluxTuner web/server interface.",
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def resolve_and_renew_session(request: Request, call_next: Any) -> Response:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        renewed_cookie_max_age: int | None = None
+
+        if token and request.url.path.startswith("/api/"):
+            with db.connect() as conn:
+                web_context.ensure_web_schema(conn)
+                session = auth.get_session(
+                    conn,
+                    token,
+                    absolute_max_age_seconds=session_absolute_max_age(),
+                )
+                user = auth.get_user_for_session(conn, session) if session is not None else None
+                setattr(
+                    request.state,
+                    web_context.AUTHENTICATED_USER_STATE_KEY,
+                    user,
+                )
+
+                if (
+                    session is not None
+                    and user is not None
+                    and request.url.path not in SESSION_COOKIE_MUTATION_PATHS
+                ):
+                    max_age = session_cookie_max_age()
+                    renewed_cookie_max_age = auth.renew_session(
+                        conn,
+                        session,
+                        max_age_seconds=max_age,
+                        absolute_max_age_seconds=session_absolute_max_age(),
+                        renewal_interval_seconds=session_renewal_interval(max_age),
+                    )
+                    if renewed_cookie_max_age is not None:
+                        conn.commit()
+
+        response = await call_next(request)
+        if renewed_cookie_max_age is not None:
+            set_session_cookie(response, token, max_age=renewed_cookie_max_age)
+        return response
 
     @app.middleware("http")
     async def add_static_cache_headers(request: Request, call_next: Any) -> Response:
@@ -260,7 +313,12 @@ def create_app(
                 )
 
             db.ensure_default_profile(conn, user_id=user_id)
-            token = auth.create_session(conn, user_id)
+            initial_max_age = session_initial_max_age()
+            token = auth.create_session(
+                conn,
+                user_id,
+                max_age_seconds=initial_max_age,
+            )
             auth.record_login_attempt(
                 conn,
                 SETUP_RATE_LIMIT_USERNAME,
@@ -274,7 +332,7 @@ def create_app(
         if user is None:
             raise HTTPException(status_code=500, detail="Could not create setup session.")
 
-        set_session_cookie(response, token)
+        set_session_cookie(response, token, max_age=initial_max_age)
 
         return {
             "authenticated": True,

@@ -162,6 +162,125 @@ def test_get_session_rejects_expired_session(
         assert auth.get_session_user(conn, token, now=now + timedelta(seconds=11)) is None
 
 
+def test_get_session_rejects_absolute_lifetime_boundary(tmp_path, monkeypatch) -> None:
+    db_file = tmp_path / "sessions.db"
+    monkeypatch.setattr(db, "DB_FILE", db_file)
+    db.init_db()
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(conn, "alice")
+        token = auth.create_session(conn, user_id, max_age_seconds=1000, now=now)
+        conn.commit()
+
+    with db.connect() as conn:
+        assert (
+            auth.get_session(
+                conn,
+                token,
+                now=now + timedelta(seconds=99),
+                absolute_max_age_seconds=100,
+            )
+            is not None
+        )
+        assert (
+            auth.get_session(
+                conn,
+                token,
+                now=now + timedelta(seconds=100),
+                absolute_max_age_seconds=100,
+            )
+            is None
+        )
+
+
+def test_renew_session_updates_activity_and_idle_expiry(tmp_path, monkeypatch) -> None:
+    db_file = tmp_path / "sessions.db"
+    monkeypatch.setattr(db, "DB_FILE", db_file)
+    db.init_db()
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(conn, "alice")
+        token = auth.create_session(conn, user_id, max_age_seconds=100, now=now)
+        session = auth.get_session(conn, token, now=now)
+        assert session is not None
+
+        cookie_max_age = auth.renew_session(
+            conn,
+            session,
+            max_age_seconds=100,
+            absolute_max_age_seconds=1000,
+            renewal_interval_seconds=25,
+            now=now + timedelta(seconds=25),
+        )
+        row = conn.execute(
+            "SELECT last_seen_at, expires_at FROM web_sessions WHERE id = ?",
+            (session["id"],),
+        ).fetchone()
+
+    assert cookie_max_age == 100
+    assert row is not None
+    assert auth.parse_datetime(row["last_seen_at"]) == now + timedelta(seconds=25)
+    assert auth.parse_datetime(row["expires_at"]) == now + timedelta(seconds=125)
+
+
+def test_renew_session_skips_write_before_interval(tmp_path, monkeypatch) -> None:
+    db_file = tmp_path / "sessions.db"
+    monkeypatch.setattr(db, "DB_FILE", db_file)
+    db.init_db()
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(conn, "alice")
+        token = auth.create_session(conn, user_id, max_age_seconds=100, now=now)
+        session = auth.get_session(conn, token, now=now)
+        assert session is not None
+
+        cookie_max_age = auth.renew_session(
+            conn,
+            session,
+            max_age_seconds=100,
+            absolute_max_age_seconds=1000,
+            renewal_interval_seconds=25,
+            now=now + timedelta(seconds=24),
+        )
+        row = conn.execute(
+            "SELECT last_seen_at, expires_at FROM web_sessions WHERE id = ?",
+            (session["id"],),
+        ).fetchone()
+
+    assert cookie_max_age is None
+    assert row is not None
+    assert auth.parse_datetime(row["last_seen_at"]) == now
+    assert auth.parse_datetime(row["expires_at"]) == now + timedelta(seconds=100)
+
+
+def test_renew_session_is_capped_by_absolute_lifetime(tmp_path, monkeypatch) -> None:
+    db_file = tmp_path / "sessions.db"
+    monkeypatch.setattr(db, "DB_FILE", db_file)
+    db.init_db()
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(conn, "alice")
+        token = auth.create_session(conn, user_id, max_age_seconds=100, now=now)
+        session = auth.get_session(conn, token, now=now)
+        assert session is not None
+
+        cookie_max_age = auth.renew_session(
+            conn,
+            session,
+            max_age_seconds=100,
+            absolute_max_age_seconds=120,
+            renewal_interval_seconds=20,
+            now=now + timedelta(seconds=30),
+        )
+
+    assert cookie_max_age == 90
+    assert auth.parse_datetime(session["expires_at"]) == now + timedelta(seconds=120)
+
+
 def test_invalid_session_tokens_are_rejected(
     tmp_path,
     monkeypatch,

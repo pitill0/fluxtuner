@@ -82,16 +82,40 @@ that setting for shared LAN or internet deployments.
 
 ### `FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS`
 
-Controls the maximum session lifetime in seconds.
+Controls the session inactivity timeout in seconds. Active sessions are renewed
+before this timeout is reached. The default is 30 days.
 
 Example:
 
 ```bash
-FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=86400
+FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=2592000
 ```
 
-Choose a value that matches your deployment risk. Shorter sessions reduce the
-impact of stolen cookies; longer sessions are more convenient.
+Existing deployments that explicitly use `86400` remain compatible: sessions
+expire after one day of inactivity but no longer expire after one day of
+continuous use.
+
+### `FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS`
+
+Controls the maximum lifetime from the original login regardless of activity.
+The default is 90 days:
+
+```bash
+FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS=7776000
+```
+
+### `FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS`
+
+Controls how often an active session may be renewed. The default is 24 hours:
+
+```bash
+FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS=86400
+```
+
+The effective renewal interval is capped at half the inactivity timeout so
+shorter configured sessions can renew before they expire. Renewal is throttled
+to avoid a SQLite write on every authenticated request. Logout, administrative
+revocation and user deactivation remain immediate.
 
 ## First-run setup checklist
 
@@ -123,7 +147,9 @@ Run the app bound to localhost:
 export FLUXTUNER_DATA_DIR=/var/lib/fluxtuner
 export FLUXTUNER_WEB_SETUP_TOKEN="$(openssl rand -hex 32)"
 export FLUXTUNER_WEB_SECURE_COOKIES=true
-export FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=86400
+export FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=2592000
+export FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS=7776000
+export FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS=86400
 
 fluxtuner-web --host 127.0.0.1 --port 8080
 ```
@@ -145,7 +171,9 @@ podman run --rm \
   -e FLUXTUNER_DATA_DIR=/data \
   -e FLUXTUNER_WEB_SETUP_TOKEN="$FLUXTUNER_WEB_SETUP_TOKEN" \
   -e FLUXTUNER_WEB_SECURE_COOKIES=true \
-  -e FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=86400 \
+  -e FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS=2592000 \
+  -e FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS=7776000 \
+  -e FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS=86400 \
   -v fluxtuner-data:/data \
   fluxtuner-web:dev
 ```

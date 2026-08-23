@@ -21,6 +21,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Fixed active Web users being forced to sign in again exactly 24 hours after
   authentication.
+- Fixed mobile Web playback remaining stopped after a temporary network loss by
+  adding bounded automatic reconnection that preserves explicit pause, stop,
+  station changes and listening-history semantics.
 
 ## [1.0.7] - 2026-07-19
 

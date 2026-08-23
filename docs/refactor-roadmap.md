@@ -66,9 +66,10 @@ UI projection rather than the source of truth, and playback attempt IDs prevent
 obsolete asynchronous work from changing current state.
 
 Browser connectivity, visibility and page lifecycle events reconcile the model,
-audio element and Media Session conservatively. Connectivity recovery keeps the
-station selected and requires an explicit resume instead of restarting playback
-automatically.
+audio element and Media Session conservatively. If connectivity interrupts an
+active stream, the player uses bounded, cancellable retries to reconnect it.
+Explicit pause, stop and station changes retain priority and never trigger stale
+automatic playback.
 
 ### Feature parity pressure
 

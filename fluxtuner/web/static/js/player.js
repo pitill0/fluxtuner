@@ -4,6 +4,7 @@
 
 const PLAYBACK_START_TIMEOUT_MS = 12000;
 const BUFFERING_NOTICE_TIMEOUT_MS = 8000;
+export const NETWORK_RECOVERY_DELAYS_MS = Object.freeze([0, 2000, 5000, 10000, 20000, 30000]);
 
 export const PLAYER_STATES = Object.freeze([
   "idle",
@@ -68,6 +69,7 @@ export function createPlayerController({
   resetRecordedHistory,
   windowRef = window,
   documentRef = document,
+  networkRecoveryDelaysMs = NETWORK_RECOVERY_DELAYS_MS,
 }) {
   let currentStation = null;
   const playerState = createPlayerStateModel();
@@ -78,6 +80,10 @@ export function createPlayerController({
   let playbackRunId = 0;
   let bufferingNoticeTimeoutId = 0;
   let lastMetadataTimeupdateRunId = 0;
+  let networkInterruptedPlayback = false;
+  let networkRecoveryActive = false;
+  let networkRecoveryGeneration = 0;
+  let networkRecoveryWait = null;
 
 
   function audioDebugSnapshot() {
@@ -120,7 +126,10 @@ export function createPlayerController({
         startingPlayback,
         softPausingPlayback,
         stoppingPlayback,
+        networkInterruptedPlayback,
+        networkRecoveryActive,
       },
+      networkRecoveryGeneration,
       playbackRunId,
       audio: audioDebugSnapshot(),
       mediaSession: mediaSessionDebugSnapshot(),
@@ -165,6 +174,40 @@ export function createPlayerController({
 
   function isCurrentPlaybackRun(runId) {
     return runId === playbackRunId;
+  }
+
+  function cancelNetworkRecovery(reason, { clearIntent = true } = {}) {
+    const hadRecovery = networkInterruptedPlayback || networkRecoveryActive || networkRecoveryWait;
+    networkRecoveryGeneration += 1;
+    networkRecoveryActive = false;
+
+    if (networkRecoveryWait) {
+      windowRef.clearTimeout(networkRecoveryWait.timeoutId);
+      networkRecoveryWait.resolve(false);
+      networkRecoveryWait = null;
+    }
+
+    if (clearIntent) {
+      networkInterruptedPlayback = false;
+    }
+
+    if (hadRecovery) {
+      logPlayerEvent("network-recovery-cancelled", { reason, clearIntent });
+    }
+  }
+
+  function waitForNetworkRecoveryDelay(delayMs, generation) {
+    if (delayMs <= 0) return Promise.resolve(generation === networkRecoveryGeneration);
+
+    return new Promise((resolve) => {
+      const timeoutId = windowRef.setTimeout(() => {
+        if (networkRecoveryWait?.timeoutId === timeoutId) {
+          networkRecoveryWait = null;
+        }
+        resolve(generation === networkRecoveryGeneration);
+      }, delayMs);
+      networkRecoveryWait = { timeoutId, resolve };
+    });
   }
 
   function clearBufferingNotice() {
@@ -356,8 +399,21 @@ export function createPlayerController({
     logPlayerEvent("playback-attempt-started", { streamUrl, runId });
   }
 
-  async function startCurrentStationPlayback(message = "Loading stream...") {
-    if (!audioNode || !currentStation) return;
+  async function startCurrentStationPlayback(
+    message = "Loading stream...",
+    {
+      preserveNetworkRecovery = false,
+      recordHistoryEntry = true,
+      retryOnce = true,
+    } = {},
+  ) {
+    if (!audioNode || !currentStation) return false;
+
+    const resumesInterruptedNetworkPlayback =
+      networkInterruptedPlayback && !preserveNetworkRecovery;
+    if (!preserveNetworkRecovery) {
+      cancelNetworkRecovery("playback-start");
+    }
 
     const runId = nextPlaybackRun();
     logPlayerEvent("playback-start-request", { message, runId });
@@ -366,7 +422,7 @@ export function createPlayerController({
     if (!streamUrl) {
       setPlayerState("error", "This station has no playable stream URL.", "missing-stream-url");
       updatePlayerControls();
-      return;
+      return false;
     }
 
     startingPlayback = true;
@@ -379,18 +435,22 @@ export function createPlayerController({
       try {
         await attemptCurrentStationPlayback(streamUrl, runId);
       } catch (firstError) {
-        if (!isCurrentPlaybackRun(runId)) return;
+        if (!isCurrentPlaybackRun(runId)) return false;
+        if (!retryOnce) throw firstError;
         logPlayerEvent("playback-retry", { error: String(firstError), runId });
         setPlayerState("loading", "Retrying stream...", "playback-retry-loading");
         updatePlayerControls();
         await attemptCurrentStationPlayback(streamUrl, runId);
       }
 
-      if (!isCurrentPlaybackRun(runId)) return;
+      if (!isCurrentPlaybackRun(runId)) return false;
       setPlayerState("playing", "Playing in browser.", "playback-started");
-      await recordHistory(currentStation);
+      if (recordHistoryEntry && !resumesInterruptedNetworkPlayback) {
+        await recordHistory(currentStation);
+      }
+      return true;
     } catch (error) {
-      if (!isCurrentPlaybackRun(runId)) return;
+      if (!isCurrentPlaybackRun(runId)) return false;
       logPlayerEvent("playback-start-failed", { error: String(error), runId });
       clearBufferingNotice();
       audioNode.pause();
@@ -399,6 +459,7 @@ export function createPlayerController({
         `Could not start this stream. Try Retry, Stop, or Open externally. ${error}`,
         "playback-start-error",
       );
+      return false;
     } finally {
       if (isCurrentPlaybackRun(runId)) {
         startingPlayback = false;
@@ -411,6 +472,7 @@ export function createPlayerController({
   function pauseCurrentStationPlayback(message = "Paused.") {
     if (!audioNode || !currentStation) return;
 
+    cancelNetworkRecovery("pause");
     const runId = nextPlaybackRun();
     logPlayerEvent("playback-pause-request", { message, runId });
     startingPlayback = false;
@@ -428,6 +490,7 @@ export function createPlayerController({
   async function playStation(station) {
     if (!audioNode || !titleNode || !openLink) return;
 
+    cancelNetworkRecovery("station-change");
     const streamUrl = stationUrl(station);
     if (!streamUrl) {
       setPlayerState("error", "This station has no playable stream URL.", "missing-stream-url");
@@ -450,6 +513,7 @@ export function createPlayerController({
     if (!audioNode || !titleNode || !openLink) return;
 
     logPlayerEvent("playback-stop-request");
+    cancelNetworkRecovery("stop");
     const runId = nextPlaybackRun();
     startingPlayback = false;
     stoppingPlayback = true;
@@ -603,6 +667,85 @@ export function createPlayerController({
     return transition;
   }
 
+  async function recoverPlaybackAfterNetworkReturn() {
+    if (
+      !networkInterruptedPlayback ||
+      networkRecoveryActive ||
+      !currentStation ||
+      !audioNode
+    ) {
+      return false;
+    }
+
+    networkRecoveryActive = true;
+    const generation = networkRecoveryGeneration;
+    const recoveryStation = currentStation;
+    logPlayerEvent("network-recovery-started", { generation });
+
+    try {
+      for (let index = 0; index < networkRecoveryDelaysMs.length; index += 1) {
+        const delayMs = networkRecoveryDelaysMs[index];
+        if (delayMs > 0) {
+          const delaySeconds = Math.ceil(delayMs / 1000);
+          setPlayerState(
+            "error",
+            `Reconnecting stream in ${delaySeconds}s. Use Retry to reconnect now.`,
+            "network-recovery-waiting",
+          );
+          updatePlayerControls();
+        }
+        const shouldContinue = await waitForNetworkRecoveryDelay(delayMs, generation);
+        if (
+          !shouldContinue ||
+          generation !== networkRecoveryGeneration ||
+          !networkInterruptedPlayback ||
+          currentStation !== recoveryStation
+        ) {
+          return false;
+        }
+
+        logPlayerEvent("network-recovery-attempt", {
+          attempt: index + 1,
+          delayMs,
+          generation,
+        });
+        const recovered = await startCurrentStationPlayback("Reconnecting stream...", {
+          preserveNetworkRecovery: true,
+          recordHistoryEntry: false,
+          retryOnce: false,
+        });
+
+        if (generation !== networkRecoveryGeneration || currentStation !== recoveryStation) {
+          return false;
+        }
+        if (recovered) {
+          networkInterruptedPlayback = false;
+          logPlayerEvent("network-recovery-succeeded", {
+            attempt: index + 1,
+            generation,
+          });
+          return true;
+        }
+      }
+
+      if (generation === networkRecoveryGeneration && networkInterruptedPlayback) {
+        setPlayerState(
+          "error",
+          "Could not reconnect to the stream. Try Retry, Stop, or Open externally.",
+          "network-recovery-exhausted",
+        );
+        updatePlayerControls();
+        logPlayerEvent("network-recovery-exhausted", { generation });
+      }
+      return false;
+    } finally {
+      if (generation === networkRecoveryGeneration) {
+        networkRecoveryActive = false;
+        networkRecoveryWait = null;
+      }
+    }
+  }
+
   function bindLifecycleEvents() {
     if (typeof documentRef !== "undefined") {
       documentRef.addEventListener("visibilitychange", () => {
@@ -625,21 +768,40 @@ export function createPlayerController({
 
     windowRef.addEventListener("online", () => {
       logPlayerEvent("window-online");
-      reconcileLifecycleState("window-online", { recoverFromError: true });
+      if (networkInterruptedPlayback) {
+        void recoverPlaybackAfterNetworkReturn();
+      } else {
+        reconcileLifecycleState("window-online", { recoverFromError: true });
+      }
     });
 
     windowRef.addEventListener("offline", () => {
       logPlayerEvent("window-offline");
       if (!currentStation) return;
 
+      const shouldRecover =
+        networkInterruptedPlayback ||
+        startingPlayback ||
+        !audioNode.paused ||
+        playerState.current === "loading" ||
+        playerState.current === "playing";
+      cancelNetworkRecovery("window-offline", { clearIntent: false });
+
+      if (!shouldRecover) {
+        logPlayerEvent("network-recovery-skipped", { reason: "playback-not-active" });
+        reconcileLifecycleState("window-offline");
+        return;
+      }
+
       const runId = nextPlaybackRun();
+      networkInterruptedPlayback = true;
       startingPlayback = false;
       clearBufferingNotice();
       softPausingPlayback = true;
       audioNode.pause();
       setPlayerState(
         "error",
-        "Browser is offline. Playback may resume when network returns.",
+        "Browser is offline. Playback will reconnect when network returns.",
         "window-offline",
       );
       updatePlayerControls();

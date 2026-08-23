@@ -931,6 +931,7 @@ const titleNode = { textContent: "" };
 const statusNode = { textContent: "" };
 const events = [];
 const mediaUpdates = [];
+let historyCount = 0;
 
 const controller = createPlayerController({
   audioNode,
@@ -972,10 +973,13 @@ const controller = createPlayerController({
       mediaUpdates.push(["state", state, reason]);
     },
   },
-  async recordHistory() {},
+  async recordHistory() {
+    historyCount += 1;
+  },
   resetRecordedHistory() {},
   windowRef,
   documentRef,
+  networkRecoveryDelaysMs: [0],
 });
 
 controller.initialize();
@@ -999,6 +1003,7 @@ documentRef.dispatch("visibilitychange");
 const preservedError = controller.debugSnapshot();
 
 windowRef.dispatch("online");
+await new Promise((resolve) => setTimeout(resolve, 0));
 const online = {
   snapshot: controller.debugSnapshot(),
   status: statusNode.textContent,
@@ -1028,6 +1033,7 @@ console.log(JSON.stringify({
   visiblePaused,
   eventNames: events.map(([name]) => name),
   mediaUpdates,
+  historyCount,
 }));
 """,
     )
@@ -1040,13 +1046,16 @@ console.log(JSON.stringify({
     assert result["offline"]["snapshot"]["flags"]["startingPlayback"] is False
     assert result["offline"]["snapshot"]["audio"]["paused"] is True
     assert result["offline"]["status"] == (
-        "Browser is offline. Playback may resume when network returns."
+        "Browser is offline. Playback will reconnect when network returns."
     )
 
     assert result["preservedError"]["state"] == "error"
 
-    assert result["online"]["snapshot"]["state"] == "paused"
-    assert result["online"]["status"] == "Network is back. Resume playback when ready."
+    assert result["online"]["snapshot"]["state"] == "playing"
+    assert result["online"]["snapshot"]["flags"]["networkInterruptedPlayback"] is False
+    assert result["online"]["snapshot"]["flags"]["networkRecoveryActive"] is False
+    assert result["online"]["status"] == "Playing in browser."
+    assert result["historyCount"] == 1
 
     assert result["resumed"]["snapshot"]["state"] == "playing"
     assert result["resumed"]["status"] == "Playing in browser."
@@ -1066,9 +1075,266 @@ console.log(JSON.stringify({
 
     assert ["state", "error", "window-pagehide"] in result["mediaUpdates"]
     assert ["state", "error", "document-hidden"] in result["mediaUpdates"]
-    assert ["state", "paused", "window-online"] in result["mediaUpdates"]
+    assert ["state", "loading", "playback-start-loading"] in result["mediaUpdates"]
+    assert ["state", "playing", "playback-started"] in result["mediaUpdates"]
     assert ["state", "playing", "window-pageshow"] in result["mediaUpdates"]
     assert ["state", "paused", "document-visible"] in result["mediaUpdates"]
+
+
+def test_web_player_network_recovery_is_bounded_and_cancellable(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "player.js",
+        r"""
+const { createPlayerController, NETWORK_RECOVERY_DELAYS_MS } = await import(process.argv[1]);
+
+class FakeEventTarget {
+  constructor() {
+    this.listeners = new Map();
+  }
+  addEventListener(name, callback) {
+    const entries = this.listeners.get(name) || [];
+    entries.push(callback);
+    this.listeners.set(name, entries);
+  }
+  removeEventListener(name, callback) {
+    const entries = this.listeners.get(name) || [];
+    this.listeners.set(name, entries.filter((entry) => entry !== callback));
+  }
+  dispatch(name) {
+    for (const callback of [...(this.listeners.get(name) || [])]) {
+      callback({ type: name });
+    }
+  }
+}
+
+function createHarness(playModes, recoveryDelays) {
+  const audioNode = new FakeEventTarget();
+  Object.assign(audioNode, {
+    paused: true,
+    ended: false,
+    readyState: 0,
+    networkState: 0,
+    currentSrc: "",
+    src: "",
+    crossOrigin: "",
+    title: "",
+    controls: false,
+    preload: "",
+    error: null,
+    attributes: new Map(),
+    playCalls: 0,
+    getAttribute(name) {
+      return this.attributes.get(name) || "";
+    },
+    setAttribute(name, value) {
+      this.attributes.set(name, String(value));
+    },
+    removeAttribute(name) {
+      this.attributes.delete(name);
+      if (name === "src") {
+        this.src = "";
+        this.currentSrc = "";
+      }
+    },
+    load() {
+      this.currentSrc = this.src;
+    },
+    pause() {
+      this.paused = true;
+      queueMicrotask(() => this.dispatch("pause"));
+    },
+    async play() {
+      const mode = playModes[this.playCalls] || "success";
+      this.playCalls += 1;
+      this.paused = false;
+      this.currentSrc = this.src;
+      if (mode === "error") {
+        queueMicrotask(() => this.dispatch("error"));
+      } else {
+        queueMicrotask(() => this.dispatch("playing"));
+      }
+    },
+  });
+
+  const windowRef = new FakeEventTarget();
+  windowRef.setTimeout = setTimeout;
+  windowRef.clearTimeout = clearTimeout;
+  const documentRef = new FakeEventTarget();
+  documentRef.visibilityState = "visible";
+  const statusNode = { textContent: "" };
+  const events = [];
+  const history = [];
+
+  const controller = createPlayerController({
+    audioNode,
+    playerBar: { dataset: {} },
+    titleNode: { textContent: "" },
+    statusNode,
+    toggleButton: {
+      disabled: false,
+      textContent: "",
+      addEventListener() {},
+    },
+    stopButton: {
+      disabled: false,
+      addEventListener() {},
+    },
+    openLink: {
+      hidden: true,
+      href: "",
+      removeAttribute(name) {
+        if (name === "href") this.href = "";
+      },
+    },
+    stationUrl: (station) => station.url,
+    logPlayerEvent(name, details = {}) {
+      events.push([name, details]);
+    },
+    mediaSessionController: {
+      clearMediaSessionMetadata() {},
+      debugSnapshot() { return null; },
+      reapplyCurrentMetadata() {},
+      setMediaSessionMetadata() {},
+      updateMediaSessionState() {},
+    },
+    async recordHistory(station) {
+      history.push(station.name);
+    },
+    resetRecordedHistory() {},
+    windowRef,
+    documentRef,
+    networkRecoveryDelaysMs: recoveryDelays,
+  });
+  controller.initialize();
+  return { audioNode, controller, events, history, statusNode, windowRef };
+}
+
+async function flush(count = 6) {
+  for (let index = 0; index < count; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+const stationA = { name: "Station A", url: "https://radio.example/a" };
+const stationB = { name: "Station B", url: "https://radio.example/b" };
+
+const paused = createHarness(["success"], [0]);
+await paused.controller.playStation(stationA);
+paused.controller.pauseCurrentStationPlayback();
+await flush(1);
+paused.windowRef.dispatch("offline");
+paused.windowRef.dispatch("online");
+await flush();
+
+const retried = createHarness(["success", "error", "success"], [0, 0]);
+await retried.controller.playStation(stationA);
+retried.windowRef.dispatch("offline");
+retried.windowRef.dispatch("online");
+retried.windowRef.dispatch("online");
+await flush();
+
+const stopped = createHarness(["success", "error", "success"], [0, 25]);
+await stopped.controller.playStation(stationA);
+stopped.windowRef.dispatch("offline");
+stopped.windowRef.dispatch("online");
+await flush(2);
+stopped.controller.stopPlayback();
+await new Promise((resolve) => setTimeout(resolve, 40));
+
+const changed = createHarness(["success", "error", "success", "success"], [0, 25]);
+await changed.controller.playStation(stationA);
+changed.windowRef.dispatch("offline");
+changed.windowRef.dispatch("online");
+await flush(2);
+await changed.controller.playStation(stationB);
+await new Promise((resolve) => setTimeout(resolve, 40));
+
+const manual = createHarness(["success", "error", "success"], [0, 25]);
+await manual.controller.playStation(stationA);
+manual.windowRef.dispatch("offline");
+manual.windowRef.dispatch("online");
+await flush(2);
+await manual.controller.togglePlayback();
+await new Promise((resolve) => setTimeout(resolve, 40));
+
+const exhausted = createHarness(["success", "error", "error", "error"], [0, 0, 0]);
+await exhausted.controller.playStation(stationA);
+exhausted.windowRef.dispatch("offline");
+exhausted.windowRef.dispatch("online");
+await flush(10);
+
+console.log(JSON.stringify({
+  defaultDelays: NETWORK_RECOVERY_DELAYS_MS,
+  paused: {
+    snapshot: paused.controller.debugSnapshot(),
+    playCalls: paused.audioNode.playCalls,
+    recoveryAttempts: paused.events.filter(([name]) => name === "network-recovery-attempt").length,
+  },
+  retried: {
+    snapshot: retried.controller.debugSnapshot(),
+    playCalls: retried.audioNode.playCalls,
+    history: retried.history,
+    recoveryAttempts: retried.events.filter(([name]) => name === "network-recovery-attempt").length,
+    recoverySuccesses: retried.events.filter(([name]) => name === "network-recovery-succeeded").length,
+  },
+  stopped: {
+    snapshot: stopped.controller.debugSnapshot(),
+    playCalls: stopped.audioNode.playCalls,
+  },
+  changed: {
+    snapshot: changed.controller.debugSnapshot(),
+    playCalls: changed.audioNode.playCalls,
+    history: changed.history,
+  },
+  manual: {
+    snapshot: manual.controller.debugSnapshot(),
+    playCalls: manual.audioNode.playCalls,
+    history: manual.history,
+  },
+  exhausted: {
+    snapshot: exhausted.controller.debugSnapshot(),
+    playCalls: exhausted.audioNode.playCalls,
+    status: exhausted.statusNode.textContent,
+    exhaustedEvents: exhausted.events.filter(([name]) => name === "network-recovery-exhausted").length,
+  },
+}));
+""",
+    )
+
+    assert result["defaultDelays"] == [0, 2000, 5000, 10000, 20000, 30000]
+
+    assert result["paused"]["snapshot"]["state"] == "paused"
+    assert result["paused"]["playCalls"] == 1
+    assert result["paused"]["recoveryAttempts"] == 0
+
+    assert result["retried"]["snapshot"]["state"] == "playing"
+    assert result["retried"]["snapshot"]["flags"]["networkRecoveryActive"] is False
+    assert result["retried"]["playCalls"] == 3
+    assert result["retried"]["history"] == ["Station A"]
+    assert result["retried"]["recoveryAttempts"] == 2
+    assert result["retried"]["recoverySuccesses"] == 1
+
+    assert result["stopped"]["snapshot"]["state"] == "idle"
+    assert result["stopped"]["snapshot"]["station"] is None
+    assert result["stopped"]["playCalls"] == 2
+
+    assert result["changed"]["snapshot"]["state"] == "playing"
+    assert result["changed"]["snapshot"]["station"]["name"] == "Station B"
+    assert result["changed"]["playCalls"] == 3
+    assert result["changed"]["history"] == ["Station A", "Station B"]
+
+    assert result["manual"]["snapshot"]["state"] == "playing"
+    assert result["manual"]["playCalls"] == 3
+    assert result["manual"]["history"] == ["Station A"]
+
+    assert result["exhausted"]["snapshot"]["state"] == "error"
+    assert result["exhausted"]["snapshot"]["flags"]["networkRecoveryActive"] is False
+    assert result["exhausted"]["playCalls"] == 4
+    assert result["exhausted"]["status"] == (
+        "Could not reconnect to the stream. Try Retry, Stop, or Open externally."
+    )
+    assert result["exhausted"]["exhaustedEvents"] == 1
 
 
 def test_web_media_session_handlers_delegate_player_intentions(tmp_path: Path) -> None:

@@ -14,11 +14,13 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
-- Nothing yet.
+- Changed Web sessions from a fixed lifetime to renewable inactivity-based
+  expiration, with throttled renewal and a configurable absolute lifetime.
 
 ### Fixed
 
-- Nothing yet.
+- Fixed active Web users being forced to sign in again exactly 24 hours after
+  authentication.
 
 ## [1.0.7] - 2026-07-19
 

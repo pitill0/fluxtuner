@@ -23,7 +23,9 @@ MIN_PASSWORD_LENGTH = 15
 MAX_PASSWORD_BYTES = 1024
 
 SESSION_TOKEN_BYTES = 32
-DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24
+DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+DEFAULT_SESSION_ABSOLUTE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90
+DEFAULT_SESSION_RENEWAL_INTERVAL_SECONDS = 60 * 60 * 24
 
 MAX_FAILED_LOGIN_ATTEMPTS = 5
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60 * 5
@@ -187,6 +189,7 @@ def get_session(
     token: str | None,
     *,
     now: datetime | None = None,
+    absolute_max_age_seconds: int | None = None,
 ) -> dict[str, Any] | None:
     if not token:
         return None
@@ -223,6 +226,15 @@ def get_session(
     if parse_datetime(str(session["expires_at"])) <= current_time:
         return None
 
+    if absolute_max_age_seconds is not None:
+        if absolute_max_age_seconds <= 0:
+            raise ValueError("Session absolute max age must be positive.")
+        absolute_expires_at = parse_datetime(str(session["created_at"])) + timedelta(
+            seconds=absolute_max_age_seconds
+        )
+        if absolute_expires_at <= current_time:
+            return None
+
     return session
 
 
@@ -231,10 +243,25 @@ def get_session_user(
     token: str | None,
     *,
     now: datetime | None = None,
+    absolute_max_age_seconds: int | None = None,
 ) -> dict[str, Any] | None:
-    session = get_session(conn, token, now=now)
+    session = get_session(
+        conn,
+        token,
+        now=now,
+        absolute_max_age_seconds=absolute_max_age_seconds,
+    )
     if session is None:
         return None
+
+    return get_user_for_session(conn, session)
+
+
+def get_user_for_session(
+    conn: Any,
+    session: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return the active approved user associated with a resolved session."""
 
     row = conn.execute(
         """
@@ -254,13 +281,72 @@ def get_session_user(
         FROM users
         WHERE id = ? AND is_active = 1 AND approval_status = 'approved'
         """,
-        (session["user_id"],),
+        (int(session["user_id"]),),
     ).fetchone()
 
     if row is None:
         return None
 
     return db.user_from_row(row)
+
+
+def renew_session(
+    conn: Any,
+    session: dict[str, Any],
+    *,
+    max_age_seconds: int,
+    absolute_max_age_seconds: int,
+    renewal_interval_seconds: int,
+    now: datetime | None = None,
+) -> int | None:
+    """Renew an active session and return the cookie lifetime, if renewed."""
+    if max_age_seconds <= 0:
+        raise ValueError("Session max age must be positive.")
+    if absolute_max_age_seconds <= 0:
+        raise ValueError("Session absolute max age must be positive.")
+    if renewal_interval_seconds <= 0:
+        raise ValueError("Session renewal interval must be positive.")
+    if session.get("revoked_at") is not None:
+        return None
+
+    current_time = now or utc_now()
+    created_at = parse_datetime(str(session["created_at"]))
+    last_seen_at = parse_datetime(str(session["last_seen_at"]))
+    expires_at = parse_datetime(str(session["expires_at"]))
+    absolute_expires_at = created_at + timedelta(seconds=absolute_max_age_seconds)
+
+    if expires_at <= current_time or absolute_expires_at <= current_time:
+        return None
+    if last_seen_at + timedelta(seconds=renewal_interval_seconds) > current_time:
+        return None
+
+    renewed_expires_at = min(
+        current_time + timedelta(seconds=max_age_seconds),
+        absolute_expires_at,
+    )
+    cookie_max_age = int((renewed_expires_at - current_time).total_seconds())
+    if cookie_max_age <= 0:
+        return None
+
+    cursor = conn.execute(
+        """
+        UPDATE web_sessions
+        SET last_seen_at = ?, expires_at = ?
+        WHERE id = ? AND revoked_at IS NULL AND expires_at > ?
+        """,
+        (
+            encode_datetime(current_time),
+            encode_datetime(renewed_expires_at),
+            int(session["id"]),
+            encode_datetime(current_time),
+        ),
+    )
+    if cursor.rowcount <= 0:
+        return None
+
+    session["last_seen_at"] = encode_datetime(current_time)
+    session["expires_at"] = encode_datetime(renewed_expires_at)
+    return cookie_max_age
 
 
 def revoke_session(

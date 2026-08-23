@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi.testclient import TestClient
 
 from fluxtuner.core import db
@@ -64,6 +66,134 @@ def test_login_sets_http_only_session_cookie_and_me_returns_user(tmp_path, monke
     assert me.status_code == 200
     assert me.json()["user"]["username"] == "alice"
     assert me.json()["csrf_token"] == payload["csrf_token"]
+
+
+def test_active_session_is_renewed_without_changing_csrf_token(tmp_path, monkeypatch) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    clock = {"now": now}
+    monkeypatch.setattr(auth, "utc_now", lambda: clock["now"])
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "2000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "100")
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    csrf_token = login.json()["csrf_token"]
+    clock["now"] = now + timedelta(seconds=100)
+
+    me = client.get("/api/auth/me")
+
+    assert me.status_code == 200
+    assert me.json()["csrf_token"] == csrf_token
+    assert "Max-Age=1000" in me.headers["set-cookie"]
+    with db.connect() as conn:
+        session_row = conn.execute("SELECT last_seen_at, expires_at FROM web_sessions").fetchone()
+    assert session_row is not None
+    assert auth.parse_datetime(session_row["last_seen_at"]) == clock["now"]
+    assert auth.parse_datetime(session_row["expires_at"]) == now + timedelta(seconds=1100)
+
+
+def test_active_session_is_not_written_before_renewal_interval(tmp_path, monkeypatch) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    clock = {"now": now}
+    monkeypatch.setattr(auth, "utc_now", lambda: clock["now"])
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "2000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "100")
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    assert login.status_code == 200
+    clock["now"] = now + timedelta(seconds=99)
+
+    me = client.get("/api/auth/me")
+
+    assert me.status_code == 200
+    assert "set-cookie" not in me.headers
+    with db.connect() as conn:
+        last_seen_at = conn.execute("SELECT last_seen_at FROM web_sessions").fetchone()[0]
+    assert auth.parse_datetime(last_seen_at) == now
+
+
+def test_session_is_rejected_at_absolute_lifetime(tmp_path, monkeypatch) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    clock = {"now": now}
+    monkeypatch.setattr(auth, "utc_now", lambda: clock["now"])
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "200")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "50")
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    assert login.status_code == 200
+    clock["now"] = now + timedelta(seconds=200)
+
+    me = client.get("/api/auth/me")
+
+    assert me.status_code == 401
+
+
+def test_login_cookie_and_database_expiry_are_capped_by_absolute_lifetime(
+    tmp_path, monkeypatch
+) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    monkeypatch.setattr(auth, "utc_now", lambda: now)
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "200")
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+
+    assert login.status_code == 200
+    assert "Max-Age=200" in login.headers["set-cookie"]
+    with db.connect() as conn:
+        expires_at = conn.execute("SELECT expires_at FROM web_sessions").fetchone()[0]
+    assert auth.parse_datetime(expires_at) == now + timedelta(seconds=200)
+
+
+def test_login_does_not_renew_or_restore_previous_session_cookie(tmp_path, monkeypatch) -> None:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    clock = {"now": now}
+    monkeypatch.setattr(auth, "utc_now", lambda: clock["now"])
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "2000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "100")
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    first_login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+    first_cookie = first_login.cookies[SESSION_COOKIE_NAME]
+    clock["now"] = now + timedelta(seconds=100)
+
+    second_login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+
+    assert second_login.status_code == 200
+    assert second_login.cookies[SESSION_COOKIE_NAME] != first_cookie
+    assert client.cookies[SESSION_COOKIE_NAME] == second_login.cookies[SESSION_COOKIE_NAME]
+    with db.connect() as conn:
+        previous_last_seen = conn.execute(
+            "SELECT last_seen_at FROM web_sessions ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    assert auth.parse_datetime(previous_last_seen) == now
 
 
 def test_login_rejects_wrong_password_with_generic_error(tmp_path, monkeypatch) -> None:

@@ -16,7 +16,7 @@ from fluxtuner.web.security import (
     SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
     delete_session_cookie,
-    session_cookie_max_age,
+    session_initial_max_age,
     set_session_cookie,
 )
 
@@ -164,10 +164,11 @@ def login(
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
         authenticated_user = user
+        initial_max_age = session_initial_max_age()
         token = auth.create_session(
             conn,
             int(authenticated_user["id"]),
-            max_age_seconds=session_cookie_max_age(),
+            max_age_seconds=initial_max_age,
         )
         auth.record_login_attempt(
             conn,
@@ -177,7 +178,7 @@ def login(
         )
         conn.commit()
 
-    set_session_cookie(response, token)
+    set_session_cookie(response, token, max_age=initial_max_age)
     return {
         "authenticated": True,
         "user": public_user_payload(authenticated_user),
@@ -200,9 +201,7 @@ def logout(request: Request, response: Response) -> dict[str, Any]:
 @router.get("/api/auth/me")
 def me(request: Request) -> dict[str, Any]:
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-        user = auth.get_session_user(conn, token)
+    user = web_context.authenticated_user(request)
 
     if user is None:
         raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)

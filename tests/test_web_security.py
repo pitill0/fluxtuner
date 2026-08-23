@@ -8,7 +8,10 @@ from fluxtuner.web.security import (
     SESSION_COOKIE_NAME,
     csrf_token_for_session_token,
     delete_session_cookie,
+    session_absolute_max_age,
     session_cookie_max_age,
+    session_initial_max_age,
+    session_renewal_interval,
     set_session_cookie,
     web_secure_cookies,
 )
@@ -64,6 +67,36 @@ def test_session_cookie_max_age_falls_back_for_invalid_values(monkeypatch) -> No
         assert session_cookie_max_age() == auth.DEFAULT_SESSION_MAX_AGE_SECONDS
 
 
+def test_session_lifetime_settings_use_positive_overrides(monkeypatch) -> None:
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "456")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "123")
+
+    assert session_absolute_max_age() == 456
+    assert session_renewal_interval(1000) == 123
+
+
+def test_initial_session_lifetime_is_capped_by_absolute_limit(monkeypatch) -> None:
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "1000")
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", "200")
+
+    assert session_initial_max_age() == 200
+
+
+def test_session_lifetime_settings_fall_back_for_invalid_values(monkeypatch) -> None:
+    for value in ["", "abc", "0", "-1"]:
+        monkeypatch.setenv("FLUXTUNER_WEB_SESSION_ABSOLUTE_MAX_AGE_SECONDS", value)
+        assert session_absolute_max_age() == auth.DEFAULT_SESSION_ABSOLUTE_MAX_AGE_SECONDS
+
+        monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", value)
+        assert session_renewal_interval() == auth.DEFAULT_SESSION_RENEWAL_INTERVAL_SECONDS
+
+
+def test_session_renewal_interval_is_capped_at_half_idle_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_RENEWAL_INTERVAL_SECONDS", "100")
+
+    assert session_renewal_interval(40) == 20
+
+
 def test_set_session_cookie_uses_web_session_settings(monkeypatch) -> None:
     monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "42")
     monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
@@ -82,6 +115,15 @@ def test_set_session_cookie_uses_web_session_settings(monkeypatch) -> None:
             "path": "/",
         }
     ]
+
+
+def test_set_session_cookie_accepts_renewed_lifetime(monkeypatch) -> None:
+    monkeypatch.setenv("FLUXTUNER_WEB_SESSION_MAX_AGE_SECONDS", "42")
+    response = DummyResponse()
+
+    set_session_cookie(response, "session-token", max_age=17)
+
+    assert response.set_calls[0]["max_age"] == 17
 
 
 def test_delete_session_cookie_uses_web_session_settings(monkeypatch) -> None:

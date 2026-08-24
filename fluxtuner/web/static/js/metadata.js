@@ -83,6 +83,8 @@ export function createMetadataController({
   let currentTrackText = "";
   let feedbackTimeoutId = 0;
   let overflowFrameId = 0;
+  let documentVisible = documentRef.visibilityState !== "hidden";
+  let immediatePollPending = false;
 
   const requestFrame =
     windowRef.requestAnimationFrame?.bind(windowRef) ||
@@ -211,7 +213,14 @@ export function createMetadataController({
   }
 
   function scheduleNext(generation) {
-    if (!playbackActive || !streamUrl || generation !== requestGeneration) return;
+    if (
+      !playbackActive ||
+      !streamUrl ||
+      !documentVisible ||
+      generation !== requestGeneration
+    ) {
+      return;
+    }
     clearTimer();
 
     timeoutId = windowRef.setTimeout(() => {
@@ -224,6 +233,7 @@ export function createMetadataController({
     if (
       !playbackActive ||
       !streamUrl ||
+      !documentVisible ||
       generation !== requestGeneration ||
       requestInFlight
     ) {
@@ -242,6 +252,7 @@ export function createMetadataController({
       if (
         generation !== requestGeneration ||
         !playbackActive ||
+        !documentVisible ||
         requestedUrl !== streamUrl
       ) {
         return;
@@ -258,6 +269,7 @@ export function createMetadataController({
       if (
         generation !== requestGeneration ||
         !playbackActive ||
+        !documentVisible ||
         requestedUrl !== streamUrl
       ) {
         return;
@@ -281,9 +293,38 @@ export function createMetadataController({
       }
     } finally {
       requestInFlight = false;
-      scheduleNext(requestGeneration);
+      if (immediatePollPending && playbackActive && streamUrl && documentVisible) {
+        immediatePollPending = false;
+        void poll(requestGeneration);
+      } else {
+        immediatePollPending = false;
+        scheduleNext(requestGeneration);
+      }
     }
   }
+
+  function handleVisibilityChange() {
+    const nextVisible = documentRef.visibilityState !== "hidden";
+    if (nextVisible === documentVisible) return;
+
+    documentVisible = nextVisible;
+    requestGeneration += 1;
+    clearTimer();
+
+    if (!documentVisible) {
+      immediatePollPending = false;
+      return;
+    }
+    if (!playbackActive || !streamUrl) return;
+
+    if (requestInFlight) {
+      immediatePollPending = true;
+    } else {
+      void poll(requestGeneration);
+    }
+  }
+
+  documentRef.addEventListener?.("visibilitychange", handleVisibilityChange);
 
   function setStation(url, title) {
     const normalizedUrl = cleanText(url);
@@ -320,7 +361,10 @@ export function createMetadataController({
     requestGeneration += 1;
     clearTimer();
 
+    if (!documentVisible) return;
+
     if (requestInFlight) {
+      immediatePollPending = true;
       scheduleNext(requestGeneration);
     } else {
       void poll(requestGeneration);
@@ -329,6 +373,7 @@ export function createMetadataController({
 
   function clear() {
     playbackActive = false;
+    immediatePollPending = false;
     requestGeneration += 1;
     clearTimer();
     streamUrl = "";

@@ -1473,3 +1473,144 @@ console.log(JSON.stringify({
         "overflow": 120,
         "noOverflow": 0,
     }
+
+
+def test_web_metadata_polling_follows_document_visibility(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "metadata.js",
+        r"""
+const { createMetadataController } = await import(process.argv[1]);
+
+class FakeDocument {
+  constructor() {
+    this.visibilityState = "visible";
+    this.listeners = new Map();
+  }
+  addEventListener(name, callback) {
+    this.listeners.set(name, callback);
+  }
+  setVisibility(state) {
+    this.visibilityState = state;
+    this.listeners.get("visibilitychange")?.();
+  }
+}
+
+const documentRef = new FakeDocument();
+const timers = new Map();
+let nextTimerId = 1;
+const windowRef = {
+  addEventListener() {},
+  requestAnimationFrame(callback) {
+    callback();
+    return 1;
+  },
+  cancelAnimationFrame() {},
+  setTimeout(callback, delay) {
+    const id = nextTimerId++;
+    timers.set(id, { callback, delay });
+    return id;
+  },
+  clearTimeout(id) {
+    timers.delete(id);
+  },
+};
+
+let resolveFirstRequest;
+const requests = [];
+const renderedTracks = [];
+const apiFetch = (url) => {
+  requests.push(url);
+  if (requests.length === 1) {
+    return new Promise((resolve) => {
+      resolveFirstRequest = resolve;
+    });
+  }
+  return Promise.resolve({
+    ok: true,
+    async json() {
+      return { status: "fresh", metadata: { title: `Track ${requests.length}` } };
+    },
+  });
+};
+
+const controller = createMetadataController({
+  apiFetch,
+  titleNode: { textContent: "", scrollWidth: 0 },
+  copyButton: null,
+  stationNode: { textContent: "", hidden: false },
+  statusNode: null,
+  onMetadataChange(metadata) {
+    if (metadata) renderedTracks.push(metadata.title);
+  },
+  windowRef,
+  documentRef,
+});
+
+controller.setStation("https://example.com/live", "Flux FM");
+controller.updatePlaybackState("playing", {
+  url: "https://example.com/live",
+  title: "Flux FM",
+});
+
+documentRef.setVisibility("hidden");
+const hiddenState = { requests: requests.length, timers: timers.size };
+
+documentRef.setVisibility("visible");
+documentRef.setVisibility("visible");
+resolveFirstRequest({
+  ok: true,
+  async json() {
+    return { status: "fresh", metadata: { title: "Stale track" } };
+  },
+});
+await new Promise((resolve) => setImmediate(resolve));
+const resumedState = {
+  requests: requests.length,
+  renderedTracks: [...renderedTracks],
+  timers: timers.size,
+  nextDelay: [...timers.values()][0]?.delay,
+};
+
+const scheduledPoll = [...timers.entries()][0];
+timers.delete(scheduledPoll[0]);
+scheduledPoll[1].callback();
+await new Promise((resolve) => setImmediate(resolve));
+const foregroundPollingState = { requests: requests.length, timers: timers.size };
+
+controller.updatePlaybackState("paused", {
+  url: "https://example.com/live",
+  title: "Flux FM",
+});
+documentRef.setVisibility("hidden");
+documentRef.setVisibility("visible");
+await new Promise((resolve) => setImmediate(resolve));
+const pausedState = { requests: requests.length, timers: timers.size };
+
+controller.clear();
+documentRef.setVisibility("hidden");
+documentRef.setVisibility("visible");
+await new Promise((resolve) => setImmediate(resolve));
+
+console.log(JSON.stringify({
+  hiddenState,
+  resumedState,
+  foregroundPollingState,
+  pausedState,
+  stoppedRequests: requests.length,
+}));
+""",
+    )
+
+    assert result == {
+        "hiddenState": {"requests": 1, "timers": 0},
+        "resumedState": {
+            "requests": 2,
+            "renderedTracks": ["Track 2"],
+            "timers": 1,
+            "nextDelay": 15000,
+        },
+        "foregroundPollingState": {"requests": 3, "timers": 1},
+        "pausedState": {"requests": 3, "timers": 0},
+        "stoppedRequests": 3,
+    }

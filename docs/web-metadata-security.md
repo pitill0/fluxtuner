@@ -169,7 +169,10 @@ Polling:
 
 - begins only when the player reaches `playing`;
 - stops while loading, paused, idle or in an error state;
-- uses the authenticated cached endpoint every five seconds;
+- uses the authenticated cached endpoint every 15 seconds while the document is
+  visible;
+- suspends polling while the document is hidden and refreshes immediately when
+  it becomes visible again during active playback;
 - permits only one browser request at a time;
 - invalidates responses from an older station or playback generation;
 - treats endpoint and network failures as metadata-only failures;
@@ -197,4 +200,3 @@ The override is cleared when the station changes or playback is stopped. An
 override is applied only when it still belongs to the current stream URL, so stale
 track data cannot leak across streams. Media Session failures remain isolated
 from browser playback and the visible player.
-

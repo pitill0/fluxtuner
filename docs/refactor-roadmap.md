@@ -435,6 +435,8 @@ Browser responsibilities now include:
 
 - an immediate metadata request when playback starts;
 - conservative polling every 15 seconds while playback remains active;
+- suspension of metadata polling while the document is hidden, followed by an
+  immediate refresh when it becomes visible again;
 - request-generation and canonical-URL checks that reject stale responses;
 - safe `textContent` rendering for station, artist and track values;
 - station fallback while track metadata is unavailable;

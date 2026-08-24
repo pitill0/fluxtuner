@@ -75,9 +75,14 @@ def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
     assert "windowRef.clearTimeout" in module
     assert 'payload?.status === "fresh"' in module
     assert '{ cache: "no-store" }' in module
-    assert module.index("generation !== requestGeneration) return;") < module.index(
-        "clearTimer();", module.index("function scheduleNext")
+    schedule_next = module.split("function scheduleNext", 1)[1].split("async function poll", 1)[0]
+    assert "generation !== requestGeneration" in schedule_next
+    assert schedule_next.index("generation !== requestGeneration") < schedule_next.index(
+        "clearTimer();"
     )
+    assert "!documentVisible" in schedule_next
+    assert 'documentRef.addEventListener?.("visibilitychange"' in module
+    assert 'documentRef.visibilityState !== "hidden"' in module
     assert "if (requestInFlight) {" in module
     assert "scheduleNext(requestGeneration);" in module
     assert "scheduleNext(generation);" not in module

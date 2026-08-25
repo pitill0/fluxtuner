@@ -14,6 +14,16 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+## [1.0.8] - 2026-08-25
+
+### Changed
+
 - Changed Web sessions from a fixed lifetime to renewable inactivity-based
   expiration, with throttled renewal and a configurable absolute lifetime.
 - Suspended Web metadata polling while the page is hidden and added an immediate

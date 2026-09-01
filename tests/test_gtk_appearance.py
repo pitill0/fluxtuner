@@ -74,9 +74,51 @@ class FakeStyleContext:
         cls.removed.append((display, provider))
 
 
+class FakeInterfaceColorScheme:
+    UNSUPPORTED = 0
+    DEFAULT = 1
+    DARK = 2
+    LIGHT = 3
+
+
+class FakeProperty:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class FakeSettings:
+    color_scheme = FakeInterfaceColorScheme.UNSUPPORTED
+    connected: list[tuple[str, object]] = []
+    disconnected: list[int] = []
+
+    @classmethod
+    def get_default(cls):
+        return cls
+
+    @classmethod
+    def list_properties(cls):
+        return [FakeProperty("gtk-interface-color-scheme")]
+
+    @classmethod
+    def get_property(cls, name: str):
+        assert name == "gtk-interface-color-scheme"
+        return cls.color_scheme
+
+    @classmethod
+    def connect(cls, signal: str, callback: object) -> int:
+        cls.connected.append((signal, callback))
+        return len(cls.connected)
+
+    @classmethod
+    def disconnect(cls, handler_id: int) -> None:
+        cls.disconnected.append(handler_id)
+
+
 class FakeGtk:
     CssProvider = FakeProvider
     StyleContext = FakeStyleContext
+    Settings = FakeSettings
+    InterfaceColorScheme = FakeInterfaceColorScheme
     STYLE_PROVIDER_PRIORITY_APPLICATION = 600
 
 
@@ -84,6 +126,9 @@ def reset_fake_gtk() -> None:
     FakeProvider.loaded_paths = []
     FakeStyleContext.added = []
     FakeStyleContext.removed = []
+    FakeSettings.color_scheme = FakeInterfaceColorScheme.UNSUPPORTED
+    FakeSettings.connected = []
+    FakeSettings.disconnected = []
 
 
 def test_manager_system_installs_only_common_stylesheet(monkeypatch) -> None:

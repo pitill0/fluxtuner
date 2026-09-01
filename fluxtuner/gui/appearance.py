@@ -60,6 +60,9 @@ class GtkAppearanceManager:
         self._display = display
         self._common_provider: object | None = None
         self._palette_provider: object | None = None
+        self._configured_mode = AppearanceMode.SYSTEM
+        self._settings: object | Any = None
+        self._settings_handler_id: int | None = None
 
     def _gtk(self):
         import gi
@@ -90,11 +93,60 @@ class GtkAppearanceManager:
         )
         self._common_provider = provider
 
-    def apply(self, mode: AppearanceMode | str | None) -> AppearanceMode:
-        """Apply one appearance mode and return the normalized mode."""
+    def _system_palette_mode(self) -> AppearanceMode | None:
+        Gtk = self._gtk()
+        settings = Gtk.Settings.get_default()
+        if settings is None:
+            return None
 
-        normalized = normalize_appearance(mode)
-        self.install_common_stylesheet()
+        properties = {prop.name for prop in settings.list_properties()}
+        if "gtk-interface-color-scheme" not in properties:
+            return None
+
+        scheme = settings.get_property("gtk-interface-color-scheme")
+        if scheme == Gtk.InterfaceColorScheme.DARK:
+            return AppearanceMode.DARK
+        if scheme == Gtk.InterfaceColorScheme.LIGHT:
+            return AppearanceMode.LIGHT
+        return None
+
+    def _ensure_system_listener(self) -> None:
+        Gtk = self._gtk()
+        settings = Gtk.Settings.get_default()
+        if settings is None:
+            return
+
+        properties = {prop.name for prop in settings.list_properties()}
+        if "gtk-interface-color-scheme" not in properties:
+            return
+
+        if self._settings is settings and self._settings_handler_id is not None:
+            return
+
+        self._disconnect_system_listener()
+        self._settings = settings
+        self._settings_handler_id = settings.connect(
+            "notify::gtk-interface-color-scheme",
+            self._on_system_color_scheme_changed,
+        )
+
+    def _disconnect_system_listener(self) -> None:
+        if self._settings is not None and self._settings_handler_id is not None:
+            settings: Any = self._settings
+            settings.disconnect(self._settings_handler_id)
+
+        self._settings = None
+        self._settings_handler_id = None
+
+    def _on_system_color_scheme_changed(
+        self,
+        _settings: object,
+        _pspec: object,
+    ) -> None:
+        if self._configured_mode is AppearanceMode.SYSTEM:
+            self._apply_effective_mode(self._system_palette_mode())
+
+    def _apply_effective_mode(self, mode: AppearanceMode | None) -> None:
         Gtk = self._gtk()
 
         if self._palette_provider is not None:
@@ -104,9 +156,12 @@ class GtkAppearanceManager:
             )
             self._palette_provider = None
 
-        path = palette_path(normalized)
+        if mode is None:
+            return
+
+        path = palette_path(mode)
         if path is None or not path.exists():
-            return normalized
+            return
 
         provider = self._load_provider(path)
         Gtk.StyleContext.add_provider_for_display(
@@ -115,4 +170,19 @@ class GtkAppearanceManager:
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
         self._palette_provider = provider
+
+    def apply(self, mode: AppearanceMode | str | None) -> AppearanceMode:
+        """Apply one appearance mode and return the normalized mode."""
+
+        normalized = normalize_appearance(mode)
+        self._configured_mode = normalized
+        self.install_common_stylesheet()
+
+        if normalized is AppearanceMode.SYSTEM:
+            self._ensure_system_listener()
+            self._apply_effective_mode(self._system_palette_mode())
+            return normalized
+
+        self._disconnect_system_listener()
+        self._apply_effective_mode(normalized)
         return normalized

@@ -41,10 +41,11 @@ def normalize_appearance(value: Any) -> AppearanceMode:
 
 
 def palette_path(mode: AppearanceMode | str | None) -> Path | None:
-    """Return the palette stylesheet for forced modes.
+    """Return the palette stylesheet for an explicit FluxTuner palette.
 
-    System deliberately has no FluxTuner palette: GTK remains responsible for
-    following the native platform/desktop appearance.
+    System has no direct palette path. The appearance manager may resolve System
+    to Dark or Light when GTK exposes a system color-scheme preference; otherwise
+    it falls back to the native GTK appearance.
     """
 
     normalized = normalize_appearance(mode)

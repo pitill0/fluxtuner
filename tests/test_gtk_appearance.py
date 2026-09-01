@@ -166,6 +166,59 @@ def test_manager_switches_forced_palette_at_runtime(monkeypatch) -> None:
     ] == FakeProvider.loaded_paths
 
 
+@pytest.mark.parametrize(
+    ("scheme", "filename"),
+    [
+        (FakeInterfaceColorScheme.DARK, "dark.css"),
+        (FakeInterfaceColorScheme.LIGHT, "light.css"),
+    ],
+)
+def test_manager_system_resolves_gtk_color_scheme(
+    monkeypatch,
+    scheme: int,
+    filename: str,
+) -> None:
+    from fluxtuner.gui.appearance import GtkAppearanceManager
+
+    reset_fake_gtk()
+    FakeSettings.color_scheme = scheme
+    display = object()
+    manager = GtkAppearanceManager(display)
+    monkeypatch.setattr(manager, "_gtk", lambda: FakeGtk)
+
+    assert AppearanceMode.SYSTEM is manager.apply(AppearanceMode.SYSTEM)
+    assert [
+        str(COMMON_STYLESHEET),
+        str(THEMES_DIR / filename),
+    ] == FakeProvider.loaded_paths
+    assert FakeSettings.connected[0][0] == "notify::gtk-interface-color-scheme"
+
+
+def test_manager_system_reacts_to_gtk_color_scheme_change(monkeypatch) -> None:
+    from fluxtuner.gui.appearance import GtkAppearanceManager
+
+    reset_fake_gtk()
+    FakeSettings.color_scheme = FakeInterfaceColorScheme.DARK
+    display = object()
+    manager = GtkAppearanceManager(display)
+    monkeypatch.setattr(manager, "_gtk", lambda: FakeGtk)
+
+    manager.apply(AppearanceMode.SYSTEM)
+    dark_provider = FakeStyleContext.added[-1][1]
+
+    FakeSettings.color_scheme = FakeInterfaceColorScheme.LIGHT
+    signal, callback = FakeSettings.connected[0]
+    assert signal == "notify::gtk-interface-color-scheme"
+    callback(FakeSettings, object())
+
+    assert [(display, dark_provider)] == FakeStyleContext.removed
+    assert [
+        str(COMMON_STYLESHEET),
+        str(THEMES_DIR / "dark.css"),
+        str(THEMES_DIR / "light.css"),
+    ] == FakeProvider.loaded_paths
+
+
 def test_manager_switch_to_system_removes_forced_palette(monkeypatch) -> None:
     from fluxtuner.gui.appearance import GtkAppearanceManager
 

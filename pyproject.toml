@@ -100,6 +100,7 @@ include-package-data = true
 fluxtuner = [
     "themes/*.tcss",
     "gui/*.css",
+    "gui/themes/*.css",
     "web/templates/*.html",
     "web/static/*.css",
     "web/static/*.js",

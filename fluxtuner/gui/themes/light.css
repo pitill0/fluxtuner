@@ -1,0 +1,143 @@
+/* FluxTuner GTK light palette */
+
+* { color: #1f2937; }
+
+window,
+window.background {
+  background: #f7f8fb;
+  color: #1f2937;
+}
+
+box,
+viewport,
+scrolledwindow,
+stack,
+frame { background: transparent; }
+
+label { color: #1f2937; }
+.dim-label { color: #667085; }
+.heading { color: #344054; }
+.caption-heading { color: #667085; }
+.title-1,
+.title-3 { color: #101828; }
+
+entry {
+  background: #ffffff;
+  color: #1f2937;
+  caret-color: #1f2937;
+  border: 1px solid #d0d5dd;
+  padding: 7px 10px;
+}
+
+entry text,
+entry selection { color: #1f2937; }
+entry:focus { border-color: #6172f3; }
+entry placeholder { color: #98a2b3; }
+
+button {
+  background: #f2f4f7;
+  color: #1f2937;
+  border: 1px solid #d0d5dd;
+  padding: 7px 12px;
+}
+
+button label { color: #1f2937; }
+
+button:hover {
+  background: #e4e7ec;
+  border-color: #98a2b3;
+}
+
+button:active { background: #d0d5dd; }
+
+button:disabled {
+  color: #98a2b3;
+  background: #f9fafb;
+  border-color: #eaecf0;
+}
+
+button:disabled label { color: #98a2b3; }
+
+button.suggested-action {
+  background: #e0e7ff;
+  border-color: #6172f3;
+}
+
+button.suggested-action:hover { background: #c7d2fe; }
+
+button.destructive-action {
+  background: #fff1f3;
+  border-color: #fda4af;
+}
+
+button.destructive-action:hover { background: #ffe4e8; }
+
+scale trough { background: #e4e7ec; }
+scale highlight { background: #6172f3; }
+
+scale slider {
+  background: #ffffff;
+  border: 1px solid #6172f3;
+}
+
+listbox {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #e4e7ec;
+}
+
+listbox row {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+listbox row box { background: transparent; }
+listbox row label { color: #344054; }
+listbox row:hover { background: #f2f4f7; }
+listbox row:hover label { color: #101828; }
+listbox row:selected { background: #e0e7ff; }
+listbox row:selected label { color: #101828; }
+
+listbox row.suggested-action {
+  background: #eef2ff;
+  border-left-color: #6172f3;
+}
+
+listbox row.suggested-action label { color: #101828; }
+listbox row.suggested-action:selected { background: #dbe4ff; }
+
+scrollbar { background: #f7f8fb; }
+scrollbar slider { background: #cbd5e1; }
+scrolledwindow { background: #ffffff; }
+separator { background: #e4e7ec; }
+
+.results-scroller,
+.results-scroller viewport,
+.results-list {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.results-list row {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.results-list row * {
+  background: transparent;
+  color: #1f2937;
+}
+
+.results-list row .result-cell { color: #1f2937; }
+.results-list row:hover { background: #f2f4f7; }
+.results-list row:hover .result-cell { color: #101828; }
+.results-list row:selected { background: #e0e7ff; }
+.results-list row:selected .result-cell { color: #101828; }
+
+.results-list row.suggested-action {
+  background: #eef2ff;
+  border-left-color: #6172f3;
+}
+
+.results-list row.suggested-action .result-cell { color: #101828; }
+.results-list row.suggested-action:selected { background: #dbe4ff; }

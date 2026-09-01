@@ -11,7 +11,12 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
-from fluxtuner.config import get_playback_state, save_playback_state  # noqa: E402
+from fluxtuner.config import (  # noqa: E402
+    get_config_value,
+    get_playback_state,
+    save_playback_state,
+    set_config_value,
+)
 from fluxtuner.core.compatibility import (  # noqa: E402
     filter_supported_stations,
     station_is_supported,
@@ -41,6 +46,11 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_url,
 )
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
+from fluxtuner.gui.appearance import (  # noqa: E402
+    AppearanceMode,
+    GtkAppearanceManager,
+    normalize_appearance,
+)
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
@@ -54,11 +64,20 @@ from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 class MainWindow(Gtk.ApplicationWindow):
     """GTK desktop GUI: search stations, list results and play selection."""
 
-    def __init__(self, app: Gtk.Application, player_name: str = "mpv") -> None:
+    def __init__(
+        self,
+        app: Gtk.Application,
+        player_name: str = "mpv",
+        appearance_manager: GtkAppearanceManager | None = None,
+    ) -> None:
         super().__init__(application=app)
         self.set_title("FluxTuner")
         self.set_default_size(980, 620)
         self.set_size_request(520, 420)
+        self.appearance_manager = appearance_manager
+        self.configured_appearance = normalize_appearance(
+            get_config_value("gtk_appearance", "system")
+        )
 
         self.player_backend_name = selected_player_name(player_name)
         self.profile_name = resolve_effective_profile_name()
@@ -103,18 +122,25 @@ class MainWindow(Gtk.ApplicationWindow):
         return root
 
     def _build_header(self, root: Gtk.Box) -> None:
-        header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        header.set_hexpand(True)
         root.append(header)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        title_box.set_hexpand(True)
+        header.append(title_box)
 
         title = Gtk.Label(label="FluxTuner")
         title.set_xalign(0)
         title.add_css_class("title-1")
-        header.append(title)
+        title_box.append(title)
 
         subtitle = Gtk.Label(label="GTK desktop GUI")
         subtitle.set_xalign(0)
         subtitle.add_css_class("dim-label")
-        header.append(subtitle)
+        title_box.append(subtitle)
+
+        self._build_appearance_controls(header)
 
     def _build_search_bar(self, root: Gtk.Box) -> None:
         search_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -269,6 +295,52 @@ class MainWindow(Gtk.ApplicationWindow):
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
         side_panel.append(hint)
+
+    def _build_appearance_controls(self, container: Gtk.Box) -> None:
+        appearance_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        appearance_box.set_halign(Gtk.Align.END)
+        appearance_box.set_valign(Gtk.Align.CENTER)
+        container.append(appearance_box)
+
+        appearance_label = Gtk.Label(label="Appearance")
+        appearance_label.add_css_class("dim-label")
+        appearance_box.append(appearance_label)
+
+        self.appearance_dropdown = Gtk.DropDown.new_from_strings(["System", "Dark", "Light"])
+        self.appearance_dropdown.set_tooltip_text("Choose the GTK appearance")
+        self.appearance_dropdown.set_selected(
+            {
+                AppearanceMode.SYSTEM: 0,
+                AppearanceMode.DARK: 1,
+                AppearanceMode.LIGHT: 2,
+            }[self.configured_appearance]
+        )
+        self.appearance_dropdown.connect(
+            "notify::selected",
+            self.on_appearance_changed,
+        )
+        appearance_box.append(self.appearance_dropdown)
+
+    def on_appearance_changed(
+        self,
+        dropdown: Gtk.DropDown,
+        _pspec: object,
+    ) -> None:
+        selected = dropdown.get_selected()
+        modes = (
+            AppearanceMode.SYSTEM,
+            AppearanceMode.DARK,
+            AppearanceMode.LIGHT,
+        )
+        if selected >= len(modes):
+            return
+
+        mode = modes[selected]
+        self.configured_appearance = mode
+        set_config_value("gtk_appearance", mode.value)
+
+        if self.appearance_manager is not None:
+            self.appearance_manager.apply(mode)
 
     def _build_bottom_playback_bar(self, root: Gtk.Box) -> None:
         playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)

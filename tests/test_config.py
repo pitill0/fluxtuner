@@ -105,6 +105,10 @@ def test_load_config_returns_defaults_for_missing_file(
     assert config.load_config() == config.default_config()
 
 
+def test_default_config_uses_system_gtk_appearance() -> None:
+    assert config.default_config()["gtk_appearance"] == "system"
+
+
 def test_load_config_returns_defaults_for_invalid_json(
     tmp_path: Path,
     monkeypatch,
@@ -125,6 +129,7 @@ def test_load_config_merges_saved_values_with_defaults(
     loaded = config.load_config()
 
     assert loaded["theme"] == "nord"
+    assert loaded["gtk_appearance"] == "system"
     assert loaded["playback"] == {
         "last_station": None,
         "volume": None,

@@ -148,7 +148,7 @@ Backend notes:
 - `mpg123` is a specialized lightweight backend for MP3/MPEG streams.
 - `ogg123` is a specialized lightweight backend for Ogg/Vorbis/Opus-style streams, depending on the local `ogg123` build.
 
-## Themes
+## TUI Themes
 
 List available themes:
 
@@ -181,6 +181,23 @@ Built-in themes:
 - `dracula`
 - `amber`
 - `ptmtrx`
+
+## GTK appearance
+
+The GTK desktop GUI provides an appearance selector with three modes:
+
+- `System` — follows the system color-scheme preference when GTK exposes it.
+- `Dark` — always uses the FluxTuner dark palette.
+- `Light` — always uses the FluxTuner light palette.
+
+The selected appearance is persisted and changes are applied immediately.
+
+On platforms where GTK does not expose the system color scheme, `System`
+falls back to the native GTK appearance. Explicit `Dark` and `Light` modes
+remain available.
+
+On current GTK builds for macOS, the system color scheme may be reported as
+unsupported, so `System` can fall back to GTK's default light appearance.
 
 ## Useful commands
 

@@ -20,6 +20,39 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.1.0] - 2026-09-01
+
+### Added
+
+- Added GTK appearance selection with System, Dark and Light modes.
+- Added persistent GTK appearance preferences.
+- Added runtime appearance switching without restarting FluxTuner.
+- Added dedicated light and dark GTK palettes.
+
+### Changed
+
+- GTK System appearance now follows `gtk-interface-color-scheme` when GTK exposes
+  the desktop color-scheme preference.
+- GTK styling is now split into shared layout rules and appearance-specific palettes.
+- Added the GTK appearance selector to the application header.
+
+### Documentation
+
+- Documented GTK appearance behavior and platform fallback semantics.
+
+### Internal
+
+- Added GTK appearance resolution, persistence and runtime-switching test coverage.
+- Added coverage for dynamic system color-scheme changes.
+
+### Notes
+
+- On Linux environments where GTK exposes the system color scheme, System mode
+  follows the desktop appearance dynamically.
+- On macOS setups where GTK reports the system color scheme as unsupported,
+  System mode falls back to GTK's native/default appearance. Explicit Dark and
+  Light modes remain available.
+
 ## [1.0.8] - 2026-08-25
 
 ### Changed

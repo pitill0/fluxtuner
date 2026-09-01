@@ -791,3 +791,15 @@ def test_gtk_view_state_transitions_own_view_and_playlist_identity() -> None:
     state.show_search()
     assert state.current_view == "search"
     assert state.active_playlist_tag is None
+
+
+def test_gtk_appearance_mode_mapping_is_stable() -> None:
+    from fluxtuner.gui.appearance import AppearanceMode
+
+    modes = (
+        AppearanceMode.SYSTEM,
+        AppearanceMode.DARK,
+        AppearanceMode.LIGHT,
+    )
+
+    assert [mode.value for mode in modes] == ["system", "dark", "light"]

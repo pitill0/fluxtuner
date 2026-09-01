@@ -31,13 +31,18 @@ def run_gui(player_name: str = "mpv") -> None:
     )
 
     def on_activate(app_: Gtk.Application) -> None:
+        appearance_manager: GtkAppearanceManager | None = None
+
         display = Gdk.Display.get_default()
         if display is not None:
-            appearance = GtkAppearanceManager(display)
-            appearance.apply(get_config_value("gtk_appearance", "system"))
-            app_._fluxtuner_appearance = appearance
+            appearance_manager = GtkAppearanceManager(display)
+            appearance_manager.apply(get_config_value("gtk_appearance", "system"))
 
-        window = MainWindow(app_, player_name=player_name)
+        window = MainWindow(
+            app_,
+            player_name=player_name,
+            appearance_manager=appearance_manager,
+        )
         window.present()
 
     app.connect("activate", on_activate)

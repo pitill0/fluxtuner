@@ -15,6 +15,7 @@ CONFIG_FILE = config_file("config.json")
 def default_config() -> dict[str, Any]:
     return {
         "theme": "default",
+        "gtk_appearance": "system",
         "playback": {
             "last_station": None,
             "volume": None,

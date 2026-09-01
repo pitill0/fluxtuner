@@ -141,3 +141,36 @@ separator { background: #252b37; }
 
 .results-list row.suggested-action .result-cell { color: #ffffff; }
 .results-list row.suggested-action:selected { background: #2f4276; }
+
+dropdown,
+dropdown button {
+  color: #f3f4f6;
+  background: #202634;
+}
+
+dropdown button label {
+  color: #f3f4f6;
+}
+
+dropdown popover contents,
+dropdown popover listview {
+  background: #151922;
+  color: #f3f4f6;
+}
+
+dropdown popover listview row {
+  background: #151922;
+  color: #f3f4f6;
+}
+
+dropdown popover listview row:hover {
+  background: #202634;
+}
+
+dropdown popover listview row:selected {
+  background: #2a3350;
+}
+
+dropdown popover label {
+  color: #f3f4f6;
+}

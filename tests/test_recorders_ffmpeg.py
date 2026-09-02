@@ -59,6 +59,8 @@ def test_ffmpeg_recorder_start_uses_stream_copy_and_matroska(
             "-hide_banner",
             "-loglevel",
             "warning",
+            "-readrate",
+            "1",
             "-i",
             "https://example.com/stream",
             "-map",

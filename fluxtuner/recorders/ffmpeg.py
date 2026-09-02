@@ -49,6 +49,8 @@ class FfmpegRecorder:
             "-hide_banner",
             "-loglevel",
             "warning",
+            "-readrate",
+            "1",
             "-i",
             safe_url,
             "-map",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from fluxtuner.logging_config import get_logger
@@ -15,6 +16,10 @@ DBUSMENU_INTERFACE = "com.canonical.dbusmenu"
 WATCHER_BUS_NAME = "org.kde.StatusNotifierWatcher"
 WATCHER_OBJECT_PATH = "/StatusNotifierWatcher"
 WATCHER_INTERFACE = "org.kde.StatusNotifierWatcher"
+
+TRAY_ICON_PATH = (
+    Path(__file__).resolve().parent.parent / "assets" / "io.github.pitill0.Fluxtuner.png"
+)
 
 SNI_INTROSPECTION_XML = f"""
 <node>
@@ -82,7 +87,8 @@ class LinuxStatusNotifierItem:
         self,
         *,
         application_id: str,
-        icon_name: str = "audio-radio-symbolic",
+        icon_name: str = "io.github.pitill0.Fluxtuner",
+        fallback_icon_name: str = "audio-radio-symbolic",
         on_show: Callable[[], None] | None = None,
         on_stop: Callable[[], None] | None = None,
         on_quit: Callable[[], None] | None = None,
@@ -91,6 +97,7 @@ class LinuxStatusNotifierItem:
     ) -> None:
         self.application_id = application_id
         self.icon_name = icon_name
+        self.fallback_icon_name = fallback_icon_name
         self._on_show = on_show
         self._on_stop = on_stop
         self._on_quit = on_quit
@@ -99,6 +106,7 @@ class LinuxStatusNotifierItem:
         self._connection: Any = None
         self._registration_id: int | None = None
         self._menu_registration_id: int | None = None
+        self._icon_pixmap_cache: list[tuple[int, int, list[int]]] | None = None
 
     def _gio_glib(self):
         import gi
@@ -108,6 +116,68 @@ class LinuxStatusNotifierItem:
 
         return Gio, GLib
 
+    def _resolved_icon_name(self) -> str:
+        """Return the FluxTuner app icon when available, otherwise a safe fallback."""
+        try:
+            import gi
+
+            gi.require_version("Gdk", "4.0")
+            gi.require_version("Gtk", "4.0")
+            from gi.repository import Gdk, Gtk
+
+            display = Gdk.Display.get_default()
+            if display is not None:
+                icon_theme = Gtk.IconTheme.get_for_display(display)
+                if icon_theme.has_icon(self.icon_name):
+                    return self.icon_name
+        except Exception:
+            logger.debug(
+                "Could not resolve FluxTuner tray icon from GTK icon theme",
+                exc_info=True,
+            )
+
+        return self.fallback_icon_name
+
+    def _icon_pixmaps(self) -> list[tuple[int, int, list[int]]]:
+        """Return an ARGB SNI pixmap built from the packaged FluxTuner icon."""
+        if self._icon_pixmap_cache is not None:
+            return self._icon_pixmap_cache
+
+        if not TRAY_ICON_PATH.exists():
+            self._icon_pixmap_cache = []
+            return self._icon_pixmap_cache
+
+        try:
+            import gi
+
+            gi.require_version("GdkPixbuf", "2.0")
+            from gi.repository import GdkPixbuf
+
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(TRAY_ICON_PATH), 64, 64, True)
+            width = pixbuf.get_width()
+            height = pixbuf.get_height()
+            channels = pixbuf.get_n_channels()
+            rowstride = pixbuf.get_rowstride()
+            pixels = bytes(pixbuf.get_pixels())
+
+            argb: list[int] = []
+            for y in range(height):
+                row = y * rowstride
+                for x in range(width):
+                    offset = row + x * channels
+                    red = pixels[offset]
+                    green = pixels[offset + 1]
+                    blue = pixels[offset + 2]
+                    alpha = pixels[offset + 3] if channels == 4 else 255
+                    argb.extend((alpha, red, green, blue))
+
+            self._icon_pixmap_cache = [(width, height, argb)]
+        except Exception:
+            logger.debug("Could not build FluxTuner tray icon pixmap", exc_info=True)
+            self._icon_pixmap_cache = []
+
+        return self._icon_pixmap_cache
+
     def _property_value(self, property_name: str):
         _gio, GLib = self._gio_glib()
         values = {
@@ -116,8 +186,11 @@ class LinuxStatusNotifierItem:
             "Title": GLib.Variant("s", "FluxTuner"),
             "Status": GLib.Variant("s", "Active"),
             "WindowId": GLib.Variant("u", 0),
-            "IconName": GLib.Variant("s", self.icon_name),
-            "IconPixmap": GLib.Variant("a(iiay)", []),
+            "IconName": GLib.Variant(
+                "s",
+                "" if self._icon_pixmaps() else self._resolved_icon_name(),
+            ),
+            "IconPixmap": GLib.Variant("a(iiay)", self._icon_pixmaps()),
             "OverlayIconName": GLib.Variant("s", ""),
             "OverlayIconPixmap": GLib.Variant("a(iiay)", []),
             "AttentionIconName": GLib.Variant("s", ""),

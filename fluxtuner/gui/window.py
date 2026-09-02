@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
@@ -70,9 +69,6 @@ class MainWindow(Gtk.ApplicationWindow):
         app: Gtk.Application,
         player_name: str = "mpv",
         appearance_manager: GtkAppearanceManager | None = None,
-        tray_supported: bool = False,
-        on_tray_enabled_changed: Callable[[bool], bool] | None = None,
-        on_close_to_tray_changed: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(application=app)
         self.set_title("FluxTuner")
@@ -82,12 +78,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.configured_appearance = normalize_appearance(
             get_config_value("gtk_appearance", "system")
         )
-        self.tray_supported = tray_supported
-        self._on_tray_enabled_changed = on_tray_enabled_changed
-        self._on_close_to_tray_changed = on_close_to_tray_changed
-        self._updating_tray_controls = False
-        self.tray_enabled = bool(tray_supported and get_config_value("tray_enabled", False))
-        self.close_to_tray = bool(self.tray_enabled and get_config_value("close_to_tray", False))
+        self.close_to_tray = False
 
         self.player_backend_name = selected_player_name(player_name)
         self.profile_name = resolve_effective_profile_name()
@@ -151,8 +142,6 @@ class MainWindow(Gtk.ApplicationWindow):
         title_box.append(subtitle)
 
         self._build_appearance_controls(header)
-        if self.tray_supported:
-            self._build_tray_controls(header)
 
     def _build_search_bar(self, root: Gtk.Box) -> None:
         search_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -353,81 +342,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
         if self.appearance_manager is not None:
             self.appearance_manager.apply(mode)
-
-    def _build_tray_controls(self, container: Gtk.Box) -> None:
-        tray_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        tray_box.set_halign(Gtk.Align.END)
-        tray_box.set_valign(Gtk.Align.CENTER)
-        container.append(tray_box)
-
-        self.tray_enabled_check = Gtk.CheckButton(label="Tray")
-        self.tray_enabled_check.set_tooltip_text("Show FluxTuner in the Linux system tray")
-        self.tray_enabled_check.set_active(self.tray_enabled)
-        self.tray_enabled_check.connect("toggled", self.on_tray_enabled_toggled)
-        tray_box.append(self.tray_enabled_check)
-
-        self.close_to_tray_check = Gtk.CheckButton(label="Close to tray")
-        self.close_to_tray_check.set_tooltip_text(
-            "Hide FluxTuner instead of quitting when the window is closed"
-        )
-        self.close_to_tray_check.set_active(self.close_to_tray)
-        self.close_to_tray_check.set_sensitive(self.tray_enabled)
-        self.close_to_tray_check.connect(
-            "toggled",
-            self.on_close_to_tray_toggled,
-        )
-        tray_box.append(self.close_to_tray_check)
-
-    def _set_tray_controls(
-        self,
-        *,
-        tray_enabled: bool,
-        close_to_tray: bool,
-    ) -> None:
-        self._updating_tray_controls = True
-        try:
-            self.tray_enabled = tray_enabled
-            self.close_to_tray = bool(tray_enabled and close_to_tray)
-            self.tray_enabled_check.set_active(self.tray_enabled)
-            self.close_to_tray_check.set_active(self.close_to_tray)
-            self.close_to_tray_check.set_sensitive(self.tray_enabled)
-        finally:
-            self._updating_tray_controls = False
-
-    def on_tray_enabled_toggled(self, button: Gtk.CheckButton) -> None:
-        if self._updating_tray_controls:
-            return
-
-        requested = button.get_active()
-        enabled = requested
-        if self._on_tray_enabled_changed is not None:
-            enabled = self._on_tray_enabled_changed(requested)
-
-        close_to_tray = self.close_to_tray if enabled else False
-        self._set_tray_controls(
-            tray_enabled=enabled,
-            close_to_tray=close_to_tray,
-        )
-        set_config_value("tray_enabled", enabled)
-
-        if not enabled:
-            set_config_value("close_to_tray", False)
-            if self._on_close_to_tray_changed is not None:
-                self._on_close_to_tray_changed(False)
-
-    def on_close_to_tray_toggled(self, button: Gtk.CheckButton) -> None:
-        if self._updating_tray_controls:
-            return
-
-        enabled = bool(self.tray_enabled and button.get_active())
-        self._set_tray_controls(
-            tray_enabled=self.tray_enabled,
-            close_to_tray=enabled,
-        )
-        set_config_value("close_to_tray", enabled)
-
-        if self._on_close_to_tray_changed is not None:
-            self._on_close_to_tray_changed(enabled)
 
     def _build_bottom_playback_bar(self, root: Gtk.Box) -> None:
         playback_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)

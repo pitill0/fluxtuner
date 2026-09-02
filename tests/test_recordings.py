@@ -5,7 +5,9 @@ from pathlib import Path
 import pytest
 
 from fluxtuner.core import db
+from fluxtuner.core.recording import RecordingError, RecordingSession
 from fluxtuner.core.recordings import (
+    SqliteRecordingStore,
     add_recording,
     delete_recording,
     ensure_recordings_dir,
@@ -179,3 +181,56 @@ def test_add_recording_rejects_negative_values(
             duration_seconds=duration_seconds,
             file_size=file_size,
         )
+
+
+def test_sqlite_recording_store_persists_completed_session(tmp_path: Path) -> None:
+    db_file = tmp_path / "fluxtuner.db"
+    media_file = tmp_path / "recording.mka"
+    media_file.write_bytes(b"recorded-media")
+
+    store = SqliteRecordingStore(db_path=db_file)
+    session = RecordingSession(
+        station_name="Flux FM",
+        source_url="https://radio.example/stream",
+        output_path=media_file,
+        started_at="2026-09-02T12:00:00+00:00",
+        stopped_at="2026-09-02T12:00:20.500000+00:00",
+    )
+
+    recording_id = store.save(session)
+
+    with db.connect(db_file) as conn:
+        recording = get_recording(conn, recording_id)
+
+    assert recording is not None
+    assert recording["station_name"] == "Flux FM"
+    assert recording["duration_seconds"] == 20.5
+    assert recording["file_size"] == len(b"recorded-media")
+    assert recording["file_path"] == str(media_file)
+
+
+def test_sqlite_recording_store_rejects_active_session(tmp_path: Path) -> None:
+    store = SqliteRecordingStore(db_path=tmp_path / "fluxtuner.db")
+    session = RecordingSession(
+        station_name="Flux FM",
+        source_url="https://radio.example/stream",
+        output_path=tmp_path / "recording.mka",
+        started_at="2026-09-02T12:00:00+00:00",
+    )
+
+    with pytest.raises(RecordingError, match="active recording"):
+        store.save(session)
+
+
+def test_sqlite_recording_store_rejects_missing_output_file(tmp_path: Path) -> None:
+    store = SqliteRecordingStore(db_path=tmp_path / "fluxtuner.db")
+    session = RecordingSession(
+        station_name="Flux FM",
+        source_url="https://radio.example/stream",
+        output_path=tmp_path / "missing.mka",
+        started_at="2026-09-02T12:00:00+00:00",
+        stopped_at="2026-09-02T12:00:20+00:00",
+    )
+
+    with pytest.raises(RecordingError, match="does not exist"):
+        store.save(session)

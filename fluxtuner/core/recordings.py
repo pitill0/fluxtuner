@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from fluxtuner.core import db
 from fluxtuner.core.profiles import resolve_profile_id
+from fluxtuner.core.recording import RecordingError, RecordingSession
 from fluxtuner.paths import data_file
 
 RECORDINGS_DIR = data_file("recordings")
@@ -206,3 +209,46 @@ def delete_recording(
         (recording_id, active_profile_id),
     )
     return cursor.rowcount > 0
+
+
+@dataclass(frozen=True)
+class SqliteRecordingStore:
+    """Persist completed recording sessions in FluxTuner SQLite storage."""
+
+    db_path: Path | None = None
+    profile_id: int | None = None
+    profile_name: str | None = None
+
+    def save(self, session: RecordingSession) -> int:
+        """Persist a completed session and return its recording id."""
+        if session.stopped_at is None:
+            raise RecordingError("Cannot persist an active recording session.")
+
+        output_path = session.output_path
+        if not output_path.is_file():
+            raise RecordingError(f"Recording output file does not exist: {output_path}")
+
+        try:
+            started_at = datetime.fromisoformat(session.started_at)
+            stopped_at = datetime.fromisoformat(session.stopped_at)
+            duration_seconds = max(0.0, (stopped_at - started_at).total_seconds())
+        except ValueError as exc:
+            raise RecordingError("Recording session contains invalid timestamps.") from exc
+
+        db.init_db(self.db_path)
+        with db.connect(self.db_path) as conn:
+            recording_id = add_recording(
+                conn,
+                station_name=session.station_name,
+                source_url=session.source_url,
+                file_path=output_path,
+                started_at=session.started_at,
+                stopped_at=session.stopped_at,
+                duration_seconds=duration_seconds,
+                file_size=output_path.stat().st_size,
+                profile_id=self.profile_id,
+                profile_name=self.profile_name,
+            )
+            conn.commit()
+
+        return recording_id

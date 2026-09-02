@@ -9,6 +9,7 @@ from fluxtuner.core.recording import (
     RecordingError,
     RecordingManager,
     RecordingRequest,
+    RecordingSession,
 )
 
 
@@ -142,3 +143,84 @@ def test_recording_manager_rejects_incomplete_request(
         )
 
     assert backend.start_calls == []
+
+
+class FakeRecordingStore:
+    def __init__(self) -> None:
+        self.saved_sessions = []
+
+    def save(self, session) -> int:
+        self.saved_sessions.append(session)
+        return 42
+
+
+def test_stop_persists_completed_session_and_returns_recording_id(tmp_path: Path) -> None:
+    backend = FakeRecordingBackend()
+    store = FakeRecordingStore()
+    timestamps = iter(
+        [
+            "2026-09-02T12:00:00+00:00",
+            "2026-09-02T12:00:20+00:00",
+        ]
+    )
+    manager = RecordingManager(
+        backend,
+        clock=lambda: next(timestamps),
+        store=store,
+    )
+
+    manager.start(
+        RecordingRequest(
+            station_name="Flux FM",
+            source_url="https://radio.example/stream",
+            output_path=tmp_path / "recording.mka",
+        )
+    )
+    completed = manager.stop()
+
+    assert completed is not None
+    assert completed.recording_id == 42
+    assert completed.stopped_at == "2026-09-02T12:00:20+00:00"
+    assert store.saved_sessions == [
+        RecordingSession(
+            station_name="Flux FM",
+            source_url="https://radio.example/stream",
+            output_path=tmp_path / "recording.mka",
+            started_at="2026-09-02T12:00:00+00:00",
+            stopped_at="2026-09-02T12:00:20+00:00",
+        )
+    ]
+
+
+def test_persistence_failure_leaves_manager_idle(tmp_path: Path) -> None:
+    backend = FakeRecordingBackend()
+
+    class FailingStore:
+        def save(self, _session) -> int:
+            raise RecordingError("database unavailable")
+
+    timestamps = iter(
+        [
+            "2026-09-02T12:00:00+00:00",
+            "2026-09-02T12:00:20+00:00",
+        ]
+    )
+    manager = RecordingManager(
+        backend,
+        clock=lambda: next(timestamps),
+        store=FailingStore(),
+    )
+
+    manager.start(
+        RecordingRequest(
+            station_name="Flux FM",
+            source_url="https://radio.example/stream",
+            output_path=tmp_path / "recording.mka",
+        )
+    )
+
+    with pytest.raises(RecordingError, match="database unavailable"):
+        manager.stop()
+
+    assert manager.active_session is None
+    assert manager.is_recording() is False

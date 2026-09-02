@@ -21,6 +21,12 @@ class RecordingBackend(Protocol):
     def is_recording(self) -> bool: ...
 
 
+class RecordingStore(Protocol):
+    """Persistence contract for completed recording sessions."""
+
+    def save(self, session: RecordingSession) -> int: ...
+
+
 @dataclass(frozen=True)
 class RecordingRequest:
     """Input required to start one recording session."""
@@ -39,6 +45,7 @@ class RecordingSession:
     output_path: Path
     started_at: str
     stopped_at: str | None = None
+    recording_id: int | None = None
 
     @property
     def active(self) -> bool:
@@ -57,9 +64,11 @@ class RecordingManager:
         backend: RecordingBackend,
         *,
         clock: Callable[[], str] = _utc_now,
+        store: RecordingStore | None = None,
     ) -> None:
         self._backend = backend
         self._clock = clock
+        self._store = store
         self._active_session: RecordingSession | None = None
 
     @property
@@ -103,4 +112,9 @@ class RecordingManager:
         self._backend.stop()
         completed = replace(session, stopped_at=self._clock())
         self._active_session = None
+
+        if self._store is not None:
+            recording_id = self._store.save(completed)
+            completed = replace(completed, recording_id=recording_id)
+
         return completed

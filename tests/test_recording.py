@@ -224,3 +224,39 @@ def test_persistence_failure_leaves_manager_idle(tmp_path: Path) -> None:
 
     assert manager.active_session is None
     assert manager.is_recording() is False
+
+
+def test_stop_captures_timestamp_before_backend_shutdown(tmp_path: Path) -> None:
+    events: list[str] = []
+
+    class TimingBackend(FakeRecordingBackend):
+        def stop(self) -> None:
+            events.append("backend-stop")
+            super().stop()
+
+    timestamps = iter(
+        [
+            "2026-09-02T12:00:00+00:00",
+            "2026-09-02T12:00:20+00:00",
+        ]
+    )
+
+    def clock() -> str:
+        events.append("clock")
+        return next(timestamps)
+
+    manager = RecordingManager(TimingBackend(), clock=clock)
+    manager.start(
+        RecordingRequest(
+            station_name="Flux FM",
+            source_url="https://radio.example/stream",
+            output_path=tmp_path / "recording.mka",
+        )
+    )
+
+    events.clear()
+    completed = manager.stop()
+
+    assert completed is not None
+    assert completed.stopped_at == "2026-09-02T12:00:20+00:00"
+    assert events == ["clock", "backend-stop"]

@@ -109,8 +109,9 @@ class RecordingManager:
         if session is None:
             return None
 
+        stopped_at = self._clock()
         self._backend.stop()
-        completed = replace(session, stopped_at=self._clock())
+        completed = replace(session, stopped_at=stopped_at)
         self._active_session = None
 
         if self._store is not None:

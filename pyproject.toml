@@ -101,6 +101,7 @@ fluxtuner = [
     "themes/*.tcss",
     "gui/*.css",
     "gui/themes/*.css",
+    "gui/assets/*.png",
     "web/templates/*.html",
     "web/static/*.css",
     "web/static/*.js",

@@ -41,6 +41,7 @@ Run the Web/server mode on your own infrastructure and keep accounts, favorites,
 - Use dynamic tag playlists, random playback and station history.
 - Switch built-in TUI themes with live preview.
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
+- On Linux, keep the GTK GUI available from a StatusNotifierItem-compatible system tray while the main window is hidden.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
@@ -199,6 +200,8 @@ On systems using source-based or ports-based package managers, install the equiv
     GObject Introspection
 
 Then launch the GUI mode using the documented FluxTuner GUI option.
+
+On Linux, FluxTuner GTK automatically registers a StatusNotifierItem when the desktop session provides a compatible watcher. When available, closing the window hides FluxTuner while playback continues; use the tray icon to restore the window, stop playback or quit the application. No additional Python dependency is required. If no compatible tray watcher is available, FluxTuner keeps the normal close-window behavior.
 
 This method is useful for testing a release quickly. For regular use, prefer the packaged installation methods when available.
 

@@ -222,6 +222,28 @@ def test_gtk_close_stops_runtime_dependencies() -> None:
     harness.player.stop.assert_called_once_with()
 
 
+def test_gtk_close_to_tray_hides_without_stopping_runtime() -> None:
+    harness = SimpleNamespace(
+        close_to_tray=True,
+        set_visible=Mock(),
+        player=Mock(),
+        usage_tracker=Mock(),
+        _stop_usage_timer=Mock(),
+        _stop_player_state_timer=Mock(),
+        _stop_metadata_polling=Mock(),
+    )
+
+    result = window.MainWindow.on_close_request(harness, Mock())
+
+    assert result is True
+    harness.set_visible.assert_called_once_with(False)
+    harness._stop_usage_timer.assert_not_called()
+    harness._stop_player_state_timer.assert_not_called()
+    harness._stop_metadata_polling.assert_not_called()
+    harness.usage_tracker.stop.assert_not_called()
+    harness.player.stop.assert_not_called()
+
+
 def test_gtk_close_contains_player_stop_failure() -> None:
     harness = SimpleNamespace(
         player=Mock(),

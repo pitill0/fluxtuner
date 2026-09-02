@@ -78,6 +78,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.configured_appearance = normalize_appearance(
             get_config_value("gtk_appearance", "system")
         )
+        self.close_to_tray = False
 
         self.player_backend_name = selected_player_name(player_name)
         self.profile_name = resolve_effective_profile_name()
@@ -1242,6 +1243,22 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._set_favorites_status(self._show_all_favorites())
 
+    def tray_now_playing_text(self) -> str:
+        """Return a tray-friendly description of the current station."""
+        if self.current_station is None:
+            return "Nothing playing"
+        return self._station_display_name(self.current_station)
+
+    def tray_can_stop(self) -> bool:
+        """Return whether the tray Stop action should be enabled."""
+        return self._has_active_playback()
+
+    def tray_stop(self) -> None:
+        """Stop playback through the same path as the main GTK UI."""
+        if not self._has_active_playback():
+            return
+        self.on_stop_clicked(self.play_button)
+
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()
         self._stop_player_state_timer()
@@ -1361,14 +1378,22 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
-    def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Stop GTK runtime work and the player when closing the window."""
+    def shutdown(self) -> None:
+        """Stop GTK runtime work and the player before exiting the application."""
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self._stop_metadata_polling()
         self.usage_tracker.stop()
         with suppress(Exception):
             self.player.stop()
+
+    def on_close_request(self, _window: Gtk.Window) -> bool:
+        """Hide to tray when enabled; otherwise preserve normal close semantics."""
+        if getattr(self, "close_to_tray", False):
+            self.set_visible(False)
+            return True
+
+        MainWindow.shutdown(self)
         return False
 
     def update_data_usage(self) -> None:

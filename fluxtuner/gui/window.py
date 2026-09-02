@@ -78,6 +78,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.configured_appearance = normalize_appearance(
             get_config_value("gtk_appearance", "system")
         )
+        self.close_to_tray = False
 
         self.player_backend_name = selected_player_name(player_name)
         self.profile_name = resolve_effective_profile_name()
@@ -1377,14 +1378,22 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
-    def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Stop GTK runtime work and the player when closing the window."""
+    def shutdown(self) -> None:
+        """Stop GTK runtime work and the player before exiting the application."""
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self._stop_metadata_polling()
         self.usage_tracker.stop()
         with suppress(Exception):
             self.player.stop()
+
+    def on_close_request(self, _window: Gtk.Window) -> bool:
+        """Hide to tray when enabled; otherwise preserve normal close semantics."""
+        if getattr(self, "close_to_tray", False):
+            self.set_visible(False)
+            return True
+
+        MainWindow.shutdown(self)
         return False
 
     def update_data_usage(self) -> None:

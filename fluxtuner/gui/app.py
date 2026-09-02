@@ -34,6 +34,7 @@ def run_gui(player_name: str = "mpv") -> None:
     )
 
     window: MainWindow | None = None
+    app_held_for_tray = False
 
     def show_window() -> None:
         if window is not None:
@@ -54,8 +55,13 @@ def run_gui(player_name: str = "mpv") -> None:
         return bool(window is not None and window.tray_can_stop())
 
     def quit_application() -> None:
+        nonlocal app_held_for_tray
         if window is not None:
-            window.close()
+            window.close_to_tray = False
+            window.shutdown()
+        if app_held_for_tray:
+            app.release()
+            app_held_for_tray = False
         app.quit()
 
     tray: LinuxStatusNotifierItem | None = None
@@ -71,7 +77,7 @@ def run_gui(player_name: str = "mpv") -> None:
         tray.start()
 
     def on_activate(app_: Gtk.Application) -> None:
-        nonlocal window
+        nonlocal window, app_held_for_tray
         appearance_manager: GtkAppearanceManager | None = None
 
         display = Gdk.Display.get_default()
@@ -85,6 +91,15 @@ def run_gui(player_name: str = "mpv") -> None:
                 player_name=player_name,
                 appearance_manager=appearance_manager,
             )
+
+            if sys.platform.startswith("linux") and tray is not None:
+                # Gate 4 spike: force close-to-tray on Linux so lifecycle can be
+                # validated before adding persisted user preferences.
+                window.close_to_tray = True
+                if not app_held_for_tray:
+                    app.hold()
+                    app_held_for_tray = True
+
         window.present()
 
     app.connect("activate", on_activate)

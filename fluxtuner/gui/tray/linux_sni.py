@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from fluxtuner.logging_config import get_logger
+
 SNI_OBJECT_PATH = "/StatusNotifierItem"
 SNI_INTERFACE = "org.kde.StatusNotifierItem"
 MENU_OBJECT_PATH = "/MenuBar"
@@ -67,6 +69,8 @@ MENU_INTROSPECTION_XML = f"""
   </interface>
 </node>
 """
+
+logger = get_logger(__name__)
 
 
 def introspection_xml() -> str:
@@ -246,11 +250,32 @@ class LinuxStatusNotifierItem:
     ):
         return self._menu_property_value(property_name)
 
+    def _open_session_bus_connection(self):
+        """Open a dedicated session-bus connection for the tray backend.
+
+        The StatusNotifierWatcher associates the item with the D-Bus sender
+        that registered it. Closing this dedicated connection therefore makes
+        the watcher remove the tray item immediately, without touching GTK's
+        shared session-bus connection.
+        """
+        Gio, _GLib = self._gio_glib()
+        address = Gio.dbus_address_get_for_bus_sync(Gio.BusType.SESSION, None)
+        flags = (
+            Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT
+            | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION
+        )
+        return Gio.DBusConnection.new_for_address_sync(
+            address,
+            flags,
+            None,
+            None,
+        )
+
     def start(self) -> bool:
         if self._registration_id is not None:
             return True
         Gio, GLib = self._gio_glib()
-        connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        connection = self._open_session_bus_connection()
         sni_node = Gio.DBusNodeInfo.new_for_xml(SNI_INTROSPECTION_XML)
         menu_node = Gio.DBusNodeInfo.new_for_xml(MENU_INTROSPECTION_XML)
         registration_id = connection.register_object(
@@ -294,10 +319,23 @@ class LinuxStatusNotifierItem:
         return True
 
     def stop(self) -> None:
-        if self._connection is not None and self._menu_registration_id is not None:
-            self._connection.unregister_object(self._menu_registration_id)
-        if self._connection is not None and self._registration_id is not None:
-            self._connection.unregister_object(self._registration_id)
+        connection = self._connection
+
+        if connection is not None and self._menu_registration_id is not None:
+            connection.unregister_object(self._menu_registration_id)
+        if connection is not None and self._registration_id is not None:
+            connection.unregister_object(self._registration_id)
+
         self._connection = None
         self._registration_id = None
         self._menu_registration_id = None
+
+        if connection is not None:
+            try:
+                connection.flush_sync(None)
+                connection.close_sync(None)
+            except Exception:
+                logger.debug(
+                    "Could not close tray D-Bus connection cleanly",
+                    exc_info=True,
+                )

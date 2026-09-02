@@ -109,6 +109,13 @@ def test_default_config_uses_system_gtk_appearance() -> None:
     assert config.default_config()["gtk_appearance"] == "system"
 
 
+def test_default_config_disables_gtk_tray_behavior() -> None:
+    defaults = config.default_config()
+
+    assert defaults["tray_enabled"] is False
+    assert defaults["close_to_tray"] is False
+
+
 def test_load_config_returns_defaults_for_invalid_json(
     tmp_path: Path,
     monkeypatch,
@@ -130,6 +137,8 @@ def test_load_config_merges_saved_values_with_defaults(
 
     assert loaded["theme"] == "nord"
     assert loaded["gtk_appearance"] == "system"
+    assert loaded["tray_enabled"] is False
+    assert loaded["close_to_tray"] is False
     assert loaded["playback"] == {
         "last_station": None,
         "volume": None,

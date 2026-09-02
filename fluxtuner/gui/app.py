@@ -22,7 +22,7 @@ def run_gui(player_name: str = "mpv") -> None:
             "Install GTK4 and PyGObject first. On macOS: brew install pygobject3 gtk4"
         ) from exc
 
-    from fluxtuner.config import get_config_value
+    from fluxtuner.config import get_config_value, set_config_value
     from fluxtuner.gui.appearance import GtkAppearanceManager
     from fluxtuner.gui.tray.linux_sni import LinuxStatusNotifierItem
     from fluxtuner.gui.window import MainWindow
@@ -34,7 +34,9 @@ def run_gui(player_name: str = "mpv") -> None:
     )
 
     window: MainWindow | None = None
+    tray: LinuxStatusNotifierItem | None = None
     app_held_for_tray = False
+    tray_supported = sys.platform.startswith("linux")
 
     def show_window() -> None:
         if window is not None:
@@ -64,17 +66,56 @@ def run_gui(player_name: str = "mpv") -> None:
             app_held_for_tray = False
         app.quit()
 
-    tray: LinuxStatusNotifierItem | None = None
-    if sys.platform.startswith("linux"):
-        tray = LinuxStatusNotifierItem(
-            application_id=application_id,
-            on_show=show_window,
-            on_stop=stop_playback,
-            on_quit=quit_application,
-            get_now_playing=now_playing,
-            can_stop=can_stop_playback,
-        )
-        tray.start()
+    def set_close_to_tray(enabled: bool) -> None:
+        nonlocal app_held_for_tray
+
+        actual = bool(enabled and tray is not None)
+        if window is not None:
+            window.close_to_tray = actual
+
+        if actual and not app_held_for_tray:
+            app.hold()
+            app_held_for_tray = True
+        elif not actual and app_held_for_tray:
+            app.release()
+            app_held_for_tray = False
+
+    def set_tray_enabled(enabled: bool) -> bool:
+        nonlocal tray
+
+        if not tray_supported:
+            return False
+
+        if enabled:
+            if tray is not None:
+                return True
+
+            candidate = LinuxStatusNotifierItem(
+                application_id=application_id,
+                on_show=show_window,
+                on_stop=stop_playback,
+                on_quit=quit_application,
+                get_now_playing=now_playing,
+                can_stop=can_stop_playback,
+            )
+            if not candidate.start():
+                return False
+            tray = candidate
+            return True
+
+        set_close_to_tray(False)
+        if tray is not None:
+            tray.stop()
+            tray = None
+        return False
+
+    if (
+        tray_supported
+        and bool(get_config_value("tray_enabled", False))
+        and not set_tray_enabled(True)
+    ):
+        set_config_value("tray_enabled", False)
+        set_config_value("close_to_tray", False)
 
     def on_activate(app_: Gtk.Application) -> None:
         nonlocal window, app_held_for_tray
@@ -90,15 +131,11 @@ def run_gui(player_name: str = "mpv") -> None:
                 app_,
                 player_name=player_name,
                 appearance_manager=appearance_manager,
+                tray_supported=tray_supported,
+                on_tray_enabled_changed=set_tray_enabled,
+                on_close_to_tray_changed=set_close_to_tray,
             )
-
-            if sys.platform.startswith("linux") and tray is not None:
-                # Gate 4 spike: force close-to-tray on Linux so lifecycle can be
-                # validated before adding persisted user preferences.
-                window.close_to_tray = True
-                if not app_held_for_tray:
-                    app.hold()
-                    app_held_for_tray = True
+            set_close_to_tray(bool(tray is not None and get_config_value("close_to_tray", False)))
 
         window.present()
 

@@ -16,6 +16,8 @@ def default_config() -> dict[str, Any]:
     return {
         "theme": "default",
         "gtk_appearance": "system",
+        "tray_enabled": False,
+        "close_to_tray": False,
         "playback": {
             "last_station": None,
             "volume": None,

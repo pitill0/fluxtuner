@@ -42,6 +42,8 @@ from fluxtuner.core.manual_playlists import (
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts
 from fluxtuner.core.profiles import resolve_effective_profile_name
+from fluxtuner.core.recording import RecordingManager, RecordingRequest
+from fluxtuner.core.recordings import SqliteRecordingStore, recording_output_path
 from fluxtuner.core.search_service import SearchRequest, SearchService
 from fluxtuner.core.stations import (
     station_bitrate,
@@ -58,6 +60,7 @@ from fluxtuner.core.stations import (
 from fluxtuner.core.stream_metadata import fetch_stream_metadata
 from fluxtuner.logging_config import get_logger
 from fluxtuner.players import create_player, selected_player_name
+from fluxtuner.recorders.ffmpeg import FfmpegRecorder
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
 from fluxtuner.tui_details import (
@@ -102,6 +105,7 @@ SHORTCUT_HELP_TEXT = """\
 [b]Playback[/b]
   Space        Play / Stop
   x            Stop
+  R            Record / Stop recording
   l            Play last station
   r            Random favorite
   + / -        Volume up / down
@@ -185,6 +189,7 @@ class FluxTunerTUI(App[None]):
         Binding("minus", "volume_down", "Vol-", show=False),
         Binding("m", "toggle_mute", "Mute", show=False),
         Binding("x", "stop", "Stop", show=False),
+        Binding("R", "toggle_recording", "Record", key_display="R", show=False),
         Binding("t", "show_themes", "Themes", show=False),
         Binding("p", "show_playlists", "Playlists", show=False),
         Binding("y", "save_theme", "Save theme", show=False),
@@ -198,6 +203,12 @@ class FluxTunerTUI(App[None]):
         self.profile_name = resolve_effective_profile_name()
         self.player = create_player(self.player_backend_name)
         self.player_capabilities = self.player.capabilities()
+        self.recording_backend = FfmpegRecorder()
+        self.recording_available = self.recording_backend.is_available()
+        self.recording_manager = RecordingManager(
+            self.recording_backend,
+            store=SqliteRecordingStore(profile_name=self.profile_name),
+        )
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self.current_artist = "—"
@@ -251,6 +262,7 @@ class FluxTunerTUI(App[None]):
                 yield Static("[b]Player[/b]\nBackend: auto\nState: stopped", id="player-state")
                 yield Static("No station selected.", id="details")
                 yield Button("Play", id="play", classes="side-button success-button")
+                yield Button("● Record", id="record", classes="side-button warning-button")
                 yield Button("Add fav", id="add-favorite", classes="side-button primary-button")
                 yield Button(
                     "Remove fav", id="remove-favorite", classes="side-button warning-button"
@@ -277,6 +289,7 @@ class FluxTunerTUI(App[None]):
         self.query_one("#stations", DataTable).focus()
         self.update_now_playing()
         self.update_play_button()
+        self.update_record_button()
         self.set_interval(1.5, self.update_now_playing)
         self.set_status(f"Ready. Player backend: {self.player_backend_name}.")
         if self.last_station:
@@ -292,6 +305,9 @@ class FluxTunerTUI(App[None]):
         self._cancel_metadata_request()
         with suppress(Exception):
             self.usage_tracker.stop()
+        with suppress(Exception):
+            if self.recording_manager.active_session is not None:
+                self.recording_manager.stop()
         self.player.stop()
 
     def action_focus_search(self) -> None:
@@ -411,6 +427,9 @@ class FluxTunerTUI(App[None]):
     def action_stop(self) -> None:
         self.stop_playback()
 
+    def action_toggle_recording(self) -> None:
+        self.toggle_recording()
+
     def action_toggle_mute(self) -> None:
         if not self.player.supports_mute():
             self.set_status(f"{self.player_backend_name} does not support live mute.")
@@ -519,6 +538,10 @@ class FluxTunerTUI(App[None]):
     @on(Button.Pressed, "#play")
     def play_from_button(self) -> None:
         self.action_play_stop()
+
+    @on(Button.Pressed, "#record")
+    def record_from_button(self) -> None:
+        self.toggle_recording()
 
     @on(Button.Pressed, "#add-favorite")
     def add_favorite_from_button(self) -> None:
@@ -1052,6 +1075,75 @@ class FluxTunerTUI(App[None]):
     def update_play_button(self) -> None:
         button = self.query_one("#play", Button)
         button.label = "■ Stop" if self.player.is_playing() else "▶ Play"
+
+    def update_record_button(self) -> None:
+        button = self.query_one("#record", Button)
+        active = self.recording_manager.active_session is not None
+        button.label = "■ Stop recording" if active else "● Record"
+        button.disabled = not self.recording_available and not active
+
+    def toggle_recording(self) -> None:
+        if self.recording_manager.active_session is not None:
+            self.stop_recording()
+            return
+
+        if not self.recording_available:
+            self.set_status("Recording unavailable: ffmpeg was not found in PATH.")
+            return
+
+        if not self.selected_station:
+            self.set_status("No station selected to record.")
+            return
+
+        source_url = core_station_url(self.selected_station)
+        if not source_url:
+            self.set_status("Selected station has no stream URL.")
+            return
+
+        station_name = favorite_display_name(self.selected_station)
+        output_path = recording_output_path(station_name)
+
+        try:
+            self.recording_manager.start(
+                RecordingRequest(
+                    station_name=station_name,
+                    source_url=source_url,
+                    output_path=output_path,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.update_record_button()
+            self.set_status(f"Could not start recording: {exc}")
+            self.notify(f"Could not start recording: {exc}", severity="error")
+            return
+
+        self.update_record_button()
+        self.set_status(f"Recording: {station_name} → {output_path.name}")
+
+    def stop_recording(self) -> None:
+        session = self.recording_manager.active_session
+        if session is None:
+            self.update_record_button()
+            self.set_status("No recording is active.")
+            return
+
+        try:
+            completed = self.recording_manager.stop()
+        except Exception as exc:  # noqa: BLE001
+            self.update_record_button()
+            self.set_status(f"Could not finalize recording: {exc}")
+            self.notify(f"Could not finalize recording: {exc}", severity="error")
+            return
+
+        self.update_record_button()
+        if completed is None:
+            self.set_status("Recording stopped.")
+            return
+
+        self.set_status(
+            f"Saved recording #{completed.recording_id}: "
+            f"{completed.station_name} → {completed.output_path.name}"
+        )
 
     def stop_playback(self) -> None:
         result = coordinate_playback_stop(

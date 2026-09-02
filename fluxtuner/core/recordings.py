@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
+import secrets
 import sqlite3
+import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +24,29 @@ def ensure_recordings_dir() -> Path:
     """Return the recordings directory, creating it when needed."""
     RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
     return RECORDINGS_DIR
+
+
+def recording_output_path(
+    station_name: str,
+    *,
+    timestamp: datetime | None = None,
+    suffix: str | None = None,
+) -> Path:
+    """Return a unique, filesystem-safe Matroska path for one recording."""
+    normalized = (
+        unicodedata.normalize("NFKD", station_name)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+    )
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
+    slug = slug[:48].rstrip("-") or "station"
+
+    started_at = timestamp or datetime.now(UTC)
+    stamp = started_at.strftime("%Y%m%d-%H%M%S")
+    unique_suffix = suffix or secrets.token_hex(4)
+
+    return ensure_recordings_dir() / f"{stamp}-{slug}-{unique_suffix}.mka"
 
 
 def _resolve_recording_profile_id(

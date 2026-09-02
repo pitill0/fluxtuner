@@ -199,6 +199,31 @@ remain available.
 On current GTK builds for macOS, the system color scheme may be reported as
 unsupported, so `System` can fall back to GTK's default light appearance.
 
+## GTK system tray on Linux
+
+On Linux, the GTK frontend automatically attempts to register a
+StatusNotifierItem with the desktop session. There is no separate tray setting
+and no additional Python dependency.
+
+When the desktop provides a compatible StatusNotifierWatcher:
+
+- the FluxTuner tray icon is shown automatically;
+- closing the main window hides it instead of terminating the application;
+- playback continues while the window is hidden;
+- activating the tray icon restores and focuses the main window;
+- the tray menu shows the current station and provides `Show FluxTuner`,
+  `Stop` and `Quit` actions.
+
+`Quit` is the explicit way to terminate FluxTuner while tray mode is active.
+
+If the desktop session does not provide a compatible watcher, tray
+registration fails gracefully and closing the GTK window keeps the normal
+application-exit behavior.
+
+The current tray backend is Linux-only. macOS keeps its existing GTK window
+lifecycle; native menu-bar integration can be considered separately in the
+future.
+
 ## Useful commands
 
 ```bash

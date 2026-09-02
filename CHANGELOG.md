@@ -10,15 +10,27 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added automatic Linux system tray integration for the GTK frontend using
+  StatusNotifierItem and DBusMenu over Gio/D-Bus, without a new runtime dependency.
+- Added tray actions for restoring the main window, showing the current station,
+  stopping playback and quitting FluxTuner.
+- Added the FluxTuner application icon as a packaged GTK asset for tray use.
 
 ### Changed
 
-- Nothing yet.
+- GTK closing behavior now hides the main window and keeps playback running
+  when a compatible Linux StatusNotifierWatcher is available.
+- GTK falls back to the traditional close-and-exit behavior when tray registration is unavailable.
 
 ### Fixed
 
 - Nothing yet.
+
+### Internal
+
+- Added isolated Linux tray backend coverage, packaged-icon checks and GTK close-to-tray lifecycle coverage.
+- Tray lifetime uses `GApplication.hold()` / `release()` and a dedicated D-Bus connection so notifier removal is clean and does not affect GTK's shared bus.
+
 
 ## [1.1.0] - 2026-09-01
 

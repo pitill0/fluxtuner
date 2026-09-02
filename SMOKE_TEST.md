@@ -104,6 +104,9 @@ Expected:
 - minimum bitrate filter works
 - playback starts with selected station
 - playback stops cleanly
+- if `ffmpeg` is available, `R` starts/stops recording of the selected station
+- recording continues when playback starts, stops or changes station
+- the completed `.mka` is playable and has approximately the requested wall-clock duration
 - data usage updates while streaming
 
 Optional explicit backend tests:
@@ -129,7 +132,12 @@ Expected:
 - backend is displayed in the side panel
 - playback starts with selected station
 - playback stops cleanly
-- closing the window stops playback
+- if `ffmpeg` is available, Record / Stop recording records the selected station
+- recording continues independently while playback starts, stops or changes station
+- with a compatible StatusNotifierWatcher, closing the window hides GTK and keeps playback and recording running
+- restoring the window from the tray returns to the same application state
+- actual Quit finalizes an active recording and stops playback cleanly
+- without a compatible tray watcher, closing the window performs the traditional application shutdown
 - data usage updates while streaming
 - favorites controls work
 - tag playlist controls work
@@ -143,7 +151,45 @@ python -m fluxtuner --gui --player ffplay
 
 ---
 
-# 7. Live metadata
+# 7. Recording persistence
+
+After a short TUI or GTK recording, inspect the latest recording row:
+
+```bash
+sqlite3 ~/.local/share/fluxtuner/fluxtuner.db \
+  'SELECT id, profile_id, station_name, duration_seconds, file_size, status, file_path
+   FROM recordings
+   ORDER BY id DESC
+   LIMIT 1;'
+```
+
+Expected:
+
+- `status` is `completed`
+- `duration_seconds` is close to the measured wall-clock recording time
+- `file_size` is greater than zero
+- `file_path` points inside the FluxTuner data directory
+
+Inspect the media file with:
+
+```bash
+ffprobe -v error \
+  -show_entries format=start_time,duration,size \
+  -show_entries stream=codec_name,start_time,duration \
+  -of default=noprint_wrappers=1 \
+  /path/to/recording.mka
+```
+
+Expected:
+
+- the file is a valid Matroska audio recording
+- stream copy preserves the source codec
+- media duration is reasonably close to the requested recording duration
+- a live/HLS source is not recorded substantially faster than wall clock
+
+---
+
+# 8. Live metadata
 
 Run a known stream that exposes ICY metadata.
 
@@ -177,7 +223,7 @@ Notes:
 
 ---
 
-# 8. Web/server mode
+# 9. Web/server mode
 
 Use an isolated data directory so the smoke test does not touch your regular
 FluxTuner library:
@@ -242,7 +288,7 @@ UI checks:
 
 ---
 
-# 9. macOS GTK notes
+# 10. macOS GTK notes
 
 Install dependencies:
 
@@ -284,7 +330,7 @@ python -m fluxtuner --gui
 
 ---
 
-# 10. Linux notes
+# 11. Linux notes
 
 ## CRUX
 
@@ -313,7 +359,7 @@ sudo dnf install mpv ffmpeg python3-gobject gtk4
 
 ---
 
-# 11. Documentation checks
+# 12. Documentation checks
 
 ```bash
 python -m fluxtuner --help
@@ -338,7 +384,7 @@ Review visually:
 
 ---
 
-# 12. Pre-commit checklist
+# 13. Pre-commit checklist
 
 Before committing:
 
@@ -363,7 +409,7 @@ Recommended manual checks:
 
 ---
 
-# 13. Suggested release smoke test
+# 14. Suggested release smoke test
 
 Before a release candidate, run the canonical gate and smoke-test the
 generated wheel rather than only the source checkout:
@@ -401,5 +447,6 @@ Expected:
 - no crashes
 - correct backend selection
 - playback works
-- GUI closes cleanly
+- GUI tray/close behavior matches watcher availability
+- a short TUI/GTK recording finalizes cleanly when `ffmpeg` is available
 - metadata appears when available

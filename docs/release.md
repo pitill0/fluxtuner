@@ -10,6 +10,8 @@ A release should ensure that:
 
 - The version number is correct.
 - The changelog is updated.
+- User-facing documentation and architecture diagrams match the shipped behavior.
+- Flatpak/AppStream release metadata is updated when the release affects the local GTK/TUI package.
 - The package builds successfully.
 - CI is green on `main`.
 - Security checks pass.
@@ -113,11 +115,21 @@ Create a release branch:
 git switch -c release/x.y.z
 ```
 
-Update files:
+Update the canonical release metadata and review user-facing documentation:
 
 ```text
 pyproject.toml
 CHANGELOG.md
+README.md
+docs/usage.md
+docs/architecture.md
+SMOKE_TEST.md
+```
+
+When the release affects the local GTK/TUI package, also update:
+
+```text
+flatpak/io.github.pitill0.Fluxtuner.metainfo.xml
 ```
 
 Then run the complete release-quality gate and build from a clean artifact
@@ -154,7 +166,8 @@ The PR should include:
 
 - Version bump.
 - Changelog update.
-- Any release documentation updates.
+- User-facing documentation and architecture updates.
+- AppStream/Flatpak release metadata when applicable.
 - Validation checklist.
 
 Suggested PR title:

@@ -35,6 +35,20 @@ flatpak-builder --user --install --force-clean \
     build-dir flatpak/io.github.pitill0.Fluxtuner.yml
 ```
 
+### CRUX Linux
+
+On CRUX, disable `rofiles-fuse` when running `flatpak-builder`:
+
+```bash
+flatpak-builder \
+    --disable-rofiles-fuse \
+    --user \
+    --install \
+    --force-clean \
+    build-dir \
+    flatpak/io.github.pitill0.Fluxtuner.yml
+```
+
 ## Run
 
 ### GUI
@@ -84,6 +98,9 @@ flatpak install --user ./fluxtuner.flatpak
   - `ogg123` lightweight Ogg/Vorbis/Opus/FLAC-style fallback
 - The local development manifest does not currently bundle player binaries explicitly.
   Use `flatpak run io.github.pitill0.Fluxtuner --list-players` to confirm which backends are available inside the sandbox.
+- Local stream recording is available in the TUI and GTK GUI when `ffmpeg` is
+  available inside the sandbox. The GNOME runtime currently exposes `ffmpeg`,
+  but this should still be verified when changing runtime versions.
 - Python dependencies are installed from the checked-in
   `python3-requirements.json` module using pinned source URLs and checksums.
   Flatpak builds should not resolve application dependencies from the network
@@ -108,7 +125,7 @@ Wayland and Ubuntu Xorg. See `docs/validation/permission-share-ipc.md`.
 CRUX Xorg, CRUX Wayland and Ubuntu Xorg. See
 `docs/validation/permission-device-dri.md`.
 
-The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache and SQLite library database through Flatpak-managed application data paths. The library database contains favorites, playback history and manual playlists.
+The manifest does not request broad filesystem access. FluxTuner should store its configuration, cache, SQLite library database and local recordings through Flatpak-managed application data paths. The library database contains favorites, playback history, manual playlists and recording metadata. Recorded media files are stored under the app-specific Flatpak data directory in `fluxtuner/recordings/`.
 
 Reviewed permissions and environment overrides:
 

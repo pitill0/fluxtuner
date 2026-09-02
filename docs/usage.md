@@ -13,6 +13,7 @@ FluxTuner requires:
   - `mpg123` as an optional lightweight MP3/MPEG backend.
   - `ogg123`, provided by vorbis-tools, as an optional lightweight Ogg/Vorbis/Opus-style backend.
 - A terminal emulator with good Unicode support for the TUI.
+- FFmpeg if you want to use local stream recording.
 
 The GTK desktop GUI also requires GTK4 and PyGObject.
 
@@ -147,6 +148,28 @@ Backend notes:
 - `ffplay` is a broad fallback focused on simple play/stop.
 - `mpg123` is a specialized lightweight backend for MP3/MPEG streams.
 - `ogg123` is a specialized lightweight backend for Ogg/Vorbis/Opus-style streams, depending on the local `ogg123` build.
+
+## Recording
+
+Local stream recording is available in the Textual TUI and GTK4 desktop GUI when
+`ffmpeg` is installed and available in `PATH`.
+
+Recording is independent from playback: FluxTuner records the currently selected
+station, which does not need to be playing. Only one recording can be active at a time.
+
+Recordings are saved as Matroska audio (`.mka`) files using FFmpeg stream copy, so the
+original audio codec is preserved without transcoding. Files are stored under the
+FluxTuner data directory:
+
+```text
+~/.local/share/fluxtuner/recordings/
+```
+
+The TUI uses `R` to start or stop recording. GTK provides a Record / Stop recording
+button.
+
+Recording metadata is stored in the FluxTuner SQLite database and scoped to the active
+profile. Web/server recording is not included in this release.
 
 ## TUI Themes
 

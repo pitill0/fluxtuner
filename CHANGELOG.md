@@ -10,6 +10,26 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+
+## [1.2.0] - 2026-09-02
+
+### Added
+
+- Added optional radio stream recording to the Textual TUI and GTK4 desktop GUI.
+- Added FFmpeg-based stream-copy recording with Matroska audio output and no transcoding.
+- Added profile-scoped recording metadata persistence in SQLite, including station,
+  timestamps, logical duration, file size, status and output path.
+- Added safe, unique recording filenames under the FluxTuner data directory.
 - Added automatic Linux system tray integration for the GTK frontend using
   StatusNotifierItem and DBusMenu over Gio/D-Bus, without a new runtime dependency.
 - Added tray actions for restoring the main window, showing the current station,
@@ -18,16 +38,29 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
-- GTK closing behavior now hides the main window and keeps playback running
-  when a compatible Linux StatusNotifierWatcher is available.
+- Recording and playback are independent: a selected station can be recorded without
+  being played, and playback changes do not interrupt an active recording.
+- FFmpeg recording input is paced in real time so live/HLS sources are not consumed
+  faster than wall-clock time.
+- Active recordings are finalized cleanly when the TUI or GTK application exits.
+- GTK closing behavior now hides the main window and keeps playback and recording
+  running when a compatible Linux StatusNotifierWatcher is available.
 - GTK falls back to the traditional close-and-exit behavior when tray registration is unavailable.
 
 ### Fixed
 
-- Nothing yet.
+- Fixed live streams that could produce substantially more recorded audio than the
+  user-requested wall-clock recording time.
+
+### Documentation
+
+- Documented local recording requirements, storage location and current TUI/GTK scope.
 
 ### Internal
 
+- Added recording lifecycle, FFmpeg backend, persistence, path-generation, TUI and GTK
+  recording coverage.
+- Validated stream-copy recording with MP3, AAC, Opus and HLS sources.
 - Added isolated Linux tray backend coverage, packaged-icon checks and GTK close-to-tray lifecycle coverage.
 - Tray lifetime uses `GApplication.hold()` / `release()` and a dedicated D-Bus connection so notifier removal is clean and does not affect GTK's shared bus.
 

@@ -6,8 +6,8 @@ The primary local library store is SQLite:
 
     ~/.local/share/fluxtuner/fluxtuner.db
 
-The database stores normalized stations, profiles, favorites, playback history
-and manual playlists.
+The database stores normalized stations, profiles, favorites, playback history,
+manual playlists and profile-scoped recording metadata.
 
 FluxTuner local interfaces use profile-scoped library data. Profiles are
 context-level separation inside the same FluxTuner installation. They are useful for contexts
@@ -23,15 +23,18 @@ Current model:
             ├── default
             │   ├── favorites
             │   ├── playback history
-            │   └── manual playlists
+            │   ├── manual playlists
+            │   └── recordings metadata
             ├── work
             │   ├── favorites
             │   ├── playback history
-            │   └── manual playlists
+            │   ├── manual playlists
+            │   └── recordings metadata
             └── terrace
                 ├── favorites
                 ├── playback history
-                └── manual playlists
+                ├── manual playlists
+                └── recordings metadata
 
 Profile resolution order:
 
@@ -49,6 +52,10 @@ The Web user/account model adds ownership above profiles:
         ├── favorites
         ├── playback history
         └── manual playlists
+
+Recording metadata uses the same profile-scoped SQLite model for local TUI/GTK
+recordings. Web/server recording is intentionally not wired into the Web user
+model in this release.
 
 FluxTuner is organized as a multi-interface platform with frontends that share core services, user data and playback backends.
 
@@ -83,6 +90,13 @@ flowchart LR
     Core --> Usage["Data usage tracking"]
     Core --> Config["Config and XDG storage"]
     Core --> Compatibility["Station compatibility"]
+    Core --> Recording["RecordingManager"]
+    Recording --> RecorderStore["SqliteRecordingStore"]
+    Recording --> FfmpegRecorder["FfmpegRecorder"]
+    FfmpegRecorder --> FFMPEG["ffmpeg"]
+    FFMPEG --> RecordingStreams["Online radio streams"]
+    FFMPEG --> RecordingFiles["XDG data recordings/*.mka"]
+    RecorderStore --> Library
 
     Compatibility --> Capabilities["PlayerCapabilities"]
     Capabilities --> Registry["Player registry"]
@@ -244,6 +258,8 @@ fluxtuner/core/
   playlists.py             Tag playlists and playlist persistence helpers
   profiles.py              Profile persistence and effective-profile resolution
   public_stats.py          Public activity statistics
+  recording.py             Recording lifecycle contracts and manager
+  recordings.py            Recording paths and SQLite persistence
   search_service.py        Shared station search service
   stations.py              Station normalization and persistence helpers
   storage.py               Atomic JSON writes for remaining JSON files
@@ -304,6 +320,44 @@ Current backends:
 
 `mpv` and `ffplay` are treated as broadly compatible backends. `mpg123` and `ogg123` are specialized backends, so FluxTuner uses declared `PlayerCapabilities` plus station metadata to filter unsupported stations where possible.
 
+## Recording layer
+
+Local recording is a separate lifecycle from playback and is currently exposed by
+the Textual TUI and GTK4 GUI only.
+
+```mermaid
+flowchart LR
+    TUI["Textual TUI"] --> Manager["RecordingManager"]
+    GTK["GTK4 GUI"] --> Manager
+
+    Manager --> Backend["FfmpegRecorder"]
+    Manager --> Store["SqliteRecordingStore"]
+
+    Backend --> FFmpeg["ffmpeg -readrate 1 -c copy"]
+    FFmpeg --> Stream["Online radio stream"]
+    FFmpeg --> Media["XDG data recordings/*.mka"]
+
+    Store --> DB["SQLite recordings table"]
+    DB --> Profiles["Profile-scoped recording metadata"]
+```
+
+The recording manager owns the single active recording session for an interface.
+Playback and recording are intentionally independent: changing or stopping playback
+does not stop an active recording.
+
+FFmpeg records with stream copy into Matroska audio and uses real-time input pacing
+so live/HLS sources are not consumed faster than wall-clock time. Logical duration
+is derived from the manager's start/stop timestamps rather than container timestamps,
+which can inherit timing from the source stream.
+
+Completed recording metadata is persisted in SQLite. Media files are stored under
+the FluxTuner XDG data directory in `recordings/`. Closing GTK to a compatible
+system tray keeps an active recording running; actual application shutdown finalizes
+the FFmpeg process and persists the completed session.
+
+Web/server recording is outside the current local recording boundary and requires
+separate storage, quota and long-running-worker design before being exposed.
+
 ## Player capabilities and station compatibility
 
 Each backend declares static capabilities through `PlayerCapabilities`.
@@ -334,6 +388,7 @@ The SQLite database stores the profile-scoped library:
 - favorites
 - playback history
 - manual playlists
+- recording metadata
 
 Favorites are the canonical saved-station library. Manual playlists store station
 references and resolve them through the saved station/favorites model rather than
@@ -358,6 +413,7 @@ Other local files remain JSON-based:
 ```text
 ~/.config/fluxtuner/config.json
 ~/.local/share/fluxtuner/usage.json
+~/.local/share/fluxtuner/recordings/*.mka
 ~/.cache/fluxtuner/search_cache.json
 ```
 

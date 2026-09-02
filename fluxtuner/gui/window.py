@@ -1242,6 +1242,22 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._set_favorites_status(self._show_all_favorites())
 
+    def tray_now_playing_text(self) -> str:
+        """Return a tray-friendly description of the current station."""
+        if self.current_station is None:
+            return "Nothing playing"
+        return self._station_display_name(self.current_station)
+
+    def tray_can_stop(self) -> bool:
+        """Return whether the tray Stop action should be enabled."""
+        return self._has_active_playback()
+
+    def tray_stop(self) -> None:
+        """Stop playback through the same path as the main GTK UI."""
+        if not self._has_active_playback():
+            return
+        self.on_stop_clicked(self.play_button)
+
     def on_stop_clicked(self, _button: Gtk.Button) -> None:
         self._stop_usage_timer()
         self._stop_player_state_timer()

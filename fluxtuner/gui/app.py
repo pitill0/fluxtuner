@@ -41,6 +41,18 @@ def run_gui(player_name: str = "mpv") -> None:
             return
         app.activate()
 
+    def stop_playback() -> None:
+        if window is not None:
+            window.tray_stop()
+
+    def now_playing() -> str:
+        if window is None:
+            return "Nothing playing"
+        return window.tray_now_playing_text()
+
+    def can_stop_playback() -> bool:
+        return bool(window is not None and window.tray_can_stop())
+
     def quit_application() -> None:
         if window is not None:
             window.close()
@@ -51,7 +63,10 @@ def run_gui(player_name: str = "mpv") -> None:
         tray = LinuxStatusNotifierItem(
             application_id=application_id,
             on_show=show_window,
+            on_stop=stop_playback,
             on_quit=quit_application,
+            get_now_playing=now_playing,
+            can_stop=can_stop_playback,
         )
         tray.start()
 

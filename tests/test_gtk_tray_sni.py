@@ -49,3 +49,25 @@ def test_sni_accepts_show_and_quit_callbacks() -> None:
     )
     assert tray._on_show is not None
     assert tray._on_quit is not None
+
+
+def test_sni_now_playing_defaults_and_stop_state() -> None:
+    tray = LinuxStatusNotifierItem(
+        application_id="io.github.pitill0.Fluxtuner",
+        get_now_playing=lambda: "",
+        can_stop=lambda: False,
+    )
+
+    assert tray._now_playing_text() == "Nothing playing"
+    assert tray._stop_enabled() is False
+
+
+def test_sni_now_playing_and_stop_callbacks() -> None:
+    tray = LinuxStatusNotifierItem(
+        application_id="io.github.pitill0.Fluxtuner",
+        get_now_playing=lambda: "Radio Test",
+        can_stop=lambda: True,
+    )
+
+    assert tray._now_playing_text() == "Radio Test"
+    assert tray._stop_enabled() is True

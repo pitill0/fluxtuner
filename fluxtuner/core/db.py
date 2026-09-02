@@ -20,7 +20,7 @@ from fluxtuner.paths import data_file
 DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
-SCHEMA_MIGRATION_NAME = "schema_v5"
+SCHEMA_MIGRATION_NAME = "schema_v6"
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -241,6 +241,30 @@ def create_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
             FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS recordings (
+            id INTEGER PRIMARY KEY,
+            profile_id INTEGER NOT NULL,
+            station_name TEXT NOT NULL,
+            source_url TEXT NOT NULL,
+            file_path TEXT NOT NULL UNIQUE,
+            started_at TEXT NOT NULL,
+            stopped_at TEXT NOT NULL,
+            duration_seconds REAL NOT NULL,
+            file_size INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'completed',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+            CHECK (length(trim(station_name)) > 0),
+            CHECK (length(trim(source_url)) > 0),
+            CHECK (length(trim(file_path)) > 0),
+            CHECK (duration_seconds >= 0),
+            CHECK (file_size >= 0),
+            CHECK (length(trim(status)) > 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_recordings_profile_started_at
+        ON recordings(profile_id, started_at DESC);
 
         CREATE INDEX IF NOT EXISTS idx_favorites_profile_id
         ON favorites(profile_id);

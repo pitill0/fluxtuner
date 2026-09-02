@@ -12,6 +12,7 @@ Recommended local tools:
 - `pip`.
 - `venv`.
 - `mpv` and/or `ffplay` for broad manual playback testing.
+- `ffmpeg` for manual recording testing.
 - Optional lightweight players: `mpg123` and `ogg123`.
 - Git.
 - Node.js for Web JavaScript syntax checks.
@@ -136,7 +137,8 @@ sudo apt install ffmpeg
 
 `ffplay` is usually provided by FFmpeg packages.
 
-The automated test suite mocks player execution and should not require external player binaries to be installed.
+The automated test suite mocks player and recorder execution and should not require external player binaries to be installed.
+Real recording smoke tests require `ffmpeg` and should verify a short `.mka` file with `ffprobe` or a media player.
 
 ## Project structure
 
@@ -170,6 +172,8 @@ fluxtuner/core/
   playlists.py             Tag playlists and persistence helpers
   profiles.py              Profile persistence and resolution
   public_stats.py          Public activity statistics
+  recording.py             Recording lifecycle contracts and manager
+  recordings.py            Recording paths and SQLite persistence
   search_service.py        Shared station search service
   stations.py              Station normalization helpers
   storage.py               Atomic JSON writes
@@ -186,6 +190,9 @@ fluxtuner/web/
   static/app.js            ES module browser entrypoint/composition layer
   static/js/               Focused Web browser controllers/helpers
   static/styles.css        Web visual system
+
+fluxtuner/recorders/
+  ffmpeg.py                FFmpeg stream-copy recording backend
 
 fluxtuner/players/
   base.py                  Player interface and errors
@@ -274,7 +281,7 @@ That is expected because the local project itself is not a published PyPI depend
 bandit -r fluxtuner -c pyproject.toml
 ```
 
-Bandit scans production code only. Subprocess-related skips are limited to the external player backends, which intentionally launch `mpv` or `ffplay`.
+Bandit scans production code only. Subprocess-related skips are limited to the external player/recorder integrations, which intentionally launch trusted executables such as `mpv`, `ffplay` and `ffmpeg` after explicit executable and URL validation.
 
 ## Full local check
 
@@ -340,6 +347,7 @@ Good candidates for tests:
 - Atomic persistence.
 - Error handling and fallback behavior.
 - Player command construction without requiring real player binaries.
+- Recorder command construction, lifecycle and persistence without requiring real FFmpeg execution.
 - Radio Browser API failure handling.
 - ICY metadata parsing limits.
 - Runtime theme parsing and application.
@@ -395,7 +403,7 @@ except OSError:
 
 Security-sensitive areas include:
 
-- Player subprocess execution.
+- Player and recorder subprocess execution.
 - Stream URL validation.
 - Imported JSON files.
 - Local user data persistence.

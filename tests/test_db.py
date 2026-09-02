@@ -37,6 +37,7 @@ def test_init_db_creates_expected_tables(
             "playlist_stations",
             "playlists",
             "profiles",
+            "recordings",
             "schema_migrations",
             "stations",
             "users",

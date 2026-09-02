@@ -34,6 +34,11 @@ from fluxtuner.core.favorites import (  # noqa: E402
 )
 from fluxtuner.core.history import add_history, load_history  # noqa: E402
 from fluxtuner.core.profiles import resolve_effective_profile_name  # noqa: E402
+from fluxtuner.core.recording import RecordingManager, RecordingRequest  # noqa: E402
+from fluxtuner.core.recordings import (  # noqa: E402
+    SqliteRecordingStore,
+    recording_output_path,
+)
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -59,6 +64,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
+from fluxtuner.recorders.ffmpeg import FfmpegRecorder  # noqa: E402
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -84,6 +90,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.profile_name = resolve_effective_profile_name()
         self.player = create_player(self.player_backend_name)
         self.player_capabilities = self.player.capabilities()
+        self.recording_backend = FfmpegRecorder()
+        self.recording_available = self.recording_backend.is_available()
+        self.recording_manager = RecordingManager(
+            self.recording_backend,
+            store=SqliteRecordingStore(profile_name=self.profile_name),
+        )
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
@@ -358,6 +370,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_button.set_tooltip_text("Play selected station / stop playback")
         self.play_button.connect("clicked", self.on_play_clicked)
         playback_bar.append(self.play_button)
+
+        self.record_button = Gtk.Button(label="● Record")
+        self.record_button.set_size_request(140, -1)
+        self.record_button.set_hexpand(False)
+        self.record_button.set_tooltip_text("Record selected station")
+        self.record_button.connect("clicked", self.on_record_clicked)
+        self.record_button.set_sensitive(self.recording_available)
+        playback_bar.append(self.record_button)
 
         self.mute_button = Gtk.Button(label="Mute")
         self.mute_button.set_tooltip_text("Mute / unmute")
@@ -734,6 +754,82 @@ class MainWindow(Gtk.ApplicationWindow):
             self.on_stop_clicked(_button)
             return
         self.play_selected_station()
+
+    def on_record_clicked(self, _button: Gtk.Button) -> None:
+        if self.recording_manager.active_session is not None:
+            self.stop_recording()
+            return
+        self.start_selected_recording()
+
+    def start_selected_recording(self) -> None:
+        if not self.recording_available:
+            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
+            self._update_record_button()
+            return
+
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            self._update_record_button()
+            return
+
+        source_url = self._station_url(self.selected_station)
+        if not source_url:
+            self.status_label.set_text("Selected station has no stream URL.")
+            self._update_record_button()
+            return
+
+        station_display_name = self._station_display_name(self.selected_station)
+        output_path = recording_output_path(station_display_name)
+
+        try:
+            self.recording_manager.start(
+                RecordingRequest(
+                    station_name=station_display_name,
+                    source_url=source_url,
+                    output_path=output_path,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
+            self.status_label.set_text(f"Could not start recording: {exc}")
+            self._update_record_button()
+            return
+
+        self._update_record_button()
+        self.status_label.set_text(f"Recording: {station_display_name} → {output_path.name}")
+
+    def stop_recording(self) -> None:
+        if self.recording_manager.active_session is None:
+            self.status_label.set_text("No recording is active.")
+            self._update_record_button()
+            return
+
+        try:
+            completed = self.recording_manager.stop()
+        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
+            self.status_label.set_text(f"Could not finalize recording: {exc}")
+            self._update_record_button()
+            return
+
+        self._update_record_button()
+        if completed is None:
+            self.status_label.set_text("Recording stopped.")
+            return
+
+        self.status_label.set_text(
+            f"Saved recording #{completed.recording_id}: "
+            f"{completed.station_name} → {completed.output_path.name}"
+        )
+
+    def _update_record_button(self) -> None:
+        if not hasattr(self, "record_button"):
+            return
+
+        active = self.recording_manager.active_session is not None
+        self.record_button.set_label("■ Stop recording" if active else "● Record")
+        self.record_button.set_tooltip_text(
+            "Stop recording" if active else "Record selected station"
+        )
+        self.record_button.set_sensitive(self.recording_available or active)
 
     def play_selected_station(self) -> None:
         if not self.selected_station:
@@ -1379,11 +1475,14 @@ class MainWindow(Gtk.ApplicationWindow):
         return True
 
     def shutdown(self) -> None:
-        """Stop GTK runtime work and the player before exiting the application."""
+        """Stop GTK runtime work, recording and the player before exiting."""
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self._stop_metadata_polling()
         self.usage_tracker.stop()
+        with suppress(Exception):
+            if self.recording_manager.active_session is not None:
+                self.recording_manager.stop()
         with suppress(Exception):
             self.player.stop()
 

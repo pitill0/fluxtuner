@@ -42,6 +42,7 @@ Run the Web/server mode on your own infrastructure and keep accounts, favorites,
 - Switch built-in TUI themes with live preview.
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
 - On Linux, keep the GTK GUI available from a StatusNotifierItem-compatible system tray while the main window is hidden.
+- Record the currently selected station from the TUI or GTK GUI with FFmpeg stream copy, independently from playback.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
@@ -96,6 +97,7 @@ Run FluxTuner on your own server and access your radio library from any modern b
 
 - Python 3.11+
 - `mpv` recommended, `ffmpeg` / `ffplay` as broad fallback, or optional lightweight `mpg123` / `ogg123` backends
+- `ffmpeg` is required for local stream recording
 - Optional GUI dependencies: GTK4 and PyGObject
 
 ### Run the Web platform with Docker Compose
@@ -202,6 +204,8 @@ On systems using source-based or ports-based package managers, install the equiv
 Then launch the GUI mode using the documented FluxTuner GUI option.
 
 On Linux, FluxTuner GTK automatically registers a StatusNotifierItem when the desktop session provides a compatible watcher. When available, closing the window hides FluxTuner while playback continues; use the tray icon to restore the window, stop playback or quit the application. No additional Python dependency is required. If no compatible tray watcher is available, FluxTuner keeps the normal close-window behavior.
+
+Local recording is available from the Textual TUI and GTK GUI when `ffmpeg` is available. Recording is independent from playback and writes Matroska audio (`.mka`) files under `~/.local/share/fluxtuner/recordings/` using stream copy, preserving the source codec without transcoding. The Web/server interface does not expose recording in this release.
 
 This method is useful for testing a release quickly. For regular use, prefer the packaged installation methods when available.
 

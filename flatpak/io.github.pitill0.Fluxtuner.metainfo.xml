@@ -33,6 +33,8 @@
       <li>Live stream metadata</li>
       <li>Theme support</li>
       <li>Estimated data usage tracking</li>
+      <li>Optional local stream recording when FFmpeg is available</li>
+      <li>Linux system tray integration on compatible desktop sessions</li>
       <li>Multiple playback backends with automatic detection and compatibility checks</li>
     </ul>
 
@@ -81,6 +83,29 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.2.0" date="2026-09-02">
+      <description>
+        <ul>
+          <li>Added optional local stream recording to the Textual TUI and GTK4 interface when FFmpeg is available.</li>
+          <li>Added profile-scoped recording metadata and Matroska audio output using stream copy.</li>
+          <li>Added Linux system tray integration for hiding and restoring the GTK window on compatible desktops.</li>
+          <li>Kept active playback and recording running while the GTK window is hidden to the tray.</li>
+          <li>Improved FFmpeg live-stream recording pacing so recorded duration follows wall-clock time.</li>
+        </ul>
+      </description>
+    </release>
+
+    <release version="1.1.0" date="2026-09-01">
+      <description>
+        <ul>
+          <li>Added GTK System, Dark and Light appearance modes with persistent preferences.</li>
+          <li>Added runtime appearance switching without restarting FluxTuner.</li>
+          <li>Added dedicated GTK light and dark palettes.</li>
+          <li>Improved System appearance integration with the desktop color-scheme preference where supported.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.0.7" date="2026-07-19">
       <description>
         <ul>

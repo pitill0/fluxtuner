@@ -73,6 +73,12 @@ jobs:
                   f"Installed package version {installed_version!r} does not match "
                   f"release tag version {expected_version!r}"
               )
+
+          import fluxtuner.gui.tray
+          from fluxtuner.gui.tray.linux_sni import LinuxStatusNotifierItem
+
+          assert LinuxStatusNotifierItem is not None
+          print("GTK tray package import OK")
           PY
           fluxtuner --version
           fluxtuner --help

@@ -21,6 +21,20 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Nothing yet.
 
 
+## [1.2.1] - 2026-09-03
+
+### Fixed
+
+- Fixed packaged GTK installations failing at startup with
+  `ModuleNotFoundError: No module named 'fluxtuner.gui.tray'` by including the
+  Linux tray subpackage in Python distribution artifacts.
+
+### Internal
+
+- Extended installed-wheel smoke tests in CI and the release workflow to import
+  the GTK tray package from the built artifact.
+
+
 ## [1.2.0] - 2026-09-02
 
 ### Added

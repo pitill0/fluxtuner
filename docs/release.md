@@ -148,6 +148,13 @@ smoke-test the installed commands:
 test -n "$(ls dist/*.tar.gz)"
 test -n "$(ls dist/*.whl)"
 python -m pip install --force-reinstall dist/*.whl
+python - <<'PY'
+import fluxtuner.gui.tray
+from fluxtuner.gui.tray.linux_sni import LinuxStatusNotifierItem
+
+assert LinuxStatusNotifierItem is not None
+print("GTK tray package import OK")
+PY
 fluxtuner --version
 fluxtuner --help
 fluxtuner --list-players

@@ -29,6 +29,6 @@ gate:
 	python -m compileall fluxtuner tests
 	python -m pytest
 	mypy --follow-imports=skip fluxtuner/
-	node --check fluxtuner/web/static/app.js
+	node --input-type=module --check < fluxtuner/web/static/app.js
 	pip-audit --local
 	bandit -r fluxtuner -c pyproject.toml

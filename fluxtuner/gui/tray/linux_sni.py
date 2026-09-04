@@ -57,16 +57,47 @@ MENU_INTROSPECTION_XML = f"""
       <arg type="u" name="revision" direction="out"/>
       <arg type="(ia{{sv}}av)" name="layout" direction="out"/>
     </method>
+    <method name="GetGroupProperties">
+      <arg type="ai" name="ids" direction="in"/>
+      <arg type="as" name="propertyNames" direction="in"/>
+      <arg type="a(ia{{sv}})" name="properties" direction="out"/>
+    </method>
+    <method name="GetProperty">
+      <arg type="i" name="id" direction="in"/>
+      <arg type="s" name="name" direction="in"/>
+      <arg type="v" name="value" direction="out"/>
+    </method>
     <method name="Event">
       <arg type="i" name="id" direction="in"/>
       <arg type="s" name="eventId" direction="in"/>
       <arg type="v" name="data" direction="in"/>
       <arg type="u" name="timestamp" direction="in"/>
     </method>
+    <method name="EventGroup">
+      <arg type="a(isvu)" name="events" direction="in"/>
+      <arg type="ai" name="idErrors" direction="out"/>
+    </method>
     <method name="AboutToShow">
       <arg type="i" name="id" direction="in"/>
       <arg type="b" name="needUpdate" direction="out"/>
     </method>
+    <method name="AboutToShowGroup">
+      <arg type="ai" name="ids" direction="in"/>
+      <arg type="ai" name="updatesNeeded" direction="out"/>
+      <arg type="ai" name="idErrors" direction="out"/>
+    </method>
+    <signal name="ItemsPropertiesUpdated">
+      <arg type="a(ia{{sv}})" name="updatedProps"/>
+      <arg type="a(ias)" name="removedProps"/>
+    </signal>
+    <signal name="LayoutUpdated">
+      <arg type="u" name="revision"/>
+      <arg type="i" name="parent"/>
+    </signal>
+    <signal name="ItemActivationRequested">
+      <arg type="i" name="id"/>
+      <arg type="u" name="timestamp"/>
+    </signal>
     <property name="Version" type="u" access="read"/>
     <property name="TextDirection" type="s" access="read"/>
     <property name="Status" type="s" access="read"/>
@@ -251,13 +282,41 @@ class LinuxStatusNotifierItem:
             }
         return {}
 
+    def _menu_properties_for_item(
+        self,
+        item_id: int,
+        property_names: list[str] | tuple[str, ...] | None = None,
+    ) -> dict[str, Any]:
+        _gio, GLib = self._gio_glib()
+        if item_id == 0:
+            properties = {"children-display": GLib.Variant("s", "submenu")}
+        else:
+            properties = self._menu_item_properties(item_id)
+
+        if not property_names:
+            return properties
+        return {name: value for name, value in properties.items() if name in property_names}
+
     def _menu_layout(self):
         _gio, GLib = self._gio_glib()
         children = [
-            GLib.Variant("(ia{sv}av)", (item_id, self._menu_item_properties(item_id), []))
+            GLib.Variant(
+                "(ia{sv}av)",
+                (item_id, self._menu_properties_for_item(item_id), []),
+            )
             for item_id in (1, 2, 3, 4, 5, 6)
         ]
-        return (0, {"children-display": GLib.Variant("s", "submenu")}, children)
+        return (0, self._menu_properties_for_item(0), children)
+
+    def _dispatch_menu_event(self, item_id: int, event_id: str) -> None:
+        if event_id != "clicked":
+            return
+        if item_id == 3 and self._on_show is not None:
+            self._on_show()
+        elif item_id == 4 and self._on_stop is not None:
+            self._on_stop()
+        elif item_id == 6 and self._on_quit is not None:
+            self._on_quit()
 
     def _on_method_call(
         self,
@@ -295,21 +354,48 @@ class LinuxStatusNotifierItem:
     ) -> None:
         _gio, GLib = self._gio_glib()
         if method_name == "GetLayout":
+            _parent_id, _recursion_depth, _property_names = parameters.unpack()
             invocation.return_value(GLib.Variant("(u(ia{sv}av))", (1, self._menu_layout())))
+            return
+        if method_name == "GetGroupProperties":
+            item_ids, property_names = parameters.unpack()
+            properties = [
+                (
+                    item_id,
+                    self._menu_properties_for_item(item_id, property_names),
+                )
+                for item_id in item_ids
+                if item_id == 0 or 1 <= item_id <= 6
+            ]
+            invocation.return_value(GLib.Variant("(a(ia{sv}))", (properties,)))
+            return
+        if method_name == "GetProperty":
+            item_id, property_name = parameters.unpack()
+            value = self._menu_properties_for_item(item_id).get(property_name)
+            if value is None:
+                invocation.return_dbus_error(
+                    "com.canonical.dbusmenu.Error.UnknownProperty",
+                    f"Unknown menu property {property_name!r} for item {item_id}",
+                )
+                return
+            invocation.return_value(GLib.Variant("(v)", (value,)))
             return
         if method_name == "Event":
             item_id, event_id, _data, _timestamp = parameters.unpack()
-            if event_id == "clicked":
-                if item_id == 3 and self._on_show is not None:
-                    self._on_show()
-                elif item_id == 4 and self._on_stop is not None:
-                    self._on_stop()
-                elif item_id == 6 and self._on_quit is not None:
-                    self._on_quit()
+            self._dispatch_menu_event(item_id, event_id)
             invocation.return_value(None)
             return
+        if method_name == "EventGroup":
+            events = parameters.unpack()[0]
+            for item_id, event_id, _data, _timestamp in events:
+                self._dispatch_menu_event(item_id, event_id)
+            invocation.return_value(GLib.Variant("(ai)", ([],)))
+            return
         if method_name == "AboutToShow":
-            invocation.return_value(GLib.Variant("(b)", (True,)))
+            invocation.return_value(GLib.Variant("(b)", (False,)))
+            return
+        if method_name == "AboutToShowGroup":
+            invocation.return_value(GLib.Variant("(aiai)", ([], [])))
             return
         invocation.return_value(None)
 

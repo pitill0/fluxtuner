@@ -39,8 +39,15 @@ def test_sni_menu_contract_is_exposed() -> None:
     assert MENU_OBJECT_PATH == "/MenuBar"
     assert DBUSMENU_INTERFACE == "com.canonical.dbusmenu"
     assert 'method name="GetLayout"' in MENU_INTROSPECTION_XML
+    assert 'method name="GetGroupProperties"' in MENU_INTROSPECTION_XML
+    assert 'method name="GetProperty"' in MENU_INTROSPECTION_XML
     assert 'method name="Event"' in MENU_INTROSPECTION_XML
+    assert 'method name="EventGroup"' in MENU_INTROSPECTION_XML
     assert 'method name="AboutToShow"' in MENU_INTROSPECTION_XML
+    assert 'method name="AboutToShowGroup"' in MENU_INTROSPECTION_XML
+    assert 'signal name="ItemsPropertiesUpdated"' in MENU_INTROSPECTION_XML
+    assert 'signal name="LayoutUpdated"' in MENU_INTROSPECTION_XML
+    assert 'signal name="ItemActivationRequested"' in MENU_INTROSPECTION_XML
 
 
 def test_sni_accepts_show_and_quit_callbacks() -> None:

@@ -1545,6 +1545,7 @@ const controller = createMetadataController({
   },
   windowRef,
   documentRef,
+  navigatorRef: {},
 });
 
 controller.setStation("https://example.com/live", "Flux FM");

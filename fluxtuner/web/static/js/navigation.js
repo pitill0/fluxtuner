@@ -13,6 +13,7 @@ export function createNavigationController({
   loadAdminUsersIfNeeded,
   loadDashboard,
   passwordChangeDialog,
+  recoveryCodesRegenerateDialog,
   playlistController,
   playlistDialog,
   registerDialog,
@@ -36,6 +37,11 @@ export function createNavigationController({
 
     if (passwordChangeDialog && !passwordChangeDialog.hidden) {
       accountRequestsController.closePasswordChangeDialog();
+      return true;
+    }
+
+    if (recoveryCodesRegenerateDialog && !recoveryCodesRegenerateDialog.hidden) {
+      accountRequestsController.closeRecoveryCodeRegenerationDialog();
       return true;
     }
 

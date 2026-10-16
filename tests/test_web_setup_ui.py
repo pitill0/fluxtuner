@@ -44,3 +44,13 @@ def test_setup_form_uses_explicit_setup_token_copy() -> None:
     assert setup_response.status_code == 200
     assert "Setup verification token" in html_response.text
     assert "Enter the setup verification token configured on the server." in setup_response.text
+
+
+def test_setup_js_discloses_initial_recovery_codes() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/js/setup.js")
+
+    assert response.status_code == 200
+    assert "showRecoveryCodes" in response.text
+    assert "showRecoveryCodes(payload.recovery_codes)" in response.text

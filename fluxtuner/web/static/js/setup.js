@@ -13,6 +13,7 @@ export function createSetupController({
   setAppContentVisible,
   setCsrfToken,
   setCurrentUser,
+  showRecoveryCodes,
   setPlayerVisible,
   setupForm,
   setupMessageNode,
@@ -145,6 +146,11 @@ export function createSetupController({
       const payload = await response.json();
       setCurrentUser(payload.user || null);
       setCsrfToken(payload.csrf_token || "");
+
+      if (Array.isArray(payload.recovery_codes) && payload.recovery_codes.length) {
+        showRecoveryCodes(payload.recovery_codes);
+      }
+
       setupAvailable = false;
       setupRequiresToken = false;
       resetRadioBrowserView();

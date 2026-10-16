@@ -8,6 +8,9 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export function createApiFetch({ getCsrfToken, onUnauthorized } = {}) {
   return async function apiFetch(url, options = {}) {
     const requestOptions = { ...options };
+    const handleUnauthorized = requestOptions.handleUnauthorized !== false;
+    delete requestOptions.handleUnauthorized;
+
     const method = String(requestOptions.method || "GET").toUpperCase();
     const csrfToken = typeof getCsrfToken === "function" ? getCsrfToken() : "";
 
@@ -20,7 +23,11 @@ export function createApiFetch({ getCsrfToken, onUnauthorized } = {}) {
 
     const response = await fetch(url, requestOptions);
 
-    if (response.status === 401 && typeof onUnauthorized === "function") {
+    if (
+      handleUnauthorized &&
+      response.status === 401 &&
+      typeof onUnauthorized === "function"
+    ) {
       onUnauthorized();
     }
 

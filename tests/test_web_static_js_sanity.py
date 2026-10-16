@@ -168,6 +168,46 @@ def test_web_static_js_uses_account_requests_module() -> None:
     assert "function setPasswordChangeMessage" not in app_response.text
 
 
+def test_api_fetch_can_skip_global_unauthorized_handler() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/js/api.js")
+
+    assert response.status_code == 200
+    assert "handleUnauthorized" in response.text
+    assert "handleUnauthorized &&" in response.text
+
+
+def test_web_static_js_regenerates_recovery_codes_with_current_password() -> None:
+    client = TestClient(create_app())
+
+    app_response = client.get("/static/app.js")
+    module_response = client.get("/static/js/account-requests.js")
+    elements_response = client.get("/static/js/app-elements.js")
+    events_response = client.get("/static/js/app-events.js")
+
+    assert app_response.status_code == 200
+    assert module_response.status_code == 200
+    assert elements_response.status_code == 200
+    assert events_response.status_code == 200
+
+    assert 'apiFetch("/api/auth/recovery-codes/regenerate"' in module_response.text
+    assert "handleUnauthorized: false" in module_response.text
+    assert 'formData.get("current_password")' in module_response.text
+    assert "showRecoveryCodes(payload.recovery_codes)" in module_response.text
+
+    assert "[data-recovery-codes-regenerate-open]" in elements_response.text
+    assert "[data-recovery-codes-regenerate-dialog]" in elements_response.text
+    assert "[data-recovery-codes-regenerate-form]" in elements_response.text
+
+    assert "accountRequestsController.openRecoveryCodeRegenerationDialog" in events_response.text
+    assert "accountRequestsController.regenerateRecoveryCodes" in events_response.text
+
+    assert "recoveryCodesRegenerateOpenButton," in app_response.text
+    assert "recoveryCodesRegenerateDialog," in app_response.text
+    assert "recoveryCodesRegenerateForm," in app_response.text
+
+
 def test_web_static_js_uses_admin_module() -> None:
     client = TestClient(create_app())
 

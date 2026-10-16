@@ -224,6 +224,7 @@ def test_authenticated_user_can_regenerate_recovery_codes(tmp_path, monkeypatch)
     response = client.post(
         "/api/auth/recovery-codes/regenerate",
         headers={CSRF_HEADER_NAME: csrf_token},
+        json={"current_password": VALID_PASSWORD},
     )
 
     assert response.status_code == 200
@@ -240,6 +241,39 @@ def test_authenticated_user_can_regenerate_recovery_codes(tmp_path, monkeypatch)
     )
     assert rejected.status_code == 401
     assert rejected.json() == {"detail": RECOVERY_ERROR_DETAIL}
+
+
+def test_recovery_code_regeneration_requires_current_password(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    first_login = login(client)
+    assert first_login.status_code == 200
+    original_codes = first_login.json()["recovery_codes"]
+    csrf_token = first_login.json()["csrf_token"]
+
+    missing_password = client.post(
+        "/api/auth/recovery-codes/regenerate",
+        headers={CSRF_HEADER_NAME: csrf_token},
+        json={},
+    )
+    assert missing_password.status_code == 401
+    assert "recovery_codes" not in missing_password.json()
+
+    wrong_password = client.post(
+        "/api/auth/recovery-codes/regenerate",
+        headers={CSRF_HEADER_NAME: csrf_token},
+        json={"current_password": "wrong horse battery staple"},
+    )
+    assert wrong_password.status_code == 401
+    assert "recovery_codes" not in wrong_password.json()
+
+    # Failed reauthentication must not rotate or invalidate the existing set.
+    recovery = recover_password(
+        client,
+        recovery_code=original_codes[0],
+        new_password=OTHER_PASSWORD,
+    )
+    assert recovery.status_code == 200
 
 
 def test_recovery_code_regeneration_requires_authentication_and_csrf(tmp_path, monkeypatch) -> None:
@@ -394,6 +428,113 @@ def test_concurrent_recovery_with_same_code_has_exactly_one_winner(
             second_password_login.status_code,
         ]
     ) == [200, 401]
+
+
+def test_recovery_code_accepts_lowercase_compact_input(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    first_login = login(client)
+    assert first_login.status_code == 200
+    code = first_login.json()["recovery_codes"][0]
+
+    normalized_variant = code.replace("-", "").lower()
+
+    recovery = recover_password(
+        client,
+        recovery_code=normalized_variant,
+    )
+
+    assert recovery.status_code == 200
+    assert recovery.json()["status"] == "ok"
+
+    new_login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": NEW_PASSWORD},
+    )
+    assert new_login.status_code == 200
+
+
+def test_recovery_code_accepts_whitespace_and_hyphen_variants(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    first_login = login(client)
+    assert first_login.status_code == 200
+    code = first_login.json()["recovery_codes"][0]
+
+    compact = code.replace("-", "")
+    variant = f"  {compact[:10]} \n {compact[10:22]} \t {compact[22:]}  "
+
+    recovery = recover_password(
+        client,
+        recovery_code=variant,
+    )
+
+    assert recovery.status_code == 200
+    assert recovery.json()["status"] == "ok"
+
+
+def test_malformed_recovery_codes_count_toward_rate_limit_before_password_hash(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    first_login = login(client)
+    assert first_login.status_code == 200
+
+    original_hash_password = auth.hash_password
+    fallback_hash = original_hash_password(NEW_PASSWORD)
+    hash_calls = 0
+
+    def counted_hash_password(password: str) -> str:
+        nonlocal hash_calls
+        hash_calls += 1
+        return fallback_hash
+
+    monkeypatch.setattr(auth, "hash_password", counted_hash_password)
+
+    for _ in range(5):
+        response = recover_password(
+            client,
+            recovery_code="not-a-recovery-code",
+        )
+        assert response.status_code == 401
+        assert response.json() == {"detail": RECOVERY_ERROR_DETAIL}
+
+    limited = recover_password(
+        client,
+        recovery_code="still-not-a-recovery-code",
+    )
+
+    assert limited.status_code == 429
+    assert hash_calls == 0
+
+
+def test_invalid_recovery_code_rejects_before_password_hash(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    first_login = login(client)
+    assert first_login.status_code == 200
+
+    original_hash_password = auth.hash_password
+    fallback_hash = original_hash_password(NEW_PASSWORD)
+    hash_calls = 0
+
+    def counted_hash_password(password: str) -> str:
+        nonlocal hash_calls
+        hash_calls += 1
+        return fallback_hash
+
+    monkeypatch.setattr(auth, "hash_password", counted_hash_password)
+
+    response = recover_password(
+        client,
+        recovery_code="FT-RCV-00000000-00000000-00000000-00000000",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": RECOVERY_ERROR_DETAIL}
+    assert hash_calls == 0
 
 
 def test_rate_limited_recovery_rejects_before_password_hash(tmp_path, monkeypatch) -> None:

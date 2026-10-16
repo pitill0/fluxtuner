@@ -42,6 +42,21 @@ export function createAppElements(root = document) {
     passwordChangeCancelButtons: root.querySelectorAll("[data-password-change-cancel]"),
     passwordChangeForm: root.querySelector("[data-password-change-form]"),
     passwordChangeMessageNode: root.querySelector("[data-password-change-message]"),
+    recoveryCodesRegenerateOpenButton: root.querySelector(
+      "[data-recovery-codes-regenerate-open]",
+    ),
+    recoveryCodesRegenerateDialog: root.querySelector(
+      "[data-recovery-codes-regenerate-dialog]",
+    ),
+    recoveryCodesRegenerateForm: root.querySelector(
+      "[data-recovery-codes-regenerate-form]",
+    ),
+    recoveryCodesRegenerateMessageNode: root.querySelector(
+      "[data-recovery-codes-regenerate-message]",
+    ),
+    recoveryCodesRegenerateCancelButtons: root.querySelectorAll(
+      "[data-recovery-codes-regenerate-cancel]",
+    ),
     recoveryCodesDialog: root.querySelector("[data-recovery-codes-dialog]"),
     recoveryCodesListNode: root.querySelector("[data-recovery-codes-list]"),
     recoveryCodesCloseButtons: root.querySelectorAll("[data-recovery-codes-close]"),

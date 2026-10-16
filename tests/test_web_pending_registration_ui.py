@@ -58,6 +58,21 @@ def test_web_static_js_submits_pending_registration() -> None:
     assert "Account pending approval" not in module_response.text
 
 
+def test_authenticated_user_can_open_recovery_code_regeneration_ui() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "data-recovery-codes-regenerate-open" in response.text
+    assert "Generate new recovery codes" in response.text
+    assert "data-recovery-codes-regenerate-dialog" in response.text
+    assert "data-recovery-codes-regenerate-form" in response.text
+    assert 'name="current_password"' in response.text
+    assert 'autocomplete="current-password"' in response.text
+    assert "invalidates every previous recovery code" in response.text
+
+
 def test_web_static_js_uses_recovery_code_password_recovery() -> None:
     client = TestClient(create_app())
 

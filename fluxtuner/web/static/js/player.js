@@ -478,7 +478,7 @@ export function createPlayerController({
     startingPlayback = false;
     clearBufferingNotice();
     softPausingPlayback = true;
-    audioNode.pause();
+    clearAudioSource();
     mediaSessionController.setMediaSessionMetadata(currentStation, "playback-pause-request");
     setPlayerState("paused", message, "playback-paused");
     updatePlayerControls();

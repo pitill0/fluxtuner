@@ -712,6 +712,7 @@ Object.assign(audioNode, {
   controls: false,
   preload: "",
   error: null,
+  loadCalls: 0,
   getAttribute(name) {
     return this.attributes.get(name) || "";
   },
@@ -726,6 +727,7 @@ Object.assign(audioNode, {
     }
   },
   load() {
+    this.loadCalls += 1;
     this.currentSrc = this.src;
   },
   pause() {
@@ -803,8 +805,14 @@ const pending = controller.playStation({
 await Promise.resolve();
 
 const loadingSnapshot = controller.debugSnapshot();
+const srcBeforePause = audioNode.src;
+const loadCallsBeforePause = audioNode.loadCalls;
+
 controller.pauseCurrentStationPlayback("Paused from system controls.");
+
 const pausedSnapshot = controller.debugSnapshot();
+const srcAfterPause = audioNode.src;
+const loadCallsAfterPause = audioNode.loadCalls;
 
 audioNode.dispatch("playing");
 await pending;
@@ -819,6 +827,10 @@ console.log(JSON.stringify({
   state: playerBar.dataset.state,
   status: statusNode.textContent,
   paused: audioNode.paused,
+  srcBeforePause,
+  srcAfterPause,
+  loadCallsBeforePause,
+  loadCallsAfterPause,
   history,
   playerStateEvents: events
     .filter(([name]) => name === "player-state")
@@ -841,6 +853,9 @@ console.log(JSON.stringify({
     assert result["state"] == "paused"
     assert result["status"] == "Paused from system controls."
     assert result["paused"] is True
+    assert result["srcBeforePause"] == "https://radio.example/stream"
+    assert result["srcAfterPause"] == ""
+    assert result["loadCallsAfterPause"] == result["loadCallsBeforePause"] + 1
     assert result["history"] == []
     assert result["playerStateEvents"] == ["loading", "paused"]
 

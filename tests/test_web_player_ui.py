@@ -43,3 +43,19 @@ def test_web_css_extracts_player_domain() -> None:
     assert "@media (max-width: 58rem)" in player_response.text
     assert "@media (max-width: 42rem)" in player_response.text
     assert "Persistent player layout" in player_response.text
+    assert "backdrop-filter" not in player_response.text
+    finite_marquee = """    player-track-scroll var(--player-track-duration, 10s)
+    ease-in-out 2 alternate;"""
+    infinite_marquee = """    player-track-scroll var(--player-track-duration, 10s)
+    ease-in-out infinite alternate;"""
+    assert finite_marquee in player_response.text
+    assert infinite_marquee not in player_response.text
+
+    paused_marquee = """.player-bar[data-state="paused"] .player-track-copy[data-overflow="true"] .player-track-text {
+  animation: none;
+}"""
+    error_marquee = """.player-bar[data-state="error"] .player-track-copy[data-overflow="true"] .player-track-text {
+  animation: none;
+}"""
+    assert paused_marquee in player_response.text
+    assert error_marquee in player_response.text

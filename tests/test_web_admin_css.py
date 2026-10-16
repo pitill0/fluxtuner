@@ -69,5 +69,5 @@ def test_admin_mobile_fields_use_explicit_labels() -> None:
     assert ".admin-cell-label {" in admin_css.text
     assert "content: attr(data-cell-label);" not in admin_css.text
 
-    for label in ("Admin", "Active", "Status", "Created", "Expires", "Note"):
+    for label in ("Admin", "Active", "Status"):
         assert f'<span class="admin-cell-label" aria-hidden="true">{label}</span>' in admin_js.text

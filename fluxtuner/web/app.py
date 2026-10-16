@@ -9,12 +9,8 @@ from importlib import resources
 from typing import Any
 
 from fluxtuner import __app_name__, __version__
-from fluxtuner.core import db
-from fluxtuner.web import (
-    auth,
-    password_change_actions,
-    registration_actions,
-)
+from fluxtuner.core import db, recovery_codes
+from fluxtuner.web import auth, registration_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
@@ -52,15 +48,7 @@ PLAYLIST_REQUIRED_DETAIL = "Playlist name is required."
 MAX_USERNAME_LENGTH = 80
 MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
-MAX_ACCOUNT_CHANGE_NOTE_LENGTH = 1000
 MAX_PLAYLIST_NAME_LENGTH = 120
-ACCOUNT_CHANGE_RATE_LIMIT_KEY = password_change_actions.ACCOUNT_CHANGE_RATE_LIMIT_KEY
-ACCOUNT_CHANGE_INVALID_DETAIL = password_change_actions.ACCOUNT_CHANGE_INVALID_DETAIL
-ACCOUNT_CHANGE_RECEIVED_MESSAGE = password_change_actions.ACCOUNT_CHANGE_RECEIVED_MESSAGE
-ACCOUNT_CHANGE_NOT_FOUND_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_FOUND_DETAIL
-ACCOUNT_CHANGE_NOT_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_NOT_PENDING_DETAIL
-ACCOUNT_CHANGE_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_PENDING_DETAIL
-ACCOUNT_CHANGE_EXPIRED_DETAIL = password_change_actions.ACCOUNT_CHANGE_EXPIRED_DETAIL
 SESSION_COOKIE_MUTATION_PATHS = frozenset(
     {
         "/api/auth/login",
@@ -311,7 +299,7 @@ def create_app(
                     """,
                     (password_hash, db.APPROVAL_APPROVED, db.utc_now(), db.utc_now(), user_id),
                 )
-                db.expire_pending_password_change_requests(conn, user_id)
+                recovery_codes.invalidate_recovery_codes(conn, user_id)
 
             db.ensure_default_profile(conn, user_id=user_id)
             initial_max_age = session_initial_max_age()

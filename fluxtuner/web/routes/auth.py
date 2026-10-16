@@ -6,8 +6,8 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request, Response
 
-from fluxtuner.core import db
-from fluxtuner.web import auth, password_change_actions, registration_actions
+from fluxtuner.core import db, recovery_codes
+from fluxtuner.web import auth, registration_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
@@ -23,21 +23,18 @@ from fluxtuner.web.security import (
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
 AUTH_REQUIRED_DETAIL = "Authentication required."
+RECOVERY_ERROR_DETAIL = "Invalid recovery credentials."
+RECOVERY_RATE_LIMIT_DETAIL = "Too many recovery attempts. Try again later."
 ACCOUNT_PENDING_DETAIL = "Account pending approval."
 CSRF_ERROR_DETAIL = "CSRF token is missing or invalid."
 FIELD_TOO_LONG_DETAIL = "One or more fields exceed the maximum allowed length."
 MAX_USERNAME_LENGTH = 80
 MAX_DISPLAY_NAME_LENGTH = 120
 MAX_SIGNUP_NOTE_LENGTH = 1000
-MAX_ACCOUNT_CHANGE_NOTE_LENGTH = 1000
-ACCOUNT_CHANGE_PENDING_DETAIL = password_change_actions.ACCOUNT_CHANGE_PENDING_DETAIL
 REGISTER_RECEIVED_MESSAGE = registration_actions.REGISTER_RECEIVED_MESSAGE
 REGISTER_USER_EXISTS_DETAIL = registration_actions.REGISTER_USER_EXISTS_DETAIL
 REGISTER_INVALID_DETAIL = registration_actions.REGISTER_INVALID_DETAIL
 REGISTER_RATE_LIMIT_USERNAME = registration_actions.REGISTER_RATE_LIMIT_USERNAME
-ACCOUNT_CHANGE_RATE_LIMIT_KEY = password_change_actions.ACCOUNT_CHANGE_RATE_LIMIT_KEY
-ACCOUNT_CHANGE_INVALID_DETAIL = password_change_actions.ACCOUNT_CHANGE_INVALID_DETAIL
-ACCOUNT_CHANGE_RECEIVED_MESSAGE = password_change_actions.ACCOUNT_CHANGE_RECEIVED_MESSAGE
 
 router = APIRouter()
 required_body = Body(...)
@@ -69,22 +66,115 @@ def register(
         )
 
 
-@router.post("/api/auth/password-change-requests")
-def request_password_change(
+@router.post("/api/auth/recover-password")
+def recover_password(
     request: Request,
     payload: dict[str, Any] = required_body,
-) -> dict[str, str]:
+) -> dict[str, Any]:
+    username = str(payload.get("username") or "").strip()
+    recovery_code = str(payload.get("recovery_code") or "").strip()
+    new_password = str(payload.get("new_password") or "")
+    client_key = web_setup.request_client_host(request)
+
+    if not username or not recovery_code or not new_password:
+        raise HTTPException(status_code=401, detail=RECOVERY_ERROR_DETAIL)
+
     with db.connect() as conn:
         web_context.ensure_web_schema(conn)
-        return password_change_actions.request_password_change_payload(
+        recovery_codes.purge_old_recovery_attempts(conn)
+        if recovery_codes.is_recovery_rate_limited(
             conn,
-            payload,
-            client_key=web_setup.request_client_host(request),
-            max_username_length=MAX_USERNAME_LENGTH,
-            max_note_length=MAX_ACCOUNT_CHANGE_NOTE_LENGTH,
-            field_too_long_detail=FIELD_TOO_LONG_DETAIL,
-            rate_limit_detail=RATE_LIMIT_DETAIL,
+            username,
+            client_key,
+        ):
+            conn.commit()
+            raise HTTPException(
+                status_code=429,
+                detail=RECOVERY_RATE_LIMIT_DETAIL,
+            )
+        conn.commit()
+
+    try:
+        password_hash = auth.hash_password(new_password)
+    except auth.PasswordValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    with db.connect() as conn:
+        web_context.ensure_web_schema(conn)
+
+        # Schema setup may perform compatibility writes. Start the recovery
+        # transaction from a known clean boundary, then acquire the SQLite
+        # write reservation before checking or consuming the recovery code.
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+
+        recovery_codes.purge_old_recovery_attempts(conn)
+
+        if recovery_codes.is_recovery_rate_limited(
+            conn,
+            username,
+            client_key,
+        ):
+            conn.rollback()
+            raise HTTPException(
+                status_code=429,
+                detail=RECOVERY_RATE_LIMIT_DETAIL,
+            )
+
+        user_id = recovery_codes.consume_recovery_code(
+            conn,
+            username,
+            recovery_code,
         )
+        if user_id is None:
+            recovery_codes.record_recovery_attempt(
+                conn,
+                username,
+                client_key,
+                success=False,
+            )
+            conn.commit()
+            raise HTTPException(status_code=401, detail=RECOVERY_ERROR_DETAIL)
+
+        conn.execute(
+            """
+            UPDATE users
+            SET
+                password_hash = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (password_hash, db.utc_now(), user_id),
+        )
+
+        conn.execute(
+            """
+            UPDATE web_sessions
+            SET revoked_at = ?
+            WHERE user_id = ?
+              AND revoked_at IS NULL
+            """,
+            (db.utc_now(), user_id),
+        )
+
+        new_recovery_codes = recovery_codes.rotate_recovery_codes(
+            conn,
+            user_id,
+        )
+
+        recovery_codes.record_recovery_attempt(
+            conn,
+            username,
+            client_key,
+            success=True,
+        )
+
+        conn.commit()
+
+    return {
+        "status": "ok",
+        "recovery_codes": new_recovery_codes,
+    }
 
 
 @router.post("/api/auth/login")
@@ -153,12 +243,11 @@ def login(
             conn.commit()
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
-        db.expire_pending_password_change_requests(
-            conn,
-            int(user["id"]),
-        )
-
         authenticated_user = user
+        new_recovery_codes = recovery_codes.bootstrap_recovery_codes(
+            conn,
+            int(authenticated_user["id"]),
+        )
         initial_max_age = session_initial_max_age()
         token = auth.create_session(
             conn,
@@ -174,10 +263,35 @@ def login(
         conn.commit()
 
     set_session_cookie(response, token, max_age=initial_max_age)
-    return {
+    result: dict[str, Any] = {
         "authenticated": True,
         "user": public_user_payload(authenticated_user),
         "csrf_token": csrf_token_for_session_token(token),
+    }
+    if new_recovery_codes is not None:
+        result["recovery_codes"] = new_recovery_codes
+    return result
+
+
+@router.post("/api/auth/recovery-codes/regenerate")
+def regenerate_recovery_codes(request: Request) -> dict[str, Any]:
+    user = web_context.authenticated_user(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
+
+    require_csrf(request)
+
+    with db.connect() as conn:
+        web_context.ensure_web_schema(conn)
+        codes = recovery_codes.rotate_recovery_codes(
+            conn,
+            int(user["id"]),
+        )
+        conn.commit()
+
+    return {
+        "status": "ok",
+        "recovery_codes": codes,
     }
 
 

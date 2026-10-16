@@ -422,19 +422,6 @@
 
                 <p class="admin-message" data-admin-message></p>
 
-                <div class="admin-password-change-requests">
-                  <div class="panel-heading">
-                    <div>
-                      <p class="eyebrow">Recovery</p>
-                      <h3>Password change requests</h3>
-                    </div>
-                  </div>
-
-                  <div class="admin-users" data-admin-password-change-requests>
-                    <p class="empty">Password change requests will appear here.</p>
-                  </div>
-                </div>
-
                 <div class="admin-users" data-admin-users>
                   <p class="empty">Admin users will appear here.</p>
                 </div>
@@ -523,43 +510,67 @@
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">Account recovery</p>
-            <h2 id="password-change-dialog-title">Request password change</h2>
+            <h2 id="password-change-dialog-title">Recover account</h2>
           </div>
         </div>
 
         <p class="auth-note">
-          Choose a new password. It will only become active if an administrator approves the request.
+          Use one of the recovery codes you saved previously. The code is single-use and a successful recovery replaces your existing recovery codes.
         </p>
 
-        <form class="auth-form register-form" method="post" action="/api/auth/password-change-requests" data-password-change-form>
+        <form class="auth-form register-form" method="post" action="/api/auth/recover-password" data-password-change-form>
           <label>
             <span>Username</span>
             <input name="username" type="text" autocomplete="username" maxlength="80" required>
           </label>
 
           <label>
+            <span>Recovery code</span>
+            <input name="recovery_code" type="text" autocomplete="off" spellcheck="false" required>
+          </label>
+
+          <label>
             <span>New password</span>
             <input name="new_password" type="password" autocomplete="new-password" required minlength="15">
-              <small class="field-help">Password must be at least 15 characters.</small>
           </label>
 
           <label>
-            <span>Confirm password</span>
+            <span>Confirm new password</span>
             <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
-          </label>
-
-          <label>
-            <span>Note for admin</span>
-            <input name="note" type="text" maxlength="500" autocomplete="off" placeholder="Optional context for the administrator">
           </label>
 
           <p class="register-dialog-message" data-password-change-message></p>
 
           <div class="station-actions">
-            <button type="submit" data-password-change-submit>Request password change</button>
+            <button type="submit" data-password-change-submit>Recover account</button>
             <button type="button" data-password-change-cancel>Cancel</button>
           </div>
         </form>
+      </div>
+    </section>
+
+    <section class="playlist-dialog recovery-codes-dialog" data-recovery-codes-dialog hidden aria-labelledby="recovery-codes-dialog-title">
+      <div class="playlist-dialog-card register-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Account recovery</p>
+            <h2 id="recovery-codes-dialog-title">Save your recovery codes</h2>
+          </div>
+        </div>
+
+        <p class="auth-note">
+          These codes are shown only once. Store them somewhere safe before continuing. Each code can be used to recover your account if you forget your password.
+        </p>
+
+        <ol class="recovery-codes-list" data-recovery-codes-list></ol>
+
+        <p class="auth-note">
+          Generating a new set invalidates every previous recovery code.
+        </p>
+
+        <div class="station-actions">
+          <button type="button" data-recovery-codes-close>I have saved these codes</button>
+        </div>
       </div>
     </section>
 

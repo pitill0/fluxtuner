@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Path, Request, Response
+from fastapi import APIRouter, Body, HTTPException, Request, Response
 
 from fluxtuner.core import db
-from fluxtuner.web import admin_actions, password_change_actions
+from fluxtuner.web import admin_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 
@@ -56,49 +56,6 @@ def admin_metadata_diagnostics(request: Request) -> dict[str, int]:
             status_code=503,
             detail=METADATA_DIAGNOSTICS_UNAVAILABLE_DETAIL,
         ) from exc
-
-
-@router.get("/api/admin/password-change-requests")
-def admin_list_password_change_requests(request: Request) -> dict[str, Any]:
-    require_admin_user(request)
-
-    with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-        return password_change_actions.list_password_change_requests_payload(conn)
-
-
-@router.post("/api/admin/password-change-requests/{request_id}/approve")
-def admin_approve_password_change_request(
-    request: Request,
-    request_id: int = Path(..., ge=1),
-) -> dict[str, Any]:
-    admin_user = require_admin_user(request)
-    require_csrf(request)
-
-    with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-        return password_change_actions.approve_password_change_request_payload(
-            conn,
-            request_id,
-            resolved_by_user_id=int(admin_user["id"]),
-        )
-
-
-@router.post("/api/admin/password-change-requests/{request_id}/reject")
-def admin_reject_password_change_request(
-    request: Request,
-    request_id: int = Path(..., ge=1),
-) -> dict[str, str]:
-    admin_user = require_admin_user(request)
-    require_csrf(request)
-
-    with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-        return password_change_actions.reject_password_change_request_payload(
-            conn,
-            request_id,
-            resolved_by_user_id=int(admin_user["id"]),
-        )
 
 
 @router.get("/api/admin/users")

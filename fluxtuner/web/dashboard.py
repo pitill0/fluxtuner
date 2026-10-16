@@ -38,22 +38,12 @@ def admin_user_counts(conn: Any) -> dict[str, int]:
         """,
         (db.APPROVAL_PENDING,),
     ).fetchone()
-    password_change_row = conn.execute(
-        """
-        SELECT COUNT(*)
-        FROM web_password_change_requests
-        WHERE status = ?
-        """,
-        (db.ACCOUNT_CHANGE_PENDING,),
-    ).fetchone()
-
     return {
         "users_count": int(row["users_count"] or 0),
         "users_created_today": int(row["users_created_today"] or 0),
         "users_created_7_days": int(row["users_created_7_days"] or 0),
         "users_created_30_days": int(row["users_created_30_days"] or 0),
         "pending_users_count": int(row["pending_users_count"] or 0),
-        "pending_password_change_requests_count": int(password_change_row[0] or 0),
     }
 
 

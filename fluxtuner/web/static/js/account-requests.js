@@ -21,6 +21,8 @@ export function createAccountRequestsController({
   passwordChangeDialog,
   passwordChangeForm,
   passwordChangeMessageNode,
+  recoveryCodesDialog,
+  recoveryCodesListNode,
   registerDialog,
   registerForm,
   registerMessageNode,
@@ -50,26 +52,55 @@ export function createAccountRequestsController({
     }
   }
 
-  async function requestPasswordChange(event) {
+  function closeRecoveryCodesDialog() {
+    if (!recoveryCodesDialog) return;
+
+    recoveryCodesDialog.hidden = true;
+    if (recoveryCodesListNode) {
+      recoveryCodesListNode.replaceChildren();
+    }
+  }
+
+  function showRecoveryCodes(codes) {
+    if (!recoveryCodesDialog || !recoveryCodesListNode) return;
+    if (!Array.isArray(codes) || !codes.length) return;
+
+    recoveryCodesListNode.replaceChildren();
+
+    codes.forEach((code) => {
+      const item = document.createElement("li");
+      const codeNode = document.createElement("code");
+      codeNode.textContent = String(code);
+      item.append(codeNode);
+      recoveryCodesListNode.append(item);
+    });
+
+    recoveryCodesDialog.hidden = false;
+    recoveryCodesDialog
+      .querySelector("[data-recovery-codes-close]")
+      ?.focus();
+  }
+
+  async function recoverPassword(event) {
     event.preventDefault();
 
     if (!passwordChangeForm || !authMessageNode) return;
 
     const formData = new FormData(passwordChangeForm);
     const username = String(formData.get("username") || "").trim();
+    const recoveryCode = String(formData.get("recovery_code") || "").trim();
     const newPassword = String(formData.get("new_password") || "");
     const confirmPassword = String(formData.get("confirm_password") || "");
-    const note = String(formData.get("note") || "").trim();
 
     if (newPassword !== confirmPassword) {
       setPasswordChangeMessage("Passwords do not match.");
       return;
     }
 
-    setPasswordChangeMessage("Requesting password change...");
+    setPasswordChangeMessage("Recovering account...");
 
     try {
-      const response = await fetchImpl("/api/auth/password-change-requests", {
+      const response = await fetchImpl("/api/auth/recover-password", {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -77,19 +108,22 @@ export function createAccountRequestsController({
         },
         body: JSON.stringify({
           username,
+          recovery_code: recoveryCode,
           new_password: newPassword,
-          note,
         }),
       });
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.detail || "Could not request password change.");
+        throw new Error(payload.detail || "Could not recover account.");
       }
 
       closePasswordChangeDialog();
       authMessageNode.hidden = false;
-      authMessageNode.textContent = payload.message || "Password change request received.";
+      authMessageNode.textContent =
+        "Password updated. Sign in with your new password.";
+
+      showRecoveryCodes(payload.recovery_codes);
     } catch (error) {
       setPasswordChangeMessage(errorMessage(error));
     }
@@ -163,10 +197,12 @@ export function createAccountRequestsController({
 
   return {
     closePasswordChangeDialog,
+    closeRecoveryCodesDialog,
     closeRegisterDialog,
     openPasswordChangeDialog,
     openRegisterDialog,
+    recoverPassword,
     registerAccount,
-    requestPasswordChange,
+    showRecoveryCodes,
   };
 }

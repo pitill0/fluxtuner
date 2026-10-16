@@ -66,49 +66,6 @@ def test_setup_creates_first_admin_and_session(tmp_path, monkeypatch) -> None:
     assert auth.verify_password(VALID_PASSWORD, str(user["password_hash"])) is True
 
 
-def test_setup_existing_user_expires_pending_password_change_request(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    client = make_client(tmp_path, monkeypatch)
-    monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
-
-    with db.connect() as conn:
-        db.create_schema(conn)
-        db.ensure_profile_user_schema(conn)
-        user_id = db.get_or_create_user(
-            conn,
-            "alice",
-            password_hash=auth.hash_password("old correct horse battery staple"),
-            is_admin=False,
-            is_active=True,
-        )
-        db.upsert_pending_password_change_request(
-            conn,
-            user_id,
-            password_hash=auth.hash_password("pending correct horse battery staple"),
-            expires_at="2999-01-01T00:00:00+00:00",
-        )
-        conn.commit()
-
-    response = client.post(
-        "/api/setup/create-admin",
-        json={
-            "username": "alice",
-            "password": VALID_PASSWORD,
-            "setup_token": "setup-secret",
-        },
-    )
-
-    assert response.status_code == 200
-
-    with db.connect() as conn:
-        requests = db.list_password_change_requests(conn, status=None)
-
-    assert len(requests) == 1
-    assert requests[0]["status"] == db.ACCOUNT_CHANGE_EXPIRED
-
-
 def test_setup_rejects_oversized_username(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
     monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
@@ -236,3 +193,42 @@ def test_setup_status_unavailable_after_admin_exists(tmp_path, monkeypatch) -> N
     assert status.status_code == 200
     assert status.json()["available"] is False
     assert status.json()["configured_admin_exists"] is True
+
+
+def test_setup_existing_user_invalidates_recovery_codes(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import recovery_codes
+
+    client = make_client(tmp_path, monkeypatch)
+    monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
+
+    with db.connect() as conn:
+        db.create_schema(conn)
+        db.ensure_profile_user_schema(conn)
+        user_id = db.get_or_create_user(
+            conn,
+            "alice",
+            password_hash=auth.hash_password("old correct horse battery staple"),
+            is_admin=False,
+            is_active=True,
+        )
+        assert recovery_codes.bootstrap_recovery_codes(conn, user_id) is not None
+        conn.commit()
+
+    response = client.post(
+        "/api/setup/create-admin",
+        json={
+            "username": "alice",
+            "password": VALID_PASSWORD,
+            "setup_token": "setup-secret",
+        },
+    )
+
+    assert response.status_code == 200
+
+    with db.connect() as conn:
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM web_recovery_codes WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()[0]
+
+    assert remaining == 0

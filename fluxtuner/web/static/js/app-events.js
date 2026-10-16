@@ -6,7 +6,6 @@ export function bindApplicationEvents({
   accountRequestsController,
   adminCreateUserForm,
   adminLoadUsersButton,
-  adminPasswordChangeRequestsNode,
   adminPasswordForm,
   adminUsersNode,
   appHeader,
@@ -32,7 +31,6 @@ export function bindApplicationEvents({
   logout,
   logoutButton,
   mutateAdminUser,
-  mutatePasswordChangeRequest,
   navigateToAdmin,
   navigateToDashboard,
   navigateToPrivateView,
@@ -57,6 +55,7 @@ export function bindApplicationEvents({
   playlistCancelButtons,
   playlistController,
   playlistForm,
+  recoveryCodesCloseButtons,
   registerCancelButtons,
   registerForm,
   registerOpenButton,
@@ -85,17 +84,6 @@ export function bindApplicationEvents({
     });
   }
 
-  if (adminPasswordChangeRequestsNode) {
-    adminPasswordChangeRequestsNode.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-admin-password-change-action]");
-      if (!button) return;
-      mutatePasswordChangeRequest(
-        button.dataset.requestId || "",
-        button.dataset.adminPasswordChangeAction || "",
-      );
-    });
-  }
-
   if (playlistForm) playlistForm.addEventListener("submit", playlistController.submitPlaylistDialog);
   playlistCancelButtons.forEach((button) => {
     button.addEventListener("click", playlistController.closePlaylistDialog);
@@ -119,9 +107,15 @@ export function bindApplicationEvents({
   if (passwordChangeForm) {
     passwordChangeForm.addEventListener(
       "submit",
-      accountRequestsController.requestPasswordChange,
+      accountRequestsController.recoverPassword,
     );
   }
+  recoveryCodesCloseButtons.forEach((button) => {
+    button.addEventListener(
+      "click",
+      accountRequestsController.closeRecoveryCodesDialog,
+    );
+  });
   registerCancelButtons.forEach((button) => {
     button.addEventListener("click", accountRequestsController.closeRegisterDialog);
   });

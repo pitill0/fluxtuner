@@ -7,10 +7,15 @@ from fluxtuner.web.routes.auth import router
 
 EXPECTED_AUTH_ROUTES = {
     "/api/auth/register",
-    "/api/auth/password-change-requests",
+    "/api/auth/recover-password",
+    "/api/auth/recovery-codes/regenerate",
     "/api/auth/login",
     "/api/auth/logout",
     "/api/auth/me",
+}
+
+REMOVED_AUTH_ROUTES = {
+    "/api/auth/password-change-requests",
 }
 
 
@@ -26,3 +31,9 @@ def test_create_app_includes_auth_router() -> None:
     paths = set(client.app.openapi()["paths"])
 
     assert paths >= EXPECTED_AUTH_ROUTES
+
+
+def test_auth_router_does_not_expose_legacy_password_change_route() -> None:
+    paths = {route.path for route in router.routes}
+
+    assert paths.isdisjoint(REMOVED_AUTH_ROUTES)

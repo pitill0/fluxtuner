@@ -22,7 +22,7 @@ def prompt_web_admin_password(console: Console) -> str:
 
 def create_web_admin_user(username: str, *, console: Console) -> None:
     """Create or update an active web admin user."""
-    from fluxtuner.core import db
+    from fluxtuner.core import db, recovery_codes
     from fluxtuner.web import auth
 
     clean_username = db.normalize_username(username)
@@ -65,7 +65,7 @@ def create_web_admin_user(username: str, *, console: Console) -> None:
                 """,
                 (password_hash, db.utc_now(), user_id),
             )
-            db.expire_pending_password_change_requests(conn, user_id)
+            recovery_codes.invalidate_recovery_codes(conn, user_id)
             action = "updated"
 
         db.ensure_default_profile(conn, user_id=user_id)
@@ -106,7 +106,7 @@ def print_web_users(*, console: Console) -> None:
 
 def set_web_user_password(username: str, *, console: Console) -> None:
     """Set a web user's password without printing secrets."""
-    from fluxtuner.core import db
+    from fluxtuner.core import db, recovery_codes
     from fluxtuner.web import auth
 
     clean_username = db.normalize_username(username)
@@ -139,10 +139,7 @@ def set_web_user_password(username: str, *, console: Console) -> None:
             """,
             (password_hash, db.utc_now(), int(user["id"])),
         )
-        db.expire_pending_password_change_requests(
-            conn,
-            int(user["id"]),
-        )
+        recovery_codes.invalidate_recovery_codes(conn, int(user["id"]))
         conn.execute(
             """
             UPDATE web_sessions

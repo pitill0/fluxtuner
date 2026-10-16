@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from fluxtuner.core import db, favorites, history, manual_playlists
-from fluxtuner.web import auth
+from fluxtuner.core import db, favorites, history, manual_playlists, recovery_codes
+from fluxtuner.web import auth, maintenance
 from fluxtuner.web.app import create_app
 from fluxtuner.web.context import authenticated_user, effective_profile_name
 from fluxtuner.web.security import SESSION_COOKIE_NAME
@@ -386,3 +386,170 @@ def test_dashboard_does_not_reinitialize_database(
 
     assert dashboard_response.status_code == 200
     assert init_calls == 0
+
+
+def test_web_lifespan_runs_auth_maintenance_after_database_init_off_event_loop(
+    monkeypatch,
+) -> None:
+    events: list[str] = []
+    offloaded_functions: list[object] = []
+
+    def fake_init_db() -> None:
+        events.append("init_db")
+
+    def fake_auth_maintenance_if_due() -> bool:
+        events.append("auth_maintenance")
+        return True
+
+    async def counted_to_thread(func, /, *args, **kwargs):
+        offloaded_functions.append(func)
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(db, "init_db", fake_init_db)
+    monkeypatch.setattr(
+        maintenance,
+        "run_auth_maintenance_if_due",
+        fake_auth_maintenance_if_due,
+    )
+    monkeypatch.setattr(
+        "fluxtuner.web.app.asyncio.to_thread",
+        counted_to_thread,
+    )
+
+    with TestClient(create_app()):
+        pass
+
+    assert events == [
+        "init_db",
+        "auth_maintenance",
+    ]
+    assert offloaded_functions == [
+        fake_init_db,
+        fake_auth_maintenance_if_due,
+    ]
+
+
+def test_auth_entry_points_trigger_throttled_maintenance(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    maintenance_calls = 0
+
+    def fake_maintenance_if_due() -> bool:
+        nonlocal maintenance_calls
+        maintenance_calls += 1
+        return True
+
+    monkeypatch.setattr(
+        maintenance,
+        "run_auth_maintenance_if_due",
+        fake_maintenance_if_due,
+    )
+
+    with TestClient(create_app()) as client:
+        # Ignore the expected startup maintenance call.
+        maintenance_calls = 0
+
+        register_response = client.post("/api/auth/register", json={})
+        recovery_response = client.post("/api/auth/recover-password", json={})
+        login_response = client.post("/api/auth/login", json={})
+        setup_response = client.post("/api/setup/create-admin", json={})
+
+    assert register_response.status_code == 400
+    assert recovery_response.status_code == 401
+    assert login_response.status_code == 401
+    assert setup_response.status_code == 400
+    assert maintenance_calls == 4
+
+
+def test_recovery_route_does_not_purge_attempts_directly(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    with TestClient(create_app()) as client:
+
+        def forbidden_direct_purge(*_args, **_kwargs):
+            raise AssertionError("recovery endpoint ran purge_old_recovery_attempts directly")
+
+        monkeypatch.setattr(
+            recovery_codes,
+            "purge_old_recovery_attempts",
+            forbidden_direct_purge,
+        )
+
+        response = client.post(
+            "/api/auth/recover-password",
+            json={
+                "username": "missing-user",
+                "recovery_code": "not-a-real-code",
+                "new_password": "correct horse battery staple",
+            },
+        )
+
+    assert response.status_code == 401
+
+
+def test_failed_auth_request_does_not_rollback_opportunistic_cleanup(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    db_path = tmp_path / "fluxtuner.db"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    db.init_db()
+
+    now = datetime.now(UTC)
+
+    with db.connect() as conn:
+        auth.record_login_attempt(
+            conn,
+            "stale-user",
+            "127.0.0.1",
+            success=False,
+            now=now - timedelta(hours=25),
+        )
+        conn.commit()
+
+    monkeypatch.setattr(
+        maintenance,
+        "_last_auth_maintenance_monotonic",
+        None,
+    )
+
+    with TestClient(create_app()) as client:
+        # Startup has already consumed the throttle window. Reset it so this
+        # request itself must perform opportunistic maintenance.
+        monkeypatch.setattr(
+            maintenance,
+            "_last_auth_maintenance_monotonic",
+            None,
+        )
+
+        response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "missing-user",
+                "password": "wrong-password",
+            },
+        )
+
+    assert response.status_code == 401
+
+    with db.connect() as conn:
+        stale_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM web_login_attempts
+            WHERE normalized_username = 'stale-user'
+            """
+        ).fetchone()[0]
+
+    assert stale_count == 0

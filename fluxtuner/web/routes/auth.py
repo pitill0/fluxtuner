@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException, Request, Response
 
 from fluxtuner.core import db, recovery_codes
-from fluxtuner.web import auth, registration_actions
+from fluxtuner.web import auth, maintenance, registration_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import setup as web_setup
@@ -53,6 +53,8 @@ def register(
     request: Request,
     payload: dict[str, Any] = required_body,
 ) -> dict[str, str]:
+    maintenance.run_auth_maintenance_if_due()
+
     with db.connect() as conn:
         return registration_actions.register_payload(
             conn,
@@ -71,6 +73,8 @@ def recover_password(
     request: Request,
     payload: dict[str, Any] = required_body,
 ) -> dict[str, Any]:
+    maintenance.run_auth_maintenance_if_due()
+
     username = str(payload.get("username") or "").strip()
     recovery_code = str(payload.get("recovery_code") or "").strip()
     new_password = str(payload.get("new_password") or "")
@@ -80,7 +84,6 @@ def recover_password(
         raise HTTPException(status_code=401, detail=RECOVERY_ERROR_DETAIL)
 
     with db.connect() as conn:
-        recovery_codes.purge_old_recovery_attempts(conn)
         if recovery_codes.is_recovery_rate_limited(
             conn,
             username,
@@ -120,8 +123,6 @@ def recover_password(
         # Acquire the SQLite write reservation before checking or consuming
         # the recovery code so the transactional recheck remains authoritative.
         conn.execute("BEGIN IMMEDIATE")
-
-        recovery_codes.purge_old_recovery_attempts(conn)
 
         if recovery_codes.is_recovery_rate_limited(
             conn,
@@ -196,6 +197,8 @@ def login(
     response: Response,
     payload: dict[str, Any] = required_body,
 ) -> dict[str, Any]:
+    maintenance.run_auth_maintenance_if_due()
+
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
     client_key = web_setup.request_client_host(request)

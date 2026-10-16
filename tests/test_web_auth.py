@@ -318,3 +318,41 @@ def test_purge_expired_sessions(
 
     assert deleted == 1
     assert remaining_count == 1
+
+
+def test_purge_old_login_attempts_can_use_operational_retention(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_file = tmp_path / "login-retention.db"
+    monkeypatch.setattr(db, "DB_FILE", db_file)
+    db.init_db()
+
+    now = datetime(2026, 1, 2, tzinfo=UTC)
+
+    with db.connect() as conn:
+        auth.record_login_attempt(
+            conn,
+            "alice",
+            "127.0.0.1",
+            success=False,
+            now=now - timedelta(hours=25),
+        )
+        auth.record_login_attempt(
+            conn,
+            "alice",
+            "127.0.0.1",
+            success=False,
+            now=now - timedelta(hours=23),
+        )
+
+        deleted = auth.purge_old_login_attempts(
+            conn,
+            now=now,
+            window_seconds=24 * 60 * 60,
+        )
+
+        remaining = conn.execute("SELECT COUNT(*) FROM web_login_attempts").fetchone()[0]
+
+    assert deleted == 1
+    assert remaining == 1

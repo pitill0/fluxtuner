@@ -247,6 +247,7 @@ def test_web_css_has_clean_header_and_admin_view() -> None:
     assert "/* Clean app shell header and exclusive admin view */" not in styles_response.text
     assert ".admin-health" in admin_response.text
     assert "width: min(100%, 52rem);" in admin_response.text
+    assert "backdrop-filter" not in shell_response.text
 
 
 def test_web_static_serves_app_icon() -> None:

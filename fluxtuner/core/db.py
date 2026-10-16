@@ -20,6 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
+CURRENT_SCHEMA_VERSION = 1
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -48,26 +49,92 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 
 
 def init_db(db_path: Path | None = None) -> None:
-    """Create the FluxTuner SQLite schema and default user/profile if needed."""
+    """Prepare the FluxTuner schema and default user/profile if needed."""
     with connect(db_path) as conn:
-        create_schema(conn)
-        ensure_user_approval_schema(conn)
-        ensure_profile_user_schema(conn)
+        stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        if stored_version != CURRENT_SCHEMA_VERSION:
+            migrate_schema(conn)
+
         ensure_default_user(conn)
         ensure_default_profile(conn)
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO schema_migrations (name, applied_at)
-            VALUES (?, ?)
-            """,
-            (SCHEMA_MIGRATION_NAME, utc_now()),
-        )
         conn.commit()
+
+
+def migrate_schema(conn: sqlite3.Connection) -> None:
+    """Upgrade a FluxTuner database to the current schema version."""
+    if conn.in_transaction:
+        raise RuntimeError("Schema migration requires an idle SQLite connection.")
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        # Re-read the version only after acquiring the writer reservation.
+        # A concurrent initializer may have completed the migration while this
+        # connection was waiting for the lock.
+        stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+        if stored_version > CURRENT_SCHEMA_VERSION:
+            raise RuntimeError(
+                "Database schema version "
+                f"{stored_version} is newer than supported version "
+                f"{CURRENT_SCHEMA_VERSION}."
+            )
+
+        if stored_version == CURRENT_SCHEMA_VERSION:
+            conn.commit()
+            return
+
+        if stored_version == 0:
+            create_schema(conn)
+            ensure_user_approval_schema(conn)
+            ensure_profile_user_schema(conn)
+
+            # The retired password-change request flow stored password hashes
+            # that no longer have any operational purpose. Clear them once
+            # while upgrading pre-versioned databases.
+            conn.execute("DELETE FROM web_password_change_requests")
+
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO schema_migrations (name, applied_at)
+                VALUES (?, ?)
+                """,
+                (SCHEMA_MIGRATION_NAME, utc_now()),
+            )
+            conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+            conn.commit()
+            return
+
+        raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _execute_schema_script(
+    conn: sqlite3.Connection,
+    script: str,
+) -> None:
+    """Execute schema SQL without sqlite3.executescript() implicit commits."""
+    pending = ""
+
+    for line in script.splitlines(keepends=True):
+        pending += line
+        if not sqlite3.complete_statement(pending):
+            continue
+
+        statement = pending.strip()
+        pending = ""
+        if statement:
+            conn.execute(statement)
+
+    if pending.strip():
+        raise RuntimeError("Schema SQL ended with an incomplete statement.")
 
 
 def create_schema(conn: sqlite3.Connection) -> None:
     """Create all storage-foundation tables."""
-    conn.executescript(
+    _execute_schema_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS schema_migrations (
             name TEXT PRIMARY KEY,
@@ -297,7 +364,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_playlist_stations_playlist_position
         ON playlist_stations(playlist_id, position);
-        """
+        """,
     )
 
 
@@ -413,10 +480,8 @@ def get_or_create_user(
 def ensure_default_user(conn: sqlite3.Connection | None = None) -> int:
     """Return the default web user id, creating it when needed."""
     if conn is None:
+        init_db()
         with connect() as managed_conn:
-            create_schema(managed_conn)
-            ensure_user_approval_schema(managed_conn)
-            ensure_profile_user_schema(managed_conn)
             user_id = ensure_default_user(managed_conn)
             managed_conn.commit()
             return user_id
@@ -590,10 +655,8 @@ def ensure_default_profile(
 ) -> int:
     """Return the default profile id for a user, creating it when needed."""
     if conn is None:
+        init_db()
         with connect() as managed_conn:
-            create_schema(managed_conn)
-            ensure_user_approval_schema(managed_conn)
-            ensure_profile_user_schema(managed_conn)
             profile_id = ensure_default_profile(managed_conn, user_id=user_id)
             managed_conn.commit()
             return profile_id

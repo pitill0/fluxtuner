@@ -234,3 +234,35 @@ def test_sqlite_recording_store_rejects_missing_output_file(tmp_path: Path) -> N
 
     with pytest.raises(RecordingError, match="does not exist"):
         store.save(session)
+
+
+def test_sqlite_recording_store_does_not_reinitialize_current_database(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_file = tmp_path / "fluxtuner.db"
+    db.init_db(db_file)
+
+    media_file = tmp_path / "recording.mka"
+    media_file.write_bytes(b"recorded-media")
+
+    def forbidden_init_db(*_args, **_kwargs):
+        raise AssertionError("recording store reinitialized a current database")
+
+    monkeypatch.setattr(db, "init_db", forbidden_init_db)
+
+    store = SqliteRecordingStore(db_path=db_file)
+    session = RecordingSession(
+        station_name="Flux FM",
+        source_url="https://radio.example/stream",
+        output_path=media_file,
+        started_at="2026-09-02T12:00:00+00:00",
+        stopped_at="2026-09-02T12:00:20+00:00",
+    )
+
+    recording_id = store.save(session)
+
+    with db.connect(db_file) as conn:
+        recording = get_recording(conn, recording_id)
+
+    assert recording is not None

@@ -168,3 +168,21 @@ def test_profiles_are_unique_per_user(
     assert repeated_laura_profile_id == laura_profile_id
     assert [profile["name"] for profile in laura_profiles] == ["work"]
     assert [profile["name"] for profile in guest_profiles] == ["work"]
+
+
+def test_load_profiles_does_not_reinitialize_current_database(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    def forbidden_init_db(*_args, **_kwargs):
+        raise AssertionError("load_profiles reinitialized a current database")
+
+    monkeypatch.setattr(db, "init_db", forbidden_init_db)
+
+    loaded = profiles.load_profiles()
+
+    assert loaded
+    assert loaded[0]["name"] == "default"

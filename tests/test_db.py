@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from fluxtuner.core import db
 
 
@@ -209,3 +211,268 @@ def test_default_web_user_is_not_admin_without_password(tmp_path, monkeypatch) -
     assert user["is_admin"] == 0
     assert user["is_active"] == 1
     assert user["password_hash"] is None
+
+
+def test_init_db_records_current_schema_version(tmp_path) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+    assert version == db.CURRENT_SCHEMA_VERSION
+
+
+def test_current_schema_version_does_not_rerun_compatibility_migrations(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+
+    db.init_db(db_file)
+
+    approval_calls = 0
+    profile_calls = 0
+
+    original_approval = db.ensure_user_approval_schema
+    original_profile = db.ensure_profile_user_schema
+
+    def counted_approval(conn):
+        nonlocal approval_calls
+        approval_calls += 1
+        return original_approval(conn)
+
+    def counted_profile(conn):
+        nonlocal profile_calls
+        profile_calls += 1
+        return original_profile(conn)
+
+    monkeypatch.setattr(db, "ensure_user_approval_schema", counted_approval)
+    monkeypatch.setattr(db, "ensure_profile_user_schema", counted_profile)
+
+    db.init_db(db_file)
+
+    assert approval_calls == 0
+    assert profile_calls == 0
+
+
+def test_init_db_rejects_newer_schema_version(tmp_path) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+
+    with db.connect(db_file) as conn:
+        conn.execute(f"PRAGMA user_version = {db.CURRENT_SCHEMA_VERSION + 1}")
+
+    with pytest.raises(RuntimeError, match="newer than supported"):
+        db.init_db(db_file)
+
+
+def test_schema_upgrade_clears_retired_password_change_requests_once(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+
+    # Build a representative pre-versioned database using the current
+    # compatibility schema, then mark it as legacy user_version=0.
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        user_id = db.get_or_create_user(
+            conn,
+            "alice",
+            password_hash="legacy-user-password-hash",
+            is_active=True,
+        )
+        now = db.utc_now()
+        conn.execute(
+            """
+            INSERT INTO web_password_change_requests (
+                user_id,
+                password_hash,
+                note,
+                status,
+                created_at,
+                expires_at
+            )
+            VALUES (?, ?, ?, 'pending', ?, ?)
+            """,
+            (
+                user_id,
+                "retired-password-change-hash",
+                "legacy request",
+                now,
+                now,
+            ),
+        )
+        conn.execute("PRAGMA user_version = 0")
+        conn.commit()
+
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        legacy_rows = conn.execute("SELECT COUNT(*) FROM web_password_change_requests").fetchone()[
+            0
+        ]
+        user = db.get_user_by_username(conn, "alice")
+
+    assert version == db.CURRENT_SCHEMA_VERSION
+    assert legacy_rows == 0
+    assert user is not None
+    assert user["password_hash"] == "legacy-user-password-hash"
+
+    # Once current, initialization must not execute the legacy cleanup again.
+    execute_calls = 0
+    original_connect = db.connect
+
+    class CountingConnection:
+        def __init__(self, connection):
+            self._connection = connection
+
+        def __enter__(self):
+            self._connection.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self._connection.__exit__(*args)
+
+        def __getattr__(self, name):
+            return getattr(self._connection, name)
+
+        def execute(self, sql, parameters=()):
+            nonlocal execute_calls
+            if "DELETE FROM web_password_change_requests" in sql:
+                execute_calls += 1
+            return self._connection.execute(sql, parameters)
+
+    def counted_connect(path=None):
+        return CountingConnection(original_connect(path))
+
+    monkeypatch.setattr(db, "connect", counted_connect)
+
+    db.init_db(db_file)
+
+    assert execute_calls == 0
+
+
+def test_current_schema_version_skips_migration_runner(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    db.init_db(db_path)
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    db.init_db(db_path)
+
+    assert migration_calls == 0
+
+
+def test_get_default_profile_id_does_not_run_schema_helpers_directly(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    patch_db_file(tmp_path, monkeypatch)
+    db.init_db()
+
+    def forbidden_schema_helper(*_args, **_kwargs):
+        raise AssertionError("managed default ran schema compatibility helper directly")
+
+    monkeypatch.setattr(db, "create_schema", forbidden_schema_helper)
+    monkeypatch.setattr(db, "ensure_user_approval_schema", forbidden_schema_helper)
+    monkeypatch.setattr(db, "ensure_profile_user_schema", forbidden_schema_helper)
+
+    profile_id = db.get_default_profile_id()
+
+    assert profile_id > 0
+
+
+def test_migrate_schema_holds_write_lock_until_version_is_recorded(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+    statements: list[str] = []
+
+    with db.connect(db_path) as conn:
+        conn.set_trace_callback(statements.append)
+        db.migrate_schema(conn)
+
+    normalized = [" ".join(statement.upper().split()) for statement in statements]
+
+    begin_index = next(
+        index for index, statement in enumerate(normalized) if statement == "BEGIN IMMEDIATE"
+    )
+    version_read_index = next(
+        index for index, statement in enumerate(normalized) if statement == "PRAGMA USER_VERSION"
+    )
+    version_write_index = next(
+        index
+        for index, statement in enumerate(normalized)
+        if statement.startswith("PRAGMA USER_VERSION =")
+    )
+    commit_index = next(
+        index for index, statement in enumerate(normalized) if statement == "COMMIT"
+    )
+
+    assert begin_index < version_read_index
+    assert version_read_index < version_write_index
+    assert version_write_index < commit_index
+
+
+def test_concurrent_init_db_migrates_fresh_database_once(
+    tmp_path,
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db_path = tmp_path / "fluxtuner.db"
+    barrier = Barrier(2)
+
+    def initialize() -> None:
+        barrier.wait(timeout=5)
+        db.init_db(db_path)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(initialize),
+            executor.submit(initialize),
+        ]
+        for future in futures:
+            future.result(timeout=10)
+
+    with db.connect(db_path) as conn:
+        stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        migration_count = int(
+            conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM schema_migrations
+                WHERE name = ?
+                """,
+                (db.SCHEMA_MIGRATION_NAME,),
+            ).fetchone()[0]
+        )
+        default_user_count = int(
+            conn.execute(
+                "SELECT COUNT(*) FROM users WHERE username = ?",
+                (db.DEFAULT_USER_NAME,),
+            ).fetchone()[0]
+        )
+        default_profile_count = int(
+            conn.execute(
+                "SELECT COUNT(*) FROM profiles WHERE name = ?",
+                (db.DEFAULT_PROFILE_NAME,),
+            ).fetchone()[0]
+        )
+
+    assert stored_version == db.CURRENT_SCHEMA_VERSION
+    assert migration_count == 1
+    assert default_user_count == 1
+    assert default_profile_count == 1

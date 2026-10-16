@@ -8,7 +8,6 @@ from fastapi import APIRouter, Body, HTTPException, Request, Response
 
 from fluxtuner.core import db
 from fluxtuner.web import admin_actions
-from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 
 AUTH_REQUIRED_DETAIL = "Authentication required."
@@ -63,7 +62,6 @@ def admin_list_users(request: Request) -> dict[str, Any]:
     require_admin_user(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.list_users_payload(conn)
 
 
@@ -76,7 +74,6 @@ def admin_create_user(
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.create_user_payload(
             conn,
             payload,
@@ -96,7 +93,6 @@ def admin_set_user_password(
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_password_payload(conn, username, payload)
 
 
@@ -106,7 +102,6 @@ def admin_deactivate_user(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_approval_payload(
             conn,
             username,
@@ -123,7 +118,6 @@ def admin_activate_user(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_approval_payload(
             conn,
             username,
@@ -140,7 +134,6 @@ def admin_delete_user(username: str, request: Request) -> Response:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         admin_actions.delete_user(conn, username, admin_user_id=int(admin_user["id"]))
 
     return Response(status_code=204)
@@ -152,7 +145,6 @@ def admin_approve_user(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_approval_payload(
             conn,
             username,
@@ -169,7 +161,6 @@ def admin_reject_user(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_approval_payload(
             conn,
             username,
@@ -186,7 +177,6 @@ def admin_grant_admin(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_admin_payload(
             conn,
             username,
@@ -201,7 +191,6 @@ def admin_revoke_admin(username: str, request: Request) -> dict[str, Any]:
     require_csrf(request)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return admin_actions.set_user_admin_payload(
             conn,
             username,

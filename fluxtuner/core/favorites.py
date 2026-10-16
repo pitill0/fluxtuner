@@ -334,7 +334,12 @@ def _ensure_favorites_db() -> None:
     migrate_legacy_file(LEGACY_FAVORITES_FILE, FAVORITES_FILE)
 
     db_path = _db_path()
-    db.init_db(db_path)
+
+    with db.connect(db_path) as conn:
+        stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+    if stored_version != db.CURRENT_SCHEMA_VERSION:
+        db.init_db(db_path)
 
     with db.connect(db_path) as conn:
         if _migration_applied(conn, FAVORITES_JSON_MIGRATION):

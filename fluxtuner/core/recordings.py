@@ -261,7 +261,12 @@ class SqliteRecordingStore:
         except ValueError as exc:
             raise RecordingError("Recording session contains invalid timestamps.") from exc
 
-        db.init_db(self.db_path)
+        with db.connect(self.db_path) as conn:
+            stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+        if stored_version != db.CURRENT_SCHEMA_VERSION:
+            db.init_db(self.db_path)
+
         with db.connect(self.db_path) as conn:
             recording_id = add_recording(
                 conn,

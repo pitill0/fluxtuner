@@ -70,7 +70,6 @@ def request_password_change_payload(
             note=note,
             expires_at=password_changes.password_change_expires_at(),
         )
-        revoke_user_sessions(conn, user_id)
 
     auth.record_login_attempt(
         conn,
@@ -119,6 +118,36 @@ def approve_password_change_request_payload(
         conn.commit()
         raise HTTPException(status_code=409, detail=ACCOUNT_CHANGE_EXPIRED_DETAIL)
 
+    claimed = db.approve_pending_password_change_request(
+        conn,
+        request_id,
+        resolved_by_user_id=resolved_by_user_id,
+    )
+    if not claimed:
+        current_request = db.get_password_change_request(conn, request_id)
+        if current_request is not None and (
+            str(current_request["status"]) == db.ACCOUNT_CHANGE_EXPIRED
+            or password_changes.password_change_is_expired(current_request)
+        ):
+            if str(current_request["status"]) == db.ACCOUNT_CHANGE_PENDING:
+                db.set_password_change_request_status(
+                    conn,
+                    request_id,
+                    db.ACCOUNT_CHANGE_EXPIRED,
+                    resolved_by_user_id=resolved_by_user_id,
+                )
+            conn.commit()
+            raise HTTPException(
+                status_code=409,
+                detail=ACCOUNT_CHANGE_EXPIRED_DETAIL,
+            )
+
+        conn.commit()
+        raise HTTPException(
+            status_code=409,
+            detail=ACCOUNT_CHANGE_NOT_PENDING_DETAIL,
+        )
+
     user_id = int(request_payload["user_id"])
     conn.execute(
         """
@@ -129,12 +158,6 @@ def approve_password_change_request_payload(
         WHERE id = ?
         """,
         (str(request_payload["password_hash"]), db.utc_now(), user_id),
-    )
-    db.set_password_change_request_status(
-        conn,
-        request_id,
-        db.ACCOUNT_CHANGE_APPROVED,
-        resolved_by_user_id=resolved_by_user_id,
     )
     revoke_user_sessions(conn, user_id)
     conn.commit()

@@ -65,6 +65,7 @@ def create_web_admin_user(username: str, *, console: Console) -> None:
                 """,
                 (password_hash, db.utc_now(), user_id),
             )
+            db.expire_pending_password_change_requests(conn, user_id)
             action = "updated"
 
         db.ensure_default_profile(conn, user_id=user_id)
@@ -137,6 +138,10 @@ def set_web_user_password(username: str, *, console: Console) -> None:
             WHERE id = ?
             """,
             (password_hash, db.utc_now(), int(user["id"])),
+        )
+        db.expire_pending_password_change_requests(
+            conn,
+            int(user["id"]),
         )
         conn.execute(
             """

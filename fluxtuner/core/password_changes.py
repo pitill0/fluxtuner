@@ -70,40 +70,75 @@ def upsert_pending_password_change_request(
     created_at: str | None = None,
     expires_at: str,
 ) -> int:
-    """Create or replace the active pending password change request for a user."""
+    """Create a pending request without replacing an active unexpired request."""
     now = created_at or utc_now()
     clean_note = _clean_text(note)
 
-    row = conn.execute(
+    refresh_cursor = conn.execute(
         """
-        SELECT id
-        FROM web_password_change_requests
-        WHERE user_id = ? AND status = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-        """,
-        (user_id, ACCOUNT_CHANGE_PENDING),
-    ).fetchone()
-
-    if row is not None:
-        request_id = int(row["id"])
-        conn.execute(
-            """
-            UPDATE web_password_change_requests
-            SET
-                password_hash = ?,
-                note = ?,
-                created_at = ?,
-                expires_at = ?,
-                resolved_at = NULL,
-                resolved_by_user_id = NULL
-            WHERE id = ?
-            """,
-            (password_hash, clean_note, now, expires_at, request_id),
+        UPDATE web_password_change_requests
+        SET
+            password_hash = ?,
+            note = ?,
+            status = ?,
+            created_at = ?,
+            expires_at = ?,
+            resolved_at = NULL,
+            resolved_by_user_id = NULL
+        WHERE id = (
+            SELECT id
+            FROM web_password_change_requests
+            WHERE user_id = ?
+              AND status = ?
+              AND expires_at <= ?
+            ORDER BY created_at DESC
+            LIMIT 1
         )
-        return request_id
+          AND status = ?
+          AND expires_at <= ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM web_password_change_requests active
+              WHERE active.user_id = ?
+                AND active.status = ?
+                AND active.expires_at > ?
+          )
+        """,
+        (
+            password_hash,
+            clean_note,
+            ACCOUNT_CHANGE_PENDING,
+            now,
+            expires_at,
+            user_id,
+            ACCOUNT_CHANGE_PENDING,
+            now,
+            ACCOUNT_CHANGE_PENDING,
+            now,
+            user_id,
+            ACCOUNT_CHANGE_PENDING,
+            now,
+        ),
+    )
 
-    cursor = conn.execute(
+    if refresh_cursor.rowcount == 1:
+        row = conn.execute(
+            """
+            SELECT id
+            FROM web_password_change_requests
+            WHERE user_id = ?
+              AND status = ?
+              AND expires_at > ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (user_id, ACCOUNT_CHANGE_PENDING, now),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Could not refresh password change request.")
+        return int(row["id"])
+
+    insert_cursor = conn.execute(
         """
         INSERT INTO web_password_change_requests (
             user_id,
@@ -115,15 +150,46 @@ def upsert_pending_password_change_request(
             resolved_at,
             resolved_by_user_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)
+        SELECT ?, ?, ?, ?, ?, ?, NULL, NULL
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM web_password_change_requests
+            WHERE user_id = ?
+              AND status = ?
+        )
         """,
-        (user_id, password_hash, clean_note, ACCOUNT_CHANGE_PENDING, now, expires_at),
+        (
+            user_id,
+            password_hash,
+            clean_note,
+            ACCOUNT_CHANGE_PENDING,
+            now,
+            expires_at,
+            user_id,
+            ACCOUNT_CHANGE_PENDING,
+        ),
     )
 
-    inserted_request_id = cursor.lastrowid
-    if inserted_request_id is None:
-        raise RuntimeError("Could not create password change request.")
-    return int(inserted_request_id)
+    if insert_cursor.rowcount == 1:
+        inserted_request_id = insert_cursor.lastrowid
+        if inserted_request_id is None:
+            raise RuntimeError("Could not create password change request.")
+        return int(inserted_request_id)
+
+    row = conn.execute(
+        """
+        SELECT id
+        FROM web_password_change_requests
+        WHERE user_id = ?
+          AND status = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        """,
+        (user_id, ACCOUNT_CHANGE_PENDING),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("Could not resolve password change request.")
+    return int(row["id"])
 
 
 def list_password_change_requests(
@@ -190,6 +256,65 @@ def user_has_pending_password_change_request(
         (user_id, ACCOUNT_CHANGE_PENDING, now or utc_now()),
     ).fetchone()
     return row is not None
+
+
+def expire_pending_password_change_requests(
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    resolved_at: str | None = None,
+) -> int:
+    """Expire every unresolved password change request for a user."""
+    cursor = conn.execute(
+        """
+        UPDATE web_password_change_requests
+        SET
+            status = ?,
+            resolved_at = ?,
+            resolved_by_user_id = NULL
+        WHERE user_id = ?
+          AND status = ?
+        """,
+        (
+            ACCOUNT_CHANGE_EXPIRED,
+            resolved_at or utc_now(),
+            user_id,
+            ACCOUNT_CHANGE_PENDING,
+        ),
+    )
+    return int(cursor.rowcount)
+
+
+def approve_pending_password_change_request(
+    conn: sqlite3.Connection,
+    request_id: int,
+    *,
+    resolved_by_user_id: int,
+    now: str | None = None,
+) -> bool:
+    """Atomically approve a request only while it is still pending and unexpired."""
+    current_time = now or utc_now()
+    cursor = conn.execute(
+        """
+        UPDATE web_password_change_requests
+        SET
+            status = ?,
+            resolved_at = ?,
+            resolved_by_user_id = ?
+        WHERE id = ?
+          AND status = ?
+          AND expires_at > ?
+        """,
+        (
+            ACCOUNT_CHANGE_APPROVED,
+            current_time,
+            resolved_by_user_id,
+            request_id,
+            ACCOUNT_CHANGE_PENDING,
+            current_time,
+        ),
+    )
+    return cursor.rowcount == 1
 
 
 def get_password_change_request(

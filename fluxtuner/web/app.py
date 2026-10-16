@@ -11,7 +11,7 @@ from typing import Any
 
 from fluxtuner import __app_name__, __version__
 from fluxtuner.core import db, recovery_codes
-from fluxtuner.web import auth, registration_actions
+from fluxtuner.web import auth, maintenance, registration_actions
 from fluxtuner.web import context as web_context
 from fluxtuner.web import dashboard as web_dashboard
 from fluxtuner.web import guards as web_guards
@@ -112,6 +112,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI):
         await asyncio.to_thread(db.init_db)
+        await asyncio.to_thread(maintenance.run_auth_maintenance_if_due)
 
         coordinator = coordinator_factory()
         app_instance.state.metadata_coordinator = coordinator
@@ -240,6 +241,8 @@ def create_app(
         response: Response,
         payload: dict[str, Any] = required_body,
     ) -> dict[str, Any]:
+        maintenance.run_auth_maintenance_if_due()
+
         username = str(payload.get("username") or "").strip()
         password = str(payload.get("password") or "")
         setup_token = str(payload.get("setup_token") or "")

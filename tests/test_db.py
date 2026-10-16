@@ -476,3 +476,90 @@ def test_concurrent_init_db_migrates_fresh_database_once(
     assert migration_count == 1
     assert default_user_count == 1
     assert default_profile_count == 1
+
+
+def test_schema_v1_upgrades_to_v2_with_auth_retention_indexes(tmp_path) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+
+    with db.connect(db_path) as conn:
+        db.create_schema(conn)
+        db.ensure_user_approval_schema(conn)
+        db.ensure_profile_user_schema(conn)
+
+        # create_schema() represents the current schema, so remove the v2-only
+        # indexes to construct a representative schema-v1 database.
+        conn.execute("DROP INDEX IF EXISTS idx_web_login_attempts_attempted_at")
+        conn.execute("DROP INDEX IF EXISTS idx_web_recovery_attempts_attempted_at")
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+
+    db.init_db(db_path)
+
+    with db.connect(db_path) as conn:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        indexes = {
+            str(row["name"])
+            for row in conn.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'index'
+                """
+            ).fetchall()
+        }
+
+    assert version == db.CURRENT_SCHEMA_VERSION
+    assert "idx_web_login_attempts_attempted_at" in indexes
+    assert "idx_web_recovery_attempts_attempted_at" in indexes
+
+
+def test_fresh_database_contains_auth_retention_indexes(tmp_path) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+
+    db.init_db(db_path)
+
+    with db.connect(db_path) as conn:
+        indexes = {
+            str(row["name"])
+            for row in conn.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'index'
+                """
+            ).fetchall()
+        }
+
+    assert "idx_web_login_attempts_attempted_at" in indexes
+    assert "idx_web_recovery_attempts_attempted_at" in indexes
+
+
+def test_schema_v0_upgrades_through_v2(tmp_path) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+
+    with db.connect(db_path) as conn:
+        db.create_schema(conn)
+        db.ensure_user_approval_schema(conn)
+        db.ensure_profile_user_schema(conn)
+        conn.execute("PRAGMA user_version = 0")
+        conn.commit()
+
+    db.init_db(db_path)
+
+    with db.connect(db_path) as conn:
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        indexes = {
+            str(row["name"])
+            for row in conn.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'index'
+                """
+            ).fetchall()
+        }
+
+    assert version == db.CURRENT_SCHEMA_VERSION
+    assert version == 2
+    assert "idx_web_login_attempts_attempted_at" in indexes
+    assert "idx_web_recovery_attempts_attempted_at" in indexes

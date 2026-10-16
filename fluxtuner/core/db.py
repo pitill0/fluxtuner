@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -79,32 +79,49 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 f"{CURRENT_SCHEMA_VERSION}."
             )
 
-        if stored_version == CURRENT_SCHEMA_VERSION:
-            conn.commit()
-            return
+        while stored_version < CURRENT_SCHEMA_VERSION:
+            if stored_version == 0:
+                create_schema(conn)
+                ensure_user_approval_schema(conn)
+                ensure_profile_user_schema(conn)
 
-        if stored_version == 0:
-            create_schema(conn)
-            ensure_user_approval_schema(conn)
-            ensure_profile_user_schema(conn)
+                # The retired password-change request flow stored password hashes
+                # that no longer have any operational purpose. Clear them once
+                # while upgrading pre-versioned databases.
+                conn.execute("DELETE FROM web_password_change_requests")
 
-            # The retired password-change request flow stored password hashes
-            # that no longer have any operational purpose. Clear them once
-            # while upgrading pre-versioned databases.
-            conn.execute("DELETE FROM web_password_change_requests")
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO schema_migrations (name, applied_at)
+                    VALUES (?, ?)
+                    """,
+                    (SCHEMA_MIGRATION_NAME, utc_now()),
+                )
+                stored_version = 1
+                conn.execute("PRAGMA user_version = 1")
+                continue
 
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO schema_migrations (name, applied_at)
-                VALUES (?, ?)
-                """,
-                (SCHEMA_MIGRATION_NAME, utc_now()),
-            )
-            conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
-            conn.commit()
-            return
+            if stored_version == 1:
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_web_login_attempts_attempted_at
+                    ON web_login_attempts(attempted_at)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_web_recovery_attempts_attempted_at
+                    ON web_recovery_attempts(attempted_at)
+                    """
+                )
+                stored_version = 2
+                conn.execute("PRAGMA user_version = 2")
+                continue
 
-        raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
+            raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
+
+        conn.commit()
+        return
     except Exception:
         conn.rollback()
         raise
@@ -225,6 +242,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
             attempted_at
         );
 
+        CREATE INDEX IF NOT EXISTS idx_web_recovery_attempts_attempted_at
+        ON web_recovery_attempts(attempted_at);
+
         CREATE TABLE IF NOT EXISTS web_login_attempts (
             id INTEGER PRIMARY KEY,
             normalized_username TEXT NOT NULL,
@@ -238,6 +258,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_web_login_attempts_lookup
         ON web_login_attempts(normalized_username, client_key, attempted_at);
+
+        CREATE INDEX IF NOT EXISTS idx_web_login_attempts_attempted_at
+        ON web_login_attempts(attempted_at);
 
         CREATE TABLE IF NOT EXISTS web_password_change_requests (
             id INTEGER PRIMARY KEY,

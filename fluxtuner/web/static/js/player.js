@@ -585,6 +585,7 @@ export function createPlayerController({
       if (
         currentStation &&
         !startingPlayback &&
+        !softPausingPlayback &&
         !stoppingPlayback &&
         playerState.current !== "error"
       ) {
@@ -597,7 +598,15 @@ export function createPlayerController({
 
     audioNode.addEventListener("waiting", () => {
       logPlayerEvent("audio-waiting");
-      if (currentStation && !stoppingPlayback && playerState.current !== "error") {
+      const hasActiveSource = Boolean(
+        audioNode["currentSrc"] || audioNode.getAttribute("src"),
+      );
+      if (
+        currentStation &&
+        hasActiveSource &&
+        !stoppingPlayback &&
+        playerState.current !== "error"
+      ) {
         setPlayerState("loading", "Buffering stream...", "audio-waiting");
         scheduleBufferingNotice(playbackRunId);
       }
@@ -607,8 +616,20 @@ export function createPlayerController({
     audioNode.addEventListener("error", () => {
       logPlayerEvent("audio-error");
       clearBufferingNotice();
-      if (currentStation && !startingPlayback && !stoppingPlayback) {
-        setPlayerState("error", "Stream playback failed. Try Retry, Stop, or Open externally.", "audio-error");
+      const hasActiveSource = Boolean(
+        audioNode["currentSrc"] || audioNode.getAttribute("src"),
+      );
+      if (
+        currentStation &&
+        hasActiveSource &&
+        !startingPlayback &&
+        !stoppingPlayback
+      ) {
+        setPlayerState(
+          "error",
+          "Stream playback failed. Try Retry, Stop, or Open externally.",
+          "audio-error",
+        );
       }
       updatePlayerControls();
     });

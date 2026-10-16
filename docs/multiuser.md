@@ -32,7 +32,7 @@ shortcut-based auth layer or a public SaaS identity system.
 ### Out of scope for the 1.0 Web/server model
 
 - OAuth, OpenID Connect or external identity providers.
-- Password recovery by email.
+- Password recovery by email or another external identity provider.
 - Email notifications for account approval or rejection.
 - Multi-factor authentication.
 - Public hosted multi-tenant service mode.
@@ -159,6 +159,17 @@ Requirements:
 - Login responses do not reveal whether the username or password was wrong.
 - Login attempts are rate-limited.
 - Users can change their password only after re-entering their current password.
+- Approved active users receive a server-generated recovery-code set when they
+  successfully log in without an existing set.
+- Recovery codes are shown in plaintext only when issued and are stored only as
+  hashes.
+- Password recovery requires the username, one valid recovery code and the new
+  password; anonymous callers cannot submit a credential for later administrator
+  approval.
+- Successful recovery consumes the presented recovery state, rotates the full
+  recovery-code set and revokes existing sessions.
+- Authenticated users can regenerate their recovery codes, invalidating the
+  previous set.
 - Disabled, rejected and pending users cannot access the Web app.
 - Pending users only see `Account pending approval.` after providing the correct password.
 
@@ -241,9 +252,10 @@ Representative public/setup/auth routes:
 
 - `GET /`
 - `GET /api/setup/status`
-- `POST /api/setup/admin`
+- `POST /api/setup/create-admin`
 - `POST /api/auth/login`
 - `POST /api/auth/register`
+- `POST /api/auth/recover-password`
 - `GET /api/public/stats`
 
 Representative authenticated routes:
@@ -263,16 +275,17 @@ Representative authenticated routes:
 - `POST /api/playlists/{name}/stations`
 - `DELETE /api/playlists/{name}/stations`
 - `GET /api/stream-metadata`
-- authenticated password-change request routes
+- `POST /api/auth/recovery-codes/regenerate`
 
-Admin-only routes are implemented for Web user management, password-change
-review and metadata diagnostics. They require an
-authenticated active administrator session. Administrators can create users,
-reset passwords, activate/deactivate users, grant/revoke admin access, approve
-or reject pending account requests, and delete users from the Admin UI/API.
-Destructive user deletion is kept in a danger zone, requires strong confirmation,
-is CSRF-protected, blocks self-delete, and removes related Web sessions,
-favorites, playlists, history and password change requests.
+Admin-only routes are implemented for Web user management and metadata
+diagnostics. They require an authenticated active administrator session.
+Administrators can create users, reset passwords, activate/deactivate users,
+grant/revoke admin access, approve or reject pending account requests, and
+delete users from the Admin UI/API. Administrative password resets are a
+break-glass recovery path rather than part of the normal self-service recovery
+flow. Destructive user deletion is kept in a danger zone, requires strong
+confirmation, is CSRF-protected, blocks self-delete, and removes related Web
+sessions, favorites, playlists and history.
 
 ## Bootstrap strategy
 
@@ -315,9 +328,15 @@ The current private-server browser experience includes:
 - Hidden dialogs and authenticated header controls remain hidden until the current
   session state makes them visible.
 
-Password change requests and public read-only server stats are implemented for
-private server deployments. Public stats remain anonymous aggregate counts only;
-they do not expose usernames, stream URLs, IP addresses or detailed timestamps.
+Self-service password recovery uses server-generated recovery codes and does
+not require email or administrator approval. Recovery codes are backup
+credentials: users must retain a copy outside the active session. If a user
+loses the password, has no authenticated session and no valid recovery code,
+there is intentionally no anonymous bypass; recovery requires an administrative
+password reset.
+
+Public read-only server stats remain anonymous aggregate counts only; they do
+not expose usernames, stream URLs, IP addresses or detailed timestamps.
 
 ## Container and deployment requirements
 

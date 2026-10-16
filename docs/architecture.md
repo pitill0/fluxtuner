@@ -254,7 +254,7 @@ fluxtuner/core/
   history.py               Playback history persistence and migration
   importers.py             Import validation for favorites/playlists
   manual_playlists.py      User-managed playlist service
-  password_changes.py      Password-change request persistence
+  recovery_codes.py        Web password recovery-code lifecycle and rate limiting
   playlists.py             Tag playlists and playlist persistence helpers
   profiles.py              Profile persistence and effective-profile resolution
   public_stats.py          Public activity statistics

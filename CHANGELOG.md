@@ -10,15 +10,30 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added self-service Web password recovery using server-generated recovery
+  codes that are shown only when issued and stored only as hashes.
+- Added authenticated recovery-code regeneration and automatic first-set
+  issuance for approved active users that do not yet have recovery codes.
 
 ### Changed
 
-- Nothing yet.
+- Replaced the anonymous administrator-approved password-change request flow
+  with recovery-code possession as the proof required for self-service password
+  recovery.
+- Retired the legacy password-change request API, administrator review UI and
+  runtime helpers while preserving the legacy database table for compatibility.
+- Administrative, setup and CLI password resets now invalidate previously
+  issued recovery codes.
 
 ### Fixed
 
-- Nothing yet.
+- Hardened the previous password-change flow against anonymous session
+  revocation, request overwrite and approval/submission races before replacing
+  that flow with recovery codes.
+- Recovery attempts are rate-limited independently from normal login and are
+  rejected before expensive password hashing once the recovery limit is reached.
+- Successful verified recovery revokes existing sessions and rotates the full
+  recovery-code set.
 
 
 ## [1.2.1] - 2026-09-03

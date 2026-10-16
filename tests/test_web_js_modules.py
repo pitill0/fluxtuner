@@ -860,6 +860,270 @@ console.log(JSON.stringify({
     assert result["playerStateEvents"] == ["loading", "paused"]
 
 
+def test_web_player_intentional_pause_ignores_teardown_audio_error(
+    tmp_path: Path,
+) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "player.js",
+        r"""
+const { createPlayerController } = await import(process.argv[1]);
+
+class FakeEventTarget {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  addEventListener(name, callback, options = {}) {
+    const entries = this.listeners.get(name) || [];
+    entries.push({ callback, once: Boolean(options.once) });
+    this.listeners.set(name, entries);
+  }
+
+  removeEventListener(name, callback) {
+    const entries = this.listeners.get(name) || [];
+    this.listeners.set(
+      name,
+      entries.filter((entry) => entry.callback !== callback),
+    );
+  }
+
+  dispatch(name) {
+    const entries = [...(this.listeners.get(name) || [])];
+    for (const entry of entries) {
+      entry.callback({ type: name });
+      if (entry.once) {
+        this.removeEventListener(name, entry.callback);
+      }
+    }
+  }
+}
+
+const audioNode = new FakeEventTarget();
+
+Object.assign(audioNode, {
+  attributes: new Map(),
+  paused: true,
+  ended: false,
+  readyState: 0,
+  networkState: 0,
+  currentSrc: "",
+  src: "",
+  crossOrigin: "",
+  title: "",
+  controls: false,
+  preload: "",
+  error: null,
+  emitTeardownError: false,
+
+  getAttribute(name) {
+    return this.attributes.get(name) || "";
+  },
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  },
+
+  removeAttribute(name) {
+    this.attributes.delete(name);
+    if (name === "src") {
+      this.src = "";
+      this.currentSrc = "";
+    }
+  },
+
+  load() {
+    this.currentSrc = this.src;
+
+    if (!this.src) {
+      queueMicrotask(() => this.dispatch("emptied"));
+      if (this.emitTeardownError) {
+        queueMicrotask(() => {
+          this.error = {
+            code: 4,
+            message: "teardown source unavailable",
+          };
+          this.dispatch("error");
+        });
+      }
+    }
+  },
+
+  pause() {
+    this.paused = true;
+    queueMicrotask(() => this.dispatch("pause"));
+  },
+
+  async play() {
+    this.paused = false;
+    this.error = null;
+    this.currentSrc = this.src;
+    queueMicrotask(() => this.dispatch("playing"));
+  },
+});
+
+const playerBar = { dataset: {} };
+const titleNode = { textContent: "" };
+const statusNode = { textContent: "" };
+
+const toggleButton = {
+  disabled: false,
+  textContent: "",
+  dataset: {},
+  addEventListener() {},
+  querySelector() {
+    return null;
+  },
+  setAttribute() {},
+};
+
+const stopButton = {
+  disabled: false,
+  dataset: {},
+  addEventListener() {},
+  querySelector() {
+    return null;
+  },
+  setAttribute() {},
+};
+
+const openLink = {
+  hidden: true,
+  href: "",
+  removeAttribute(name) {
+    if (name === "href") this.href = "";
+  },
+};
+
+const events = [];
+
+const controller = createPlayerController({
+  audioNode,
+  playerBar,
+  titleNode,
+  statusNode,
+  toggleButton,
+  stopButton,
+  openLink,
+  stationUrl: (station) => station.url,
+  logPlayerEvent(eventName, details = {}) {
+    events.push([eventName, details]);
+  },
+  mediaSessionController: {
+    clearMediaSessionMetadata() {},
+    debugSnapshot() {
+      return null;
+    },
+    reapplyCurrentMetadata() {},
+    setMediaSessionMetadata() {},
+    updateMediaSessionState() {},
+  },
+  metadataController: {
+    clear() {},
+    setStation() {},
+    updatePlaybackState() {},
+  },
+  async recordHistory() {},
+  resetRecordedHistory() {},
+  windowRef: {
+    addEventListener() {},
+    clearTimeout,
+    setTimeout,
+  },
+  documentRef: {
+    addEventListener() {},
+    visibilityState: "visible",
+  },
+});
+
+controller.initialize();
+
+await controller.playStation({
+  name: "Flux FM",
+  url: "https://radio.example/stream",
+});
+
+/*
+ * Flush teardown events queued by the source clear performed at playback
+ * startup. They happen while startingPlayback is true and are intentionally
+ * ignored by the controller.
+ */
+await Promise.resolve();
+await new Promise((resolve) => setImmediate(resolve));
+
+const beforePause = controller.debugSnapshot();
+
+audioNode.emitTeardownError = true;
+
+controller.pauseCurrentStationPlayback("Paused intentionally.");
+
+const immediatelyPaused = controller.debugSnapshot();
+
+/*
+ * pause(), removeAttribute("src") and load() can cause media teardown events.
+ * Flush microtasks before the zero-delay soft-pause guard is released.
+ */
+await Promise.resolve();
+
+const afterTeardownEvents = controller.debugSnapshot();
+
+await new Promise((resolve) => setTimeout(resolve, 0));
+
+const afterGuardRelease = controller.debugSnapshot();
+
+/*
+ * Teardown events may also arrive after the short soft-pause guard has been
+ * released. With no active source they must remain observational only.
+ */
+audioNode.dispatch("waiting");
+audioNode.dispatch("error");
+
+const afterLateTeardownEvents = controller.debugSnapshot();
+
+console.log(JSON.stringify({
+  beforePause,
+  immediatelyPaused,
+  afterTeardownEvents,
+  afterGuardRelease,
+  afterLateTeardownEvents,
+  state: playerBar.dataset.state,
+  status: statusNode.textContent,
+  src: audioNode.src,
+  eventNames: events.map(([name]) => name),
+  stateReasons: events
+    .filter(([name]) => name === "player-state")
+    .map(([, details]) => [details.state, details.reason]),
+}));
+""",
+    )
+
+    assert result["beforePause"]["state"] == "playing"
+
+    assert result["immediatelyPaused"]["state"] == "paused"
+    assert result["immediatelyPaused"]["flags"]["softPausingPlayback"] is True
+    assert result["immediatelyPaused"]["audio"]["src"] == ""
+
+    assert result["afterTeardownEvents"]["state"] == "paused"
+    assert result["afterTeardownEvents"]["flags"]["softPausingPlayback"] is True
+
+    assert result["afterGuardRelease"]["state"] == "paused"
+    assert result["afterGuardRelease"]["flags"]["softPausingPlayback"] is False
+
+    assert result["afterLateTeardownEvents"]["state"] == "paused"
+    assert result["afterLateTeardownEvents"]["flags"]["softPausingPlayback"] is False
+
+    assert result["state"] == "paused"
+    assert result["status"] == "Paused intentionally."
+    assert result["src"] == ""
+
+    assert "audio-pause" in result["eventNames"]
+    assert "audio-emptied" in result["eventNames"]
+    assert "audio-error" in result["eventNames"]
+
+    assert ["paused", "playback-paused"] in result["stateReasons"]
+    assert ["error", "audio-error"] not in result["stateReasons"]
+
+
 def test_web_player_controller_reconciles_lifecycle_state(tmp_path: Path) -> None:
     result = _run_es_module(
         tmp_path,
@@ -1488,6 +1752,222 @@ console.log(JSON.stringify({
         "overflow": 120,
         "noOverflow": 0,
     }
+
+
+def test_web_metadata_restarts_overflow_marquee_across_track_changes(
+    tmp_path: Path,
+) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "metadata.js",
+        r"""
+const { createMetadataController } = await import(process.argv[1]);
+
+const frames = new Map();
+let nextFrameId = 1;
+
+function requestAnimationFrame(callback) {
+  const id = nextFrameId++;
+  frames.set(id, callback);
+  return id;
+}
+
+function cancelAnimationFrame(id) {
+  frames.delete(id);
+}
+
+function flushNextFrame() {
+  const entry = [...frames.entries()][0];
+  if (!entry) return false;
+
+  const [id, callback] = entry;
+  frames.delete(id);
+  callback();
+  return true;
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+const timers = new Map();
+let nextTimerId = 1;
+
+const windowRef = {
+  addEventListener() {},
+  requestAnimationFrame,
+  cancelAnimationFrame,
+  setTimeout(callback, delay) {
+    const id = nextTimerId++;
+    timers.set(id, { callback, delay });
+    return id;
+  },
+  clearTimeout(id) {
+    timers.delete(id);
+  },
+};
+
+const documentRef = {
+  visibilityState: "visible",
+  addEventListener() {},
+};
+
+const styleValues = new Map();
+const copyButton = {
+  clientWidth: 200,
+  disabled: false,
+  dataset: {},
+  attributes: new Map(),
+  style: {
+    setProperty(name, value) {
+      styleValues.set(name, value);
+    },
+    removeProperty(name) {
+      styleValues.delete(name);
+    },
+  },
+  addEventListener() {},
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  },
+};
+
+const titleNode = {
+  textContent: "",
+  scrollWidth: 420,
+};
+
+const responses = [
+  { status: "fresh", metadata: { title: "First overflowing track title" } },
+  { status: "fresh", metadata: { title: "Second overflowing track title" } },
+];
+
+let requestIndex = 0;
+async function apiFetch() {
+  const payload = responses[requestIndex];
+  requestIndex += 1;
+
+  return {
+    ok: true,
+    async json() {
+      return payload;
+    },
+  };
+}
+
+const controller = createMetadataController({
+  apiFetch,
+  titleNode,
+  copyButton,
+  stationNode: { textContent: "", hidden: false },
+  statusNode: null,
+  windowRef,
+  documentRef,
+  navigatorRef: {},
+});
+
+controller.setStation("https://example.com/live", "Flux FM");
+controller.updatePlaybackState("playing", {
+  url: "https://example.com/live",
+  title: "Flux FM",
+});
+
+await flushMicrotasks();
+
+/*
+ * First track: drain however many animation frames are required to reach the
+ * stable overflowing state. This lets the test remain valid after the fix,
+ * where restart is intentionally split across two frames.
+ */
+while (flushNextFrame()) {
+  // Drain initial overflow setup.
+}
+
+const firstTrackState = {
+  title: titleNode.textContent,
+  overflow: copyButton.dataset.overflow,
+  distance: styleValues.get("--player-track-distance") || "",
+};
+
+/*
+ * Trigger the next scheduled metadata poll.
+ */
+const pollTimerEntry = [...timers.entries()]
+  .find(([, value]) => value.delay === 15000);
+
+if (!pollTimerEntry) {
+  throw new Error("metadata poll timer was not scheduled");
+}
+
+const [pollTimerId, pollTimer] = pollTimerEntry;
+timers.delete(pollTimerId);
+pollTimer.callback();
+
+await flushMicrotasks();
+
+const beforeRestartFrame = {
+  title: titleNode.textContent,
+  overflow: copyButton.dataset.overflow,
+  queuedFrames: frames.size,
+};
+
+/*
+ * The first restart frame must remove the active overflow selector and leave
+ * it removed for one rendered frame. The following frame may re-enable it
+ * after recalculating distance/duration.
+ */
+const firstRestartFrameRan = flushNextFrame();
+
+const afterRestartResetFrame = {
+  overflow: copyButton.dataset.overflow,
+  queuedFrames: frames.size,
+};
+
+const secondRestartFrameRan = flushNextFrame();
+
+const afterRestartEnableFrame = {
+  overflow: copyButton.dataset.overflow,
+  queuedFrames: frames.size,
+  distance: styleValues.get("--player-track-distance") || "",
+};
+
+console.log(JSON.stringify({
+  firstTrackState,
+  beforeRestartFrame,
+  firstRestartFrameRan,
+  afterRestartResetFrame,
+  secondRestartFrameRan,
+  afterRestartEnableFrame,
+  requestIndex,
+}));
+""",
+    )
+
+    assert result["firstTrackState"]["title"] == "First overflowing track title"
+    assert result["firstTrackState"]["overflow"] == "true"
+    assert result["firstTrackState"]["distance"] == "-220px"
+
+    assert result["beforeRestartFrame"] == {
+        "title": "Second overflowing track title",
+        "overflow": "true",
+        "queuedFrames": 1,
+    }
+
+    assert result["firstRestartFrameRan"] is True
+    assert result["afterRestartResetFrame"] == {
+        "overflow": "false",
+        "queuedFrames": 1,
+    }
+
+    assert result["secondRestartFrameRan"] is True
+    assert result["afterRestartEnableFrame"] == {
+        "overflow": "true",
+        "queuedFrames": 0,
+        "distance": "-220px",
+    }
+
+    assert result["requestIndex"] == 2
 
 
 def test_web_metadata_polling_follows_document_visibility(tmp_path: Path) -> None:

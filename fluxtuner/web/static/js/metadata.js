@@ -121,15 +121,22 @@ export function createMetadataController({
     copyButton.style.removeProperty("--player-track-distance");
     copyButton.style.removeProperty("--player-track-duration");
 
-    const distance = trackOverflowDistance(titleNode.scrollWidth, copyButton.clientWidth);
-    if (distance <= 1 || copyButton.disabled) return;
+    if (copyButton.disabled) return;
 
-    copyButton.style.setProperty("--player-track-distance", `-${distance}px`);
-    copyButton.style.setProperty(
-      "--player-track-duration",
-      `${Math.max(8, Math.round(distance / 22) + 5)}s`,
-    );
-    copyButton.dataset.overflow = "true";
+    overflowFrameId = requestFrame(() => {
+      overflowFrameId = 0;
+      if (!copyButton || !titleNode || copyButton.disabled) return;
+
+      const distance = trackOverflowDistance(titleNode.scrollWidth, copyButton.clientWidth);
+      if (distance <= 1) return;
+
+      copyButton.style.setProperty("--player-track-distance", `-${distance}px`);
+      copyButton.style.setProperty(
+        "--player-track-duration",
+        `${Math.max(8, Math.round(distance / 22) + 5)}s`,
+      );
+      copyButton.dataset.overflow = "true";
+    });
   }
 
   function scheduleTrackOverflowRefresh() {

@@ -58,6 +58,7 @@ The Web/server mode includes:
 - Registration requests with administrator approval.
 - Private favorites, playlists and listening history.
 - User and session administration.
+- Self-service password recovery using server-generated recovery codes.
 - Dashboard metrics.
 - A responsive browser interface.
 - Persistent SQLite storage.

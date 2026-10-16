@@ -249,8 +249,17 @@ Expected first-run flow:
 - search works from the dashboard quick action and from the top navigation
 - playback starts in the browser
 - browser player `Pause`, `Resume`, `Stop` and failed-stream `Retry` states are coherent
+- pausing browser playback releases the live stream and resuming starts playback normally
+- long overflowing track titles stop scrolling after the bounded animation and
+  do not animate while playback is paused or in an error state
+- changing from one overflowing track title to another restarts the bounded
+  animation for the new metadata
+- after pausing releases the browser audio source, late `pause`, `waiting` or
+  `error` lifecycle events do not move the player away from the paused state
 - Android lock-screen/status-bar media controls show station metadata and artwork after playback starts
 - iOS media controls show station metadata after the browser hands playback to the system
+- on a real iPhone/WebKit session, sustained playback and pause/resume do not
+  reproduce the previous excessive persistent rendering/resource usage
 - favorites, history and playlists are accessible only after login
 
 Account request and admin user flow:
@@ -264,6 +273,11 @@ Account request and admin user flow:
 - pending user appears in Admin
 - approving the user allows login
 - rejected or deactivated users cannot log in
+- an approved user receives recovery codes when required
+- authenticated recovery-code regeneration invalidates the previous code set
+- password recovery with a valid recovery code changes the password, revokes
+  existing sessions and returns a rotated recovery-code set
+- an invalid recovery code does not reveal whether an account exists
 - user deletion is available only from the Admin danger zone
 - cancelling or mistyping the delete confirmation keeps the user intact
 - deleting a non-current test user removes the user from Admin and does not

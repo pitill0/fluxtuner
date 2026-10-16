@@ -83,6 +83,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.2.2" date="2026-09-04">
+      <description>
+        <ul>
+          <li>Improved Linux StatusNotifierItem and DBusMenu compatibility, especially on XFCE.</li>
+          <li>Fixed right-click tray menus falling back to the XFCE panel context menu.</li>
+          <li>Added broader DBusMenu method and signal support.</li>
+          <li>Improved tray protocol validation and development quality gates.</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="1.2.1" date="2026-09-03">
       <description>
         <ul>

@@ -36,11 +36,9 @@ def create_web_admin_user(username: str, *, console: Console) -> None:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(1) from exc
 
-    with db.connect() as conn:
-        db.create_schema(conn)
-        db.ensure_profile_user_schema(conn)
-        db.ensure_default_user(conn)
+    db.init_db()
 
+    with db.connect() as conn:
         existing_user = db.get_user_by_username(conn, clean_username)
         if existing_user is None:
             user_id = db.get_or_create_user(
@@ -68,6 +66,11 @@ def create_web_admin_user(username: str, *, console: Console) -> None:
             recovery_codes.invalidate_recovery_codes(conn, user_id)
             action = "updated"
 
+        db.set_user_approval_status(
+            conn,
+            user_id,
+            db.APPROVAL_APPROVED,
+        )
         db.ensure_default_profile(conn, user_id=user_id)
         conn.commit()
 
@@ -78,9 +81,9 @@ def print_web_users(*, console: Console) -> None:
     """Print web users without exposing password hashes."""
     from fluxtuner.core import db
 
+    db.init_db()
+
     with db.connect() as conn:
-        db.create_schema(conn)
-        db.ensure_profile_user_schema(conn)
         users = db.list_users(conn)
 
     table = Table(title="FluxTuner web users")
@@ -120,10 +123,9 @@ def set_web_user_password(username: str, *, console: Console) -> None:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(1) from exc
 
-    with db.connect() as conn:
-        db.create_schema(conn)
-        db.ensure_profile_user_schema(conn)
+    db.init_db()
 
+    with db.connect() as conn:
         user = db.get_user_by_username(conn, clean_username)
         if user is None:
             console.print(f"[red]Web user {clean_username!r} does not exist.[/red]")
@@ -162,25 +164,19 @@ def deactivate_web_user(username: str, *, console: Console) -> None:
         console.print("[red]Username is required.[/red]")
         raise SystemExit(1)
 
-    with db.connect() as conn:
-        db.create_schema(conn)
-        db.ensure_profile_user_schema(conn)
+    db.init_db()
 
+    with db.connect() as conn:
         user = db.get_user_by_username(conn, clean_username)
         if user is None:
             console.print(f"[red]Web user {clean_username!r} does not exist.[/red]")
             raise SystemExit(1)
 
         now = db.utc_now()
-        conn.execute(
-            """
-            UPDATE users
-            SET
-                is_active = 0,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (now, int(user["id"])),
+        db.set_user_approval_status(
+            conn,
+            int(user["id"]),
+            db.APPROVAL_DISABLED,
         )
         conn.execute(
             """

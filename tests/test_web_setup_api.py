@@ -18,6 +18,7 @@ VALID_PASSWORD = "correct horse battery staple"
 def make_client(tmp_path, monkeypatch) -> TestClient:
     monkeypatch.setattr(db, "DB_FILE", tmp_path / "setup.db")
     monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    db.init_db()
     return TestClient(create_app())
 
 

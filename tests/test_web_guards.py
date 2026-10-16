@@ -9,7 +9,6 @@ from fastapi import HTTPException
 
 from fluxtuner.core import db
 from fluxtuner.web import auth
-from fluxtuner.web.context import ensure_web_schema
 from fluxtuner.web.guards import require_admin_user, require_authenticated_user, require_csrf
 from fluxtuner.web.security import (
     CSRF_HEADER_NAME,
@@ -48,10 +47,10 @@ def test_require_csrf_rejects_missing_header() -> None:
 
 def test_require_authenticated_user_returns_session_user(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "fluxtuner.sqlite3"
-    monkeypatch.setenv("FLUXTUNER_DB", str(db_path))
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
 
     with db.connect() as conn:
-        ensure_web_schema(conn)
         user_id = db.get_or_create_user(
             conn,
             "alice",
@@ -79,10 +78,10 @@ def test_require_authenticated_user_rejects_missing_session() -> None:
 
 def test_require_admin_user_returns_admin_session_user(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "fluxtuner.sqlite3"
-    monkeypatch.setenv("FLUXTUNER_DB", str(db_path))
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
 
     with db.connect() as conn:
-        ensure_web_schema(conn)
         user_id = db.get_or_create_user(
             conn,
             "admin",
@@ -106,10 +105,10 @@ def test_require_admin_user_returns_admin_session_user(tmp_path, monkeypatch) ->
 
 def test_require_admin_user_rejects_non_admin_session_user(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "fluxtuner.sqlite3"
-    monkeypatch.setenv("FLUXTUNER_DB", str(db_path))
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
 
     with db.connect() as conn:
-        ensure_web_schema(conn)
         user_id = db.get_or_create_user(
             conn,
             "alice",

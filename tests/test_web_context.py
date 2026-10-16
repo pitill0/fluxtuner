@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from fluxtuner.core import db
+from fastapi.testclient import TestClient
+
+from fluxtuner.core import db, favorites, history, manual_playlists
 from fluxtuner.web import auth
-from fluxtuner.web.context import authenticated_user, effective_profile_name, ensure_web_schema
+from fluxtuner.web.app import create_app
+from fluxtuner.web.context import authenticated_user, effective_profile_name
 from fluxtuner.web.security import SESSION_COOKIE_NAME
 
 
@@ -16,30 +19,12 @@ def test_effective_profile_name_delegates_profile_resolution() -> None:
     assert effective_profile_name(" main ") == "main"
 
 
-def test_ensure_web_schema_creates_web_tables(tmp_path, monkeypatch) -> None:
-    db_path = tmp_path / "fluxtuner.sqlite3"
-    monkeypatch.setenv("FLUXTUNER_DB", str(db_path))
-
-    with db.connect() as conn:
-        ensure_web_schema(conn)
-        tables = {
-            row["name"]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
-        }
-
-    assert "users" in tables
-    assert "web_sessions" in tables
-    assert "web_password_change_requests" in tables
-
-
 def test_authenticated_user_returns_session_user(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "fluxtuner.sqlite3"
-    monkeypatch.setenv("FLUXTUNER_DB", str(db_path))
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
 
     with db.connect() as conn:
-        ensure_web_schema(conn)
         user_id = db.get_or_create_user(conn, "admin", password_hash="hash", is_admin=True)
         token = auth.create_session(conn, user_id)
 
@@ -59,3 +44,345 @@ def test_authenticated_user_returns_none_without_session(tmp_path, monkeypatch) 
     request = SimpleNamespace(cookies={})
 
     assert authenticated_user(request) is None
+
+
+def test_web_lifespan_initializes_database_once_off_request_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    init_calls = 0
+    original_init_db = db.init_db
+
+    def counted_init_db(path=None):
+        nonlocal init_calls
+        init_calls += 1
+        return original_init_db(path)
+
+    monkeypatch.setattr(db, "init_db", counted_init_db)
+
+    with TestClient(create_app()) as client:
+        response = client.get("/api/setup/status")
+
+    assert response.status_code == 200
+    assert init_calls == 1
+
+    with db.connect(db_path) as conn:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+    assert version == db.CURRENT_SCHEMA_VERSION
+
+
+def test_web_request_does_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    with TestClient(create_app()) as client:
+        migration_calls = 0
+        response = client.get("/api/setup/status")
+
+    assert response.status_code == 200
+    assert migration_calls == 0
+
+
+def test_authenticated_session_resolution_runs_off_event_loop(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(conn, "alice")
+        token = auth.create_session(conn, user_id)
+        conn.commit()
+
+    offloaded_calls = 0
+
+    import asyncio
+
+    original_to_thread = asyncio.to_thread
+
+    async def counted_to_thread(func, /, *args, **kwargs):
+        nonlocal offloaded_calls
+        offloaded_calls += 1
+        return await original_to_thread(func, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "fluxtuner.web.app.asyncio.to_thread",
+        counted_to_thread,
+    )
+
+    with TestClient(create_app()) as client:
+        # Ignore the expected startup db.init_db() offload. We specifically
+        # want to observe work caused by the authenticated request below.
+        offloaded_calls = 0
+
+        client.cookies.set(SESSION_COOKIE_NAME, token)
+        response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert offloaded_calls >= 1
+
+
+def test_setup_and_admin_dashboard_do_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", tmp_path / "favorites.json")
+    monkeypatch.setattr(history, "HISTORY_FILE", tmp_path / "history.json")
+    monkeypatch.setattr(
+        manual_playlists,
+        "PLAYLISTS_FILE",
+        tmp_path / "playlists.json",
+    )
+    monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    with TestClient(create_app()) as client:
+        migration_calls = 0
+        setup_response = client.post(
+            "/api/setup/create-admin",
+            json={
+                "username": "alice",
+                "password": "correct horse battery staple",
+                "setup_token": "setup-secret",
+            },
+        )
+
+        assert setup_response.status_code == 200
+
+        dashboard_response = client.get("/api/dashboard")
+
+    assert dashboard_response.status_code == 200
+    assert migration_calls == 0
+
+
+def test_public_stats_does_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    with TestClient(create_app()) as client:
+        migration_calls = 0
+        response = client.get("/api/public/stats")
+
+    assert response.status_code == 200
+    assert migration_calls == 0
+
+
+def test_login_does_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    with TestClient(create_app()) as client:
+        migration_calls = 0
+        response = client.post(
+            "/api/auth/login",
+            json={
+                "username": "missing-user",
+                "password": "correct horse battery staple",
+            },
+        )
+
+    assert response.status_code == 401
+    assert migration_calls == 0
+
+
+def test_admin_list_users_does_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    db.init_db()
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(
+            conn,
+            "admin",
+            password_hash=auth.hash_password("correct horse battery staple"),
+            is_admin=True,
+            is_active=True,
+        )
+        conn.execute(
+            """
+            UPDATE users
+            SET approval_status = ?
+            WHERE id = ?
+            """,
+            (db.APPROVAL_APPROVED, user_id),
+        )
+        token = auth.create_session(conn, user_id)
+        conn.commit()
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    with TestClient(create_app()) as client:
+        migration_calls = 0
+        client.cookies.set(SESSION_COOKIE_NAME, token)
+        response = client.get("/api/admin/users")
+
+    assert response.status_code == 200
+    assert migration_calls == 0
+
+
+def test_authenticated_user_fallback_does_not_run_schema_preparation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.sqlite3"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    db.init_db()
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(
+            conn,
+            "fallback-user",
+            password_hash=auth.hash_password("correct horse battery staple"),
+            is_active=True,
+        )
+        conn.execute(
+            """
+            UPDATE users
+            SET approval_status = ?
+            WHERE id = ?
+            """,
+            (db.APPROVAL_APPROVED, user_id),
+        )
+        token = auth.create_session(conn, user_id)
+        conn.commit()
+
+    migration_calls = 0
+    original_migrate_schema = db.migrate_schema
+
+    def counted_migrate_schema(conn):
+        nonlocal migration_calls
+        migration_calls += 1
+        return original_migrate_schema(conn)
+
+    monkeypatch.setattr(db, "migrate_schema", counted_migrate_schema)
+
+    request = type(
+        "Request",
+        (),
+        {
+            "state": object(),
+            "cookies": {SESSION_COOKIE_NAME: token},
+        },
+    )()
+
+    user = authenticated_user(request)
+
+    assert user is not None
+    assert user["username"] == "fallback-user"
+    assert migration_calls == 0
+
+
+def test_dashboard_does_not_reinitialize_database(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "fluxtuner.db"
+    monkeypatch.setattr(db, "DB_FILE", db_path)
+    monkeypatch.setattr(favorites, "FAVORITES_FILE", tmp_path / "favorites.json")
+    monkeypatch.setattr(history, "HISTORY_FILE", tmp_path / "history.json")
+    monkeypatch.setattr(
+        manual_playlists,
+        "PLAYLISTS_FILE",
+        tmp_path / "playlists.json",
+    )
+    monkeypatch.setenv("FLUXTUNER_WEB_SECURE_COOKIES", "false")
+    monkeypatch.setenv("FLUXTUNER_WEB_SETUP_TOKEN", "setup-secret")
+
+    init_calls = 0
+    original_init_db = db.init_db
+
+    def counted_init_db(db_path=None):
+        nonlocal init_calls
+        init_calls += 1
+        return original_init_db(db_path)
+
+    monkeypatch.setattr(db, "init_db", counted_init_db)
+
+    with TestClient(create_app()) as client:
+        setup_response = client.post(
+            "/api/setup/create-admin",
+            json={
+                "username": "alice",
+                "password": "correct horse battery staple",
+                "setup_token": "setup-secret",
+            },
+        )
+        assert setup_response.status_code == 200
+
+        # Ignore legitimate startup/setup initialization. Measure only
+        # normal dashboard access against the already-prepared database.
+        init_calls = 0
+
+        dashboard_response = client.get("/api/dashboard")
+
+    assert dashboard_response.status_code == 200
+    assert init_calls == 0

@@ -54,7 +54,6 @@ def register(
     payload: dict[str, Any] = required_body,
 ) -> dict[str, str]:
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         return registration_actions.register_payload(
             conn,
             payload,
@@ -81,7 +80,6 @@ def recover_password(
         raise HTTPException(status_code=401, detail=RECOVERY_ERROR_DETAIL)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         recovery_codes.purge_old_recovery_attempts(conn)
         if recovery_codes.is_recovery_rate_limited(
             conn,
@@ -119,12 +117,8 @@ def recover_password(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-
-        # Schema setup may perform compatibility writes. Start the recovery
-        # transaction from a known clean boundary, then acquire the SQLite
-        # write reservation before checking or consuming the recovery code.
-        conn.commit()
+        # Acquire the SQLite write reservation before checking or consuming
+        # the recovery code so the transactional recheck remains authoritative.
         conn.execute("BEGIN IMMEDIATE")
 
         recovery_codes.purge_old_recovery_attempts(conn)
@@ -210,7 +204,6 @@ def login(
         raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
         if auth.is_login_rate_limited(conn, username, client_key):
             raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
@@ -310,8 +303,6 @@ def regenerate_recovery_codes(
     user_id = int(user["id"])
 
     with db.connect() as conn:
-        web_context.ensure_web_schema(conn)
-
         # Keep reauthentication and recovery-code rotation in the same
         # serialized credential-management transaction.
         conn.commit()

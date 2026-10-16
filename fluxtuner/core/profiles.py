@@ -168,7 +168,11 @@ def resolve_profile_id(
 
 def load_profiles() -> list[dict[str, Any]]:
     """Return known profiles from the default FluxTuner database."""
-    db.init_db()
+    with db.connect() as conn:
+        stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+    if stored_version != db.CURRENT_SCHEMA_VERSION:
+        db.init_db()
 
     with db.connect() as conn:
         return list_profiles(conn)

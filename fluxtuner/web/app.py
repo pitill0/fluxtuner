@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib import resources
@@ -110,6 +111,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI):
+        await asyncio.to_thread(db.init_db)
+
         coordinator = coordinator_factory()
         app_instance.state.metadata_coordinator = coordinator
         try:
@@ -125,41 +128,53 @@ def create_app(
         lifespan=lifespan,
     )
 
+    def resolve_and_renew_session_sync(
+        token: str,
+        request_path: str,
+    ) -> tuple[Any | None, int | None]:
+        with db.connect() as conn:
+            session = auth.get_session(
+                conn,
+                token,
+                absolute_max_age_seconds=session_absolute_max_age(),
+            )
+            user = auth.get_user_for_session(conn, session) if session is not None else None
+            renewed_cookie_max_age: int | None = None
+
+            if (
+                session is not None
+                and user is not None
+                and request_path not in SESSION_COOKIE_MUTATION_PATHS
+            ):
+                max_age = session_cookie_max_age()
+                renewed_cookie_max_age = auth.renew_session(
+                    conn,
+                    session,
+                    max_age_seconds=max_age,
+                    absolute_max_age_seconds=session_absolute_max_age(),
+                    renewal_interval_seconds=session_renewal_interval(max_age),
+                )
+                if renewed_cookie_max_age is not None:
+                    conn.commit()
+
+        return user, renewed_cookie_max_age
+
     @app.middleware("http")
     async def resolve_and_renew_session(request: Request, call_next: Any) -> Response:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         renewed_cookie_max_age: int | None = None
 
         if token and request.url.path.startswith("/api/"):
-            with db.connect() as conn:
-                web_context.ensure_web_schema(conn)
-                session = auth.get_session(
-                    conn,
-                    token,
-                    absolute_max_age_seconds=session_absolute_max_age(),
-                )
-                user = auth.get_user_for_session(conn, session) if session is not None else None
-                setattr(
-                    request.state,
-                    web_context.AUTHENTICATED_USER_STATE_KEY,
-                    user,
-                )
-
-                if (
-                    session is not None
-                    and user is not None
-                    and request.url.path not in SESSION_COOKIE_MUTATION_PATHS
-                ):
-                    max_age = session_cookie_max_age()
-                    renewed_cookie_max_age = auth.renew_session(
-                        conn,
-                        session,
-                        max_age_seconds=max_age,
-                        absolute_max_age_seconds=session_absolute_max_age(),
-                        renewal_interval_seconds=session_renewal_interval(max_age),
-                    )
-                    if renewed_cookie_max_age is not None:
-                        conn.commit()
+            user, renewed_cookie_max_age = await asyncio.to_thread(
+                resolve_and_renew_session_sync,
+                token,
+                request.url.path,
+            )
+            setattr(
+                request.state,
+                web_context.AUTHENTICATED_USER_STATE_KEY,
+                user,
+            )
 
         response = await call_next(request)
         if renewed_cookie_max_age is not None:
@@ -210,7 +225,6 @@ def create_app(
     @app.get("/api/setup/status")
     def setup_status(request: Request) -> dict[str, Any]:
         with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
             admin_exists = web_setup.configured_admin_exists(conn)
 
         return {
@@ -237,8 +251,6 @@ def create_app(
             raise HTTPException(status_code=400, detail=FIELD_TOO_LONG_DETAIL)
 
         with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-
             if auth.is_login_rate_limited(conn, SETUP_RATE_LIMIT_USERNAME, client_key):
                 raise HTTPException(status_code=429, detail=RATE_LIMIT_DETAIL)
 
@@ -264,8 +276,6 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         with db.connect() as conn:
-            web_context.ensure_web_schema(conn)
-
             if web_setup.configured_admin_exists(conn):
                 raise HTTPException(status_code=403, detail=SETUP_UNAVAILABLE_DETAIL)
 
@@ -358,7 +368,6 @@ def create_app(
 
         if bool(user["is_admin"]):
             with db.connect() as conn:
-                web_context.ensure_web_schema(conn)
                 payload["admin"] = {
                     **web_dashboard.admin_user_counts(conn),
                     "server": web_dashboard.server_health_payload(),

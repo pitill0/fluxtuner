@@ -215,6 +215,7 @@ def test_deactivate_user_marks_inactive_and_revokes_sessions(tmp_path, monkeypat
         user = db.get_user_by_username(conn, "alice")
         assert user is not None
         assert user["is_active"] is False
+        assert user["approval_status"] == db.APPROVAL_DISABLED
         assert auth.get_session(conn, token) is None
 
 
@@ -295,3 +296,58 @@ def test_create_admin_existing_user_invalidates_recovery_codes(tmp_path, monkeyp
         ).fetchone()[0]
 
     assert remaining == 0
+
+
+def test_create_admin_promotes_pending_user_to_approved(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
+    with db.connect() as conn:
+        user_id = db.create_pending_user(
+            conn,
+            "alice",
+            password_hash=auth.hash_password("old correct horse battery staple"),
+        )
+        conn.commit()
+
+    run_command(
+        monkeypatch,
+        ["web", "users", "create-admin", "alice"],
+        [VALID_PASSWORD, VALID_PASSWORD],
+    )
+
+    with db.connect() as conn:
+        user = db.get_user_by_username(conn, "alice")
+
+    assert user is not None
+    assert user["id"] == user_id
+    assert user["is_admin"] is True
+    assert user["is_active"] is True
+    assert user["approval_status"] == db.APPROVAL_APPROVED
+
+
+def test_web_user_cli_current_database_does_not_run_schema_helpers(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
+    def forbidden_schema_helper(*_args, **_kwargs):
+        raise AssertionError("CLI command ran schema compatibility helper")
+
+    monkeypatch.setattr(db, "create_schema", forbidden_schema_helper)
+    monkeypatch.setattr(db, "ensure_profile_user_schema", forbidden_schema_helper)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["fluxtuner", "web", "users", "list"],
+    )
+
+    __main__.main()
+
+    capsys.readouterr()

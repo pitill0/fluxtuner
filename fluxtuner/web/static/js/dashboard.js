@@ -90,10 +90,6 @@ export function createDashboardController({
         renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0)),
         renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0)),
         renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0)),
-        renderDashboardMetric(
-          "Password changes",
-          Number(adminMetrics.pending_password_change_requests_count || 0),
-        ),
         renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown")),
       ].join("");
     }

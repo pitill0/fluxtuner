@@ -60,20 +60,3 @@ def admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "created_at": str(user["created_at"]),
         "updated_at": str(user["updated_at"]),
     }
-
-
-def admin_password_change_request_payload(
-    request_payload: dict[str, Any],
-) -> dict[str, Any]:
-    return {
-        "id": int(request_payload["id"]),
-        "user_id": int(request_payload["user_id"]),
-        "username": str(request_payload["username"]),
-        "display_name": str(request_payload["display_name"]),
-        "note": request_payload.get("note"),
-        "status": str(request_payload["status"]),
-        "created_at": str(request_payload["created_at"]),
-        "expires_at": str(request_payload["expires_at"]),
-        "resolved_at": request_payload.get("resolved_at"),
-        "resolved_by_user_id": request_payload.get("resolved_by_user_id"),
-    }

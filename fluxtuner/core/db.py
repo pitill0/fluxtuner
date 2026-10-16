@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fluxtuner.core import password_changes as _password_changes
 from fluxtuner.core import stations as _stations
 from fluxtuner.core import users as _users
 from fluxtuner.paths import data_file
@@ -30,16 +29,6 @@ APPROVAL_STATUSES = {
     APPROVAL_PENDING,
     APPROVAL_REJECTED,
     APPROVAL_DISABLED,
-}
-ACCOUNT_CHANGE_PENDING = "pending"
-ACCOUNT_CHANGE_APPROVED = "approved"
-ACCOUNT_CHANGE_REJECTED = "rejected"
-ACCOUNT_CHANGE_EXPIRED = "expired"
-ACCOUNT_CHANGE_STATUSES = {
-    ACCOUNT_CHANGE_PENDING,
-    ACCOUNT_CHANGE_APPROVED,
-    ACCOUNT_CHANGE_REJECTED,
-    ACCOUNT_CHANGE_EXPIRED,
 }
 
 
@@ -134,6 +123,40 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_web_sessions_expires_at
         ON web_sessions(expires_at);
+
+        CREATE TABLE IF NOT EXISTS web_recovery_codes (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            slot INTEGER NOT NULL,
+            code_hash TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            used_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE (user_id, slot),
+            CHECK (slot > 0),
+            CHECK (length(trim(code_hash)) > 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_recovery_codes_user_id
+        ON web_recovery_codes(user_id);
+
+        CREATE TABLE IF NOT EXISTS web_recovery_attempts (
+            id INTEGER PRIMARY KEY,
+            normalized_username TEXT NOT NULL,
+            client_key TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 0,
+            attempted_at TEXT NOT NULL,
+            CHECK (length(trim(normalized_username)) > 0),
+            CHECK (length(trim(client_key)) > 0),
+            CHECK (success IN (0, 1))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_recovery_attempts_lookup
+        ON web_recovery_attempts(
+            normalized_username,
+            client_key,
+            attempted_at
+        );
 
         CREATE TABLE IF NOT EXISTS web_login_attempts (
             id INTEGER PRIMARY KEY,
@@ -455,108 +478,6 @@ def set_user_approval_status(
         user_id,
         status,
         reviewed_by_user_id=reviewed_by_user_id,
-    )
-
-
-def _validate_password_change_status(status: str) -> str:
-    return _password_changes.validate_password_change_status(status)
-
-
-def password_change_request_from_row(row: sqlite3.Row) -> dict[str, Any]:
-    """Return a password change request dictionary from a SQLite row."""
-    return _password_changes.password_change_request_from_row(row)
-
-
-def upsert_pending_password_change_request(
-    conn: sqlite3.Connection,
-    user_id: int,
-    *,
-    password_hash: str,
-    note: str | None = None,
-    created_at: str | None = None,
-    expires_at: str,
-) -> int:
-    """Create a pending request without replacing an active unexpired request."""
-    return _password_changes.upsert_pending_password_change_request(
-        conn,
-        user_id,
-        password_hash=password_hash,
-        note=note,
-        created_at=created_at,
-        expires_at=expires_at,
-    )
-
-
-def list_password_change_requests(
-    conn: sqlite3.Connection,
-    *,
-    status: str | None = ACCOUNT_CHANGE_PENDING,
-) -> list[dict[str, Any]]:
-    """Return password change requests joined with their target users."""
-    return _password_changes.list_password_change_requests(conn, status=status)
-
-
-def user_has_pending_password_change_request(
-    conn: sqlite3.Connection,
-    user_id: int,
-    *,
-    now: str | None = None,
-) -> bool:
-    """Return whether an active pending password change request locks login."""
-    return _password_changes.user_has_pending_password_change_request(conn, user_id, now=now)
-
-
-def expire_pending_password_change_requests(
-    conn: sqlite3.Connection,
-    user_id: int,
-    *,
-    resolved_at: str | None = None,
-) -> int:
-    """Expire every unresolved password change request for a user."""
-    return _password_changes.expire_pending_password_change_requests(
-        conn,
-        user_id,
-        resolved_at=resolved_at,
-    )
-
-
-def approve_pending_password_change_request(
-    conn: sqlite3.Connection,
-    request_id: int,
-    *,
-    resolved_by_user_id: int,
-    now: str | None = None,
-) -> bool:
-    """Atomically approve a request only while it is pending and unexpired."""
-    return _password_changes.approve_pending_password_change_request(
-        conn,
-        request_id,
-        resolved_by_user_id=resolved_by_user_id,
-        now=now,
-    )
-
-
-def get_password_change_request(
-    conn: sqlite3.Connection,
-    request_id: int,
-) -> dict[str, Any] | None:
-    """Return one password change request joined with its target user."""
-    return _password_changes.get_password_change_request(conn, request_id)
-
-
-def set_password_change_request_status(
-    conn: sqlite3.Connection,
-    request_id: int,
-    status: str,
-    *,
-    resolved_by_user_id: int | None = None,
-) -> None:
-    """Resolve a password change request with a final status."""
-    _password_changes.set_password_change_request_status(
-        conn,
-        request_id,
-        status,
-        resolved_by_user_id=resolved_by_user_id,
     )
 
 

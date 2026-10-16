@@ -11,6 +11,7 @@ export function createAuthController({
   renderAuthRequired,
   resetRadioBrowserView,
   setCsrfToken,
+  showRecoveryCodes,
   setCurrentUser,
   stopPlayback,
   updateAuthUi,
@@ -77,6 +78,9 @@ export function createAuthController({
       const payload = await response.json();
       setCurrentUser(payload.user || null);
       setCsrfToken(payload.csrf_token || "");
+      if (Array.isArray(payload.recovery_codes) && payload.recovery_codes.length) {
+        showRecoveryCodes(payload.recovery_codes);
+      }
       resetRadioBrowserView();
       updateAuthUi();
       await loadDashboard();

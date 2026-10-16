@@ -99,36 +99,6 @@ def test_set_user_password_payload_revokes_sessions(tmp_path, monkeypatch) -> No
         assert auth.get_session_user(conn, token) is None
 
 
-def test_set_user_password_payload_expires_pending_password_change_request(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    setup_db(tmp_path, monkeypatch)
-    user_id = create_user("alice")
-
-    with db.connect() as conn:
-        db.upsert_pending_password_change_request(
-            conn,
-            user_id,
-            password_hash=auth.hash_password("pending correct horse battery staple"),
-            expires_at="2999-01-01T00:00:00+00:00",
-        )
-        conn.commit()
-
-    with db.connect() as conn:
-        admin_actions.set_user_password_payload(
-            conn,
-            "alice",
-            {"password": "new correct horse battery staple"},
-        )
-
-    with db.connect() as conn:
-        requests = db.list_password_change_requests(conn, status=None)
-
-    assert len(requests) == 1
-    assert requests[0]["status"] == db.ACCOUNT_CHANGE_EXPIRED
-
-
 def test_delete_user_blocks_self_delete(tmp_path, monkeypatch) -> None:
     setup_db(tmp_path, monkeypatch)
     admin_id = create_user("admin", is_admin=True)
@@ -175,3 +145,30 @@ def test_set_user_admin_payload_promotes_user(tmp_path, monkeypatch) -> None:
     assert user is not None
     assert payload["user"] == admin_user_payload(user)
     assert payload["user"]["is_admin"] is True
+
+
+def test_set_user_password_payload_invalidates_recovery_codes(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import recovery_codes
+
+    setup_db(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+
+    with db.connect() as conn:
+        codes = recovery_codes.bootstrap_recovery_codes(conn, user_id)
+        assert codes is not None
+        conn.commit()
+
+    with db.connect() as conn:
+        admin_actions.set_user_password_payload(
+            conn,
+            "alice",
+            {"password": "new correct horse battery staple"},
+        )
+
+    with db.connect() as conn:
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM web_recovery_codes WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()[0]
+
+    assert remaining == 0

@@ -4,23 +4,6 @@
 
 import { escapeHtml } from "/static/js/stations.js";
 
-function formatDisplayDateTime(value) {
-  if (!value) return "—";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return String(value);
-  }
-
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  const hour = String(parsed.getHours()).padStart(2, "0");
-  const minute = String(parsed.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-}
-
 function setAdminUserDangerFeedback(button, message) {
   const feedbackNode = button
     ?.closest(".admin-user-danger-zone")
@@ -67,7 +50,6 @@ export function createAdminController({
   messageNode,
   createUserForm,
   passwordForm,
-  passwordChangeRequestsNode,
   getCurrentUser,
   loadDashboard,
 }) {
@@ -94,10 +76,6 @@ export function createAdminController({
       usersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
     }
 
-    if (passwordChangeRequestsNode) {
-      passwordChangeRequestsNode.innerHTML =
-        '<p class="empty">Password change requests will appear here.</p>';
-    }
   }
 
   function renderUsers(users) {
@@ -173,130 +151,6 @@ export function createAdminController({
     `;
   }
 
-  function renderPasswordChangeRequests(requests) {
-    if (!passwordChangeRequestsNode) return;
-
-    if (!requests.length) {
-      passwordChangeRequestsNode.innerHTML =
-        '<p class="empty">No pending password change requests.</p>';
-      return;
-    }
-
-    passwordChangeRequestsNode.innerHTML = `
-      <div class="admin-users-table password-change-requests-table" role="table" aria-label="Password change requests">
-        <div class="admin-users-row password-change-request-row admin-users-head" role="row">
-          <span role="columnheader">User</span>
-          <span role="columnheader">Created</span>
-          <span role="columnheader">Expires</span>
-          <span role="columnheader">Note</span>
-          <span role="columnheader">Actions</span>
-        </div>
-        ${requests
-          .map((request) => {
-            const id = Number(request.id || 0);
-            const username = escapeHtml(request.username || "");
-            const displayName = escapeHtml(
-              request.display_name || request.username || "",
-            );
-            const note = escapeHtml(request.note || "No note provided.");
-            const createdAt = formatDisplayDateTime(request.created_at);
-            const expiresAt = formatDisplayDateTime(request.expires_at);
-
-            return `
-              <div class="admin-users-row password-change-request-row" role="row">
-                <span role="cell" data-cell-label="User">
-                  <strong>${displayName}</strong>
-                  <small>${username}</small>
-                </span>
-                <span role="cell" data-cell-label="Created">
-                  <span class="admin-cell-label" aria-hidden="true">Created</span>
-                  <span>${createdAt}</span>
-                </span>
-                <span role="cell" data-cell-label="Expires">
-                  <span class="admin-cell-label" aria-hidden="true">Expires</span>
-                  <span>${expiresAt}</span>
-                </span>
-                <span role="cell" data-cell-label="Note">
-                  <span class="admin-cell-label" aria-hidden="true">Note</span>
-                  <small>${note}</small>
-                </span>
-                <span class="admin-user-actions" role="cell" data-cell-label="Actions">
-                  <button type="button" data-admin-password-change-action="approve" data-request-id="${id}">Approve</button>
-                  <button type="button" data-admin-password-change-action="reject" data-request-id="${id}">Reject</button>
-                </span>
-              </div>
-            `;
-          })
-          .join("")}
-      </div>
-    `;
-  }
-
-  async function loadPasswordChangeRequests({ silent = false } = {}) {
-    const user = currentUser();
-    if (!user || !user.is_admin || !passwordChangeRequestsNode) return;
-
-    if (!silent) {
-      setMessage("Loading password change requests...");
-    }
-
-    try {
-      const response = await apiFetch("/api/admin/password-change-requests", {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail || "Could not load password change requests.");
-      }
-
-      const payload = await response.json();
-      renderPasswordChangeRequests(payload.requests || []);
-
-      if (!silent) {
-        setMessage(`${payload.count ?? 0} password change request(s).`);
-      }
-    } catch (error) {
-      setMessage(String(error));
-    }
-  }
-
-  async function mutatePasswordChangeRequest(requestId, action) {
-    const id = Number(requestId || 0);
-    if (!id || !["approve", "reject"].includes(action)) return;
-
-    setMessage("Updating password change request...");
-
-    try {
-      const response = await apiFetch(
-        `/api/admin/password-change-requests/${id}/${action}`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail || "Could not update password change request.");
-      }
-
-      setMessage(
-        action === "approve"
-          ? "Password change approved. Active sessions for that user were revoked."
-          : "Password change request rejected.",
-      );
-      await loadPasswordChangeRequests({ silent: true });
-      await loadDashboard({ preserveView: true, silent: true });
-    } catch (error) {
-      setMessage(String(error));
-    }
-  }
-
   async function loadUsers() {
     const user = currentUser();
     if (!user || !user.is_admin) return;
@@ -318,7 +172,6 @@ export function createAdminController({
       const payload = await response.json();
       usersLoaded = true;
       renderUsers(payload.users || []);
-      await loadPasswordChangeRequests({ silent: true });
       setMessage(`${payload.count ?? 0} web user(s).`);
     } catch (error) {
       setMessage(String(error));
@@ -326,10 +179,7 @@ export function createAdminController({
   }
 
   async function loadUsersIfNeeded() {
-    if (usersLoaded) {
-      await loadPasswordChangeRequests({ silent: true });
-      return;
-    }
+    if (usersLoaded) return;
 
     usersLoaded = true;
     await loadUsers();
@@ -514,10 +364,8 @@ export function createAdminController({
 
   return {
     createUser,
-    loadPasswordChangeRequests,
     loadUsers,
     loadUsersIfNeeded,
-    mutatePasswordChangeRequest,
     mutateUser,
     reset,
     setUserPassword,

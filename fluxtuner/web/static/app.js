@@ -36,7 +36,6 @@ const {
   adminLoadUsersButton,
   adminMessageNode,
   adminPanel,
-  adminPasswordChangeRequestsNode,
   adminPasswordForm,
   adminUsersNode,
   appContent,
@@ -77,6 +76,9 @@ const {
   passwordChangeForm,
   passwordChangeMessageNode,
   passwordChangeOpenButton,
+  recoveryCodesCloseButtons,
+  recoveryCodesDialog,
+  recoveryCodesListNode,
   playerBar,
   playerDebugClearButton,
   playerDebugCopyButton,
@@ -218,6 +220,7 @@ const setupController = createSetupController({
   setAppContentVisible,
   setCsrfToken: appState.setCsrfToken,
   setCurrentUser: appState.setCurrentUser,
+  showRecoveryCodes,
   setPlayerVisible,
   setupForm,
   setupMessageNode,
@@ -266,10 +269,14 @@ const accountRequestsController = createAccountRequestsController({
   passwordChangeDialog,
   passwordChangeForm,
   passwordChangeMessageNode,
+  recoveryCodesDialog,
+  recoveryCodesListNode,
   registerDialog,
   registerForm,
   registerMessageNode,
 });
+
+const { showRecoveryCodes } = accountRequestsController;
 
 const adminController = createAdminController({
   apiFetch,
@@ -277,7 +284,6 @@ const adminController = createAdminController({
   messageNode: adminMessageNode,
   createUserForm: adminCreateUserForm,
   passwordForm: adminPasswordForm,
-  passwordChangeRequestsNode: adminPasswordChangeRequestsNode,
   getCurrentUser: appState.getCurrentUser,
   loadDashboard,
 });
@@ -285,7 +291,6 @@ const {
   createUser: createAdminUser,
   loadUsers: loadAdminUsers,
   loadUsersIfNeeded: loadAdminUsersIfNeeded,
-  mutatePasswordChangeRequest,
   mutateUser: mutateAdminUser,
   setUserPassword: setAdminUserPassword,
 } = adminController;
@@ -497,7 +502,6 @@ bindApplicationEvents({
   accountRequestsController,
   adminCreateUserForm,
   adminLoadUsersButton,
-  adminPasswordChangeRequestsNode,
   adminPasswordForm,
   adminUsersNode,
   appHeader,
@@ -523,7 +527,6 @@ bindApplicationEvents({
   logout,
   logoutButton,
   mutateAdminUser,
-  mutatePasswordChangeRequest,
   navigateToAdmin,
   navigateToDashboard,
   navigateToPrivateView,
@@ -548,6 +551,7 @@ bindApplicationEvents({
   playlistCancelButtons,
   playlistController,
   playlistForm,
+  recoveryCodesCloseButtons,
   registerCancelButtons,
   registerForm,
   registerOpenButton,

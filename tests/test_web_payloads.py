@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from fluxtuner.web.payloads import (
-    admin_password_change_request_payload,
     admin_user_payload,
     public_user_payload,
     safe_int,
@@ -92,32 +91,4 @@ def test_admin_user_payload_preserves_admin_management_fields() -> None:
         "reviewed_by_user_id": None,
         "created_at": "2026-07-02T00:00:00Z",
         "updated_at": "2026-07-02T01:00:00Z",
-    }
-
-
-def test_admin_password_change_request_payload_preserves_review_fields() -> None:
-    assert admin_password_change_request_payload(
-        {
-            "id": "3",
-            "user_id": "8",
-            "username": "user",
-            "display_name": "User",
-            "note": "reset please",
-            "status": "pending",
-            "created_at": "2026-07-02T00:00:00Z",
-            "expires_at": "2026-07-03T00:00:00Z",
-            "resolved_at": None,
-            "resolved_by_user_id": None,
-        }
-    ) == {
-        "id": 3,
-        "user_id": 8,
-        "username": "user",
-        "display_name": "User",
-        "note": "reset please",
-        "status": "pending",
-        "created_at": "2026-07-02T00:00:00Z",
-        "expires_at": "2026-07-03T00:00:00Z",
-        "resolved_at": None,
-        "resolved_by_user_id": None,
     }

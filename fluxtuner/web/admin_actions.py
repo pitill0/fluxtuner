@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from fluxtuner.core import db
+from fluxtuner.core import db, recovery_codes
 from fluxtuner.web import auth
 from fluxtuner.web.admin_users import (
     ADMIN_USER_NOT_FOUND_DETAIL,
@@ -106,7 +106,7 @@ def set_user_password_payload(
         """,
         (password_hash, db.utc_now(), user_id),
     )
-    db.expire_pending_password_change_requests(conn, user_id)
+    recovery_codes.invalidate_recovery_codes(conn, user_id)
     revoke_user_sessions(conn, user_id)
     conn.commit()
 

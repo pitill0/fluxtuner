@@ -379,3 +379,19 @@ html[data-theme="light"] .password-change-dialog .station-actions button[type="b
   border-color: rgba(8, 145, 178, 0.28);
   background: rgba(236, 254, 255, 0.86);
 }
+
+
+.recovery-codes-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.recovery-codes-list code {
+  display: inline-block;
+  padding: 0.35rem 0.5rem;
+  font-family: monospace;
+  font-size: 0.95rem;
+  user-select: all;
+}

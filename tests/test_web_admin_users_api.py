@@ -366,11 +366,26 @@ def test_admin_can_delete_user_and_related_data(tmp_path, monkeypatch) -> None:
             )
             is True
         )
-        db.upsert_pending_password_change_request(
-            conn,
-            alice_id,
-            password_hash=auth.hash_password(OTHER_PASSWORD),
-            expires_at="2999-01-01T00:00:00+00:00",
+        conn.execute(
+            """
+            INSERT INTO web_password_change_requests (
+                user_id,
+                password_hash,
+                note,
+                status,
+                created_at,
+                expires_at,
+                resolved_at,
+                resolved_by_user_id
+            )
+            VALUES (?, ?, NULL, 'pending', ?, ?, NULL, NULL)
+            """,
+            (
+                alice_id,
+                auth.hash_password(OTHER_PASSWORD),
+                db.utc_now(),
+                "2999-01-01T00:00:00+00:00",
+            ),
         )
         conn.commit()
 

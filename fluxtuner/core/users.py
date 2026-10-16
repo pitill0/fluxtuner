@@ -255,8 +255,8 @@ def delete_user(conn: sqlite3.Connection, user_id: int) -> bool:
     """Delete a user and all owned web data.
 
     Foreign keys cascade profiles, sessions, favorites, playlists, playlist stations,
-    history entries and password-change requests owned by the user. Requests that
-    were resolved by this user keep their audit trail with a NULL resolver.
+    history entries and legacy password-change rows owned by the user. Historical
+    rows resolved by this user keep their audit trail with a NULL resolver.
     """
     cursor = conn.execute(
         """

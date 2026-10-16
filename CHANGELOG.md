@@ -10,6 +10,21 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+
+## [1.2.3] - 2026-10-16
+
+### Added
+
 - Added self-service Web password recovery using server-generated recovery
   codes that are shown only when issued and stored only as hashes.
 - Added authenticated recovery-code regeneration and automatic first-set
@@ -24,6 +39,14 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
   runtime helpers while preserving the legacy database table for compatibility.
 - Administrative, setup and CLI password resets now invalidate previously
   issued recovery codes.
+- Added explicit SQLite schema versioning and moved schema preparation and
+  migrations out of normal Web request paths into controlled startup and
+  initialization paths.
+- Added bounded maintenance for ephemeral Web authentication data: expired
+  sessions are purged and login/recovery attempts are retained for 24 hours,
+  with maintenance throttled to at most once per hour.
+- Reduced persistent Web player rendering work by removing backdrop blur from
+  persistent UI surfaces and limiting overflowing track-title animation.
 
 ### Fixed
 
@@ -34,6 +57,40 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
   rejected before expensive password hashing once the recovery limit is reached.
 - Successful verified recovery revokes existing sessions and rotates the full
   recovery-code set.
+- Serialized SQLite schema upgrades so concurrent initializers cannot apply the
+  same migration twice, and reject databases newer than the supported schema.
+- Released browser audio stream resources when playback is paused instead of
+  retaining the live stream connection while preserving normal resume behavior.
+- Restarted bounded overflowing track-title animation when metadata changes
+  between long tracks.
+- Kept intentional browser pauses stable when late media teardown events arrive
+  after the stream source has been released.
+
+### Documentation
+
+- Updated Web recovery, architecture and smoke-test documentation for the
+  1.2.3 behavior.
+
+
+## [1.2.2] - 2026-09-04
+
+### Fixed
+
+- Improved `com.canonical.dbusmenu` compatibility for Linux
+  StatusNotifierItem tray menus.
+- Fixed right-click tray menus on XFCE falling back to the XFCE panel context
+  menu.
+- Added broader DBusMenu method and signal support.
+
+### Internal
+
+- Improved tray protocol test coverage.
+- Fixed JavaScript metadata tests under Node.js by explicitly injecting
+  `navigatorRef`.
+- Updated the JavaScript syntax gate to validate the browser entrypoint as an
+  ES module.
+- Added Bandit to the development dependency set.
+- Simplified development installation through `.[dev]`.
 
 
 ## [1.2.1] - 2026-09-03

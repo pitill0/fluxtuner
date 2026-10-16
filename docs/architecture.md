@@ -400,6 +400,16 @@ effect.
 FluxTuner stores favorites, playback history and manual playlists under an
 internal profile. The default profile is named `default`.
 
+SQLite schema evolution is explicitly versioned with `PRAGMA user_version`.
+Schema preparation and migrations run during controlled initialization rather
+than normal Web request handling, and upgrades are serialized so concurrent
+initializers cannot apply the same migration twice.
+
+Web authentication data has bounded retention. Expired sessions and stale
+login/recovery attempts are removed by throttled maintenance performed at Web
+startup and authentication entry points rather than by unbounded per-request
+cleanup.
+
 Core library APIs can resolve an optional `profile_id` or `profile_name`. When no
 explicit profile is provided, app interfaces use the persisted active profile if
 one is configured, otherwise they fall back to the internal `default` profile.

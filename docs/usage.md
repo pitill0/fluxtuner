@@ -106,6 +106,12 @@ fluxtuner-web --host 127.0.0.1 --port 8080    # Web/server mode
 The Web/server command requires the optional Web dependencies, installed with
 `python -m pip install -e ".[web]"` from a source checkout.
 
+Web users can recover access with server-generated recovery codes. Recovery
+codes are shown only when issued, can be regenerated from an authenticated
+session, and successful recovery rotates the code set and revokes existing
+sessions. See `docs/multiuser.md` for the complete Web account and recovery
+model.
+
 The examples in this guide use the installed `fluxtuner` command. When
 working directly from a source checkout, use the equivalent module form:
 

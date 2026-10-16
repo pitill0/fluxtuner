@@ -85,18 +85,14 @@ def test_create_admin_existing_user_expires_pending_password_change_request(
         user_id = db.get_or_create_user(
             conn,
             "alice",
-            password_hash=auth.hash_password(
-                "old correct horse battery staple"
-            ),
+            password_hash=auth.hash_password("old correct horse battery staple"),
             is_admin=False,
             is_active=True,
         )
         db.upsert_pending_password_change_request(
             conn,
             user_id,
-            password_hash=auth.hash_password(
-                "pending correct horse battery staple"
-            ),
+            password_hash=auth.hash_password("pending correct horse battery staple"),
             expires_at="2999-01-01T00:00:00+00:00",
         )
         conn.commit()
@@ -239,9 +235,7 @@ def test_set_password_expires_pending_password_change_request(
         db.upsert_pending_password_change_request(
             conn,
             user_id,
-            password_hash=auth.hash_password(
-                "pending correct horse battery staple"
-            ),
+            password_hash=auth.hash_password("pending correct horse battery staple"),
             expires_at="2999-01-01T00:00:00+00:00",
         )
         conn.commit()

@@ -125,12 +125,9 @@ def approve_password_change_request_payload(
     )
     if not claimed:
         current_request = db.get_password_change_request(conn, request_id)
-        if (
-            current_request is not None
-            and (
-                str(current_request["status"]) == db.ACCOUNT_CHANGE_EXPIRED
-                or password_changes.password_change_is_expired(current_request)
-            )
+        if current_request is not None and (
+            str(current_request["status"]) == db.ACCOUNT_CHANGE_EXPIRED
+            or password_changes.password_change_is_expired(current_request)
         ):
             if str(current_request["status"]) == db.ACCOUNT_CHANGE_PENDING:
                 db.set_password_change_request_status(

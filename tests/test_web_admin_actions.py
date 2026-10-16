@@ -110,9 +110,7 @@ def test_set_user_password_payload_expires_pending_password_change_request(
         db.upsert_pending_password_change_request(
             conn,
             user_id,
-            password_hash=auth.hash_password(
-                "pending correct horse battery staple"
-            ),
+            password_hash=auth.hash_password("pending correct horse battery staple"),
             expires_at="2999-01-01T00:00:00+00:00",
         )
         conn.commit()

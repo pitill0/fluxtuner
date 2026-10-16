@@ -96,3 +96,5 @@ def test_web_static_js_closes_public_dialogs_with_escape() -> None:
     assert "closeOpenDialog()" in events_response.text
     assert "closeRegisterDialog" in navigation_response.text
     assert "closePasswordChangeDialog" in navigation_response.text
+    assert "recoveryCodesRegenerateDialog" in navigation_response.text
+    assert "closeRecoveryCodeRegenerationDialog" in navigation_response.text

@@ -16,11 +16,15 @@ function focusFirstDialogControl(dialogNode) {
 }
 
 export function createAccountRequestsController({
+  apiFetch,
   authMessageNode,
   fetchImpl = fetch,
   passwordChangeDialog,
   passwordChangeForm,
   passwordChangeMessageNode,
+  recoveryCodesRegenerateDialog,
+  recoveryCodesRegenerateForm,
+  recoveryCodesRegenerateMessageNode,
   recoveryCodesDialog,
   recoveryCodesListNode,
   registerDialog,
@@ -52,6 +56,31 @@ export function createAccountRequestsController({
     }
   }
 
+  function setRecoveryCodesRegenerateMessage(message) {
+    if (recoveryCodesRegenerateMessageNode) {
+      recoveryCodesRegenerateMessageNode.textContent = message || "";
+    }
+  }
+
+  function openRecoveryCodeRegenerationDialog() {
+    if (!recoveryCodesRegenerateDialog) return;
+
+    setRecoveryCodesRegenerateMessage("");
+    recoveryCodesRegenerateDialog.hidden = false;
+    focusFirstDialogControl(recoveryCodesRegenerateDialog);
+  }
+
+  function closeRecoveryCodeRegenerationDialog() {
+    if (!recoveryCodesRegenerateDialog) return;
+
+    recoveryCodesRegenerateDialog.hidden = true;
+    setRecoveryCodesRegenerateMessage("");
+
+    if (recoveryCodesRegenerateForm) {
+      recoveryCodesRegenerateForm.reset();
+    }
+  }
+
   function closeRecoveryCodesDialog() {
     if (!recoveryCodesDialog) return;
 
@@ -79,6 +108,41 @@ export function createAccountRequestsController({
     recoveryCodesDialog
       .querySelector("[data-recovery-codes-close]")
       ?.focus();
+  }
+
+  async function regenerateRecoveryCodes(event) {
+    event.preventDefault();
+
+    if (!recoveryCodesRegenerateForm || !apiFetch) return;
+
+    const formData = new FormData(recoveryCodesRegenerateForm);
+    const currentPassword = String(formData.get("current_password") || "");
+
+    setRecoveryCodesRegenerateMessage("Generating recovery codes...");
+
+    try {
+      const response = await apiFetch("/api/auth/recovery-codes/regenerate", {
+        method: "POST",
+        handleUnauthorized: false,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "Could not generate recovery codes.");
+      }
+
+      closeRecoveryCodeRegenerationDialog();
+      showRecoveryCodes(payload.recovery_codes);
+    } catch (error) {
+      setRecoveryCodesRegenerateMessage(errorMessage(error));
+    }
   }
 
   async function recoverPassword(event) {
@@ -197,11 +261,14 @@ export function createAccountRequestsController({
 
   return {
     closePasswordChangeDialog,
+    closeRecoveryCodeRegenerationDialog,
     closeRecoveryCodesDialog,
     closeRegisterDialog,
     openPasswordChangeDialog,
+    openRecoveryCodeRegenerationDialog,
     openRegisterDialog,
     recoverPassword,
+    regenerateRecoveryCodes,
     registerAccount,
     showRecoveryCodes,
   };

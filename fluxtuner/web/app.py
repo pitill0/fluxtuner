@@ -301,6 +301,16 @@ def create_app(
                 )
                 recovery_codes.invalidate_recovery_codes(conn, user_id)
 
+            setup_recovery_codes = recovery_codes.bootstrap_recovery_codes(
+                conn,
+                user_id,
+            )
+            if setup_recovery_codes is None:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Could not create recovery codes.",
+                )
+
             db.ensure_default_profile(conn, user_id=user_id)
             initial_max_age = session_initial_max_age()
             token = auth.create_session(
@@ -328,6 +338,7 @@ def create_app(
             "setup_complete": True,
             "user": public_user_payload(user),
             "csrf_token": csrf_token_for_session_token(token),
+            "recovery_codes": setup_recovery_codes,
         }
 
     @app.get("/api/dashboard")

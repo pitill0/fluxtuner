@@ -51,6 +51,12 @@ def test_setup_creates_first_admin_and_session(tmp_path, monkeypatch) -> None:
     assert payload["user"]["username"] == "alice"
     assert payload["user"]["is_admin"] is True
     assert payload["csrf_token"]
+
+    recovery_codes = payload["recovery_codes"]
+    assert len(recovery_codes) == 8
+    assert len(set(recovery_codes)) == 8
+    assert all(code.startswith("FT-RCV-") for code in recovery_codes)
+
     assert "token" not in payload
 
     me = client.get("/api/auth/me")
@@ -211,7 +217,8 @@ def test_setup_existing_user_invalidates_recovery_codes(tmp_path, monkeypatch) -
             is_admin=False,
             is_active=True,
         )
-        assert recovery_codes.bootstrap_recovery_codes(conn, user_id) is not None
+        original_codes = recovery_codes.bootstrap_recovery_codes(conn, user_id)
+        assert original_codes is not None
         conn.commit()
 
     response = client.post(
@@ -225,10 +232,14 @@ def test_setup_existing_user_invalidates_recovery_codes(tmp_path, monkeypatch) -
 
     assert response.status_code == 200
 
+    replacement_codes = response.json()["recovery_codes"]
+    assert len(replacement_codes) == 8
+    assert set(replacement_codes).isdisjoint(original_codes)
+
     with db.connect() as conn:
         remaining = conn.execute(
             "SELECT COUNT(*) FROM web_recovery_codes WHERE user_id = ?",
             (user_id,),
         ).fetchone()[0]
 
-    assert remaining == 0
+    assert remaining == 8

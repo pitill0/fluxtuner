@@ -38,6 +38,7 @@ REGISTER_RATE_LIMIT_USERNAME = registration_actions.REGISTER_RATE_LIMIT_USERNAME
 
 router = APIRouter()
 required_body = Body(...)
+optional_body = Body(default=None)
 
 
 def require_csrf(request: Request) -> None:
@@ -92,6 +93,24 @@ def recover_password(
                 status_code=429,
                 detail=RECOVERY_RATE_LIMIT_DETAIL,
             )
+
+        if (
+            recovery_codes.recovery_code_user_id(
+                conn,
+                username,
+                recovery_code,
+            )
+            is None
+        ):
+            recovery_codes.record_recovery_attempt(
+                conn,
+                username,
+                client_key,
+                success=False,
+            )
+            conn.commit()
+            raise HTTPException(status_code=401, detail=RECOVERY_ERROR_DETAIL)
+
         conn.commit()
 
     try:
@@ -274,18 +293,53 @@ def login(
 
 
 @router.post("/api/auth/recovery-codes/regenerate")
-def regenerate_recovery_codes(request: Request) -> dict[str, Any]:
+def regenerate_recovery_codes(
+    request: Request,
+    payload: dict[str, Any] | None = optional_body,
+) -> dict[str, Any]:
     user = web_context.authenticated_user(request)
     if user is None:
         raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
 
     require_csrf(request)
 
+    current_password = str((payload or {}).get("current_password") or "")
+    if not current_password:
+        raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+    user_id = int(user["id"])
+
     with db.connect() as conn:
         web_context.ensure_web_schema(conn)
+
+        # Keep reauthentication and recovery-code rotation in the same
+        # serialized credential-management transaction.
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+
+        current_user = conn.execute(
+            """
+            SELECT password_hash
+            FROM users
+            WHERE id = ?
+              AND is_active = 1
+              AND approval_status = ?
+            """,
+            (user_id, db.APPROVAL_APPROVED),
+        ).fetchone()
+
+        password_hash = str(current_user["password_hash"] or "") if current_user is not None else ""
+
+        if not password_hash or not auth.verify_password(
+            current_password,
+            password_hash,
+        ):
+            conn.rollback()
+            raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
         codes = recovery_codes.rotate_recovery_codes(
             conn,
-            int(user["id"]),
+            user_id,
         )
         conn.commit()
 

@@ -56,6 +56,9 @@ export function bindApplicationEvents({
   playlistController,
   playlistForm,
   recoveryCodesCloseButtons,
+  recoveryCodesRegenerateCancelButtons,
+  recoveryCodesRegenerateForm,
+  recoveryCodesRegenerateOpenButton,
   registerCancelButtons,
   registerForm,
   registerOpenButton,
@@ -116,6 +119,27 @@ export function bindApplicationEvents({
       accountRequestsController.closeRecoveryCodesDialog,
     );
   });
+
+  if (recoveryCodesRegenerateOpenButton) {
+    recoveryCodesRegenerateOpenButton.addEventListener(
+      "click",
+      accountRequestsController.openRecoveryCodeRegenerationDialog,
+    );
+  }
+
+  recoveryCodesRegenerateCancelButtons.forEach((button) => {
+    button.addEventListener(
+      "click",
+      accountRequestsController.closeRecoveryCodeRegenerationDialog,
+    );
+  });
+
+  if (recoveryCodesRegenerateForm) {
+    recoveryCodesRegenerateForm.addEventListener(
+      "submit",
+      accountRequestsController.regenerateRecoveryCodes,
+    );
+  }
   registerCancelButtons.forEach((button) => {
     button.addEventListener("click", accountRequestsController.closeRegisterDialog);
   });

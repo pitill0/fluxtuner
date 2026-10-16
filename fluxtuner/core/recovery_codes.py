@@ -24,8 +24,60 @@ def generate_recovery_code() -> str:
     return f"{RECOVERY_CODE_PREFIX}-{grouped}"
 
 
+def normalize_recovery_code(code: str) -> str | None:
+    compact = "".join(
+        character
+        for character in code.strip().upper()
+        if not character.isspace() and character != "-"
+    )
+
+    prefix = RECOVERY_CODE_PREFIX.replace("-", "")
+    if not compact.startswith(prefix):
+        return None
+
+    secret = compact[len(prefix) :]
+    if len(secret) != 32:
+        return None
+    if any(character not in "0123456789ABCDEF" for character in secret):
+        return None
+
+    grouped = "-".join(secret[index : index + 8] for index in range(0, len(secret), 8))
+    return f"{RECOVERY_CODE_PREFIX}-{grouped}"
+
+
 def hash_recovery_code(code: str) -> str:
     return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def recovery_code_user_id(
+    conn: sqlite3.Connection,
+    username: str,
+    code: str,
+) -> int | None:
+    """Return the eligible user owning an unused recovery code without consuming it."""
+    normalized_code = normalize_recovery_code(code)
+    if normalized_code is None:
+        return None
+
+    row = conn.execute(
+        """
+        SELECT c.user_id
+        FROM web_recovery_codes c
+        JOIN users u ON u.id = c.user_id
+        WHERE lower(u.username) = lower(?)
+          AND u.is_active = 1
+          AND u.approval_status = 'approved'
+          AND c.code_hash = ?
+          AND c.used_at IS NULL
+        LIMIT 1
+        """,
+        (username.strip(), hash_recovery_code(normalized_code)),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return int(row["user_id"])
 
 
 def bootstrap_recovery_codes(
@@ -80,7 +132,11 @@ def consume_recovery_code(
     code: str,
 ) -> int | None:
     """Atomically claim one unused recovery code for an active approved user."""
-    code_hash = hash_recovery_code(code)
+    normalized_code = normalize_recovery_code(code)
+    if normalized_code is None:
+        return None
+
+    code_hash = hash_recovery_code(normalized_code)
     row = conn.execute(
         """
         SELECT

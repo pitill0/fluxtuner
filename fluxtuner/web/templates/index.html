@@ -51,6 +51,9 @@
         <div class="app-header-actions">
           <div class="app-user" data-auth-user hidden>
             <span data-auth-username></span>
+            <button type="button" data-recovery-codes-regenerate-open>
+              Generate new recovery codes
+            </button>
             <button type="button" data-logout>Logout</button>
           </div>
 
@@ -544,6 +547,45 @@
           <div class="station-actions">
             <button type="submit" data-password-change-submit>Recover account</button>
             <button type="button" data-password-change-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      class="playlist-dialog password-change-dialog"
+      data-recovery-codes-regenerate-dialog
+      hidden
+      aria-labelledby="recovery-codes-regenerate-title"
+    >
+      <div class="playlist-dialog-card register-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Account recovery</p>
+            <h2 id="recovery-codes-regenerate-title">Generate new recovery codes</h2>
+          </div>
+        </div>
+
+        <p class="auth-note">
+          Enter your current password to generate a new set. This invalidates every previous recovery code.
+        </p>
+
+        <form class="auth-form" data-recovery-codes-regenerate-form>
+          <label>
+            <span>Current password</span>
+            <input
+              name="current_password"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
+          </label>
+
+          <p class="register-dialog-message" data-recovery-codes-regenerate-message></p>
+
+          <div class="station-actions">
+            <button type="submit">Generate new recovery codes</button>
+            <button type="button" data-recovery-codes-regenerate-cancel>Cancel</button>
           </div>
         </form>
       </div>

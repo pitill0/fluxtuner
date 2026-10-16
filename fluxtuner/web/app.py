@@ -311,6 +311,7 @@ def create_app(
                     """,
                     (password_hash, db.APPROVAL_APPROVED, db.utc_now(), db.utc_now(), user_id),
                 )
+                db.expire_pending_password_change_requests(conn, user_id)
 
             db.ensure_default_profile(conn, user_id=user_id)
             initial_max_age = session_initial_max_age()

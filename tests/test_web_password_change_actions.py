@@ -161,6 +161,63 @@ def test_reject_password_change_request_marks_rejected(tmp_path, monkeypatch) ->
         assert str(requests[0]["status"]) == db.ACCOUNT_CHANGE_REJECTED
 
 
+def test_approve_password_change_rejects_request_invalidated_after_read(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    setup_db(tmp_path, monkeypatch)
+    admin_id = create_user("admin", is_admin=True)
+    alice_id = create_user("alice")
+
+    with db.connect() as conn:
+        db.upsert_pending_password_change_request(
+            conn,
+            alice_id,
+            password_hash=auth.hash_password(NEW_PASSWORD),
+            expires_at=password_changes.password_change_expires_at(),
+        )
+        request_id = int(db.list_password_change_requests(conn)[0]["id"])
+        conn.commit()
+
+    original_get = db.get_password_change_request
+
+    def get_then_invalidate(conn, target_request_id):
+        request_payload = original_get(conn, target_request_id)
+        assert request_payload is not None
+
+        db.set_password_change_request_status(
+            conn,
+            target_request_id,
+            db.ACCOUNT_CHANGE_EXPIRED,
+        )
+        return request_payload
+
+    monkeypatch.setattr(
+        db,
+        "get_password_change_request",
+        get_then_invalidate,
+    )
+
+    with db.connect() as conn, pytest.raises(HTTPException) as exc_info:
+        password_change_actions.approve_password_change_request_payload(
+            conn,
+            request_id,
+            resolved_by_user_id=admin_id,
+        )
+
+    assert exc_info.value.status_code == 409
+
+    with db.connect() as conn:
+        user = db.get_user_by_username(conn, "alice")
+        request_payload = db.get_password_change_request(conn, request_id)
+
+    assert user is not None
+    assert auth.verify_password(VALID_PASSWORD, str(user["password_hash"])) is True
+
+    assert request_payload is not None
+    assert request_payload["status"] == db.ACCOUNT_CHANGE_EXPIRED
+
+
 def test_approve_expired_password_change_marks_expired(tmp_path, monkeypatch) -> None:
     setup_db(tmp_path, monkeypatch)
     admin_id = create_user("admin", is_admin=True)

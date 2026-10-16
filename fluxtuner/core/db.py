@@ -476,7 +476,7 @@ def upsert_pending_password_change_request(
     created_at: str | None = None,
     expires_at: str,
 ) -> int:
-    """Create or replace the active pending password change request for a user."""
+    """Create a pending request without replacing an active unexpired request."""
     return _password_changes.upsert_pending_password_change_request(
         conn,
         user_id,
@@ -504,6 +504,36 @@ def user_has_pending_password_change_request(
 ) -> bool:
     """Return whether an active pending password change request locks login."""
     return _password_changes.user_has_pending_password_change_request(conn, user_id, now=now)
+
+
+def expire_pending_password_change_requests(
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    resolved_at: str | None = None,
+) -> int:
+    """Expire every unresolved password change request for a user."""
+    return _password_changes.expire_pending_password_change_requests(
+        conn,
+        user_id,
+        resolved_at=resolved_at,
+    )
+
+
+def approve_pending_password_change_request(
+    conn: sqlite3.Connection,
+    request_id: int,
+    *,
+    resolved_by_user_id: int,
+    now: str | None = None,
+) -> bool:
+    """Atomically approve a request only while it is pending and unexpired."""
+    return _password_changes.approve_pending_password_change_request(
+        conn,
+        request_id,
+        resolved_by_user_id=resolved_by_user_id,
+        now=now,
+    )
 
 
 def get_password_change_request(

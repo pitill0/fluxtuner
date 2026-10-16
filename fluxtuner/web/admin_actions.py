@@ -106,6 +106,7 @@ def set_user_password_payload(
         """,
         (password_hash, db.utc_now(), user_id),
     )
+    db.expire_pending_password_change_requests(conn, user_id)
     revoke_user_sessions(conn, user_id)
     conn.commit()
 

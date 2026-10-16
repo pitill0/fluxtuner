@@ -143,16 +143,6 @@ def login(
             conn.commit()
             raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DETAIL)
 
-        if db.user_has_pending_password_change_request(conn, int(user["id"])):
-            auth.record_login_attempt(
-                conn,
-                username,
-                client_key,
-                success=False,
-            )
-            conn.commit()
-            raise HTTPException(status_code=403, detail=ACCOUNT_CHANGE_PENDING_DETAIL)
-
         if approval_status != db.APPROVAL_APPROVED or not bool(user["is_active"]):
             auth.record_login_attempt(
                 conn,
@@ -162,6 +152,11 @@ def login(
             )
             conn.commit()
             raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+        db.expire_pending_password_change_requests(
+            conn,
+            int(user["id"]),
+        )
 
         authenticated_user = user
         initial_max_age = session_initial_max_age()

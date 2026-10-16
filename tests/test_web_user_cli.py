@@ -74,6 +74,46 @@ def test_create_admin_updates_existing_user(tmp_path, monkeypatch) -> None:
     assert auth.verify_password(VALID_PASSWORD, str(user["password_hash"])) is True
 
 
+def test_create_admin_existing_user_expires_pending_password_change_request(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(
+            conn,
+            "alice",
+            password_hash=auth.hash_password(
+                "old correct horse battery staple"
+            ),
+            is_admin=False,
+            is_active=True,
+        )
+        db.upsert_pending_password_change_request(
+            conn,
+            user_id,
+            password_hash=auth.hash_password(
+                "pending correct horse battery staple"
+            ),
+            expires_at="2999-01-01T00:00:00+00:00",
+        )
+        conn.commit()
+
+    run_command(
+        monkeypatch,
+        ["web", "users", "create-admin", "alice"],
+        [VALID_PASSWORD, VALID_PASSWORD],
+    )
+
+    with db.connect() as conn:
+        requests = db.list_password_change_requests(conn, status=None)
+
+    assert len(requests) == 1
+    assert requests[0]["status"] == db.ACCOUNT_CHANGE_EXPIRED
+
+
 def test_create_admin_rejects_password_mismatch(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
 
@@ -176,6 +216,47 @@ def test_set_password_updates_existing_user_and_revokes_sessions(tmp_path, monke
         assert auth.verify_password(old_password, str(user["password_hash"])) is False
         assert auth.verify_password(new_password, str(user["password_hash"])) is True
         assert auth.get_session(conn, token) is None
+
+
+def test_set_password_expires_pending_password_change_request(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
+    old_password = "old correct horse battery staple"
+    new_password = "new correct horse battery staple"
+
+    with db.connect() as conn:
+        user_id = db.get_or_create_user(
+            conn,
+            "alice",
+            password_hash=auth.hash_password(old_password),
+            is_admin=False,
+            is_active=True,
+        )
+        db.upsert_pending_password_change_request(
+            conn,
+            user_id,
+            password_hash=auth.hash_password(
+                "pending correct horse battery staple"
+            ),
+            expires_at="2999-01-01T00:00:00+00:00",
+        )
+        conn.commit()
+
+    run_command(
+        monkeypatch,
+        ["web", "users", "set-password", "alice"],
+        [new_password, new_password],
+    )
+
+    with db.connect() as conn:
+        requests = db.list_password_change_requests(conn, status=None)
+
+    assert len(requests) == 1
+    assert requests[0]["status"] == db.ACCOUNT_CHANGE_EXPIRED
 
 
 def test_set_password_rejects_missing_user(tmp_path, monkeypatch) -> None:

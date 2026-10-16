@@ -11,7 +11,6 @@ from fluxtuner.web.app import (
 )
 from fluxtuner.web.password_changes import (
     ACCOUNT_CHANGE_EXPIRED_DETAIL,
-    ACCOUNT_CHANGE_PENDING_DETAIL,
     ACCOUNT_CHANGE_RECEIVED_MESSAGE,
 )
 from fluxtuner.web.security import CSRF_HEADER_NAME
@@ -114,7 +113,7 @@ def test_public_password_change_request_is_generic_for_unknown_user(
     assert requests == []
 
 
-def test_public_password_change_request_locks_user_until_admin_review(
+def test_public_password_change_request_keeps_existing_access_until_admin_review(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -133,11 +132,10 @@ def test_public_password_change_request_locks_user_until_admin_review(
         "/api/auth/login",
         json={"username": "alice", "password": VALID_PASSWORD},
     )
-    assert old_login.status_code == 403
-    assert old_login.json() == {"detail": ACCOUNT_CHANGE_PENDING_DETAIL}
+    assert old_login.status_code == 200
 
     with db.connect() as conn:
-        assert auth.get_session(conn, old_token) is None
+        assert auth.get_session(conn, old_token) is not None
 
 
 def test_public_password_change_request_does_not_lock_admin_accounts(
@@ -162,7 +160,7 @@ def test_public_password_change_request_does_not_lock_admin_accounts(
     assert admin_login.status_code == 200
 
 
-def test_public_password_change_request_replaces_existing_pending_request(
+def test_public_password_change_request_preserves_existing_pending_request(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -179,8 +177,69 @@ def test_public_password_change_request_replaces_existing_pending_request(
         requests = db.list_password_change_requests(conn)
 
     assert len(requests) == 1
-    assert requests[0]["note"] == "new note"
+    assert requests[0]["note"] == "Forgot it on the family phone"
+    assert auth.verify_password(NEW_PASSWORD, str(requests[0]["password_hash"])) is True
+    assert auth.verify_password(OTHER_PASSWORD, str(requests[0]["password_hash"])) is False
+
+
+def test_public_password_change_request_replaces_expired_pending_request(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+
+    with db.connect() as conn:
+        request_id = db.upsert_pending_password_change_request(
+            conn,
+            user_id,
+            password_hash=auth.hash_password(NEW_PASSWORD),
+            note="expired request",
+            expires_at="2000-01-01T00:00:00+00:00",
+        )
+        conn.commit()
+
+    response = request_password_change(
+        client,
+        "alice",
+        password=OTHER_PASSWORD,
+        note="replacement request",
+    )
+
+    assert response.status_code == 200
+
+    with db.connect() as conn:
+        requests = db.list_password_change_requests(conn, status=None)
+
+    assert len(requests) == 1
+    assert requests[0]["id"] == request_id
+    assert requests[0]["status"] == db.ACCOUNT_CHANGE_PENDING
+    assert requests[0]["note"] == "replacement request"
     assert auth.verify_password(OTHER_PASSWORD, str(requests[0]["password_hash"])) is True
+
+
+def test_successful_login_expires_pending_password_change_request(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+
+    response = request_password_change(client, "alice")
+    assert response.status_code == 200
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": VALID_PASSWORD},
+    )
+
+    assert login_response.status_code == 200
+
+    with db.connect() as conn:
+        requests = db.list_password_change_requests(conn, status=None)
+
+    assert len(requests) == 1
+    assert requests[0]["status"] == db.ACCOUNT_CHANGE_EXPIRED
 
 
 def test_non_admin_cannot_list_password_change_requests(tmp_path, monkeypatch) -> None:

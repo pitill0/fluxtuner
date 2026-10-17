@@ -165,3 +165,102 @@ def test_adapter_stops_real_runner_during_read(tmp_path: Path, read_raises: bool
     finally:
         source.release.set()
         worker.join(timeout=5)
+
+
+def test_service_stops_real_brynse_runner_after_pending_open(tmp_path: Path) -> None:
+    from threading import Event, get_ident
+
+    from fluxtuner.core.ripping_service import RippingService
+
+    try:
+        radio = importlib.import_module("brynse.integrations.radio")
+    except ModuleNotFoundError as exc:
+        if exc.name == "brynse":
+            pytest.skip("Optional Brynse dependency is not installed")
+        raise
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("FFmpeg is required by the adapter")
+
+    entered_open = Event()
+    release_open = Event()
+    caller_thread = get_ident()
+    close_threads: list[int] = []
+
+    class Source:
+        metadata = {
+            "Content-Type": "audio/mpeg",
+            "icy-metaint": "16000",
+        }
+
+        def __init__(self) -> None:
+            self.closed = Event()
+
+        def read(self, max_bytes: int) -> bytes:
+            assert self.closed.wait(timeout=5), "Source was not closed by Brynse."
+            raise OSError("Read interrupted by source closure")
+
+        def close(self) -> None:
+            close_threads.append(get_ident())
+            self.closed.set()
+
+    source = Source()
+
+    def open_stream(url):
+        entered_open.set()
+        assert release_open.wait(timeout=5), "Stream opening was not released."
+        return source
+
+    api = SimpleNamespace(
+        RippingRunConfig=radio.RippingRunConfig,
+        RippingRunner=lambda config: radio.RippingRunner(
+            config,
+            stream_opener=open_stream,
+        ),
+    )
+    ripper = BrynseRipper(module_loader=lambda name: api)
+    service = RippingService(backend_factory=lambda: ripper)
+    request = RippingRequest(
+        "Synthetic station",
+        "https://example.invalid/synthetic",
+        tmp_path / "tracks",
+    )
+
+    try:
+        job_id = service.start(request)
+        assert entered_open.wait(timeout=5)
+        starting = service.snapshot()
+        assert starting is not None
+        assert starting.job_id == job_id
+        assert starting.state == "starting"
+
+        service.stop()
+        pending = service.snapshot()
+        assert pending is not None
+        assert pending.state == "stopping"
+        assert not source.closed.is_set()
+
+        release_open.set()
+        assert service.wait(timeout=5), "Brynse did not finish after pending stop."
+
+        stopped = service.snapshot()
+        assert stopped is not None
+        assert stopped.job_id == job_id
+        assert stopped.request is request
+        assert stopped.state == "stopped"
+        assert stopped.error is None
+        assert stopped.result is not None
+        assert stopped.result.request is request
+        assert stopped.result.codec == "mp3"
+        assert stopped.result.metaint == 16000
+        assert stopped.result.stopped is True
+        assert stopped.result.tracks == ()
+        assert stopped.result.incomplete_track_title is None
+        assert source.closed.is_set()
+        assert close_threads
+        assert all(thread != caller_thread for thread in close_threads)
+    finally:
+        service.stop()
+        release_open.set()
+        source.closed.set()
+        assert service.wait(timeout=5)

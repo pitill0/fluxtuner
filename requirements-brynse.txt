@@ -1,0 +1,2 @@
+# Optional Brynse revision exercised by the radio contract tests.
+brynse @ git+https://github.com/pitill0/brynse.git@d7047eda161b861bfb7bfe56c99dfe7e26e014fa

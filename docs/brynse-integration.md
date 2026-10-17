@@ -1,68 +1,139 @@
-# Brynse integration: first headless slice
+# Brynse integration: headless contract
 
-The optional `BrynseRipper` adapter translates Brynse's radio runner into
-FluxTuner requests, observations and results. GTK, the existing FFmpeg session
-recorder, user configuration and the database are unchanged.
+FluxTuner consumes the public `brynse.integrations.radio` API. Brynse owns
+ingestion, metadata interpretation, boundary resolution, finalization, file
+naming and stream closure. FluxTuner owns requests, profile context, destination
+policy, worker scheduling and observations.
 
-The source contract was inspected at Brynse commit
+The installed contract was tested against Brynse commit
 [`d7047eda161b861bfb7bfe56c99dfe7e26e014fa`](https://github.com/pitill0/brynse/tree/d7047eda161b861bfb7bfe56c99dfe7e26e014fa),
-which prepares version 0.1.0. The adapter uses the public
-`brynse.integrations.radio` package, not the generic CLI or private segmentation
-internals. Only the adapter reads Brynse's callback payloads.
+which reports version 0.1.0.
 
-## Contract
+## Components
 
-- `RippingRequest.from_station(...)` snapshots an explicit station's name,
-  preferred stream URL and profile. It does not mutate UI selection or station
-  data. The caller supplies the output directory; no default path is created
-  merely by importing the module or checking availability.
-- `availability()` checks the optional import, callable config/runner exports
-  and FFmpeg in PATH. Missing Brynse is distinguished from a broken dependency
-  or incompatible API. This is local readiness, not proof that a stream supports
-  ripping. Brynse currently requires ICY metadata and MP3/AAC.
-- `run(...)` blocks and creates a fresh runner per operation. The caller must
-  schedule it outside a future GTK event loop. Callback handlers execute in the
-  calling thread. `on_started` means the stream has opened; it is not emitted
-  merely because a job was submitted.
-- Finalized tracks are translated to `RippedTrack(title, path)` and accumulated
-  in `RippingResult`. The incomplete current track stays separate. The adapter
-  trusts Brynse's finalized-track callback and does not rename or rewrite files.
-- Backend or callback failures raise `RippingError` with the original cause and
-  references to tracks already finalized. Persistence and retries belong to a
-  later coordinator/store.
-- Overlapping `run` calls on one adapter are rejected. `stop()` delegates to
-  the active runner and is a no-op while idle. It sends no process signals and
-  does not wait for the worker to finish.
+| Component | Responsibility |
+| --- | --- |
+| `core/ripping.py` | Requests, backend protocol, results and errors |
+| `core/ripping_paths.py` | Destination calculation without filesystem writes |
+| `core/ripping_requests.py` | Explicit station/profile/destination snapshot |
+| `recorders/brynse.py` | Optional API loading and payload translation |
+| `core/ripping_service.py` | Background run/stop workers and job snapshots |
 
-## Deliberate limits before GTK wiring
+These modules do not import GTK. Session recording remains a separate capability.
 
-There is no worker, state machine, bounded shutdown guarantee, SQLite migration,
-new CLI command or UI action in this slice. Stop before `run`, during dependency
-loading or during stream opening is not guaranteed to cancel the operation.
-The coordinator must define those semantics and test them with synchronization
-barriers, together with stale events, double start and shutdown. A worker that
-has not terminated must not be treated as an idle backend.
+## Optional installation
 
-Brynse's inspected runner passes its FFmpeg setting to analysis, while the
-default output writer creates finalizers with the default `ffmpeg` command.
-This adapter only resolves `ffmpeg` from PATH; it does not offer a custom binary
-setting or claim that upstream propagation is fixed.
-
-Brynse and NumPy are not added as mandatory dependencies. Packaging an optional
-extra, selecting a release/pin, testing a real installed runner against a local
-ICY fixture, and checking Python 3.14 and Flatpak remain separate work. The
-current unit tests use an injected module and runner; they establish the adapter
-contract, not an executed end-to-end Brynse integration.
-
-## Validation
-
-Run the focused deterministic tests with:
+From the intended checkout, using its chosen virtual environment:
 
 ```sh
-python -m pytest tests/test_brynse_ripper.py
+python -m pip install -e .
+python -m pip install -r requirements-brynse.txt
+python -m pip check
 ```
 
-Before UI wiring, follow these with a real-runner contract test, a headless
-smoke, and lifecycle tests. Keep session recording and ripping capabilities
-independent of player codec capabilities. Output ownership must preserve the
-profile captured in the request.
+FFmpeg must be available in PATH. The requirements file pins the tested Brynse
+revision; it is not a complete transitive dependency lock. Brynse and NumPy are
+not mandatory dependencies of the base FluxTuner installation.
+
+Run commands from the intended worktree. Another checkout in the current
+directory can take precedence over an editable installation.
+
+## Availability
+
+`BrynseRipper.availability()` checks optional imports, callable config/runner
+exports and FFmpeg in PATH, without constructing a runner. It distinguishes
+absence from a broken dependency or incompatible API.
+
+This establishes local readiness, not station compatibility. The inspected
+radio runner requires ICY metadata and MP3 or AAC audio.
+
+## Requests and destinations
+
+`build_ripping_request(...)` requires an explicit station, data directory,
+persistent profile ID, profile name and operation UUID. It captures these values
+without mutating the station, consulting UI selection or querying SQLite.
+
+The caller must resolve the profile ID and name from the same profile context
+and generate a fresh UUID for each new operation. Positive-ID validation does
+not establish database existence or authorization.
+
+The destination is:
+
+```text
+<data_directory>/rips/profile-<id>/<uuid.hex>/
+```
+
+The application supplies its configured data directory, including the existing
+`FLUXTUNER_DATA_DIR` policy. Path calculation expands `~`, captures an absolute
+destination and creates no directories. Brynse creates output directories when
+the run starts. Naming within each operation remains Brynse's responsibility.
+
+Direct `RippingRequest` construction supports caller-supplied destinations.
+Its profile fields remain optional for compatibility.
+
+## Lifecycle
+
+`BrynseRipper.run(...)` blocks. `RippingService.start(request)` schedules it
+outside the caller thread and returns a job ID. Snapshots expose `starting`,
+`running`, `stopping`, `completed`, `stopped` or `failed`.
+
+`on_started` means Brynse has opened and initialized the stream. Adapter
+callbacks execute in the run thread; UI code must dispatch widget updates to
+its main thread.
+
+`RippingService.stop()` records startup cancellation or delegates
+`backend.stop()` in a separate worker. Repeated requests while stopping do not
+launch additional stop workers.
+
+- During backend construction, cancellation skips `run()` after construction.
+- After entering `run()` but before `on_started`, cancellation is delivered
+  when that callback arrives.
+- During active reading, Brynse requests stop and closes its stream.
+
+Opening or initialization must finish or fail before deferred cancellation can
+complete. There is no bounded shutdown guarantee for a blocked opening call.
+FluxTuner does not replace Brynse's stop machinery or send process signals.
+
+`wait(timeout=...)` uses one total time budget and includes a stop worker
+created during the wait. Blocking waits belong outside the UI thread.
+A terminal snapshot alone does not establish worker termination: check
+`wait(timeout=0)`. New jobs are rejected while either worker remains alive.
+
+## Outputs and errors
+
+Finalized callbacks become `RippedTrack(title, path)` entries in the final
+`RippingResult`. FluxTuner does not rename or rewrite those files.
+`incomplete_track_title` remains separate from finalized outputs.
+
+Adapter failures raise `RippingError` with the original cause and references
+to already finalized tracks. The service exposes failures in its snapshot.
+Results remain in memory; no ripping history store or SQLite migration exists.
+
+The inspected runner passes its FFmpeg setting to analysis, while the default
+output writer constructs finalizers using the default `ffmpeg` command.
+The adapter resolves FFmpeg from PATH and offers no custom-binary setting.
+
+## Validation and pending work
+
+With the project's development dependencies installed:
+
+```sh
+python -m pytest \
+  tests/test_brynse_ripper.py \
+  tests/test_brynse_ripper_contract.py \
+  tests/test_ripping_service.py \
+  tests/test_ripping_paths.py \
+  tests/test_ripping_requests.py
+```
+
+Real-runner tests skip when Brynse or FFmpeg is absent. A run with skips does
+not establish the installed integration contract.
+
+Executed on native macOS with Python 3.14: stop during reads, deferred stop
+during opening, and a synthetic ICY/MP3 pipeline producing finalized files
+verified by FFmpeg decoding. The opener is controlled locally; these tests
+do not establish real-network or GTK behavior.
+
+GTK wiring, application shutdown integration, Linux/Flatpak validation and
+distribution packaging remain pending. No Flatpak permissions have changed.
+Focused tests do not replace the full repository quality gate.

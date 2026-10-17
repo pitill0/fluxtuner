@@ -23,7 +23,7 @@ class BrynseRipper:
 
     stop() delegates to the active runner; it does not wait for completion or
     guarantee cancellation during stream opening. Worker lifecycle belongs to
-    the future coordinator, not to GTK or this adapter.
+    RippingService; this adapter translates and delegates to Brynse.
     """
 
     def __init__(

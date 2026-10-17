@@ -35,6 +35,7 @@ class RippingRequest:
     source_url: str
     output_directory: Path
     profile_name: str | None = None
+    profile_id: int | None = None
 
     def __post_init__(self) -> None:
         name = self.station_name.strip()
@@ -58,12 +59,14 @@ class RippingRequest:
         *,
         output_directory: Path,
         profile_name: str | None = None,
+        profile_id: int | None = None,
     ) -> RippingRequest:
         return cls(
             station_name=station_name(station),
             source_url=station_url(station) or "",
             output_directory=output_directory,
             profile_name=profile_name,
+            profile_id=profile_id,
         )
 
 

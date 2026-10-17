@@ -493,6 +493,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     row = object()
 
     harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -521,11 +522,15 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     assert popover.pointing_to.height == 1
 
     assert [button.label for button in popover.child.children] == [
+        "Play",
         "Copy stream URL",
         "Copy station name",
     ]
 
-    copy_url_button, copy_name_button = popover.child.children
+    play_button, copy_url_button, copy_name_button = popover.child.children
+    assert play_button.connections == [
+        ("clicked", harness.on_context_play_clicked, (station,))
+    ]
     assert copy_url_button.connections == [
         ("clicked", harness.copy_station_url, (station,))
     ]
@@ -615,6 +620,7 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(
     }
 
     harness = SimpleNamespace(
+        on_context_play_clicked=lambda _button, target: target,
         copy_station_url=lambda _button, target: target,
         copy_station_name=lambda _button, target: target,
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -712,6 +718,7 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
     }
 
     harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -751,3 +758,79 @@ def test_gtk_clipboard_set_text_uses_text_api() -> None:
     display.get_clipboard.assert_called_once_with()
     clipboard.set_text.assert_called_once_with("Clicked FM")
     clipboard.set.assert_not_called()
+
+
+def test_gtk_context_play_targets_explicit_station_without_changing_selection(
+    monkeypatch,
+) -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    result = SimpleNamespace(
+        success=True,
+        station=clicked_station,
+        status="Playing Clicked FM",
+    )
+
+    playback_start = Mock(return_value=result)
+    monkeypatch.setattr(window, "coordinate_playback_start", playback_start)
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        player=object(),
+        player_backend_name="test",
+        player_capabilities=object(),
+        profile_name="default",
+        restored_muted=False,
+        status_label=Mock(),
+        _station_url=Mock(),
+        _apply_player_preferences_before_start=Mock(),
+        _set_player_volume_from_scale=Mock(),
+        _set_player_mute=Mock(),
+        usage_tracker=object(),
+        current_station=None,
+        update_now_playing=Mock(),
+        update_data_usage=Mock(),
+        update_player_state=Mock(),
+        _ensure_usage_timer=Mock(),
+        _ensure_player_state_timer=Mock(),
+        _update_play_stop_button=Mock(),
+        _render_results=Mock(),
+    )
+
+    window.MainWindow.play_station(harness, clicked_station)
+
+    assert playback_start.call_args.args[0] is clicked_station
+    assert harness.current_station is clicked_station
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_context_play_callback_uses_clicked_station() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        play_station=Mock(),
+    )
+
+    window.MainWindow.on_context_play_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+
+    harness.play_station.assert_called_once_with(clicked_station)
+    assert harness.selected_station is selected_station

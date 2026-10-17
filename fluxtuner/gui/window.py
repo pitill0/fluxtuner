@@ -769,6 +769,10 @@ class MainWindow(Gtk.ApplicationWindow):
         menu_box.set_margin_start(6)
         menu_box.set_margin_end(6)
 
+        play_button = Gtk.Button(label="Play")
+        play_button.connect("clicked", self.on_context_play_clicked, station)
+        menu_box.append(play_button)
+
         copy_url_button = Gtk.Button(label="Copy stream URL")
         copy_url_button.connect("clicked", self.copy_station_url, station)
         menu_box.append(copy_url_button)
@@ -933,13 +937,10 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self.record_button.set_sensitive(self.recording_available or active)
 
-    def play_selected_station(self) -> None:
-        if not self.selected_station:
-            self.status_label.set_text("Select a station first.")
-            return
-
+    def play_station(self, station: dict[str, Any]) -> None:
+        """Play one explicit station without changing the selected station."""
         result = coordinate_playback_start(
-            self.selected_station,
+            station,
             player=self.player,
             player_backend_name=self.player_backend_name,
             player_capabilities=self.player_capabilities,
@@ -967,6 +968,21 @@ class MainWindow(Gtk.ApplicationWindow):
         self._ensure_player_state_timer()
         self._update_play_stop_button()
         self._render_results()
+
+    def play_selected_station(self) -> None:
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            return
+
+        MainWindow.play_station(self, self.selected_station)
+
+    def on_context_play_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Play the station targeted by a context-menu action."""
+        self.play_station(station)
 
     def _metadata_worker(self, stream_url: str, generation: int) -> None:
         try:

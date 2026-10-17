@@ -342,6 +342,7 @@ const authController = createAuthController({
   resetRadioBrowserView,
   setCsrfToken: appState.setCsrfToken,
   setCurrentUser: appState.setCurrentUser,
+  showRecoveryCodes,
   stopPlayback: playerRuntime.stopPlayback,
   updateAuthUi,
 });

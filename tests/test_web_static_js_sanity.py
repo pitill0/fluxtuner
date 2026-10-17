@@ -1100,3 +1100,55 @@ def test_web_app_initializes_recovery_codes_before_setup_controller() -> None:
         < show_recovery_codes_index
         < setup_controller_index
     )
+
+
+def test_web_app_wires_recovery_codes_into_auth_controller() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+
+    source = response.text
+
+    auth_controller_start = source.index("const authController = createAuthController({")
+    auth_controller_end = source.index(
+        "});",
+        auth_controller_start,
+    )
+
+    auth_controller_block = source[auth_controller_start : auth_controller_end + 3]
+
+    assert "showRecoveryCodes," in auth_controller_block
+
+
+def test_web_app_wires_recovery_codes_to_all_consumers() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+
+    source = response.text
+
+    account_requests_index = source.index(
+        "const accountRequestsController = createAccountRequestsController({"
+    )
+    show_recovery_codes_index = source.index(
+        "const { showRecoveryCodes } = accountRequestsController;"
+    )
+    setup_controller_index = source.index("const setupController = createSetupController({")
+    auth_controller_index = source.index("const authController = createAuthController({")
+
+    assert account_requests_index < show_recovery_codes_index
+    assert show_recovery_codes_index < setup_controller_index
+    assert show_recovery_codes_index < auth_controller_index
+
+    setup_controller_end = source.index("});", setup_controller_index)
+    setup_controller_block = source[setup_controller_index : setup_controller_end + 3]
+
+    auth_controller_end = source.index("});", auth_controller_index)
+    auth_controller_block = source[auth_controller_index : auth_controller_end + 3]
+
+    assert "showRecoveryCodes," in setup_controller_block
+    assert "showRecoveryCodes," in auth_controller_block

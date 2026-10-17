@@ -236,3 +236,21 @@ def test_manager_switch_to_system_removes_forced_palette(monkeypatch) -> None:
         str(COMMON_STYLESHEET),
         str(THEMES_DIR / "dark.css"),
     ]
+
+
+def test_station_context_popover_has_explicit_surface_styles() -> None:
+    common_css = COMMON_STYLESHEET.read_text()
+    dark_css = (THEMES_DIR / "dark.css").read_text()
+    light_css = (THEMES_DIR / "light.css").read_text()
+
+    assert "popover > contents" in common_css
+    assert "popover > contents" in dark_css
+    assert "popover > contents" in light_css
+
+    assert "background: #1a1e27;" in dark_css
+    assert "background: #ffffff;" in light_css
+
+    # Context popovers are parented to result rows. A wildcard descendant
+    # selector would therefore make the popover surface transparent again.
+    assert ".results-list row * {" not in dark_css
+    assert ".results-list row * {" not in light_css

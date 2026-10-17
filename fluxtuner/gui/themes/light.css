@@ -111,6 +111,31 @@ scrollbar slider { background: #cbd5e1; }
 scrolledwindow { background: #ffffff; }
 separator { background: #e4e7ec; }
 
+popover > contents {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #d0d5dd;
+}
+
+popover > contents > box {
+  background: #ffffff;
+}
+
+popover > contents > box > button {
+  background: transparent;
+  color: #1f2937;
+  border-color: transparent;
+}
+
+popover > contents > box > button:hover {
+  background: #f2f4f7;
+  border-color: #d0d5dd;
+}
+
+popover > contents > box > button:active {
+  background: #e4e7ec;
+}
+
 .results-scroller,
 .results-scroller viewport,
 .results-list {
@@ -123,7 +148,7 @@ separator { background: #e4e7ec; }
   color: #1f2937;
 }
 
-.results-list row * {
+.results-list row > box * {
   background: transparent;
   color: #1f2937;
 }

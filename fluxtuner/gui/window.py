@@ -624,7 +624,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _clipboard_set_text(self, text: str) -> None:
         """Copy text to the GTK clipboard."""
         clipboard = self.get_display().get_clipboard()
-        clipboard.set_text(text)
+        clipboard.set(text)
 
     def _open_external_uri(self, uri: str) -> None:
         """Open one external URI with the desktop default application."""

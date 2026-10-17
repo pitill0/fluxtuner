@@ -752,7 +752,7 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
     assert popover.unparent_calls == 1
 
 
-def test_gtk_clipboard_set_text_uses_text_api() -> None:
+def test_gtk_clipboard_set_text_uses_gtk4_clipboard_api() -> None:
     clipboard = Mock()
     display = Mock()
     display.get_clipboard.return_value = clipboard
@@ -764,8 +764,8 @@ def test_gtk_clipboard_set_text_uses_text_api() -> None:
     window.MainWindow._clipboard_set_text(harness, "Clicked FM")
 
     display.get_clipboard.assert_called_once_with()
-    clipboard.set_text.assert_called_once_with("Clicked FM")
-    clipboard.set.assert_not_called()
+    clipboard.set.assert_called_once_with("Clicked FM")
+    clipboard.set_text.assert_not_called()
 
 
 def test_gtk_context_play_targets_explicit_station_without_changing_selection(

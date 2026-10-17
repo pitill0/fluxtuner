@@ -626,6 +626,61 @@ class MainWindow(Gtk.ApplicationWindow):
         clipboard = self.get_display().get_clipboard()
         clipboard.set_text(text)
 
+    def _open_external_uri(self, uri: str) -> None:
+        """Open one external URI with the desktop default application."""
+        from gi.repository import Gio
+
+        Gio.AppInfo.launch_default_for_uri(uri, None)
+
+    def _station_homepage_url(
+        self,
+        station: dict[str, Any],
+    ) -> str | None:
+        """Return a safe HTTP(S) homepage URL for one station."""
+        from urllib.parse import urlparse
+
+        homepage = str(station.get("homepage") or "").strip()
+        if not homepage:
+            return None
+
+        parsed = urlparse(homepage)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            return None
+
+        return homepage
+
+    def open_station_homepage(
+        self,
+        station: dict[str, Any],
+    ) -> None:
+        """Open one explicit station homepage without changing selection."""
+        raw_homepage = str(station.get("homepage") or "").strip()
+        if not raw_homepage:
+            self.status_label.set_text("Station has no homepage.")
+            return
+
+        homepage = MainWindow._station_homepage_url(self, station)
+        if homepage is None:
+            self.status_label.set_text(
+                "Station homepage URL is not safe to open."
+            )
+            return
+
+        try:
+            self._open_external_uri(homepage)
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(
+                f"Could not open station homepage: {exc}"
+            )
+
+    def on_context_open_homepage_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Open the homepage for the station targeted by the context menu."""
+        self.open_station_homepage(station)
+
     def copy_station_url(
         self,
         _button: Gtk.Button,
@@ -788,6 +843,15 @@ class MainWindow(Gtk.ApplicationWindow):
                 station,
             )
         menu_box.append(favorite_button)
+
+        if MainWindow._station_homepage_url(self, station) is not None:
+            homepage_button = Gtk.Button(label="Open station homepage")
+            homepage_button.connect(
+                "clicked",
+                self.on_context_open_homepage_clicked,
+                station,
+            )
+            menu_box.append(homepage_button)
 
         copy_url_button = Gtk.Button(label="Copy stream URL")
         copy_url_button.connect("clicked", self.copy_station_url, station)

@@ -1321,3 +1321,384 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
             (station,),
         )
     ]
+
+
+def test_gtk_open_station_homepage_targets_explicit_station_without_changing_selection() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "homepage": "https://selected.example",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "homepage": "https://clicked.example/",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        status_label=Mock(),
+        _open_external_uri=Mock(),
+    )
+
+    window.MainWindow.open_station_homepage(
+        harness,
+        clicked_station,
+    )
+
+    harness._open_external_uri.assert_called_once_with(
+        "https://clicked.example/"
+    )
+    harness.status_label.set_text.assert_not_called()
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_open_station_homepage_rejects_missing_homepage() -> None:
+    station = {
+        "name": "Clicked FM",
+        "homepage": "",
+    }
+
+    harness = SimpleNamespace(
+        status_label=Mock(),
+        _open_external_uri=Mock(),
+    )
+
+    window.MainWindow.open_station_homepage(
+        harness,
+        station,
+    )
+
+    harness._open_external_uri.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Station has no homepage."
+    )
+
+
+def test_gtk_open_station_homepage_rejects_non_http_uri() -> None:
+    station = {
+        "name": "Clicked FM",
+        "homepage": "file:///tmp/example.html",
+    }
+
+    harness = SimpleNamespace(
+        status_label=Mock(),
+        _open_external_uri=Mock(),
+    )
+
+    window.MainWindow.open_station_homepage(
+        harness,
+        station,
+    )
+
+    harness._open_external_uri.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Station homepage URL is not safe to open."
+    )
+
+
+def test_gtk_context_open_homepage_callback_targets_clicked_station() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "homepage": "https://selected.example",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "homepage": "https://clicked.example",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        open_station_homepage=Mock(),
+    )
+
+    window.MainWindow.on_context_open_homepage_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+
+    harness.open_station_homepage.assert_called_once_with(clicked_station)
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_open_external_uri_uses_gio_default_launcher(
+    monkeypatch,
+) -> None:
+    launch_default_for_uri = Mock()
+
+    fake_gio = SimpleNamespace(
+        AppInfo=SimpleNamespace(
+            launch_default_for_uri=launch_default_for_uri,
+        ),
+    )
+
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gio",
+        fake_gio,
+        raising=False,
+    )
+
+    window.MainWindow._open_external_uri(
+        SimpleNamespace(),
+        "https://clicked.example/",
+    )
+
+    launch_default_for_uri.assert_called_once_with(
+        "https://clicked.example/",
+        None,
+    )
+
+
+def test_gtk_open_station_homepage_contains_launcher_failure() -> None:
+    station = {
+        "name": "Clicked FM",
+        "homepage": "https://clicked.example/",
+    }
+
+    harness = SimpleNamespace(
+        status_label=Mock(),
+        _open_external_uri=Mock(
+            side_effect=RuntimeError("launcher unavailable"),
+        ),
+    )
+
+    window.MainWindow.open_station_homepage(
+        harness,
+        station,
+    )
+
+    harness._open_external_uri.assert_called_once_with(
+        "https://clicked.example/"
+    )
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not open station homepage: launcher unavailable"
+    )
+
+
+def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, *_args) -> None:
+            pass
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+            self.connections = []
+
+        def connect(self, signal, callback, *args) -> None:
+            self.connections.append((signal, callback, args))
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rectangle) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "homepage": "https://clicked.example/",
+    }
+
+    harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert labels == [
+        "Play",
+        "Add to favorites",
+        "Open station homepage",
+        "Copy stream URL",
+        "Copy station name",
+    ]
+
+    homepage_button = FakePopover.last_created.child.children[2]
+    assert homepage_button.connections == [
+        (
+            "clicked",
+            harness.on_context_open_homepage_clicked,
+            (station,),
+        )
+    ]
+
+
+def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, *_args) -> None:
+            pass
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+
+        def connect(self, *_args) -> None:
+            pass
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rectangle) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "homepage": "file:///tmp/example.html",
+    }
+
+    harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert labels == [
+        "Play",
+        "Add to favorites",
+        "Copy stream URL",
+        "Copy station name",
+    ]

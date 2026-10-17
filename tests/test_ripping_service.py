@@ -145,3 +145,146 @@ def test_service_preserves_failure_and_can_restart(tmp_path: Path, failure_stage
     assert completed.result is not None
     assert completed.result.request is request
     assert len(factory_calls) == 2
+
+
+def test_service_stop_delegates_without_blocking_caller(tmp_path: Path) -> None:
+    entered_run = Event()
+    release_run = Event()
+    entered_stop = Event()
+    release_stop = Event()
+    stop_threads: list[int] = []
+    caller_thread = get_ident()
+
+    class Backend:
+        def availability(self) -> RippingAvailability:
+            return RippingAvailability(available=True)
+
+        def run(self, request, *, on_started=None, on_track_written=None):
+            if on_started is not None:
+                on_started(RippingStarted(codec="mp3", metaint=16000))
+            entered_run.set()
+            assert release_run.wait(timeout=5)
+            return RippingResult(
+                request=request,
+                codec="mp3",
+                metaint=16000,
+                stopped=True,
+            )
+
+        def stop(self) -> None:
+            stop_threads.append(get_ident())
+            entered_stop.set()
+            assert release_stop.wait(timeout=5)
+            release_run.set()
+
+    backend = Backend()
+    service = RippingService(backend_factory=lambda: backend)
+    request = RippingRequest(
+        station_name="Test station",
+        source_url="https://example.com/stream",
+        output_directory=tmp_path,
+    )
+
+    try:
+        job_id = service.start(request)
+        assert entered_run.wait(timeout=5)
+
+        service.stop()
+
+        assert entered_stop.wait(timeout=5)
+        assert stop_threads[0] != caller_thread
+        snapshot = service.snapshot()
+        assert snapshot is not None
+        assert snapshot.job_id == job_id
+        assert snapshot.state == "stopping"
+        assert not service.wait(timeout=0)
+
+        with pytest.raises(RippingError, match="already active"):
+            service.start(request)
+
+        release_stop.set()
+        assert service.wait(timeout=5)
+        snapshot = service.snapshot()
+        assert snapshot is not None
+        assert snapshot.job_id == job_id
+        assert snapshot.state == "stopped"
+        assert snapshot.error is None
+        assert snapshot.result is not None
+        assert snapshot.result.stopped
+    finally:
+        release_stop.set()
+        release_run.set()
+        assert service.wait(timeout=5)
+
+
+def test_service_preserves_stop_failure_and_can_restart(tmp_path: Path) -> None:
+    entered_run = Event()
+    release_run = Event()
+    failure = RippingError("Backend stop failure")
+    factory_calls: list[int] = []
+
+    class Backend:
+        def __init__(self, *, first_job: bool) -> None:
+            self.first_job = first_job
+
+        def availability(self) -> RippingAvailability:
+            return RippingAvailability(available=True)
+
+        def run(self, request, *, on_started=None, on_track_written=None):
+            if on_started is not None:
+                on_started(RippingStarted(codec="mp3", metaint=16000))
+            if self.first_job:
+                entered_run.set()
+                assert release_run.wait(timeout=5)
+            return RippingResult(
+                request=request,
+                codec="mp3",
+                metaint=16000,
+                stopped=self.first_job,
+            )
+
+        def stop(self) -> None:
+            release_run.set()
+            raise failure
+
+    def factory():
+        factory_calls.append(get_ident())
+        return Backend(first_job=len(factory_calls) == 1)
+
+    service = RippingService(backend_factory=factory)
+    request = RippingRequest(
+        station_name="Test station",
+        source_url="https://example.com/stream",
+        output_directory=tmp_path,
+    )
+
+    try:
+        first_job = service.start(request)
+        assert entered_run.wait(timeout=5)
+        service.stop()
+        assert service.wait(timeout=5)
+
+        failed = service.snapshot()
+        assert failed is not None
+        assert failed.job_id == first_job
+        assert failed.state == "failed"
+        assert failed.error is failure
+        assert failed.result is not None
+        assert failed.result.request is request
+        assert failed.result.stopped
+
+        second_job = service.start(request)
+        assert second_job > first_job
+        assert service.wait(timeout=5)
+
+        completed = service.snapshot()
+        assert completed is not None
+        assert completed.job_id == second_job
+        assert completed.state == "completed"
+        assert completed.error is None
+        assert completed.result is not None
+        assert not completed.result.stopped
+        assert len(factory_calls) == 2
+    finally:
+        release_run.set()
+        assert service.wait(timeout=5)

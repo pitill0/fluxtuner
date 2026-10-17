@@ -52,6 +52,25 @@ separator {
   min-height: 1px;
 }
 
+/*
+ * Popovers need an explicit surface because FluxTuner palettes make generic
+ * Gtk.Box backgrounds transparent. Without this, station context menus can
+ * visually blend into the station list behind them.
+ */
+popover > contents {
+  border-radius: 10px;
+  padding: 2px;
+}
+
+popover > contents > box {
+  border-radius: 8px;
+}
+
+popover > contents > box > button {
+  min-width: 180px;
+  border-radius: 7px;
+}
+
 .results-list row.suggested-action {
   border-left-width: 4px;
   border-left-style: solid;

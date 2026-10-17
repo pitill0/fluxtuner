@@ -583,6 +583,11 @@ class MainWindow(Gtk.ApplicationWindow):
         double_click.connect("pressed", self.on_row_double_click, row)
         row.add_controller(double_click)
 
+        context_click = Gtk.GestureClick()
+        context_click.set_button(3)
+        context_click.connect("pressed", self.on_row_context_click, row)
+        row.add_controller(context_click)
+
         row.set_child(row_box)
         return row
 
@@ -608,6 +613,90 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _station_url(self, station: dict[str, Any] | None) -> str | None:
         return station_url(station)
+
+    def _station_from_context_row(
+        self,
+        row: Gtk.ListBoxRow,
+    ) -> dict[str, Any] | None:
+        """Return the station bound to a contextual-menu row."""
+        return getattr(row, "station", None)
+
+    def _clipboard_set_text(self, text: str) -> None:
+        """Copy text to the GTK clipboard."""
+        clipboard = self.get_display().get_clipboard()
+        clipboard.set(text)
+
+    def _open_external_uri(self, uri: str) -> None:
+        """Open one external URI with the desktop default application."""
+        from gi.repository import Gio
+
+        Gio.AppInfo.launch_default_for_uri(uri, None)
+
+    def _station_homepage_url(
+        self,
+        station: dict[str, Any],
+    ) -> str | None:
+        """Return a safe HTTP(S) homepage URL for one station."""
+        from urllib.parse import urlparse
+
+        homepage = str(station.get("homepage") or "").strip()
+        if not homepage:
+            return None
+
+        parsed = urlparse(homepage)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            return None
+
+        return homepage
+
+    def open_station_homepage(
+        self,
+        station: dict[str, Any],
+    ) -> None:
+        """Open one explicit station homepage without changing selection."""
+        raw_homepage = str(station.get("homepage") or "").strip()
+        if not raw_homepage:
+            self.status_label.set_text("Station has no homepage.")
+            return
+
+        homepage = MainWindow._station_homepage_url(self, station)
+        if homepage is None:
+            self.status_label.set_text("Station homepage URL is not safe to open.")
+            return
+
+        try:
+            self._open_external_uri(homepage)
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(f"Could not open station homepage: {exc}")
+
+    def on_context_open_homepage_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Open the homepage for the station targeted by the context menu."""
+        self.open_station_homepage(station)
+
+    def copy_station_url(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Copy one explicit station URL without changing selection."""
+        source_url = self._station_url(station)
+        if not source_url:
+            self.status_label.set_text("Station has no stream URL to copy.")
+            return
+
+        self._clipboard_set_text(source_url)
+
+    def copy_station_name(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Copy one explicit station display name without changing selection."""
+        self._clipboard_set_text(self._station_display_name(station))
 
     def _selected_station_key(self) -> str | None:
         return station_key(self.selected_station)
@@ -712,6 +801,120 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_view_status("Search results", len(stations))
         return False
 
+    def _show_station_context_menu(
+        self,
+        row: Gtk.ListBoxRow,
+        station: dict[str, Any],
+        x: float,
+        y: float,
+    ) -> None:
+        """Show contextual actions bound to one explicit station row."""
+        from gi.repository import Gdk
+
+        popover = Gtk.Popover()
+        popover.set_parent(row)
+
+        menu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        menu_box.set_margin_top(6)
+        menu_box.set_margin_bottom(6)
+        menu_box.set_margin_start(6)
+        menu_box.set_margin_end(6)
+
+        play_button = Gtk.Button(label="Play")
+        play_button.connect("clicked", self.on_context_play_clicked, station)
+        menu_box.append(play_button)
+
+        if self._is_favorite_station(station):
+            favorite_button = Gtk.Button(label="Remove from favorites")
+            favorite_button.connect(
+                "clicked",
+                self.on_context_remove_favorite_clicked,
+                station,
+            )
+        else:
+            favorite_button = Gtk.Button(label="Add to favorites")
+            favorite_button.connect(
+                "clicked",
+                self.on_context_add_favorite_clicked,
+                station,
+            )
+        menu_box.append(favorite_button)
+
+        recording_manager = getattr(self, "recording_manager", None)
+        if recording_manager is not None:
+            active_session = recording_manager.active_session
+            if active_session is None:
+                if getattr(self, "recording_available", False):
+                    record_button = Gtk.Button(label="Record session")
+                    record_button.connect(
+                        "clicked",
+                        self.on_context_record_clicked,
+                        station,
+                    )
+                    menu_box.append(record_button)
+            elif MainWindow._is_station_recording(self, station):
+                stop_recording_button = Gtk.Button(label="Stop recording")
+                stop_recording_button.connect(
+                    "clicked",
+                    self.on_context_stop_recording_clicked,
+                    station,
+                )
+                menu_box.append(stop_recording_button)
+
+        if MainWindow._station_homepage_url(self, station) is not None:
+            homepage_button = Gtk.Button(label="Open station homepage")
+            homepage_button.connect(
+                "clicked",
+                self.on_context_open_homepage_clicked,
+                station,
+            )
+            menu_box.append(homepage_button)
+
+        copy_url_button = Gtk.Button(label="Copy stream URL")
+        copy_url_button.connect("clicked", self.copy_station_url, station)
+        menu_box.append(copy_url_button)
+
+        copy_name_button = Gtk.Button(label="Copy station name")
+        copy_name_button.connect("clicked", self.copy_station_name, station)
+        menu_box.append(copy_name_button)
+
+        popover.set_child(menu_box)
+        popover.connect("closed", self._on_station_context_menu_closed)
+        popover.set_pointing_to(
+            Gdk.Rectangle(
+                int(x),
+                int(y),
+                1,
+                1,
+            )
+        )
+        popover.popup()
+
+    def _on_station_context_menu_closed(
+        self,
+        popover: Gtk.Popover,
+    ) -> None:
+        """Detach a closed contextual popover from its station row."""
+        popover.unparent()
+
+    def on_row_context_click(
+        self,
+        _gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+        row: Gtk.ListBoxRow,
+    ) -> None:
+        """Open the station context menu for the explicitly targeted row."""
+        if n_press != 1:
+            return
+
+        station = self._station_from_context_row(row)
+        if station is None:
+            return
+
+        self._show_station_context_menu(row, station, x, y)
+
     def on_row_double_click(
         self,
         _gesture: Gtk.GestureClick,
@@ -755,30 +958,44 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self.play_selected_station()
 
+    def _is_station_recording(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Return True when the active recording belongs to one station."""
+        active_session = self.recording_manager.active_session
+        if active_session is None:
+            return False
+
+        source_url = self._station_url(station)
+        if not source_url:
+            return False
+
+        return active_session.source_url == source_url
+
     def on_record_clicked(self, _button: Gtk.Button) -> None:
         if self.recording_manager.active_session is not None:
             self.stop_recording()
             return
         self.start_selected_recording()
 
-    def start_selected_recording(self) -> None:
+    def start_station_recording(
+        self,
+        station: dict[str, Any],
+    ) -> None:
+        """Start recording one explicit station without changing selection."""
         if not self.recording_available:
             self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
             self._update_record_button()
             return
 
-        if not self.selected_station:
-            self.status_label.set_text("Select a station first.")
-            self._update_record_button()
-            return
-
-        source_url = self._station_url(self.selected_station)
+        source_url = self._station_url(station)
         if not source_url:
             self.status_label.set_text("Selected station has no stream URL.")
             self._update_record_button()
             return
 
-        station_display_name = self._station_display_name(self.selected_station)
+        station_display_name = self._station_display_name(station)
         output_path = recording_output_path(station_display_name)
 
         try:
@@ -796,6 +1013,47 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._update_record_button()
         self.status_label.set_text(f"Recording: {station_display_name} → {output_path.name}")
+
+    def start_selected_recording(self) -> None:
+        if not self.recording_available:
+            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
+            self._update_record_button()
+            return
+
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            self._update_record_button()
+            return
+
+        start_station_recording = getattr(
+            self,
+            "start_station_recording",
+            None,
+        )
+        if callable(start_station_recording):
+            start_station_recording(self.selected_station)
+            return
+
+        MainWindow.start_station_recording(
+            self,
+            self.selected_station,
+        )
+
+    def on_context_record_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Record the station targeted by a context-menu action."""
+        self.start_station_recording(station)
+
+    def on_context_stop_recording_clicked(
+        self,
+        _button: Gtk.Button,
+        _station: dict[str, Any],
+    ) -> None:
+        """Stop the active recording from a station context-menu action."""
+        self.stop_recording()
 
     def stop_recording(self) -> None:
         if self.recording_manager.active_session is None:
@@ -831,13 +1089,10 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self.record_button.set_sensitive(self.recording_available or active)
 
-    def play_selected_station(self) -> None:
-        if not self.selected_station:
-            self.status_label.set_text("Select a station first.")
-            return
-
+    def play_station(self, station: dict[str, Any]) -> None:
+        """Play one explicit station without changing the selected station."""
         result = coordinate_playback_start(
-            self.selected_station,
+            station,
             player=self.player,
             player_backend_name=self.player_backend_name,
             player_capabilities=self.player_capabilities,
@@ -865,6 +1120,21 @@ class MainWindow(Gtk.ApplicationWindow):
         self._ensure_player_state_timer()
         self._update_play_stop_button()
         self._render_results()
+
+    def play_selected_station(self) -> None:
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            return
+
+        MainWindow.play_station(self, self.selected_station)
+
+    def on_context_play_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Play the station targeted by a context-menu action."""
+        self.play_station(station)
 
     def _metadata_worker(self, stream_url: str, generation: int) -> None:
         try:
@@ -1139,26 +1409,92 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._populate_favorite_edit_fields()
 
+    def add_station_to_favorites(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Add one explicit station to favorites without changing selection."""
+        key = station_key(station)
+        if not key:
+            self.status_label.set_text("Selected station has no favorite URL.")
+            self._update_favorite_buttons()
+            return False
+
+        if add_favorite(station, profile_name=self.profile_name):
+            self._refresh_favorite_cache()
+            self._render_results()
+            self.status_label.set_text("Added to favorites.")
+            return True
+
+        self.status_label.set_text("Station is already in favorites or has no URL.")
+        self._update_favorite_buttons()
+        return False
+
+    def remove_station_from_favorites(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Remove one explicit station from favorites without changing selection."""
+        key = station_key(station)
+        if not key:
+            self.status_label.set_text("Selected station has no favorite URL.")
+            self._update_favorite_buttons()
+            return False
+
+        selected_key = (
+            station_key(self.selected_station) if self.selected_station is not None else None
+        )
+
+        if remove_favorite(key, profile_name=self.profile_name):
+            self._refresh_favorite_cache()
+            self.status_label.set_text("Removed from favorites.")
+
+            if self._view_state.current_view == "favorites":
+                self.stations = load_favorites(profile_name=self.profile_name)
+
+                if selected_key and selected_key != key:
+                    self.selected_station = next(
+                        (
+                            candidate
+                            for candidate in self.stations
+                            if station_key(candidate) == selected_key
+                        ),
+                        None,
+                    )
+                else:
+                    self.selected_station = None
+
+            self._render_results()
+            self._update_favorite_buttons()
+            return True
+
+        self.status_label.set_text("Selected station is not in favorites.")
+        self._update_favorite_buttons()
+        return False
+
+    def on_context_add_favorite_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Add the station targeted by a context-menu action."""
+        self.add_station_to_favorites(station)
+
+    def on_context_remove_favorite_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Remove the station targeted by a context-menu action."""
+        self.remove_station_from_favorites(station)
+
     def on_add_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:
             self.status_label.set_text("Select a station first.")
             self._update_favorite_buttons()
             return
 
-        key = station_key(self.selected_station)
-        if not key:
-            self.status_label.set_text("Selected station has no favorite URL.")
-            self._update_favorite_buttons()
-            return
-
-        if add_favorite(self.selected_station, profile_name=self.profile_name):
-            self._refresh_favorite_cache()
-            self._render_results()
-            self.status_label.set_text("Added to favorites.")
-            return
-
-        self.status_label.set_text("Station is already in favorites or has no URL.")
-        self._update_favorite_buttons()
+        self.add_station_to_favorites(self.selected_station)
 
     def on_save_favorite_clicked(self, _button: Gtk.Button) -> None:
         favorite = self._selected_favorite_record()
@@ -1203,24 +1539,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_favorite_buttons()
             return
 
-        key = station_key(self.selected_station)
-        if not key:
-            self.status_label.set_text("Selected station has no favorite URL.")
-            self._update_favorite_buttons()
-            return
-
-        if remove_favorite(key, profile_name=self.profile_name):
-            self._refresh_favorite_cache()
-            self.status_label.set_text("Removed from favorites.")
-            if self._view_state.current_view == "favorites":
-                self.stations = load_favorites(profile_name=self.profile_name)
-                self.selected_station = None
-            self._render_results()
-            self._update_favorite_buttons()
-            return
-
-        self.status_label.set_text("Selected station is not in favorites.")
-        self._update_favorite_buttons()
+        self.remove_station_from_favorites(self.selected_station)
 
     def _show_all_favorites(self) -> int:
         """Show all saved favorites and reset playlist filtering state."""

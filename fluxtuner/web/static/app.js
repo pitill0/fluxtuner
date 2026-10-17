@@ -214,28 +214,6 @@ function isSetupAvailable() {
   return setupController.isSetupAvailable();
 }
 
-const setupController = createSetupController({
-  appContent,
-  authPanel,
-  getCurrentUser: appState.getCurrentUser,
-  loadAuthState: () => loadAuthState(),
-  resetRadioBrowserView,
-  scrollToSection,
-  searchPanel,
-  setAppContentVisible,
-  setCsrfToken: appState.setCsrfToken,
-  setCurrentUser: appState.setCurrentUser,
-  showRecoveryCodes,
-  setPlayerVisible,
-  setupForm,
-  setupMessageNode,
-  setupPanel,
-  setupTokenField,
-  updateAuthUi: () => updateAuthUi(),
-});
-
-const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
-
 const apiFetch = createApiFetch({
   getCsrfToken: appState.getCsrfToken,
   onUnauthorized: () => {
@@ -286,6 +264,28 @@ const accountRequestsController = createAccountRequestsController({
 });
 
 const { showRecoveryCodes } = accountRequestsController;
+
+const setupController = createSetupController({
+  appContent,
+  authPanel,
+  getCurrentUser: appState.getCurrentUser,
+  loadAuthState: () => loadAuthState(),
+  resetRadioBrowserView,
+  scrollToSection,
+  searchPanel,
+  setAppContentVisible,
+  setCsrfToken: appState.setCsrfToken,
+  setCurrentUser: appState.setCurrentUser,
+  showRecoveryCodes,
+  setPlayerVisible,
+  setupForm,
+  setupMessageNode,
+  setupPanel,
+  setupTokenField,
+  updateAuthUi: () => updateAuthUi(),
+});
+
+const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 
 const adminController = createAdminController({
   apiFetch,

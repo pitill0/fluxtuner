@@ -1074,3 +1074,29 @@ def test_web_static_js_uses_player_runtime_bridge() -> None:
         "({ playStation, setPlayerState, stopPlayback } = playerController);"
         not in app_response.text
     )
+
+
+def test_web_app_initializes_recovery_codes_before_setup_controller() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/static/app.js")
+
+    assert response.status_code == 200
+
+    source = response.text
+
+    api_fetch_index = source.index("const apiFetch = createApiFetch({")
+    account_requests_index = source.index(
+        "const accountRequestsController = createAccountRequestsController({"
+    )
+    show_recovery_codes_index = source.index(
+        "const { showRecoveryCodes } = accountRequestsController;"
+    )
+    setup_controller_index = source.index("const setupController = createSetupController({")
+
+    assert (
+        api_fetch_index
+        < account_requests_index
+        < show_recovery_codes_index
+        < setup_controller_index
+    )

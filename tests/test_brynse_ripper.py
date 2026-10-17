@@ -271,3 +271,15 @@ def test_overlapping_run_is_rejected_and_each_run_gets_a_new_runner(tmp_path: Pa
     ripper.run(request(tmp_path))
     ripper.run(request(tmp_path))
     assert api.RippingRunner.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://[broken",
+        "https://[not-an-ip]/stream",
+    ],
+)
+def test_request_wraps_malformed_stream_url(tmp_path: Path, url: str) -> None:
+    with pytest.raises(RippingError, match="HTTP"):
+        RippingRequest("Flux FM", url, tmp_path)

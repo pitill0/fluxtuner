@@ -41,7 +41,11 @@ class RippingRequest:
         url = self.source_url.strip()
         if not name:
             raise RippingError("Ripping station name is required.")
-        if not is_supported_stream_url(url):
+        try:
+            supported = is_supported_stream_url(url)
+        except ValueError as exc:
+            raise RippingError("Ripping requires a valid HTTP(S) stream URL.") from exc
+        if not supported:
             raise RippingError("Ripping requires a valid HTTP(S) stream URL.")
         object.__setattr__(self, "station_name", name)
         object.__setattr__(self, "source_url", url)

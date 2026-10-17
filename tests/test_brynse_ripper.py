@@ -283,3 +283,26 @@ def test_overlapping_run_is_rejected_and_each_run_gets_a_new_runner(tmp_path: Pa
 def test_request_wraps_malformed_stream_url(tmp_path: Path, url: str) -> None:
     with pytest.raises(RippingError, match="HTTP"):
         RippingRequest("Flux FM", url, tmp_path)
+
+
+def test_request_keeps_output_destination_after_chdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    initial = tmp_path / "initial"
+    other = tmp_path / "other"
+    initial.mkdir()
+    other.mkdir()
+
+    monkeypatch.chdir(initial)
+    expected = Path.cwd() / "tracks"
+    value = RippingRequest(
+        "Flux FM",
+        "https://radio.example/stream",
+        Path("tracks"),
+    )
+
+    monkeypatch.chdir(other)
+
+    assert value.output_directory.absolute() == expected
+    assert not expected.exists()
+    assert not (other / "tracks").exists()

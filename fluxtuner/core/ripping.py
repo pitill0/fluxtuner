@@ -49,7 +49,7 @@ class RippingRequest:
             raise RippingError("Ripping requires a valid HTTP(S) stream URL.")
         object.__setattr__(self, "station_name", name)
         object.__setattr__(self, "source_url", url)
-        object.__setattr__(self, "output_directory", self.output_directory.expanduser())
+        object.__setattr__(self, "output_directory", self.output_directory.expanduser().absolute())
 
     @classmethod
     def from_station(

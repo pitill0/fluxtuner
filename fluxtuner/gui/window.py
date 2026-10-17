@@ -583,6 +583,11 @@ class MainWindow(Gtk.ApplicationWindow):
         double_click.connect("pressed", self.on_row_double_click, row)
         row.add_controller(double_click)
 
+        context_click = Gtk.GestureClick()
+        context_click.set_button(3)
+        context_click.connect("pressed", self.on_row_context_click, row)
+        row.add_controller(context_click)
+
         row.set_child(row_box)
         return row
 
@@ -608,6 +613,39 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _station_url(self, station: dict[str, Any] | None) -> str | None:
         return station_url(station)
+
+    def _station_from_context_row(
+        self,
+        row: Gtk.ListBoxRow,
+    ) -> dict[str, Any] | None:
+        """Return the station bound to a contextual-menu row."""
+        return getattr(row, "station", None)
+
+    def _clipboard_set_text(self, text: str) -> None:
+        """Copy text to the GTK clipboard."""
+        clipboard = self.get_display().get_clipboard()
+        clipboard.set_text(text)
+
+    def copy_station_url(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Copy one explicit station URL without changing selection."""
+        source_url = self._station_url(station)
+        if not source_url:
+            self.status_label.set_text("Station has no stream URL to copy.")
+            return
+
+        self._clipboard_set_text(source_url)
+
+    def copy_station_name(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Copy one explicit station display name without changing selection."""
+        self._clipboard_set_text(self._station_display_name(station))
 
     def _selected_station_key(self) -> str | None:
         return station_key(self.selected_station)
@@ -711,6 +749,70 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_playlist_status()
         self._set_view_status("Search results", len(stations))
         return False
+
+    def _show_station_context_menu(
+        self,
+        row: Gtk.ListBoxRow,
+        station: dict[str, Any],
+        x: float,
+        y: float,
+    ) -> None:
+        """Show contextual actions bound to one explicit station row."""
+        from gi.repository import Gdk
+
+        popover = Gtk.Popover()
+        popover.set_parent(row)
+
+        menu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        menu_box.set_margin_top(6)
+        menu_box.set_margin_bottom(6)
+        menu_box.set_margin_start(6)
+        menu_box.set_margin_end(6)
+
+        copy_url_button = Gtk.Button(label="Copy stream URL")
+        copy_url_button.connect("clicked", self.copy_station_url, station)
+        menu_box.append(copy_url_button)
+
+        copy_name_button = Gtk.Button(label="Copy station name")
+        copy_name_button.connect("clicked", self.copy_station_name, station)
+        menu_box.append(copy_name_button)
+
+        popover.set_child(menu_box)
+        popover.connect("closed", self._on_station_context_menu_closed)
+        popover.set_pointing_to(
+            Gdk.Rectangle(
+                int(x),
+                int(y),
+                1,
+                1,
+            )
+        )
+        popover.popup()
+
+    def _on_station_context_menu_closed(
+        self,
+        popover: Gtk.Popover,
+    ) -> None:
+        """Detach a closed contextual popover from its station row."""
+        popover.unparent()
+
+    def on_row_context_click(
+        self,
+        _gesture: Gtk.GestureClick,
+        n_press: int,
+        x: float,
+        y: float,
+        row: Gtk.ListBoxRow,
+    ) -> None:
+        """Open the station context menu for the explicitly targeted row."""
+        if n_press != 1:
+            return
+
+        station = self._station_from_context_row(row)
+        if station is None:
+            return
+
+        self._show_station_context_menu(row, station, x, y)
 
     def on_row_double_click(
         self,

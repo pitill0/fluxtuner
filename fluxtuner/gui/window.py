@@ -844,6 +844,27 @@ class MainWindow(Gtk.ApplicationWindow):
             )
         menu_box.append(favorite_button)
 
+        recording_manager = getattr(self, "recording_manager", None)
+        if recording_manager is not None:
+            active_session = recording_manager.active_session
+            if active_session is None:
+                if getattr(self, "recording_available", False):
+                    record_button = Gtk.Button(label="Record session")
+                    record_button.connect(
+                        "clicked",
+                        self.on_context_record_clicked,
+                        station,
+                    )
+                    menu_box.append(record_button)
+            elif MainWindow._is_station_recording(self, station):
+                stop_recording_button = Gtk.Button(label="Stop recording")
+                stop_recording_button.connect(
+                    "clicked",
+                    self.on_context_stop_recording_clicked,
+                    station,
+                )
+                menu_box.append(stop_recording_button)
+
         if MainWindow._station_homepage_url(self, station) is not None:
             homepage_button = Gtk.Button(label="Open station homepage")
             homepage_button.connect(
@@ -941,30 +962,46 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self.play_selected_station()
 
+    def _is_station_recording(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Return True when the active recording belongs to one station."""
+        active_session = self.recording_manager.active_session
+        if active_session is None:
+            return False
+
+        source_url = self._station_url(station)
+        if not source_url:
+            return False
+
+        return active_session.source_url == source_url
+
     def on_record_clicked(self, _button: Gtk.Button) -> None:
         if self.recording_manager.active_session is not None:
             self.stop_recording()
             return
         self.start_selected_recording()
 
-    def start_selected_recording(self) -> None:
+    def start_station_recording(
+        self,
+        station: dict[str, Any],
+    ) -> None:
+        """Start recording one explicit station without changing selection."""
         if not self.recording_available:
-            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
+            self.status_label.set_text(
+                "Recording unavailable: ffmpeg was not found in PATH."
+            )
             self._update_record_button()
             return
 
-        if not self.selected_station:
-            self.status_label.set_text("Select a station first.")
-            self._update_record_button()
-            return
-
-        source_url = self._station_url(self.selected_station)
+        source_url = self._station_url(station)
         if not source_url:
             self.status_label.set_text("Selected station has no stream URL.")
             self._update_record_button()
             return
 
-        station_display_name = self._station_display_name(self.selected_station)
+        station_display_name = self._station_display_name(station)
         output_path = recording_output_path(station_display_name)
 
         try:
@@ -981,7 +1018,52 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self._update_record_button()
-        self.status_label.set_text(f"Recording: {station_display_name} → {output_path.name}")
+        self.status_label.set_text(
+            f"Recording: {station_display_name} → {output_path.name}"
+        )
+
+    def start_selected_recording(self) -> None:
+        if not self.recording_available:
+            self.status_label.set_text(
+                "Recording unavailable: ffmpeg was not found in PATH."
+            )
+            self._update_record_button()
+            return
+
+        if not self.selected_station:
+            self.status_label.set_text("Select a station first.")
+            self._update_record_button()
+            return
+
+        start_station_recording = getattr(
+            self,
+            "start_station_recording",
+            None,
+        )
+        if callable(start_station_recording):
+            start_station_recording(self.selected_station)
+            return
+
+        MainWindow.start_station_recording(
+            self,
+            self.selected_station,
+        )
+
+    def on_context_record_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Record the station targeted by a context-menu action."""
+        self.start_station_recording(station)
+
+    def on_context_stop_recording_clicked(
+        self,
+        _button: Gtk.Button,
+        _station: dict[str, Any],
+    ) -> None:
+        """Stop the active recording from a station context-menu action."""
+        self.stop_recording()
 
     def stop_recording(self) -> None:
         if self.recording_manager.active_session is None:

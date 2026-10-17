@@ -1702,3 +1702,553 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
         "Copy stream URL",
         "Copy station name",
     ]
+
+
+def test_gtk_start_recording_targets_explicit_station_without_changing_selection(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+    output = tmp_path / "clicked-fm.mka"
+
+    monkeypatch.setattr(
+        window,
+        "recording_output_path",
+        Mock(return_value=output),
+    )
+
+    manager = Mock()
+    manager.active_session = None
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        recording_available=True,
+        recording_manager=manager,
+        status_label=Mock(),
+        _station_url=Mock(
+            side_effect=lambda station: station["url_resolved"]
+        ),
+        _station_display_name=Mock(
+            side_effect=lambda station: station["name"]
+        ),
+        _update_record_button=Mock(),
+    )
+
+    window.MainWindow.start_station_recording(
+        harness,
+        clicked_station,
+    )
+
+    request = manager.start.call_args.args[0]
+    assert request.station_name == "Clicked FM"
+    assert request.source_url == "https://radio.example/clicked"
+    assert request.output_path == output
+    assert harness.selected_station is selected_station
+
+    harness._update_record_button.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        f"Recording: Clicked FM → {output.name}"
+    )
+
+
+def test_gtk_context_record_callback_targets_clicked_station() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        start_station_recording=Mock(),
+    )
+
+    window.MainWindow.on_context_record_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+
+    harness.start_station_recording.assert_called_once_with(clicked_station)
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_selected_recording_delegates_to_explicit_station_seam() -> None:
+    station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=station,
+        recording_available=True,
+        start_station_recording=Mock(),
+        status_label=Mock(),
+        _update_record_button=Mock(),
+    )
+
+    window.MainWindow.start_selected_recording(harness)
+
+    harness.start_station_recording.assert_called_once_with(station)
+
+
+def test_gtk_station_recording_state_matches_active_session_source_url() -> None:
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        recording_manager=SimpleNamespace(
+            active_session=SimpleNamespace(
+                source_url="https://radio.example/clicked",
+            ),
+        ),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+    )
+
+    assert window.MainWindow._is_station_recording(
+        harness,
+        station,
+    ) is True
+
+
+def test_gtk_station_recording_state_rejects_different_active_session() -> None:
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        recording_manager=SimpleNamespace(
+            active_session=SimpleNamespace(
+                source_url="https://radio.example/other",
+            ),
+        ),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+    )
+
+    assert window.MainWindow._is_station_recording(
+        harness,
+        station,
+    ) is False
+
+
+def test_gtk_station_recording_state_is_false_without_active_session() -> None:
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        recording_manager=SimpleNamespace(active_session=None),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+    )
+
+    assert window.MainWindow._is_station_recording(
+        harness,
+        station,
+    ) is False
+
+
+def test_gtk_context_stop_recording_callback_does_not_change_selection() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        stop_recording=Mock(),
+    )
+
+    window.MainWindow.on_context_stop_recording_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+
+    harness.stop_recording.assert_called_once_with()
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, *_args) -> None:
+            pass
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+            self.connections = []
+
+        def connect(self, signal, callback, *args) -> None:
+            self.connections.append((signal, callback, args))
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rectangle) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+        "homepage": "",
+    }
+
+    harness = SimpleNamespace(
+        recording_available=True,
+        recording_manager=SimpleNamespace(active_session=None),
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        on_context_record_clicked=Mock(),
+        on_context_stop_recording_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert "Record session" in labels
+
+    record_button = next(
+        button
+        for button in FakePopover.last_created.child.children
+        if button.label == "Record session"
+    )
+    assert record_button.connections == [
+        (
+            "clicked",
+            harness.on_context_record_clicked,
+            (station,),
+        )
+    ]
+
+
+def test_gtk_context_menu_shows_stop_recording_for_active_station(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, *_args) -> None:
+            pass
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+            self.connections = []
+
+        def connect(self, signal, callback, *args) -> None:
+            self.connections.append((signal, callback, args))
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rectangle) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+        "homepage": "",
+    }
+
+    harness = SimpleNamespace(
+        recording_available=True,
+        recording_manager=SimpleNamespace(
+            active_session=SimpleNamespace(
+                source_url="https://radio.example/clicked",
+            ),
+        ),
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        on_context_record_clicked=Mock(),
+        on_context_stop_recording_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert "Stop recording" in labels
+    assert "Record session" not in labels
+
+    stop_button = next(
+        button
+        for button in FakePopover.last_created.child.children
+        if button.label == "Stop recording"
+    )
+    assert stop_button.connections == [
+        (
+            "clicked",
+            harness.on_context_stop_recording_clicked,
+            (station,),
+        )
+    ]
+
+
+def test_gtk_context_menu_hides_recording_action_for_different_active_station(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, *_args) -> None:
+            pass
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+
+        def connect(self, *_args) -> None:
+            pass
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rectangle) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+        "homepage": "",
+    }
+
+    harness = SimpleNamespace(
+        recording_available=True,
+        recording_manager=SimpleNamespace(
+            active_session=SimpleNamespace(
+                source_url="https://radio.example/other",
+            ),
+        ),
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        on_context_record_clicked=Mock(),
+        on_context_stop_recording_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _station_url=Mock(return_value="https://radio.example/clicked"),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert "Record session" not in labels
+    assert "Stop recording" not in labels

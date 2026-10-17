@@ -78,9 +78,7 @@ def test_gtk_context_copy_url_uses_clicked_station() -> None:
 
     window.MainWindow.copy_station_url(harness, Mock(), clicked_station)
 
-    harness._clipboard_set_text.assert_called_once_with(
-        "https://radio.example/clicked"
-    )
+    harness._clipboard_set_text.assert_called_once_with("https://radio.example/clicked")
     assert harness.selected_station is selected_station
 
 
@@ -105,9 +103,7 @@ def test_gtk_context_copy_url_rejects_missing_url() -> None:
     window.MainWindow.copy_station_url(harness, Mock(), clicked_station)
 
     harness._clipboard_set_text.assert_not_called()
-    harness.status_label.set_text.assert_called_once_with(
-        "Station has no stream URL to copy."
-    )
+    harness.status_label.set_text.assert_called_once_with("Station has no stream URL to copy.")
 
 
 def test_gtk_context_actions_do_not_replace_selected_station() -> None:
@@ -308,14 +304,10 @@ def test_gtk_station_row_adds_secondary_click_context_gesture(monkeypatch) -> No
     double_click, context_click = FakeGestureClick.instances
 
     assert double_click.button == 0
-    assert double_click.connections == [
-        ("pressed", harness.on_row_double_click, (row,))
-    ]
+    assert double_click.connections == [("pressed", harness.on_row_double_click, (row,))]
 
     assert context_click.button == 3
-    assert context_click.connections == [
-        ("pressed", harness.on_row_context_click, (row,))
-    ]
+    assert context_click.connections == [("pressed", harness.on_row_context_click, (row,))]
 
     assert row.controllers == [double_click, context_click]
 
@@ -538,9 +530,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
         copy_name_button,
     ) = popover.child.children
 
-    assert play_button.connections == [
-        ("clicked", harness.on_context_play_clicked, (station,))
-    ]
+    assert play_button.connections == [("clicked", harness.on_context_play_clicked, (station,))]
     assert favorite_button.connections == [
         (
             "clicked",
@@ -548,12 +538,8 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
             (station,),
         )
     ]
-    assert copy_url_button.connections == [
-        ("clicked", harness.copy_station_url, (station,))
-    ]
-    assert copy_name_button.connections == [
-        ("clicked", harness.copy_station_name, (station,))
-    ]
+    assert copy_url_button.connections == [("clicked", harness.copy_station_url, (station,))]
+    assert copy_name_button.connections == [("clicked", harness.copy_station_name, (station,))]
 
     assert harness.selected_station is selected_station
 
@@ -766,7 +752,6 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
     assert popover.unparent_calls == 1
 
 
-
 def test_gtk_clipboard_set_text_uses_text_api() -> None:
     clipboard = Mock()
     display = Mock()
@@ -894,9 +879,7 @@ def test_gtk_add_explicit_station_to_favorites_without_changing_selection(
     )
     harness._refresh_favorite_cache.assert_called_once_with()
     harness._render_results.assert_called_once_with()
-    harness.status_label.set_text.assert_called_once_with(
-        "Added to favorites."
-    )
+    harness.status_label.set_text.assert_called_once_with("Added to favorites.")
     assert harness.selected_station is selected_station
 
 
@@ -942,9 +925,7 @@ def test_gtk_remove_explicit_station_from_favorites_without_changing_selection(
     harness._refresh_favorite_cache.assert_called_once_with()
     harness._render_results.assert_called_once_with()
     harness._update_favorite_buttons.assert_called_once_with()
-    harness.status_label.set_text.assert_called_once_with(
-        "Removed from favorites."
-    )
+    harness.status_label.set_text.assert_called_once_with("Removed from favorites.")
     assert harness.selected_station is selected_station
 
 
@@ -1180,10 +1161,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert labels == [
         "Play",
@@ -1301,10 +1279,7 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert labels == [
         "Play",
@@ -1344,9 +1319,7 @@ def test_gtk_open_station_homepage_targets_explicit_station_without_changing_sel
         clicked_station,
     )
 
-    harness._open_external_uri.assert_called_once_with(
-        "https://clicked.example/"
-    )
+    harness._open_external_uri.assert_called_once_with("https://clicked.example/")
     harness.status_label.set_text.assert_not_called()
     assert harness.selected_station is selected_station
 
@@ -1368,9 +1341,7 @@ def test_gtk_open_station_homepage_rejects_missing_homepage() -> None:
     )
 
     harness._open_external_uri.assert_not_called()
-    harness.status_label.set_text.assert_called_once_with(
-        "Station has no homepage."
-    )
+    harness.status_label.set_text.assert_called_once_with("Station has no homepage.")
 
 
 def test_gtk_open_station_homepage_rejects_non_http_uri() -> None:
@@ -1467,9 +1438,7 @@ def test_gtk_open_station_homepage_contains_launcher_failure() -> None:
         station,
     )
 
-    harness._open_external_uri.assert_called_once_with(
-        "https://clicked.example/"
-    )
+    harness._open_external_uri.assert_called_once_with("https://clicked.example/")
     harness.status_label.set_text.assert_called_once_with(
         "Could not open station homepage: launcher unavailable"
     )
@@ -1572,10 +1541,7 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert labels == [
         "Play",
@@ -1691,10 +1657,7 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert labels == [
         "Play",
@@ -1732,12 +1695,8 @@ def test_gtk_start_recording_targets_explicit_station_without_changing_selection
         recording_available=True,
         recording_manager=manager,
         status_label=Mock(),
-        _station_url=Mock(
-            side_effect=lambda station: station["url_resolved"]
-        ),
-        _station_display_name=Mock(
-            side_effect=lambda station: station["name"]
-        ),
+        _station_url=Mock(side_effect=lambda station: station["url_resolved"]),
+        _station_display_name=Mock(side_effect=lambda station: station["name"]),
         _update_record_button=Mock(),
     )
 
@@ -1753,9 +1712,7 @@ def test_gtk_start_recording_targets_explicit_station_without_changing_selection
     assert harness.selected_station is selected_station
 
     harness._update_record_button.assert_called_once_with()
-    harness.status_label.set_text.assert_called_once_with(
-        f"Recording: Clicked FM → {output.name}"
-    )
+    harness.status_label.set_text.assert_called_once_with(f"Recording: Clicked FM → {output.name}")
 
 
 def test_gtk_context_record_callback_targets_clicked_station() -> None:
@@ -1817,10 +1774,13 @@ def test_gtk_station_recording_state_matches_active_session_source_url() -> None
         _station_url=Mock(return_value="https://radio.example/clicked"),
     )
 
-    assert window.MainWindow._is_station_recording(
-        harness,
-        station,
-    ) is True
+    assert (
+        window.MainWindow._is_station_recording(
+            harness,
+            station,
+        )
+        is True
+    )
 
 
 def test_gtk_station_recording_state_rejects_different_active_session() -> None:
@@ -1838,10 +1798,13 @@ def test_gtk_station_recording_state_rejects_different_active_session() -> None:
         _station_url=Mock(return_value="https://radio.example/clicked"),
     )
 
-    assert window.MainWindow._is_station_recording(
-        harness,
-        station,
-    ) is False
+    assert (
+        window.MainWindow._is_station_recording(
+            harness,
+            station,
+        )
+        is False
+    )
 
 
 def test_gtk_station_recording_state_is_false_without_active_session() -> None:
@@ -1855,10 +1818,13 @@ def test_gtk_station_recording_state_is_false_without_active_session() -> None:
         _station_url=Mock(return_value="https://radio.example/clicked"),
     )
 
-    assert window.MainWindow._is_station_recording(
-        harness,
-        station,
-    ) is False
+    assert (
+        window.MainWindow._is_station_recording(
+            harness,
+            station,
+        )
+        is False
+    )
 
 
 def test_gtk_context_stop_recording_callback_does_not_change_selection() -> None:
@@ -1989,10 +1955,7 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert "Record session" in labels
 
@@ -2117,10 +2080,7 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert "Stop recording" in labels
     assert "Record session" not in labels
@@ -2245,10 +2205,7 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(
         2.0,
     )
 
-    labels = [
-        button.label
-        for button in FakePopover.last_created.child.children
-    ]
+    labels = [button.label for button in FakePopover.last_created.child.children]
 
     assert "Record session" not in labels
     assert "Stop recording" not in labels

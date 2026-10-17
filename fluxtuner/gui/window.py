@@ -661,17 +661,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
         homepage = MainWindow._station_homepage_url(self, station)
         if homepage is None:
-            self.status_label.set_text(
-                "Station homepage URL is not safe to open."
-            )
+            self.status_label.set_text("Station homepage URL is not safe to open.")
             return
 
         try:
             self._open_external_uri(homepage)
         except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
-            self.status_label.set_text(
-                f"Could not open station homepage: {exc}"
-            )
+            self.status_label.set_text(f"Could not open station homepage: {exc}")
 
     def on_context_open_homepage_clicked(
         self,
@@ -989,9 +985,7 @@ class MainWindow(Gtk.ApplicationWindow):
     ) -> None:
         """Start recording one explicit station without changing selection."""
         if not self.recording_available:
-            self.status_label.set_text(
-                "Recording unavailable: ffmpeg was not found in PATH."
-            )
+            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
             self._update_record_button()
             return
 
@@ -1018,15 +1012,11 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self._update_record_button()
-        self.status_label.set_text(
-            f"Recording: {station_display_name} → {output_path.name}"
-        )
+        self.status_label.set_text(f"Recording: {station_display_name} → {output_path.name}")
 
     def start_selected_recording(self) -> None:
         if not self.recording_available:
-            self.status_label.set_text(
-                "Recording unavailable: ffmpeg was not found in PATH."
-            )
+            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
             self._update_record_button()
             return
 
@@ -1436,9 +1426,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text("Added to favorites.")
             return True
 
-        self.status_label.set_text(
-            "Station is already in favorites or has no URL."
-        )
+        self.status_label.set_text("Station is already in favorites or has no URL.")
         self._update_favorite_buttons()
         return False
 
@@ -1454,9 +1442,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return False
 
         selected_key = (
-            station_key(self.selected_station)
-            if self.selected_station is not None
-            else None
+            station_key(self.selected_station) if self.selected_station is not None else None
         )
 
         if remove_favorite(key, profile_name=self.profile_name):

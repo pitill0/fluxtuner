@@ -88,41 +88,63 @@ class RippingService:
             if snapshot is None:
                 return
             if snapshot.state == "starting":
-                raise RippingError("The ripping job is still starting.")
+                self._snapshot = replace(snapshot, state="stopping")
+                return
             if snapshot.state != "running":
                 return
             backend = self._backend
             if backend is None:
                 raise RippingError("The active ripping backend is unavailable.")
 
-            self._snapshot = replace(snapshot, state="stopping")
-            worker = Thread(
-                target=self._stop,
-                args=(snapshot.job_id, backend),
-                name=f"fluxtuner-ripping-stop-{snapshot.job_id}",
-                daemon=True,
-            )
-            self._stop_worker = worker
-            try:
-                worker.start()
-            except Exception as exc:
-                error = RippingError(f"Could not start ripping stop worker: {exc}")
-                self._stop_worker = None
-                self._snapshot = replace(snapshot, state="failed", error=error)
-                raise error from exc
+            self._start_stop_locked(snapshot, backend)
+
+    def _start_stop_locked(self, snapshot: RippingSnapshot, backend: RippingBackend) -> None:
+        """Start the stop worker while the service lock is held."""
+        self._snapshot = replace(snapshot, state="stopping")
+        worker = Thread(
+            target=self._stop,
+            args=(snapshot.job_id, backend),
+            name=f"fluxtuner-ripping-stop-{snapshot.job_id}",
+            daemon=True,
+        )
+        self._stop_worker = worker
+        try:
+            worker.start()
+        except Exception as exc:
+            error = RippingError(f"Could not start ripping stop worker: {exc}")
+            self._stop_worker = None
+            self._snapshot = replace(snapshot, state="failed", error=error)
+            raise error from exc
 
     def wait(self, *, timeout: float = 0.0) -> bool:
         """Wait up to timeout; blocking waits belong outside the UI thread."""
         deadline = monotonic() + max(0.0, timeout)
         with self._lock:
-            threads = tuple(
-                thread for thread in (self._worker, self._stop_worker) if thread is not None
-            )
-        if any(thread is current_thread() for thread in threads):
+            worker = self._worker
+            stop_worker = self._stop_worker
+        if any(
+            thread is current_thread() for thread in (worker, stop_worker) if thread is not None
+        ):
             raise RippingError("A ripping worker cannot wait for itself.")
-        for thread in threads:
-            thread.join(timeout=max(0.0, deadline - monotonic()))
-        return all(not thread.is_alive() for thread in threads)
+        if worker is not None:
+            worker.join(timeout=max(0.0, deadline - monotonic()))
+
+        with self._lock:
+            if self._worker is not worker:
+                return True
+            stop_worker = self._stop_worker
+        if stop_worker is current_thread():
+            raise RippingError("A ripping worker cannot wait for itself.")
+        if stop_worker is not None:
+            stop_worker.join(timeout=max(0.0, deadline - monotonic()))
+
+        with self._lock:
+            if self._worker is not worker:
+                return True
+            return all(
+                thread is None or not thread.is_alive()
+                for thread in (self._worker, self._stop_worker)
+            )
 
     def _stop(self, job_id: int, backend: RippingBackend) -> None:
         try:
@@ -137,16 +159,26 @@ class RippingService:
         def on_started(_event: RippingStarted) -> None:
             with self._lock:
                 snapshot = self._snapshot
-                if (
-                    snapshot is not None
-                    and snapshot.job_id == job_id
-                    and snapshot.state == "starting"
-                ):
+                if snapshot is None or snapshot.job_id != job_id:
+                    return
+                if snapshot.state == "starting":
                     self._snapshot = replace(snapshot, state="running")
+                elif snapshot.state == "stopping" and self._stop_worker is None:
+                    backend = self._backend
+                    if backend is not None:
+                        self._start_stop_locked(snapshot, backend)
 
         try:
             backend = self._backend_factory()
             with self._lock:
+                snapshot = self._snapshot
+                if (
+                    snapshot is not None
+                    and snapshot.job_id == job_id
+                    and snapshot.state == "stopping"
+                ):
+                    self._snapshot = replace(snapshot, state="stopped")
+                    return
                 self._backend = backend
             result = backend.run(request, on_started=on_started)
             finished = RippingSnapshot(

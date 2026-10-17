@@ -773,6 +773,22 @@ class MainWindow(Gtk.ApplicationWindow):
         play_button.connect("clicked", self.on_context_play_clicked, station)
         menu_box.append(play_button)
 
+        if self._is_favorite_station(station):
+            favorite_button = Gtk.Button(label="Remove from favorites")
+            favorite_button.connect(
+                "clicked",
+                self.on_context_remove_favorite_clicked,
+                station,
+            )
+        else:
+            favorite_button = Gtk.Button(label="Add to favorites")
+            favorite_button.connect(
+                "clicked",
+                self.on_context_add_favorite_clicked,
+                station,
+            )
+        menu_box.append(favorite_button)
+
         copy_url_button = Gtk.Button(label="Copy stream URL")
         copy_url_button.connect("clicked", self.copy_station_url, station)
         menu_box.append(copy_url_button)
@@ -1257,26 +1273,96 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._populate_favorite_edit_fields()
 
+    def add_station_to_favorites(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Add one explicit station to favorites without changing selection."""
+        key = station_key(station)
+        if not key:
+            self.status_label.set_text("Selected station has no favorite URL.")
+            self._update_favorite_buttons()
+            return False
+
+        if add_favorite(station, profile_name=self.profile_name):
+            self._refresh_favorite_cache()
+            self._render_results()
+            self.status_label.set_text("Added to favorites.")
+            return True
+
+        self.status_label.set_text(
+            "Station is already in favorites or has no URL."
+        )
+        self._update_favorite_buttons()
+        return False
+
+    def remove_station_from_favorites(
+        self,
+        station: dict[str, Any],
+    ) -> bool:
+        """Remove one explicit station from favorites without changing selection."""
+        key = station_key(station)
+        if not key:
+            self.status_label.set_text("Selected station has no favorite URL.")
+            self._update_favorite_buttons()
+            return False
+
+        selected_key = (
+            station_key(self.selected_station)
+            if self.selected_station is not None
+            else None
+        )
+
+        if remove_favorite(key, profile_name=self.profile_name):
+            self._refresh_favorite_cache()
+            self.status_label.set_text("Removed from favorites.")
+
+            if self._view_state.current_view == "favorites":
+                self.stations = load_favorites(profile_name=self.profile_name)
+
+                if selected_key and selected_key != key:
+                    self.selected_station = next(
+                        (
+                            candidate
+                            for candidate in self.stations
+                            if station_key(candidate) == selected_key
+                        ),
+                        None,
+                    )
+                else:
+                    self.selected_station = None
+
+            self._render_results()
+            self._update_favorite_buttons()
+            return True
+
+        self.status_label.set_text("Selected station is not in favorites.")
+        self._update_favorite_buttons()
+        return False
+
+    def on_context_add_favorite_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Add the station targeted by a context-menu action."""
+        self.add_station_to_favorites(station)
+
+    def on_context_remove_favorite_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Remove the station targeted by a context-menu action."""
+        self.remove_station_from_favorites(station)
+
     def on_add_favorite_clicked(self, _button: Gtk.Button) -> None:
         if not self.selected_station:
             self.status_label.set_text("Select a station first.")
             self._update_favorite_buttons()
             return
 
-        key = station_key(self.selected_station)
-        if not key:
-            self.status_label.set_text("Selected station has no favorite URL.")
-            self._update_favorite_buttons()
-            return
-
-        if add_favorite(self.selected_station, profile_name=self.profile_name):
-            self._refresh_favorite_cache()
-            self._render_results()
-            self.status_label.set_text("Added to favorites.")
-            return
-
-        self.status_label.set_text("Station is already in favorites or has no URL.")
-        self._update_favorite_buttons()
+        self.add_station_to_favorites(self.selected_station)
 
     def on_save_favorite_clicked(self, _button: Gtk.Button) -> None:
         favorite = self._selected_favorite_record()
@@ -1321,24 +1407,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_favorite_buttons()
             return
 
-        key = station_key(self.selected_station)
-        if not key:
-            self.status_label.set_text("Selected station has no favorite URL.")
-            self._update_favorite_buttons()
-            return
-
-        if remove_favorite(key, profile_name=self.profile_name):
-            self._refresh_favorite_cache()
-            self.status_label.set_text("Removed from favorites.")
-            if self._view_state.current_view == "favorites":
-                self.stations = load_favorites(profile_name=self.profile_name)
-                self.selected_station = None
-            self._render_results()
-            self._update_favorite_buttons()
-            return
-
-        self.status_label.set_text("Selected station is not in favorites.")
-        self._update_favorite_buttons()
+        self.remove_station_from_favorites(self.selected_station)
 
     def _show_all_favorites(self) -> int:
         """Show all saved favorites and reset playlist filtering state."""

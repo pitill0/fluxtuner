@@ -494,6 +494,9 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
 
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        _is_favorite_station=Mock(return_value=False),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -523,13 +526,27 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
 
     assert [button.label for button in popover.child.children] == [
         "Play",
+        "Add to favorites",
         "Copy stream URL",
         "Copy station name",
     ]
 
-    play_button, copy_url_button, copy_name_button = popover.child.children
+    (
+        play_button,
+        favorite_button,
+        copy_url_button,
+        copy_name_button,
+    ) = popover.child.children
+
     assert play_button.connections == [
         ("clicked", harness.on_context_play_clicked, (station,))
+    ]
+    assert favorite_button.connections == [
+        (
+            "clicked",
+            harness.on_context_add_favorite_clicked,
+            (station,),
+        )
     ]
     assert copy_url_button.connections == [
         ("clicked", harness.copy_station_url, (station,))
@@ -621,6 +638,9 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(
 
     harness = SimpleNamespace(
         on_context_play_clicked=lambda _button, target: target,
+        on_context_add_favorite_clicked=lambda _button, target: target,
+        on_context_remove_favorite_clicked=lambda _button, target: target,
+        _is_favorite_station=lambda _station: False,
         copy_station_url=lambda _button, target: target,
         copy_station_name=lambda _button, target: target,
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -719,6 +739,9 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
 
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        _is_favorite_station=Mock(return_value=False),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
@@ -834,3 +857,467 @@ def test_gtk_context_play_callback_uses_clicked_station() -> None:
 
     harness.play_station.assert_called_once_with(clicked_station)
     assert harness.selected_station is selected_station
+
+
+def test_gtk_add_explicit_station_to_favorites_without_changing_selection(
+    monkeypatch,
+) -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    add = Mock(return_value=True)
+    monkeypatch.setattr(window, "add_favorite", add)
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        profile_name="default",
+        status_label=Mock(),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_favorite_buttons=Mock(),
+    )
+
+    window.MainWindow.add_station_to_favorites(
+        harness,
+        clicked_station,
+    )
+
+    add.assert_called_once_with(
+        clicked_station,
+        profile_name="default",
+    )
+    harness._refresh_favorite_cache.assert_called_once_with()
+    harness._render_results.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        "Added to favorites."
+    )
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_remove_explicit_station_from_favorites_without_changing_selection(
+    monkeypatch,
+) -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    remove = Mock(return_value=True)
+    monkeypatch.setattr(window, "remove_favorite", remove)
+    monkeypatch.setattr(
+        window,
+        "station_key",
+        Mock(return_value="https://radio.example/clicked"),
+    )
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        profile_name="default",
+        status_label=Mock(),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_favorite_buttons=Mock(),
+        _view_state=SimpleNamespace(current_view="search"),
+    )
+
+    window.MainWindow.remove_station_from_favorites(
+        harness,
+        clicked_station,
+    )
+
+    remove.assert_called_once_with(
+        "https://radio.example/clicked",
+        profile_name="default",
+    )
+    harness._refresh_favorite_cache.assert_called_once_with()
+    harness._render_results.assert_called_once_with()
+    harness._update_favorite_buttons.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        "Removed from favorites."
+    )
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_context_favorite_callback_targets_clicked_station() -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        add_station_to_favorites=Mock(),
+        remove_station_from_favorites=Mock(),
+    )
+
+    window.MainWindow.on_context_add_favorite_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+    window.MainWindow.on_context_remove_favorite_clicked(
+        harness,
+        Mock(),
+        clicked_station,
+    )
+
+    harness.add_station_to_favorites.assert_called_once_with(clicked_station)
+    harness.remove_station_from_favorites.assert_called_once_with(clicked_station)
+    assert harness.selected_station is selected_station
+
+
+def test_gtk_selected_favorite_handlers_delegate_to_explicit_station_seams() -> None:
+    station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+
+    harness = SimpleNamespace(
+        selected_station=station,
+        add_station_to_favorites=Mock(),
+        remove_station_from_favorites=Mock(),
+    )
+
+    window.MainWindow.on_add_favorite_clicked(harness, Mock())
+    window.MainWindow.on_remove_favorite_clicked(harness, Mock())
+
+    harness.add_station_to_favorites.assert_called_once_with(station)
+    harness.remove_station_from_favorites.assert_called_once_with(station)
+
+
+def test_gtk_remove_context_favorite_preserves_other_selection_in_favorites_view(
+    monkeypatch,
+) -> None:
+    selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+    reloaded_selected_station = {
+        "name": "Selected FM",
+        "url_resolved": "https://radio.example/selected",
+    }
+
+    monkeypatch.setattr(window, "remove_favorite", Mock(return_value=True))
+    monkeypatch.setattr(
+        window,
+        "load_favorites",
+        Mock(return_value=[reloaded_selected_station]),
+    )
+
+    harness = SimpleNamespace(
+        selected_station=selected_station,
+        stations=[selected_station, clicked_station],
+        profile_name="default",
+        status_label=Mock(),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_favorite_buttons=Mock(),
+        _view_state=SimpleNamespace(current_view="favorites"),
+    )
+
+    window.MainWindow.remove_station_from_favorites(
+        harness,
+        clicked_station,
+    )
+
+    assert harness.stations == [reloaded_selected_station]
+    assert harness.selected_station is reloaded_selected_station
+
+
+def test_gtk_remove_context_favorite_clears_selection_when_selected_station_is_removed(
+    monkeypatch,
+) -> None:
+    clicked_station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+    remaining_station = {
+        "name": "Remaining FM",
+        "url_resolved": "https://radio.example/remaining",
+    }
+
+    monkeypatch.setattr(window, "remove_favorite", Mock(return_value=True))
+    monkeypatch.setattr(
+        window,
+        "load_favorites",
+        Mock(return_value=[remaining_station]),
+    )
+
+    harness = SimpleNamespace(
+        selected_station=clicked_station,
+        stations=[clicked_station, remaining_station],
+        profile_name="default",
+        status_label=Mock(),
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_favorite_buttons=Mock(),
+        _view_state=SimpleNamespace(current_view="favorites"),
+    )
+
+    window.MainWindow.remove_station_from_favorites(
+        harness,
+        clicked_station,
+    )
+
+    assert harness.stations == [remaining_station]
+    assert harness.selected_station is None
+
+
+def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, x, y, width, height) -> None:
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+            self.connections = []
+
+        def connect(self, signal, callback, *args) -> None:
+            self.connections.append((signal, callback, args))
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rect) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert labels == [
+        "Play",
+        "Add to favorites",
+        "Copy stream URL",
+        "Copy station name",
+    ]
+
+    favorite_button = FakePopover.last_created.child.children[1]
+    assert favorite_button.connections == [
+        (
+            "clicked",
+            harness.on_context_add_favorite_clicked,
+            (station,),
+        )
+    ]
+
+
+def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
+    monkeypatch,
+) -> None:
+    class FakeRectangle:
+        def __init__(self, x, y, width, height) -> None:
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+
+    class FakeButton:
+        def __init__(self, *, label: str) -> None:
+            self.label = label
+            self.connections = []
+
+        def connect(self, signal, callback, *args) -> None:
+            self.connections.append((signal, callback, args))
+
+    class FakeBox:
+        def __init__(self, **_kwargs) -> None:
+            self.children = []
+
+        def set_margin_top(self, _value) -> None:
+            pass
+
+        def set_margin_bottom(self, _value) -> None:
+            pass
+
+        def set_margin_start(self, _value) -> None:
+            pass
+
+        def set_margin_end(self, _value) -> None:
+            pass
+
+        def append(self, child) -> None:
+            self.children.append(child)
+
+    class FakePopover:
+        last_created = None
+
+        def __init__(self) -> None:
+            type(self).last_created = self
+            self.child = None
+
+        def set_parent(self, _row) -> None:
+            pass
+
+        def set_child(self, child) -> None:
+            self.child = child
+
+        def connect(self, _signal, _callback) -> None:
+            pass
+
+        def set_pointing_to(self, _rect) -> None:
+            pass
+
+        def popup(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=FakePopover,
+            Box=FakeBox,
+            Button=FakeButton,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=FakeRectangle),
+        raising=False,
+    )
+
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://radio.example/clicked",
+    }
+
+    harness = SimpleNamespace(
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=True),
+        _on_station_context_menu_closed=Mock(),
+    )
+
+    window.MainWindow._show_station_context_menu(
+        harness,
+        object(),
+        station,
+        1.0,
+        2.0,
+    )
+
+    labels = [
+        button.label
+        for button in FakePopover.last_created.child.children
+    ]
+
+    assert labels == [
+        "Play",
+        "Remove from favorites",
+        "Copy stream URL",
+        "Copy station name",
+    ]
+
+    favorite_button = FakePopover.last_created.child.children[1]
+    assert favorite_button.connections == [
+        (
+            "clicked",
+            harness.on_context_remove_favorite_clicked,
+            (station,),
+        )
+    ]

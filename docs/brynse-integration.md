@@ -137,3 +137,43 @@ do not establish real-network or GTK behavior.
 GTK wiring, application shutdown integration, Linux/Flatpak validation and
 distribution packaging remain pending. No Flatpak permissions have changed.
 Focused tests do not replace the full repository quality gate.
+
+## Headless validation checkpoint: 2026-10-17
+
+Validated on M1/native macOS with Python 3.14.4, at FluxTuner commit
+`6d0041061bf15913e6790bf0708d214a8869c74b` and the Brynse revision pinned above:
+
+- Full suite: 1099 passed, no skips; one PyGObject deprecation warning.
+- Ruff formatting and lint, compileall, mypy, JavaScript syntax, Bandit and
+  git diff whitespace checks passed.
+- After updating only the worktree's pip to 26.2.1, pip-audit returned zero
+  with no known vulnerabilities in audited packages. Brynse and FluxTuner
+  were skipped because they could not be audited through PyPI.
+
+The full suite required application data/config/cache directories dedicated to
+the test run and a temporary pytest plugin redirecting these legacy sources
+to nonexistent files under an empty test directory:
+
+- `favorites.LEGACY_FAVORITES_FILE`
+- `history.LEGACY_HISTORY_FILE`
+- `manual_playlists.LEGACY_PLAYLISTS_FILE`
+- `data_usage.LEGACY_USAGE_FILE`
+
+XDG and `FLUXTUNER_DATA_DIR` overrides alone do not isolate these sources:
+their defaults use `Path.home()`. Without legacy-source isolation, three web
+tests imported personal legacy data and failed; all three passed after
+isolation, followed by the full suite. Migration functions remained enabled.
+The plugin was validation tooling outside the repository; repository test
+isolation has not been changed. This result is not an unmodified `make gate`
+run on a populated user account.
+
+For dependency audits, select the worktree consistently through its Python,
+`VIRTUAL_ENV`, PATH and `PIPAPI_PYTHON_LOCATION`.
+
+M1 evidence files: `fluxtuner-brynse-gates-01.txt`,
+`fluxtuner-brynse-legacy-isolation-check-01.txt`,
+`fluxtuner-brynse-full-pytest-02.txt` and
+`fluxtuner-brynse-pip-audit-03.txt`, under Downloads.
+
+GTK, real-network behavior, application shutdown, Linux/Flatpak and packaging
+remain pending as described above.

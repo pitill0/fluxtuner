@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -48,3 +50,35 @@ def coordinate_ripping_start(
         status=f"Starting ripping: {request.station_name}",
         job_id=job_id,
     )
+
+
+def start_ripping_availability_probe(
+    *,
+    check_availability: Callable[[], RippingAvailability],
+    dispatch: Callable[[Callable[[], bool]], object],
+    on_result: Callable[[RippingAvailability], None],
+) -> threading.Thread:
+    """Probe in a worker; dispatch must schedule delivery on the UI thread."""
+
+    def probe() -> None:
+        try:
+            availability = check_availability()
+        except Exception as exc:  # noqa: BLE001 - contained capability failure.
+            availability = RippingAvailability(
+                False,
+                f"Could not check ripping availability: {exc}",
+            )
+
+        def deliver() -> bool:
+            on_result(availability)
+            return False
+
+        dispatch(deliver)
+
+    worker = threading.Thread(
+        target=probe,
+        name="fluxtuner-ripping-availability",
+        daemon=True,
+    )
+    worker.start()
+    return worker

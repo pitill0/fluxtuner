@@ -825,3 +825,88 @@ def test_gtk_appearance_mode_mapping_is_stable() -> None:
     )
 
     assert [mode.value for mode in modes] == ["system", "dark", "light"]
+
+
+def _ripping_probe_harness() -> SimpleNamespace:
+    from fluxtuner.core.ripping import RippingAvailability
+
+    return SimpleNamespace(
+        ripping_backend=Mock(),
+        ripping_availability=RippingAvailability(False, "Checking availability."),
+        _ripping_probe_worker=None,
+        _ripping_shutting_down=False,
+        _ripping_availability_finished=Mock(),
+        selected_station={"name": "Selected station"},
+        status_label=Mock(),
+    )
+
+
+def test_gtk_ripping_window_schedules_availability_probe(monkeypatch) -> None:
+    harness = _ripping_probe_harness()
+    worker = object()
+    probe = Mock(return_value=worker)
+    dispatcher = Mock()
+    monkeypatch.setattr(window, "start_ripping_availability_probe", probe, raising=False)
+    monkeypatch.setattr(window.GLib, "idle_add", dispatcher, raising=False)
+
+    window.MainWindow._start_ripping_availability_probe(harness)
+
+    probe.assert_called_once_with(
+        check_availability=harness.ripping_backend.availability,
+        dispatch=dispatcher,
+        on_result=harness._ripping_availability_finished,
+    )
+    harness.ripping_backend.availability.assert_not_called()
+    assert harness._ripping_probe_worker is worker
+    harness.status_label.set_text.assert_not_called()
+
+
+@pytest.mark.parametrize("available", [True, False])
+@pytest.mark.parametrize("closing", [True, False])
+def test_gtk_ripping_window_accepts_availability_only_while_open(
+    available: bool, closing: bool
+) -> None:
+    from fluxtuner.core.ripping import RippingAvailability
+
+    harness = _ripping_probe_harness()
+    harness._ripping_shutting_down = closing
+    previous = harness.ripping_availability
+    selection = harness.selected_station
+    result = RippingAvailability(available, "" if available else "Missing Brynse.")
+
+    window.MainWindow._ripping_availability_finished(harness, result)
+
+    assert harness.ripping_availability is (previous if closing else result)
+    assert harness.selected_station is selection
+    harness.status_label.set_text.assert_not_called()
+
+
+def test_gtk_ripping_window_contains_probe_scheduling_failure(monkeypatch) -> None:
+    harness = _ripping_probe_harness()
+    probe = Mock(side_effect=RuntimeError("worker unavailable"))
+    monkeypatch.setattr(window, "start_ripping_availability_probe", probe, raising=False)
+    monkeypatch.setattr(window.GLib, "idle_add", Mock(), raising=False)
+
+    window.MainWindow._start_ripping_availability_probe(harness)
+
+    assert harness._ripping_probe_worker is None
+    assert harness.ripping_availability.available is False
+    assert harness.ripping_availability.reason == (
+        "Could not schedule ripping availability check: worker unavailable"
+    )
+    harness.status_label.set_text.assert_not_called()
+
+
+def test_gtk_ripping_shutdown_rejects_future_probe_results() -> None:
+    harness = SimpleNamespace(
+        _ripping_shutting_down=False,
+        player=Mock(),
+        usage_tracker=Mock(),
+        _stop_usage_timer=Mock(),
+        _stop_player_state_timer=Mock(),
+        _stop_metadata_polling=Mock(),
+    )
+
+    window.MainWindow.shutdown(harness)
+
+    assert harness._ripping_shutting_down is True

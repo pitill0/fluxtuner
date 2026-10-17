@@ -39,6 +39,7 @@ from fluxtuner.core.recordings import (  # noqa: E402
     SqliteRecordingStore,
     recording_output_path,
 )
+from fluxtuner.core.ripping import RippingAvailability  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -61,9 +62,11 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_ripping import start_ripping_availability_probe  # noqa: E402
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
+from fluxtuner.recorders.brynse import BrynseRipper  # noqa: E402
 from fluxtuner.recorders.ffmpeg import FfmpegRecorder  # noqa: E402
 
 
@@ -96,6 +99,13 @@ class MainWindow(Gtk.ApplicationWindow):
             self.recording_backend,
             store=SqliteRecordingStore(profile_name=self.profile_name),
         )
+        self.ripping_backend = BrynseRipper()
+        self.ripping_availability = RippingAvailability(
+            False,
+            "Checking Brynse availability.",
+        )
+        self._ripping_probe_worker: threading.Thread | None = None
+        self._ripping_shutting_down = False
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
@@ -123,6 +133,33 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
+        self._start_ripping_availability_probe()
+
+    def _start_ripping_availability_probe(self) -> None:
+        """Check optional ripping support outside the GTK thread."""
+        if self._ripping_shutting_down:
+            return
+
+        try:
+            self._ripping_probe_worker = start_ripping_availability_probe(
+                check_availability=self.ripping_backend.availability,
+                dispatch=GLib.idle_add,
+                on_result=self._ripping_availability_finished,
+            )
+        except Exception as exc:  # noqa: BLE001 - optional capability failure.
+            self.ripping_availability = RippingAvailability(
+                False,
+                f"Could not schedule ripping availability check: {exc}",
+            )
+
+    def _ripping_availability_finished(
+        self,
+        availability: RippingAvailability,
+    ) -> None:
+        """Accept a dispatched capability result while the window is open."""
+        if self._ripping_shutting_down:
+            return
+        self.ripping_availability = availability
 
     def _build_root(self) -> Gtk.Box:
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -1795,6 +1832,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def shutdown(self) -> None:
         """Stop GTK runtime work, recording and the player before exiting."""
+        self._ripping_shutting_down = True
         self._stop_usage_timer()
         self._stop_player_state_timer()
         self._stop_metadata_polling()

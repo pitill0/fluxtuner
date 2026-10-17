@@ -264,3 +264,160 @@ def test_service_stops_real_brynse_runner_after_pending_open(tmp_path: Path) -> 
         release_open.set()
         source.closed.set()
         assert service.wait(timeout=5)
+
+
+def test_service_preserves_real_finalized_track_files(tmp_path: Path) -> None:
+    import subprocess
+    from io import BytesIO
+
+    from fluxtuner.core.ripping_service import RippingService
+
+    try:
+        radio = importlib.import_module("brynse.integrations.radio")
+    except ModuleNotFoundError as exc:
+        if exc.name == "brynse":
+            pytest.skip("Optional Brynse dependency is not installed")
+        raise
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("FFmpeg is required by the adapter")
+
+    volume = (
+        r"volume=if(between(t\,19.5\,20.5)"
+        r"+between(t\,39.5\,40.5)\,0\,1):eval=frame"
+    )
+    generated = subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=44100:duration=60",
+            "-af",
+            volume,
+            "-ac",
+            "2",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "128k",
+            "-write_xing",
+            "0",
+            "-id3v2_version",
+            "0",
+            "-f",
+            "mp3",
+            "pipe:1",
+        ],
+        capture_output=True,
+        timeout=30,
+    )
+    assert generated.returncode == 0, generated.stderr.decode(errors="replace")
+    audio = generated.stdout
+    assert audio
+
+    metaint = 16000
+    wire = bytearray()
+    for offset in range(0, len(audio), metaint):
+        block = audio[offset : offset + metaint]
+        wire.extend(block)
+        if len(block) != metaint:
+            break
+        end_offset = offset + metaint
+        title = (
+            "Synthetic A"
+            if end_offset < 320000
+            else "Synthetic B"
+            if end_offset < 640000
+            else "Synthetic C"
+        )
+        payload = f"StreamTitle='{title}';".encode()
+        units = (len(payload) + 15) // 16
+        wire.append(units)
+        wire.extend(payload.ljust(units * 16, b"\0"))
+
+    class Source:
+        metadata = {
+            "Content-Type": "audio/mpeg",
+            "icy-metaint": str(metaint),
+        }
+
+        def __init__(self):
+            self.stream = BytesIO(wire)
+            self.close_calls = 0
+
+        def read(self, max_bytes):
+            return self.stream.read(max_bytes)
+
+        def close(self):
+            self.close_calls += 1
+            self.stream.close()
+
+    source = Source()
+    api = SimpleNamespace(
+        RippingRunConfig=radio.RippingRunConfig,
+        RippingRunner=lambda config: radio.RippingRunner(
+            config,
+            stream_opener=lambda url: source,
+        ),
+    )
+    service = RippingService(
+        backend_factory=lambda: BrynseRipper(module_loader=lambda name: api),
+    )
+    request = RippingRequest(
+        station_name="Synthetic output contract",
+        source_url="https://example.invalid/synthetic",
+        output_directory=tmp_path / "tracks",
+        profile_name="output-contract",
+    )
+
+    try:
+        job_id = service.start(request)
+        assert service.wait(timeout=45)
+        snapshot = service.snapshot()
+        assert snapshot is not None
+        assert snapshot.job_id == job_id
+        assert snapshot.state == "completed"
+        assert snapshot.error is None, repr(snapshot.error)
+        result = snapshot.result
+        assert result is not None
+        assert result.request is request
+        assert result.codec == "mp3"
+        assert result.metaint == metaint
+        assert not result.stopped
+        assert result.tracks
+        assert result.tracks[0].title == "Synthetic A"
+
+        for track in result.tracks:
+            assert track.path.parent == request.output_directory
+            assert track.path.is_file()
+            assert track.path.stat().st_size > 0
+            decoded = subprocess.run(
+                [
+                    ffmpeg,
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-nostdin",
+                    "-i",
+                    str(track.path),
+                    "-f",
+                    "null",
+                    "-",
+                ],
+                capture_output=True,
+                timeout=15,
+            )
+            assert decoded.returncode == 0, decoded.stderr.decode(errors="replace")
+
+        assert result.incomplete_track_title is not None
+        assert result.incomplete_track_title not in {track.title for track in result.tracks}
+        assert source.close_calls >= 1
+    finally:
+        service.stop()
+        assert service.wait(timeout=10)

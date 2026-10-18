@@ -954,3 +954,95 @@ def test_gtk_ripping_rejects_missing_persistent_profile(tmp_path, monkeypatch) -
 
     with db.connect() as conn:
         assert get_profile_by_name(conn, "Gone") is None
+
+
+def _ripping_start_harness() -> SimpleNamespace:
+    from fluxtuner.core.ripping import RippingAvailability
+    from fluxtuner.core.ripping_service import RippingService
+
+    service = Mock(spec=RippingService)
+    service.start.return_value = 42
+    return SimpleNamespace(
+        ripping_service=service,
+        ripping_availability=RippingAvailability(True),
+        _ripping_shutting_down=False,
+        _ripping_profile_context=Mock(return_value=(7, "Focus")),
+        selected_station={"name": "Other station", "url": "https://example.com/other"},
+        status_label=Mock(),
+    )
+
+
+def test_gtk_ripping_window_starts_clicked_station(tmp_path, monkeypatch) -> None:
+    from uuid import UUID
+
+    harness = _ripping_start_harness()
+    selection = harness.selected_station
+    clicked = {
+        "name": "Clicked station",
+        "url": "https://example.com/original",
+        "url_resolved": "https://example.com/clicked",
+    }
+    run_id = UUID("12345678-1234-5678-1234-567812345678")
+    new_uuid = Mock(return_value=run_id)
+    monkeypatch.setattr(window, "DATA_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
+
+    job_id = window.MainWindow.start_station_ripping(harness, clicked)
+
+    assert job_id == 42
+    harness._ripping_profile_context.assert_called_once_with()
+    new_uuid.assert_called_once_with()
+    harness.ripping_service.start.assert_called_once()
+    request = harness.ripping_service.start.call_args.args[0]
+    assert request.source_url == "https://example.com/clicked"
+    assert request.profile_id == 7
+    assert request.profile_name == "Focus"
+    assert request.output_directory == tmp_path / "rips" / "profile-7" / run_id.hex
+    assert harness.selected_station is selection
+    harness.status_label.set_text.assert_called_once_with("Starting ripping: Clicked station")
+
+
+@pytest.mark.parametrize("closing", [False, True])
+def test_gtk_ripping_window_start_rejects_before_profile_lookup(monkeypatch, closing: bool) -> None:
+    from fluxtuner.core.ripping import RippingAvailability
+
+    harness = _ripping_start_harness()
+    harness._ripping_shutting_down = closing
+    harness.ripping_availability = RippingAvailability(False, "Missing Brynse.")
+    new_uuid = Mock()
+    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
+
+    job_id = window.MainWindow.start_station_ripping(
+        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
+    )
+
+    assert job_id is None
+    harness._ripping_profile_context.assert_not_called()
+    harness.ripping_service.start.assert_not_called()
+    new_uuid.assert_not_called()
+    if closing:
+        harness.status_label.set_text.assert_not_called()
+    else:
+        harness.status_label.set_text.assert_called_once_with(
+            "Ripping unavailable: Missing Brynse."
+        )
+
+
+def test_gtk_ripping_window_start_contains_profile_failure(monkeypatch) -> None:
+    from fluxtuner.core.ripping import RippingError
+
+    harness = _ripping_start_harness()
+    harness._ripping_profile_context.side_effect = RippingError("Ripping profile is unavailable.")
+    new_uuid = Mock()
+    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
+
+    job_id = window.MainWindow.start_station_ripping(
+        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
+    )
+
+    assert job_id is None
+    harness.ripping_service.start.assert_not_called()
+    new_uuid.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not start ripping: Ripping profile is unavailable."
+    )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from contextlib import suppress
 from typing import Any
+from uuid import uuid4
 
 import gi
 
@@ -44,6 +45,7 @@ from fluxtuner.core.recordings import (  # noqa: E402
     recording_output_path,
 )
 from fluxtuner.core.ripping import RippingAvailability, RippingError  # noqa: E402
+from fluxtuner.core.ripping_service import RippingService  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -66,9 +68,13 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
-from fluxtuner.gui.gtk_ripping import start_ripping_availability_probe  # noqa: E402
+from fluxtuner.gui.gtk_ripping import (  # noqa: E402
+    coordinate_ripping_start,
+    start_ripping_availability_probe,
+)
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
+from fluxtuner.paths import DATA_DIR  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
 from fluxtuner.recorders.brynse import BrynseRipper  # noqa: E402
 from fluxtuner.recorders.ffmpeg import FfmpegRecorder  # noqa: E402
@@ -104,6 +110,7 @@ class MainWindow(Gtk.ApplicationWindow):
             store=SqliteRecordingStore(profile_name=self.profile_name),
         )
         self.ripping_backend = BrynseRipper()
+        self.ripping_service = RippingService(backend_factory=BrynseRipper)
         self.ripping_availability = RippingAvailability(
             False,
             "Checking Brynse availability.",
@@ -138,6 +145,32 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
         self._start_ripping_availability_probe()
+
+    def start_station_ripping(self, station: dict[str, Any]) -> int | None:
+        """Submit one explicit station without changing the current selection."""
+        if self._ripping_shutting_down:
+            return None
+        if not self.ripping_availability.available:
+            self.status_label.set_text(f"Ripping unavailable: {self.ripping_availability.reason}")
+            return None
+
+        try:
+            profile_id, profile_name = self._ripping_profile_context()
+            result = coordinate_ripping_start(
+                station,
+                availability=self.ripping_availability,
+                service=self.ripping_service,
+                data_directory=DATA_DIR,
+                profile_id=profile_id,
+                profile_name=profile_name,
+                run_id=uuid4(),
+            )
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(f"Could not start ripping: {exc}")
+            return None
+
+        self.status_label.set_text(result.status)
+        return result.job_id
 
     def _ripping_profile_context(self) -> tuple[int, str]:
         """Resolve the window's persistent profile and its canonical name."""

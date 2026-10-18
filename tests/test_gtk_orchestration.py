@@ -1258,3 +1258,122 @@ def test_gtk_ripping_window_start_failure_does_not_schedule_timer(tmp_path, monk
     harness.status_label.set_text.assert_called_once_with(
         "Could not start ripping: Another job is active."
     )
+
+
+def _ripping_stop_harness(tmp_path) -> SimpleNamespace:
+    from fluxtuner.core.ripping import RippingRequest
+    from fluxtuner.core.ripping_service import RippingSnapshot
+
+    harness = _ripping_start_harness()
+    harness.ripping_service.snapshot.return_value = RippingSnapshot(
+        job_id=42,
+        request=RippingRequest(
+            station_name="Running station",
+            source_url="https://example.com/clicked",
+            output_directory=tmp_path / "tracks",
+            profile_id=7,
+            profile_name="Focus",
+        ),
+        state="running",
+    )
+    return harness
+
+
+@pytest.mark.parametrize("available", [True, False])
+def test_gtk_ripping_window_stop_uses_clicked_station(tmp_path, available) -> None:
+    from fluxtuner.core.ripping import RippingAvailability
+
+    harness = _ripping_stop_harness(tmp_path)
+    harness.ripping_availability = RippingAvailability(available)
+    selection = harness.selected_station
+
+    window.MainWindow.stop_station_ripping(
+        harness,
+        {
+            "name": "Clicked station",
+            "url": "https://example.com/original",
+            "url_resolved": "https://example.com/clicked",
+        },
+    )
+
+    harness._ripping_profile_context.assert_called_once_with()
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.ripping_service.wait.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with("Stopping ripping: Running station")
+    assert harness.selected_station is selection
+
+
+@pytest.mark.parametrize("case", ["other_station", "other_profile", "completed", "no_job"])
+def test_gtk_ripping_window_stop_rejects_unrelated_job(tmp_path, case) -> None:
+    from dataclasses import replace
+
+    harness = _ripping_stop_harness(tmp_path)
+    station = {"name": "Clicked station", "url": "https://example.com/clicked"}
+    if case == "other_station":
+        station["url"] = "https://example.com/other"
+    elif case == "other_profile":
+        harness._ripping_profile_context.return_value = (8, "Other profile")
+    elif case == "completed":
+        snapshot = harness.ripping_service.snapshot.return_value
+        harness.ripping_service.snapshot.return_value = replace(snapshot, state="completed")
+    else:
+        harness.ripping_service.snapshot.return_value = None
+    selection = harness.selected_station
+
+    window.MainWindow.stop_station_ripping(harness, station)
+
+    harness.ripping_service.stop.assert_not_called()
+    harness.ripping_service.wait.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_not_called()
+    harness.status_label.set_text.assert_not_called()
+    assert harness.selected_station is selection
+
+
+def test_gtk_ripping_window_stop_contains_profile_failure(tmp_path) -> None:
+    from fluxtuner.core.ripping import RippingError
+
+    harness = _ripping_stop_harness(tmp_path)
+    harness._ripping_profile_context.side_effect = RippingError("Ripping profile is unavailable.")
+
+    window.MainWindow.stop_station_ripping(
+        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
+    )
+
+    harness.ripping_service.stop.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not stop ripping: Ripping profile is unavailable."
+    )
+
+
+def test_gtk_ripping_window_stop_during_shutdown_is_ignored(tmp_path) -> None:
+    harness = _ripping_stop_harness(tmp_path)
+    harness._ripping_shutting_down = True
+
+    window.MainWindow.stop_station_ripping(
+        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
+    )
+
+    harness._ripping_profile_context.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_not_called()
+    harness.status_label.set_text.assert_not_called()
+
+
+def test_gtk_ripping_window_stop_reports_failure_and_keeps_tracking(tmp_path) -> None:
+    from fluxtuner.core.ripping import RippingError
+
+    harness = _ripping_stop_harness(tmp_path)
+    harness.ripping_service.stop.side_effect = RippingError("Stop worker unavailable.")
+
+    window.MainWindow.stop_station_ripping(
+        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
+    )
+
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.ripping_service.wait.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not stop ripping: Stop worker unavailable."
+    )

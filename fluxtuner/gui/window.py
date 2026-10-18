@@ -70,6 +70,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
 )
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     coordinate_ripping_start,
+    coordinate_ripping_stop,
     ripping_status,
     start_ripping_availability_probe,
 )
@@ -176,6 +177,26 @@ class MainWindow(Gtk.ApplicationWindow):
         if result.job_id is not None:
             self._ensure_ripping_state_timer()
         return result.job_id
+
+    def stop_station_ripping(self, station: dict[str, Any]) -> None:
+        """Request stopping for an explicit station in the window's profile."""
+        if self._ripping_shutting_down:
+            return
+
+        try:
+            profile_id, _profile_name = self._ripping_profile_context()
+            message = coordinate_ripping_stop(
+                station,
+                service=self.ripping_service,
+                profile_id=profile_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(f"Could not stop ripping: {exc}")
+            return
+
+        if message is not None:
+            self.status_label.set_text(message)
+            self._ensure_ripping_state_timer()
 
     def _ensure_ripping_state_timer(self) -> None:
         """Schedule one GTK state timer after a ripping job is accepted."""

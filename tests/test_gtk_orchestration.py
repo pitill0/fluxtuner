@@ -1604,3 +1604,36 @@ def test_gtk_ripping_close_priority_preserves_pending_quit(monkeypatch, ready_on
     schedule.assert_called_once()
     assert harness._shutdown_timer_id is None
     assert harness._shutdown_on_complete is None
+
+
+@pytest.mark.parametrize("action", ["play_station", "start_station_recording"])
+def test_gtk_closing_actions_reject_new_runtime_work(monkeypatch, tmp_path, action) -> None:
+    harness = Mock()
+    harness._ripping_shutting_down = True
+    harness.recording_available = True
+    harness.selected_station = {"name": "Other station"}
+    selection = harness.selected_station
+    station = {
+        "name": "Clicked station",
+        "url": "https://example.com/clicked",
+    }
+    harness._station_url.return_value = station["url"]
+    harness._station_display_name.return_value = station["name"]
+    playback = Mock(
+        return_value=SimpleNamespace(
+            success=False, station=None, status="Unexpected playback request"
+        )
+    )
+    output_path = Mock(return_value=tmp_path / "unexpected.mp3")
+    monkeypatch.setattr(window, "coordinate_playback_start", playback)
+    monkeypatch.setattr(window, "recording_output_path", output_path)
+
+    getattr(window.MainWindow, action)(harness, station)
+
+    playback.assert_not_called()
+    output_path.assert_not_called()
+    harness.recording_manager.start.assert_not_called()
+    harness.player.play.assert_not_called()
+    harness.status_label.set_text.assert_not_called()
+    harness._update_record_button.assert_not_called()
+    assert harness.selected_station is selection

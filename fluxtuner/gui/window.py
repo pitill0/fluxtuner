@@ -1128,6 +1128,9 @@ class MainWindow(Gtk.ApplicationWindow):
         station: dict[str, Any],
     ) -> None:
         """Start recording one explicit station without changing selection."""
+        if getattr(self, "_ripping_shutting_down", False):
+            return
+
         if not self.recording_available:
             self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
             self._update_record_button()
@@ -1235,6 +1238,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def play_station(self, station: dict[str, Any]) -> None:
         """Play one explicit station without changing the selected station."""
+        if getattr(self, "_ripping_shutting_down", False):
+            return
+
         result = coordinate_playback_start(
             station,
             player=self.player,

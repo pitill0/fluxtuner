@@ -10,6 +10,7 @@ from uuid import UUID
 from fluxtuner.core.ripping import RippedTrack, RippingAvailability, RippingError
 from fluxtuner.core.ripping_requests import build_ripping_request
 from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
+from fluxtuner.core.stations import station_url
 
 
 @dataclass(frozen=True)
@@ -115,3 +116,37 @@ def ripping_status(snapshot: RippingSnapshot) -> str:
     if tracks:
         message += f" → {snapshot.request.output_directory}"
     return message
+
+
+def ripping_station_is_active(
+    snapshot: RippingSnapshot | None,
+    station: dict[str, Any],
+    *,
+    profile_id: int,
+) -> bool:
+    """Match an explicit station and profile against an active operation."""
+    return (
+        snapshot is not None
+        and snapshot.state in ("starting", "running", "stopping")
+        and snapshot.request.profile_id == profile_id
+        and snapshot.request.source_url == station_url(station)
+    )
+
+
+def coordinate_ripping_stop(
+    station: dict[str, Any],
+    *,
+    service: RippingService,
+    profile_id: int,
+) -> str | None:
+    """Delegate a matching operation's stop without waiting for its workers."""
+    try:
+        snapshot = service.snapshot()
+        if snapshot is None or not ripping_station_is_active(
+            snapshot, station, profile_id=profile_id
+        ):
+            return None
+        service.stop()
+    except Exception as exc:  # noqa: BLE001 - user-facing stop failure.
+        return f"Could not stop ripping: {exc}"
+    return f"Stopping ripping: {snapshot.request.station_name}"

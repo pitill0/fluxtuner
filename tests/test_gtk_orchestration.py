@@ -910,3 +910,47 @@ def test_gtk_ripping_shutdown_rejects_future_probe_results() -> None:
     window.MainWindow.shutdown(harness)
 
     assert harness._ripping_shutting_down is True
+
+
+@pytest.mark.parametrize("profile_name", [None, "focus"])
+def test_gtk_ripping_resolves_persistent_profile(
+    tmp_path, monkeypatch, profile_name: str | None
+) -> None:
+    from fluxtuner.core import db
+    from fluxtuner.core.profiles import get_or_create_profile
+
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "profiles.db")
+    db.init_db()
+    with db.connect() as conn:
+        default_id = db.ensure_default_profile(conn)
+        focus_id = get_or_create_profile(conn, "Focus")
+        conn.commit()
+
+    harness = SimpleNamespace(profile_name=profile_name)
+    monkeypatch.setattr(
+        window,
+        "resolve_effective_profile_name",
+        Mock(side_effect=AssertionError("Do not re-read the active profile.")),
+    )
+
+    result = window.MainWindow._ripping_profile_context(harness)
+
+    expected = (default_id, "default") if profile_name is None else (focus_id, "Focus")
+    assert result == expected
+    assert harness.profile_name == profile_name
+
+
+def test_gtk_ripping_rejects_missing_persistent_profile(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import db
+    from fluxtuner.core.profiles import get_profile_by_name
+    from fluxtuner.core.ripping import RippingError
+
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "profiles.db")
+    db.init_db()
+    harness = SimpleNamespace(profile_name="Gone")
+
+    with pytest.raises(RippingError, match="Ripping profile is unavailable"):
+        window.MainWindow._ripping_profile_context(harness)
+
+    with db.connect() as conn:
+        assert get_profile_by_name(conn, "Gone") is None

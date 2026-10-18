@@ -17,6 +17,7 @@ from fluxtuner.config import (  # noqa: E402
     save_playback_state,
     set_config_value,
 )
+from fluxtuner.core import db  # noqa: E402
 from fluxtuner.core.compatibility import (  # noqa: E402
     filter_supported_stations,
     station_is_supported,
@@ -33,13 +34,16 @@ from fluxtuner.core.favorites import (  # noqa: E402
     update_favorite,
 )
 from fluxtuner.core.history import add_history, load_history  # noqa: E402
-from fluxtuner.core.profiles import resolve_effective_profile_name  # noqa: E402
+from fluxtuner.core.profiles import (  # noqa: E402
+    get_profile_by_name,
+    resolve_effective_profile_name,
+)
 from fluxtuner.core.recording import RecordingManager, RecordingRequest  # noqa: E402
 from fluxtuner.core.recordings import (  # noqa: E402
     SqliteRecordingStore,
     recording_output_path,
 )
-from fluxtuner.core.ripping import RippingAvailability  # noqa: E402
+from fluxtuner.core.ripping import RippingAvailability, RippingError  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -134,6 +138,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
         self._start_ripping_availability_probe()
+
+    def _ripping_profile_context(self) -> tuple[int, str]:
+        """Resolve the window's persistent profile and its canonical name."""
+        name = self.profile_name
+        if name is None:
+            name = db.DEFAULT_PROFILE_NAME
+
+        with db.connect() as conn:
+            profile = get_profile_by_name(conn, name)
+
+        if profile is None:
+            raise RippingError("Ripping profile is unavailable.")
+
+        return int(profile["id"]), str(profile["name"])
 
     def _start_ripping_availability_probe(self) -> None:
         """Check optional ripping support outside the GTK thread."""

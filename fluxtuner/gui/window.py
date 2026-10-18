@@ -69,6 +69,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_stop,
 )
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
+    RippingShutdown,
     coordinate_ripping_start,
     coordinate_ripping_stop,
     ripping_status,
@@ -113,6 +114,7 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self.ripping_backend = BrynseRipper()
         self.ripping_service = RippingService(backend_factory=BrynseRipper)
+        self._ripping_shutdown = RippingShutdown(service=self.ripping_service)
         self.ripping_availability = RippingAvailability(
             False,
             "Checking Brynse availability.",
@@ -1932,18 +1934,28 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
-    def shutdown(self) -> None:
-        """Stop GTK runtime work, recording and the player before exiting."""
-        self._ripping_shutting_down = True
-        self._stop_usage_timer()
-        self._stop_player_state_timer()
-        self._stop_metadata_polling()
-        self.usage_tracker.stop()
-        with suppress(Exception):
-            if self.recording_manager.active_session is not None:
-                self.recording_manager.stop()
-        with suppress(Exception):
-            self.player.stop()
+    def shutdown(self) -> bool:
+        """Stop runtime work once and report whether ripping workers finished."""
+        if not self._ripping_shutting_down:
+            self._ripping_shutting_down = True
+            self._ripping_shutdown.request()
+            if self._ripping_shutdown.error is not None:
+                self.status_label.set_text(
+                    f"Could not stop ripping: {self._ripping_shutdown.error}"
+                )
+            if self._ripping_state_timer_id is not None:
+                GLib.source_remove(self._ripping_state_timer_id)
+                self._ripping_state_timer_id = None
+            self._stop_usage_timer()
+            self._stop_player_state_timer()
+            self._stop_metadata_polling()
+            self.usage_tracker.stop()
+            with suppress(Exception):
+                if self.recording_manager.active_session is not None:
+                    self.recording_manager.stop()
+            with suppress(Exception):
+                self.player.stop()
+        return self._ripping_shutdown.poll()
 
     def on_close_request(self, _window: Gtk.Window) -> bool:
         """Hide to tray when enabled; otherwise preserve normal close semantics."""

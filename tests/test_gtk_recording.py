@@ -150,12 +150,20 @@ def test_gtk_recording_reports_missing_ffmpeg() -> None:
 
 
 def test_gtk_shutdown_finalizes_active_recording() -> None:
+    from fluxtuner.gui.gtk_ripping import RippingShutdown
+
     manager = FakeRecordingManager()
     manager.active_session = SimpleNamespace(
         station_name="Flux FM",
         output_path=Path("/tmp/flux-fm.mka"),
     )
+    service = Mock()
+    service.wait.return_value = True
     harness = SimpleNamespace(
+        _ripping_shutdown=RippingShutdown(service=service),
+        _ripping_shutting_down=False,
+        _ripping_state_timer_id=None,
+        status_label=Mock(),
         recording_manager=manager,
         player=Mock(),
         usage_tracker=Mock(),

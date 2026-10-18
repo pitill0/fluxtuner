@@ -204,13 +204,7 @@ def test_gtk_stop_clears_runtime_and_projects_stopped_state() -> None:
 
 
 def test_gtk_close_stops_runtime_dependencies() -> None:
-    harness = SimpleNamespace(
-        player=Mock(),
-        usage_tracker=Mock(),
-        _stop_usage_timer=Mock(),
-        _stop_player_state_timer=Mock(),
-        _stop_metadata_polling=Mock(),
-    )
+    harness = _ripping_shutdown_harness()
 
     result = window.MainWindow.on_close_request(harness, Mock())
 
@@ -245,13 +239,7 @@ def test_gtk_close_to_tray_hides_without_stopping_runtime() -> None:
 
 
 def test_gtk_close_contains_player_stop_failure() -> None:
-    harness = SimpleNamespace(
-        player=Mock(),
-        usage_tracker=Mock(),
-        _stop_usage_timer=Mock(),
-        _stop_player_state_timer=Mock(),
-        _stop_metadata_polling=Mock(),
-    )
+    harness = _ripping_shutdown_harness()
     harness.player.stop.side_effect = RuntimeError("already gone")
 
     result = window.MainWindow.on_close_request(harness, Mock())
@@ -898,14 +886,7 @@ def test_gtk_ripping_window_contains_probe_scheduling_failure(monkeypatch) -> No
 
 
 def test_gtk_ripping_shutdown_rejects_future_probe_results() -> None:
-    harness = SimpleNamespace(
-        _ripping_shutting_down=False,
-        player=Mock(),
-        usage_tracker=Mock(),
-        _stop_usage_timer=Mock(),
-        _stop_player_state_timer=Mock(),
-        _stop_metadata_polling=Mock(),
-    )
+    harness = _ripping_shutdown_harness()
 
     window.MainWindow.shutdown(harness)
 
@@ -1377,3 +1358,101 @@ def test_gtk_ripping_window_stop_reports_failure_and_keeps_tracking(tmp_path) ->
     harness.status_label.set_text.assert_called_once_with(
         "Could not stop ripping: Stop worker unavailable."
     )
+
+
+def _ripping_shutdown_harness() -> SimpleNamespace:
+    from fluxtuner.core.ripping_service import RippingService
+    from fluxtuner.gui.gtk_ripping import RippingShutdown
+
+    service = Mock(spec=RippingService)
+    service.wait.return_value = True
+    recording_manager = Mock()
+    recording_manager.active_session = None
+    return SimpleNamespace(
+        ripping_service=service,
+        _ripping_shutdown=RippingShutdown(service=service),
+        _ripping_shutting_down=False,
+        _ripping_state_timer_id=None,
+        recording_manager=recording_manager,
+        player=Mock(),
+        usage_tracker=Mock(),
+        _stop_usage_timer=Mock(),
+        _stop_player_state_timer=Mock(),
+        _stop_metadata_polling=Mock(),
+        status_label=Mock(),
+    )
+
+
+def test_gtk_ripping_window_shutdown_reports_pending_workers() -> None:
+    harness = _ripping_shutdown_harness()
+    harness.ripping_service.wait.return_value = False
+
+    ready = window.MainWindow.shutdown(harness)
+
+    assert ready is False
+    assert harness._ripping_shutting_down is True
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.ripping_service.wait.assert_called_once_with(timeout=0)
+    harness.player.stop.assert_called_once_with()
+    harness.usage_tracker.stop.assert_called_once_with()
+
+
+def test_gtk_ripping_window_shutdown_repeats_only_completion_check() -> None:
+    harness = _ripping_shutdown_harness()
+    harness.ripping_service.wait.side_effect = [False, True]
+    harness.recording_manager.active_session = object()
+
+    assert window.MainWindow.shutdown(harness) is False
+    assert window.MainWindow.shutdown(harness) is True
+
+    harness.ripping_service.stop.assert_called_once_with()
+    assert harness.ripping_service.wait.call_args_list == [call(timeout=0), call(timeout=0)]
+    harness._stop_usage_timer.assert_called_once_with()
+    harness._stop_player_state_timer.assert_called_once_with()
+    harness._stop_metadata_polling.assert_called_once_with()
+    harness.usage_tracker.stop.assert_called_once_with()
+    harness.recording_manager.stop.assert_called_once_with()
+    harness.player.stop.assert_called_once_with()
+
+
+def test_gtk_ripping_window_shutdown_removes_state_timer(monkeypatch) -> None:
+    harness = _ripping_shutdown_harness()
+    harness._ripping_state_timer_id = 17
+    harness.ripping_service.wait.return_value = False
+    remove = Mock()
+    monkeypatch.setattr(window.GLib, "source_remove", remove, raising=False)
+
+    assert window.MainWindow.shutdown(harness) is False
+    assert window.MainWindow.shutdown(harness) is False
+
+    remove.assert_called_once_with(17)
+    assert harness._ripping_state_timer_id is None
+
+
+def test_gtk_ripping_window_shutdown_contains_and_reports_stop_failure() -> None:
+    from fluxtuner.core.ripping import RippingError
+
+    harness = _ripping_shutdown_harness()
+    error = RippingError("Stop worker unavailable.")
+    harness.ripping_service.stop.side_effect = error
+    harness.ripping_service.wait.side_effect = [False, True]
+
+    assert window.MainWindow.shutdown(harness) is False
+    assert window.MainWindow.shutdown(harness) is True
+
+    assert harness._ripping_shutdown.error is error
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not stop ripping: Stop worker unavailable."
+    )
+    harness.player.stop.assert_called_once_with()
+
+
+def test_gtk_ripping_window_shutdown_without_workers_is_ready() -> None:
+    harness = _ripping_shutdown_harness()
+
+    assert window.MainWindow.shutdown(harness) is True
+
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.ripping_service.wait.assert_called_once_with(timeout=0)
+    harness.status_label.set_text.assert_not_called()

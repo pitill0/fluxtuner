@@ -10,6 +10,23 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+
+## [1.3.0] - 2026-10-18
+
+### Added
+
+- Added a native GTK station context menu for playback, favorites,
+  clipboard, safe homepage opening and capability-aware session recording.
 - Added optional Brynse integration through its public radio API, with a
   headless ripping service, profile-scoped output directories and GTK station
   context-menu actions to start and stop track ripping.
@@ -23,7 +40,14 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
-- Nothing yet.
+- Fixed GTK context-menu popover surfaces in dark and light appearances.
+- Fixed GTK4 clipboard copying on Wayland.
+- Fixed source archives omitting the pinned optional Brynse requirements.
+
+### Documentation
+
+- Documented optional Brynse installation, GTK usage, output paths, lifecycle,
+  validation evidence and remaining Linux/Flatpak integration limits.
 
 
 ## [1.2.3] - 2026-10-16

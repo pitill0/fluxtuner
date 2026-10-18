@@ -10,11 +10,16 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added optional Brynse integration through its public radio API, with a
+  headless ripping service, profile-scoped output directories and GTK station
+  context-menu actions to start and stop track ripping.
+- Added automated coverage for availability, requests, outputs, errors,
+  worker lifecycle, GTK coordination and application shutdown.
 
 ### Changed
 
-- Nothing yet.
+- GTK actual shutdown now requests ripping stop and waits asynchronously for
+  both workers before completing window close or tray Quit.
 
 ### Fixed
 

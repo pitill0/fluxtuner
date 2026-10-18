@@ -43,6 +43,7 @@ Run the Web/server mode on your own infrastructure and keep accounts, favorites,
 - Run the default Textual TUI, GTK4 desktop GUI, legacy numbered CLI or browser-based web/server mode.
 - On Linux, keep the GTK GUI available from a StatusNotifierItem-compatible system tray while the main window is hidden.
 - Record the currently selected station from the TUI or GTK GUI with FFmpeg stream copy, independently from playback.
+- Rip individual tracks from compatible ICY radio streams in GTK through the optional Brynse integration.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 
@@ -299,6 +300,7 @@ They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode a
 
 - [Usage guide](docs/usage.md)
 - [Architecture](docs/architecture.md)
+- [Brynse track ripping: installation, GTK usage and lifecycle](docs/brynse-integration.md)
 - [Web/server mode](docs/web.md)
 - [Web multi-user model](docs/multiuser.md)
 - [Secure web deployment](docs/secure-web-deployment.md)

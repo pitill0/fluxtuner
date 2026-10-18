@@ -1,4 +1,4 @@
-# Brynse integration: headless contract
+# Brynse integration: headless contract and GTK usage
 
 FluxTuner consumes the public `brynse.integrations.radio` API. Brynse owns
 ingestion, metadata interpretation, boundary resolution, finalization, file
@@ -113,7 +113,39 @@ The inspected runner passes its FFmpeg setting to analysis, while the default
 output writer constructs finalizers using the default `ffmpeg` command.
 The adapter resolves FFmpeg from PATH and offers no custom-binary setting.
 
-## Validation and pending work
+## GTK integration
+
+Launch `python -m fluxtuner --gui` from the intended environment after installing
+the optional dependency. GTK checks availability in a worker and delivers the
+result through the GLib main context. A menu opened before that check completes
+must be reopened to reflect the result.
+
+The station context menu exposes `Rip tracks` when the capability is available
+and no previous job has live workers. Actions receive the clicked station
+explicitly and preserve the current selection. Requests capture the resolved
+stream URL, persistent profile context and a fresh operation UUID.
+
+Only one ripping job can run at a time. `Stop ripping` is offered for the
+matching station/profile while starting or running, including when local
+availability is no longer reported. During stopping, another job cannot start.
+
+`gui/gtk_ripping.py` provides coordination and projection helpers without GTK
+widget construction. `MainWindow` owns widgets, GLib scheduling and status
+updates. It polls readiness before reading the snapshot and continues polling
+terminal states until both workers finish, including late output updates.
+
+Actual shutdown requests stop once and polls worker readiness without blocking
+the UI thread. Window close and explicit tray Quit complete after worker
+cleanup. Closing to a compatible Linux tray only hides the window and leaves
+the application running. Playback and session recording cannot restart once
+actual shutdown begins. The deferred-opening limitation described above still
+applies; shutdown has no fixed completion deadline.
+
+Errors are contained and reported in the status label. Final statuses show
+finalized track counts and, when tracks exist, the destination. Filenames and
+incomplete-track decisions remain Brynse's responsibility.
+
+## Automated validation
 
 With the project's development dependencies installed:
 
@@ -134,8 +166,11 @@ during opening, and a synthetic ICY/MP3 pipeline producing finalized files
 verified by FFmpeg decoding. The opener is controlled locally; these tests
 do not establish real-network or GTK behavior.
 
-GTK wiring, application shutdown integration, Linux/Flatpak validation and
-distribution packaging remain pending. No Flatpak permissions have changed.
+GTK orchestration, availability, status projection, menu policy, stop and
+shutdown behavior also have automated coverage under `tests/test_gtk_*.py`,
+including app/tray quit coordination. These tests complement the controlled
+real-runner tests above and the manual validation below.
+
 Focused tests do not replace the full repository quality gate.
 
 ## Headless validation checkpoint: 2026-10-17
@@ -175,5 +210,58 @@ M1 evidence files: `fluxtuner-brynse-gates-01.txt`,
 `fluxtuner-brynse-full-pytest-02.txt` and
 `fluxtuner-brynse-pip-audit-03.txt`, under Downloads.
 
-GTK, real-network behavior, application shutdown, Linux/Flatpak and packaging
-remain pending as described above.
+At this historical checkpoint, GTK, real-network behavior and application
+shutdown were still pending. The following checkpoint records their subsequent
+implementation and M1 validation.
+
+## GTK validation checkpoint: 2026-10-18
+
+Validated on M1/native macOS with Python 3.14.4 and the pinned Brynse revision:
+
+- Full suite: 1220 passed, no skips; one known PyGObject deprecation warning.
+  The renderer smoke test now reloads the module explicitly so its
+  initialization check does not depend on test collection/import order.
+- Ruff formatting/lint, compileall, mypy, JavaScript syntax, pip check,
+  Bandit and git diff whitespace checks passed. The renderer test correction
+  was followed by focused tests and another full-suite run.
+- pip-audit reported no known vulnerabilities in audited packages; Brynse and
+  FluxTuner were skipped because they could not be audited through PyPI.
+- A native GTK close test with controlled run/stop workers verified main-loop
+  responsiveness, one-time cleanup and deferred close until both workers
+  finished, even when the snapshot was already terminal.
+- Manual full-GUI validation confirmed explicit clicked-station targeting,
+  unchanged selection, station-specific stop, capture, stop/restart readiness
+  and close behavior.
+- A real Jazz Radio Classic Jazz ICY/MP3 stream produced nine finalized MP3
+  tracks. The saved tracks were manually checked and accepted. The final
+  incomplete title remained separate; the job stopped and both workers
+  finished.
+- An earlier station failed because its response lacked the Content-Type
+  needed for automatic codec detection. The error appeared in GTK and did
+  not prevent starting a subsequent job. A playback timeout was also observed;
+  this validation does not establish its cause.
+
+The full suite used dedicated application directories and the external
+legacy-source isolation plugin described in the headless checkpoint. These
+results are not an unmodified `make gate` run on a populated user account.
+
+M1 evidence under Downloads:
+
+- `fluxtuner-brynse-final-gates-01.txt` records the quality checks and the
+  initial renderer import-order failure.
+- `fluxtuner-brynse-import-isolation-green-01.txt` records the corrected
+  renderer test, nine focused passes and the final 1220-test full-suite pass.
+- `fluxtuner-brynse-gtk-close-native-smoke-01.txt` records controlled native
+  GTK close behavior.
+- `fluxtuner-brynse-gtk-real-smoke-01.txt` records the live GUI capture.
+
+## Remaining scope and limits
+
+- Linux and Flatpak integration, sandbox behavior and distribution packaging
+  have not been validated for Brynse. The optional dependency is not bundled
+  by this integration and no Flatpak permissions have changed.
+- Live AAC capture has not been validated by the M1 network smoke test.
+- The service has no persistent ripping history or track browser.
+- Artist/title ordering and other segmentation or filename refinements belong
+  to Brynse and are deferred to separate work. FluxTuner keeps the names it
+  receives.

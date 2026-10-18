@@ -73,6 +73,7 @@ from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     RippingShutdown,
     coordinate_ripping_start,
     coordinate_ripping_stop,
+    ripping_menu_action,
     ripping_status,
     start_ripping_availability_probe,
 )
@@ -1020,6 +1021,36 @@ class MainWindow(Gtk.ApplicationWindow):
                     station,
                 )
                 menu_box.append(stop_recording_button)
+
+        ripping_action = None
+        ripping_service = getattr(self, "ripping_service", None)
+        if ripping_service is not None and not getattr(self, "_ripping_shutting_down", False):
+            try:
+                profile_id, _profile_name = self._ripping_profile_context()
+                workers_finished = ripping_service.wait(timeout=0)
+                snapshot = ripping_service.snapshot()
+                ripping_action = ripping_menu_action(
+                    station,
+                    availability=self.ripping_availability,
+                    snapshot=snapshot,
+                    workers_finished=workers_finished,
+                    profile_id=profile_id,
+                )
+            except Exception as exc:  # noqa: BLE001 - contained optional menu action.
+                self.status_label.set_text(f"Could not check ripping actions: {exc}")
+
+        if ripping_action is not None:
+            ripping_button = Gtk.Button(
+                label="Rip tracks" if ripping_action == "start" else "Stop ripping"
+            )
+            ripping_button.connect(
+                "clicked",
+                self.on_context_rip_clicked
+                if ripping_action == "start"
+                else self.on_context_stop_ripping_clicked,
+                station,
+            )
+            menu_box.append(ripping_button)
 
         if MainWindow._station_homepage_url(self, station) is not None:
             homepage_button = Gtk.Button(label="Open station homepage")

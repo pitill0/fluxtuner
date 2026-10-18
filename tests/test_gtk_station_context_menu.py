@@ -4,6 +4,8 @@ import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+
 
 def _import_window_module():
     try:
@@ -2241,3 +2243,177 @@ def test_gtk_ripping_context_stop_callback_targets_clicked_station() -> None:
     harness.stop_station_ripping.assert_called_once_with(clicked)
     harness.start_station_ripping.assert_not_called()
     assert harness.selected_station is selected
+
+
+def _ripping_menu_harness(
+    monkeypatch, tmp_path, *, state=None, available=True, workers_finished=True
+):
+    from fluxtuner.core.ripping import RippingAvailability, RippingRequest
+    from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
+
+    menu_box = Mock()
+    menu_box.children = []
+    menu_box.append.side_effect = menu_box.children.append
+
+    def button(*, label):
+        result = SimpleNamespace(label=label, connections=[])
+        result.connect = lambda signal, callback, *args: result.connections.append(
+            (signal, callback, args)
+        )
+        return result
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Popover=Mock(),
+            Box=Mock(return_value=menu_box),
+            Button=button,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+        ),
+    )
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Rectangle=Mock()),
+        raising=False,
+    )
+    station = {
+        "name": "Clicked FM",
+        "url_resolved": "https://example.com/clicked",
+        "homepage": "",
+    }
+    request = RippingRequest(
+        station_name="Original name",
+        source_url=station["url_resolved"],
+        output_directory=tmp_path / "tracks",
+        profile_id=7,
+        profile_name="Focus",
+    )
+    service = Mock(spec=RippingService)
+    service.wait.return_value = workers_finished
+    service.snapshot.return_value = (
+        None if state is None else RippingSnapshot(job_id=1, request=request, state=state)
+    )
+    harness = SimpleNamespace(
+        selected_station={"name": "Other station"},
+        ripping_service=service,
+        ripping_availability=RippingAvailability(available),
+        _ripping_shutting_down=False,
+        _ripping_profile_context=Mock(return_value=(7, "Focus")),
+        status_label=Mock(),
+        on_context_play_clicked=Mock(),
+        on_context_add_favorite_clicked=Mock(),
+        on_context_remove_favorite_clicked=Mock(),
+        on_context_open_homepage_clicked=Mock(),
+        on_context_rip_clicked=Mock(),
+        on_context_stop_ripping_clicked=Mock(),
+        copy_station_url=Mock(),
+        copy_station_name=Mock(),
+        _is_favorite_station=Mock(return_value=False),
+        _on_station_context_menu_closed=Mock(),
+    )
+    return harness, station, menu_box
+
+
+@pytest.mark.parametrize(
+    ("state", "available", "workers_finished", "expected"),
+    [
+        (None, True, True, "Rip tracks"),
+        (None, False, True, None),
+        ("starting", True, False, "Stop ripping"),
+        ("running", False, False, "Stop ripping"),
+        ("stopping", True, False, None),
+        ("stopped", True, False, None),
+        ("failed", True, True, "Rip tracks"),
+        ("completed", True, True, "Rip tracks"),
+    ],
+)
+def test_gtk_ripping_menu_wiring_projects_policy(
+    monkeypatch, tmp_path, state, available, workers_finished, expected
+) -> None:
+    harness, station, menu = _ripping_menu_harness(
+        monkeypatch,
+        tmp_path,
+        state=state,
+        available=available,
+        workers_finished=workers_finished,
+    )
+    selection = harness.selected_station
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    actions = [button for button in menu.children if button.label in ("Rip tracks", "Stop ripping")]
+    assert [button.label for button in actions] == ([] if expected is None else [expected])
+    if actions:
+        callback = (
+            harness.on_context_rip_clicked
+            if expected == "Rip tracks"
+            else harness.on_context_stop_ripping_clicked
+        )
+        assert actions[0].connections == [("clicked", callback, (station,))]
+    harness.ripping_service.wait.assert_called_once_with(timeout=0)
+    harness.ripping_service.start.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness.status_label.set_text.assert_not_called()
+    assert harness.selected_station is selection
+
+
+@pytest.mark.parametrize("mismatch", ["profile", "station"])
+def test_gtk_ripping_menu_wiring_hides_other_operation(monkeypatch, tmp_path, mismatch) -> None:
+    harness, station, menu = _ripping_menu_harness(
+        monkeypatch, tmp_path, state="running", workers_finished=False
+    )
+    if mismatch == "profile":
+        harness._ripping_profile_context.return_value = (8, "Other")
+    else:
+        station["url_resolved"] = "https://example.com/other"
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
+    harness.ripping_service.wait.assert_called_once_with(timeout=0)
+
+
+def test_gtk_ripping_menu_wiring_skips_shutdown(monkeypatch, tmp_path) -> None:
+    harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
+    harness._ripping_shutting_down = True
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
+    harness._ripping_profile_context.assert_not_called()
+    harness.ripping_service.wait.assert_not_called()
+
+
+def test_gtk_ripping_menu_wiring_contains_profile_failure(monkeypatch, tmp_path) -> None:
+    harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
+    harness._ripping_profile_context.side_effect = RuntimeError("Profile unavailable")
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
+    assert "Copy station name" in {button.label for button in menu.children}
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not check ripping actions: Profile unavailable"
+    )
+
+
+def test_gtk_ripping_menu_wiring_reads_snapshot_after_wait(monkeypatch, tmp_path) -> None:
+    from dataclasses import replace
+
+    harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path, state="running")
+    initial = harness.ripping_service.snapshot.return_value
+
+    def finish(*, timeout):
+        assert timeout == 0
+        harness.ripping_service.snapshot.return_value = replace(initial, state="stopped")
+        return True
+
+    harness.ripping_service.wait.side_effect = finish
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    labels = {button.label for button in menu.children}
+    assert "Rip tracks" in labels
+    assert "Stop ripping" not in labels

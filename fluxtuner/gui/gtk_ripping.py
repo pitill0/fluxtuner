@@ -4,7 +4,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fluxtuner.core.ripping import RippedTrack, RippingAvailability, RippingError
@@ -131,6 +131,31 @@ def ripping_station_is_active(
         and snapshot.request.profile_id == profile_id
         and snapshot.request.source_url == station_url(station)
     )
+
+
+def ripping_menu_action(
+    station: dict[str, Any],
+    *,
+    availability: RippingAvailability,
+    snapshot: RippingSnapshot | None,
+    workers_finished: bool,
+    profile_id: int,
+    shutting_down: bool = False,
+) -> Literal["start", "stop"] | None:
+    """Choose a contextual action from cached capability and lifecycle state."""
+    if shutting_down:
+        return None
+
+    if snapshot is not None and snapshot.state in ("starting", "running", "stopping"):
+        if snapshot.state != "stopping" and ripping_station_is_active(
+            snapshot, station, profile_id=profile_id
+        ):
+            return "stop"
+        return None
+
+    if availability.available and workers_finished:
+        return "start"
+    return None
 
 
 def coordinate_ripping_stop(

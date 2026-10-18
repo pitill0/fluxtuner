@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from fluxtuner.core.ripping import RippingAvailability
+from fluxtuner.core.ripping import RippedTrack, RippingAvailability, RippingError
 from fluxtuner.core.ripping_requests import build_ripping_request
-from fluxtuner.core.ripping_service import RippingService
+from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
 
 
 @dataclass(frozen=True)
@@ -82,3 +82,36 @@ def start_ripping_availability_probe(
     )
     worker.start()
     return worker
+
+
+def ripping_status(snapshot: RippingSnapshot) -> str:
+    """Describe a snapshot using only finalized tracks as saved outputs."""
+    station_name = snapshot.request.station_name
+    active_labels = {
+        "starting": "Starting ripping",
+        "running": "Ripping tracks",
+        "stopping": "Stopping ripping",
+    }
+    if snapshot.state in active_labels:
+        return f"{active_labels[snapshot.state]}: {station_name}"
+
+    tracks: tuple[RippedTrack, ...] = ()
+    if snapshot.result is not None:
+        tracks = snapshot.result.tracks
+    elif isinstance(snapshot.error, RippingError):
+        tracks = snapshot.error.tracks
+
+    if snapshot.state == "failed":
+        error = str(snapshot.error) if snapshot.error is not None else "Unknown error"
+        message = f"Ripping failed: {station_name}: {error}"
+        if not tracks:
+            return message
+    else:
+        message = f"Ripping {snapshot.state}: {station_name}"
+
+    count = len(tracks)
+    noun = "track" if count == 1 else "tracks"
+    message += f" ({count} {noun} saved)"
+    if tracks:
+        message += f" → {snapshot.request.output_directory}"
+    return message

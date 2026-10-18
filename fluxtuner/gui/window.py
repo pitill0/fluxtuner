@@ -203,6 +203,22 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text(message)
             self._ensure_ripping_state_timer()
 
+    def on_context_rip_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Start ripping the station targeted by a context-menu action."""
+        self.start_station_ripping(station)
+
+    def on_context_stop_ripping_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Stop ripping for the station targeted by a context-menu action."""
+        self.stop_station_ripping(station)
+
     def _ensure_ripping_state_timer(self) -> None:
         """Schedule one GTK state timer after a ripping job is accepted."""
         if self._ripping_shutting_down or self._ripping_state_timer_id is not None:

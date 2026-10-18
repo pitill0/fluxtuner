@@ -2209,3 +2209,35 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(
 
     assert "Record session" not in labels
     assert "Stop recording" not in labels
+
+
+def test_gtk_ripping_context_start_callback_targets_clicked_station() -> None:
+    selected = {"name": "Selected FM", "url": "https://example.com/selected"}
+    clicked = {"name": "Clicked FM", "url_resolved": "https://example.com/clicked"}
+    harness = SimpleNamespace(
+        selected_station=selected,
+        start_station_ripping=Mock(),
+        stop_station_ripping=Mock(),
+    )
+
+    window.MainWindow.on_context_rip_clicked(harness, Mock(), clicked)
+
+    harness.start_station_ripping.assert_called_once_with(clicked)
+    harness.stop_station_ripping.assert_not_called()
+    assert harness.selected_station is selected
+
+
+def test_gtk_ripping_context_stop_callback_targets_clicked_station() -> None:
+    selected = {"name": "Selected FM", "url": "https://example.com/selected"}
+    clicked = {"name": "Clicked FM", "url_resolved": "https://example.com/clicked"}
+    harness = SimpleNamespace(
+        selected_station=selected,
+        start_station_ripping=Mock(),
+        stop_station_ripping=Mock(),
+    )
+
+    window.MainWindow.on_context_stop_ripping_clicked(harness, Mock(), clicked)
+
+    harness.stop_station_ripping.assert_called_once_with(clicked)
+    harness.start_station_ripping.assert_not_called()
+    assert harness.selected_station is selected

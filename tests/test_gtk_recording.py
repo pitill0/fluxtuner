@@ -163,6 +163,8 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
         _ripping_shutdown=RippingShutdown(service=service),
         _ripping_shutting_down=False,
         _ripping_state_timer_id=None,
+        _shutdown_timer_id=None,
+        _shutdown_on_complete=None,
         status_label=Mock(),
         recording_manager=manager,
         player=Mock(),

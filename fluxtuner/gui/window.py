@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 from uuid import uuid4
@@ -115,6 +116,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.ripping_backend = BrynseRipper()
         self.ripping_service = RippingService(backend_factory=BrynseRipper)
         self._ripping_shutdown = RippingShutdown(service=self.ripping_service)
+        self._shutdown_timer_id: int | None = None
+        self._shutdown_on_complete: Callable[[], None] | None = None
         self.ripping_availability = RippingAvailability(
             False,
             "Checking Brynse availability.",
@@ -1934,8 +1937,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
-    def shutdown(self) -> bool:
-        """Stop runtime work once and report whether ripping workers finished."""
+    def shutdown(self, *, on_complete: Callable[[], None] | None = None) -> bool:
+        """Return readiness; schedule on_complete only when closing is deferred."""
         if not self._ripping_shutting_down:
             self._ripping_shutting_down = True
             self._ripping_shutdown.request()
@@ -1955,16 +1958,39 @@ class MainWindow(Gtk.ApplicationWindow):
                     self.recording_manager.stop()
             with suppress(Exception):
                 self.player.stop()
-        return self._ripping_shutdown.poll()
+        ready = self._ripping_shutdown.poll()
+        if ready:
+            if self._shutdown_timer_id is not None:
+                GLib.source_remove(self._shutdown_timer_id)
+                self._shutdown_timer_id = None
+            self._shutdown_on_complete = None
+        elif on_complete is not None:
+            self._shutdown_on_complete = on_complete
+            if self._shutdown_timer_id is None:
+                self._shutdown_timer_id = GLib.timeout_add(200, self._poll_shutdown)
+        return ready
+
+    def _poll_shutdown(self) -> bool:
+        """Continue a deferred close while GTK keeps processing events."""
+        if self._shutdown_on_complete is None:
+            self._shutdown_timer_id = None
+            return False
+        if not self._ripping_shutdown.poll():
+            return True
+
+        callback = self._shutdown_on_complete
+        self._shutdown_on_complete = None
+        self._shutdown_timer_id = None
+        callback()
+        return False
 
     def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Hide to tray when enabled; otherwise preserve normal close semantics."""
+        """Hide to tray or defer destruction until ripping workers finish."""
         if getattr(self, "close_to_tray", False):
             self.set_visible(False)
             return True
 
-        MainWindow.shutdown(self)
-        return False
+        return not MainWindow.shutdown(self, on_complete=self.close)
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):

@@ -42,6 +42,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Fixed GTK context-menu popover surfaces in dark and light appearances.
 - Fixed GTK4 clipboard copying on Wayland.
+- Fixed source archives omitting the pinned optional Brynse requirements.
 
 ### Documentation
 

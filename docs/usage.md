@@ -177,6 +177,45 @@ button.
 Recording metadata is stored in the FluxTuner SQLite database and scoped to the active
 profile. Web/server recording is not included in this release.
 
+## Track ripping with Brynse in GTK
+
+GTK can use the optional Brynse integration to save individual tracks from
+compatible ICY radio streams. This is separate from session recording.
+
+From the source checkout and its selected virtual environment:
+
+```bash
+python -m pip install -r requirements-brynse.txt
+python -m pip check
+python -m fluxtuner --gui
+```
+
+FFmpeg must be available in `PATH`. The requirements file pins the tested
+Brynse revision; installing the base FluxTuner package alone does not enable
+this capability.
+
+Right-click a station row and choose `Rip tracks`. The action uses the clicked
+station without changing the current selection. Playback does not need to be
+running. Once the background availability check completes, reopen the menu if
+the action was initially absent.
+
+Only one ripping job can run at a time. Right-click the same station in the
+same profile to request `Stop ripping`. Start remains unavailable until both
+the run and stop workers finish. Status messages report progress, failures,
+finalized track counts and the output directory.
+
+Tracks are saved under `<data_directory>/rips/profile-<id>/<uuid.hex>/`.
+`FLUXTUNER_DATA_DIR` overrides the data directory. Brynse controls filenames;
+FluxTuner does not reorder artist/title text. Ripping results are not stored
+in the SQLite recording history.
+
+Local availability does not guarantee that a station is compatible. The
+tested Brynse runner requires ICY metadata and MP3 or AAC audio. Native macOS
+has been validated; Linux/Flatpak integration and packaging remain pending.
+
+See [the integration contract](brynse-integration.md) for lifecycle,
+shutdown behavior, outputs and validation details.
+
 ## TUI Themes
 
 List available themes:

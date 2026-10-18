@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
+from uuid import uuid4
 
 import gi
 
@@ -17,6 +19,7 @@ from fluxtuner.config import (  # noqa: E402
     save_playback_state,
     set_config_value,
 )
+from fluxtuner.core import db  # noqa: E402
 from fluxtuner.core.compatibility import (  # noqa: E402
     filter_supported_stations,
     station_is_supported,
@@ -33,12 +36,17 @@ from fluxtuner.core.favorites import (  # noqa: E402
     update_favorite,
 )
 from fluxtuner.core.history import add_history, load_history  # noqa: E402
-from fluxtuner.core.profiles import resolve_effective_profile_name  # noqa: E402
+from fluxtuner.core.profiles import (  # noqa: E402
+    get_profile_by_name,
+    resolve_effective_profile_name,
+)
 from fluxtuner.core.recording import RecordingManager, RecordingRequest  # noqa: E402
 from fluxtuner.core.recordings import (  # noqa: E402
     SqliteRecordingStore,
     recording_output_path,
 )
+from fluxtuner.core.ripping import RippingAvailability, RippingError  # noqa: E402
+from fluxtuner.core.ripping_service import RippingService  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
     same_station,
@@ -61,9 +69,19 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_ripping import (  # noqa: E402
+    RippingShutdown,
+    coordinate_ripping_start,
+    coordinate_ripping_stop,
+    ripping_menu_action,
+    ripping_status,
+    start_ripping_availability_probe,
+)
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
+from fluxtuner.paths import DATA_DIR  # noqa: E402
 from fluxtuner.players import create_player, selected_player_name  # noqa: E402
+from fluxtuner.recorders.brynse import BrynseRipper  # noqa: E402
 from fluxtuner.recorders.ffmpeg import FfmpegRecorder  # noqa: E402
 
 
@@ -96,6 +114,19 @@ class MainWindow(Gtk.ApplicationWindow):
             self.recording_backend,
             store=SqliteRecordingStore(profile_name=self.profile_name),
         )
+        self.ripping_backend = BrynseRipper()
+        self.ripping_service = RippingService(backend_factory=BrynseRipper)
+        self._ripping_shutdown = RippingShutdown(service=self.ripping_service)
+        self._shutdown_timer_id: int | None = None
+        self._shutdown_on_complete: Callable[[], None] | None = None
+        self.ripping_availability = RippingAvailability(
+            False,
+            "Checking Brynse availability.",
+        )
+        self._ripping_probe_worker: threading.Thread | None = None
+        self._ripping_shutting_down = False
+        self._ripping_state_timer_id: int | None = None
+        self._ripping_last_status: tuple[int, str] | None = None
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
@@ -123,6 +154,136 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
+        self._start_ripping_availability_probe()
+
+    def start_station_ripping(self, station: dict[str, Any]) -> int | None:
+        """Submit one explicit station without changing the current selection."""
+        if self._ripping_shutting_down:
+            return None
+        if not self.ripping_availability.available:
+            self.status_label.set_text(f"Ripping unavailable: {self.ripping_availability.reason}")
+            return None
+
+        try:
+            profile_id, profile_name = self._ripping_profile_context()
+            result = coordinate_ripping_start(
+                station,
+                availability=self.ripping_availability,
+                service=self.ripping_service,
+                data_directory=DATA_DIR,
+                profile_id=profile_id,
+                profile_name=profile_name,
+                run_id=uuid4(),
+            )
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(f"Could not start ripping: {exc}")
+            return None
+
+        self.status_label.set_text(result.status)
+        if result.job_id is not None:
+            self._ensure_ripping_state_timer()
+        return result.job_id
+
+    def stop_station_ripping(self, station: dict[str, Any]) -> None:
+        """Request stopping for an explicit station in the window's profile."""
+        if self._ripping_shutting_down:
+            return
+
+        try:
+            profile_id, _profile_name = self._ripping_profile_context()
+            message = coordinate_ripping_stop(
+                station,
+                service=self.ripping_service,
+                profile_id=profile_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
+            self.status_label.set_text(f"Could not stop ripping: {exc}")
+            return
+
+        if message is not None:
+            self.status_label.set_text(message)
+            self._ensure_ripping_state_timer()
+
+    def on_context_rip_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Start ripping the station targeted by a context-menu action."""
+        self.start_station_ripping(station)
+
+    def on_context_stop_ripping_clicked(
+        self,
+        _button: Gtk.Button,
+        station: dict[str, Any],
+    ) -> None:
+        """Stop ripping for the station targeted by a context-menu action."""
+        self.stop_station_ripping(station)
+
+    def _ensure_ripping_state_timer(self) -> None:
+        """Schedule one GTK state timer after a ripping job is accepted."""
+        if self._ripping_shutting_down or self._ripping_state_timer_id is not None:
+            return
+        self._ripping_state_timer_id = GLib.timeout_add(200, self._refresh_ripping_state)
+
+    def _refresh_ripping_state(self) -> bool:
+        """Project current state until all ripping workers have finished."""
+        if self._ripping_shutting_down:
+            self._ripping_state_timer_id = None
+            return False
+
+        finished = self.ripping_service.wait(timeout=0)
+        snapshot = self.ripping_service.snapshot()
+        if snapshot is not None:
+            message = ripping_status(snapshot)
+            status_key = (snapshot.job_id, message)
+            if status_key != self._ripping_last_status:
+                self.status_label.set_text(message)
+                self._ripping_last_status = status_key
+
+        if finished:
+            self._ripping_state_timer_id = None
+        return not finished
+
+    def _ripping_profile_context(self) -> tuple[int, str]:
+        """Resolve the window's persistent profile and its canonical name."""
+        name = self.profile_name
+        if name is None:
+            name = db.DEFAULT_PROFILE_NAME
+
+        with db.connect() as conn:
+            profile = get_profile_by_name(conn, name)
+
+        if profile is None:
+            raise RippingError("Ripping profile is unavailable.")
+
+        return int(profile["id"]), str(profile["name"])
+
+    def _start_ripping_availability_probe(self) -> None:
+        """Check optional ripping support outside the GTK thread."""
+        if self._ripping_shutting_down:
+            return
+
+        try:
+            self._ripping_probe_worker = start_ripping_availability_probe(
+                check_availability=self.ripping_backend.availability,
+                dispatch=GLib.idle_add,
+                on_result=self._ripping_availability_finished,
+            )
+        except Exception as exc:  # noqa: BLE001 - optional capability failure.
+            self.ripping_availability = RippingAvailability(
+                False,
+                f"Could not schedule ripping availability check: {exc}",
+            )
+
+    def _ripping_availability_finished(
+        self,
+        availability: RippingAvailability,
+    ) -> None:
+        """Accept a dispatched capability result while the window is open."""
+        if self._ripping_shutting_down:
+            return
+        self.ripping_availability = availability
 
     def _build_root(self) -> Gtk.Box:
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -861,6 +1022,36 @@ class MainWindow(Gtk.ApplicationWindow):
                 )
                 menu_box.append(stop_recording_button)
 
+        ripping_action = None
+        ripping_service = getattr(self, "ripping_service", None)
+        if ripping_service is not None and not getattr(self, "_ripping_shutting_down", False):
+            try:
+                profile_id, _profile_name = self._ripping_profile_context()
+                workers_finished = ripping_service.wait(timeout=0)
+                snapshot = ripping_service.snapshot()
+                ripping_action = ripping_menu_action(
+                    station,
+                    availability=self.ripping_availability,
+                    snapshot=snapshot,
+                    workers_finished=workers_finished,
+                    profile_id=profile_id,
+                )
+            except Exception as exc:  # noqa: BLE001 - contained optional menu action.
+                self.status_label.set_text(f"Could not check ripping actions: {exc}")
+
+        if ripping_action is not None:
+            ripping_button = Gtk.Button(
+                label="Rip tracks" if ripping_action == "start" else "Stop ripping"
+            )
+            ripping_button.connect(
+                "clicked",
+                self.on_context_rip_clicked
+                if ripping_action == "start"
+                else self.on_context_stop_ripping_clicked,
+                station,
+            )
+            menu_box.append(ripping_button)
+
         if MainWindow._station_homepage_url(self, station) is not None:
             homepage_button = Gtk.Button(label="Open station homepage")
             homepage_button.connect(
@@ -984,6 +1175,9 @@ class MainWindow(Gtk.ApplicationWindow):
         station: dict[str, Any],
     ) -> None:
         """Start recording one explicit station without changing selection."""
+        if getattr(self, "_ripping_shutting_down", False):
+            return
+
         if not self.recording_available:
             self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
             self._update_record_button()
@@ -1091,6 +1285,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def play_station(self, station: dict[str, Any]) -> None:
         """Play one explicit station without changing the selected station."""
+        if getattr(self, "_ripping_shutting_down", False):
+            return
+
         result = coordinate_playback_start(
             station,
             player=self.player,
@@ -1793,26 +1990,66 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
-    def shutdown(self) -> None:
-        """Stop GTK runtime work, recording and the player before exiting."""
-        self._stop_usage_timer()
-        self._stop_player_state_timer()
-        self._stop_metadata_polling()
-        self.usage_tracker.stop()
-        with suppress(Exception):
-            if self.recording_manager.active_session is not None:
-                self.recording_manager.stop()
-        with suppress(Exception):
-            self.player.stop()
+    def shutdown(self, *, on_complete: Callable[[], None] | None = None) -> bool:
+        """Return readiness; schedule on_complete only when closing is deferred."""
+        if not self._ripping_shutting_down:
+            self._ripping_shutting_down = True
+            self._ripping_shutdown.request()
+            if self._ripping_shutdown.error is not None:
+                self.status_label.set_text(
+                    f"Could not stop ripping: {self._ripping_shutdown.error}"
+                )
+            if self._ripping_state_timer_id is not None:
+                GLib.source_remove(self._ripping_state_timer_id)
+                self._ripping_state_timer_id = None
+            self._stop_usage_timer()
+            self._stop_player_state_timer()
+            self._stop_metadata_polling()
+            self.usage_tracker.stop()
+            with suppress(Exception):
+                if self.recording_manager.active_session is not None:
+                    self.recording_manager.stop()
+            with suppress(Exception):
+                self.player.stop()
+        ready = self._ripping_shutdown.poll()
+        if ready:
+            if self._shutdown_timer_id is not None:
+                GLib.source_remove(self._shutdown_timer_id)
+                self._shutdown_timer_id = None
+            self._shutdown_on_complete = None
+        elif on_complete is not None:
+            self._shutdown_on_complete = on_complete
+            if self._shutdown_timer_id is None:
+                self._shutdown_timer_id = GLib.timeout_add(200, self._poll_shutdown)
+        return ready
+
+    def _poll_shutdown(self) -> bool:
+        """Continue a deferred close while GTK keeps processing events."""
+        if self._shutdown_on_complete is None:
+            self._shutdown_timer_id = None
+            return False
+        if not self._ripping_shutdown.poll():
+            return True
+
+        callback = self._shutdown_on_complete
+        self._shutdown_on_complete = None
+        self._shutdown_timer_id = None
+        callback()
+        return False
 
     def on_close_request(self, _window: Gtk.Window) -> bool:
-        """Hide to tray when enabled; otherwise preserve normal close semantics."""
+        """Hide to tray or defer destruction until ripping workers finish."""
         if getattr(self, "close_to_tray", False):
             self.set_visible(False)
             return True
 
-        MainWindow.shutdown(self)
-        return False
+        pending_completion = self._shutdown_on_complete
+        if pending_completion is not None:
+            if MainWindow.shutdown(self, on_complete=pending_completion):
+                pending_completion()
+            return True
+
+        return not MainWindow.shutdown(self, on_complete=self.close)
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):

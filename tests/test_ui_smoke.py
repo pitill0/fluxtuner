@@ -50,7 +50,7 @@ def test_tui_app_can_be_constructed_with_mocked_runtime_dependencies(monkeypatch
 def test_gui_module_imports_and_sets_default_renderer(monkeypatch) -> None:
     monkeypatch.delenv("GSK_RENDERER", raising=False)
 
-    module = importlib.import_module("fluxtuner.gui.app")
+    module = importlib.reload(importlib.import_module("fluxtuner.gui.app"))
 
     assert module is not None
     assert os.environ["GSK_RENDERER"] == "cairo"

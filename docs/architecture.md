@@ -191,7 +191,9 @@ selection and rendered view state. It delegates focused behavior to:
 - `fluxtuner/gui/gtk_playback.py` for playback coordination contracts;
 - `fluxtuner/gui/gtk_metadata.py` for metadata lifecycle and projection;
 - `fluxtuner/gui/gtk_search.py` for stale-search suppression;
-- `fluxtuner/gui/gtk_view_state.py` for logical view transitions.
+- `fluxtuner/gui/gtk_view_state.py` for logical view transitions;
+- `fluxtuner/gui/gtk_ripping.py` for ripping coordination, menu policy,
+  availability delivery, status projection and shutdown coordination.
 
 The extracted helpers remain independent of GTK widget construction. GTK
 updates and lifecycle decisions stay in `MainWindow`, including applying
@@ -357,6 +359,27 @@ the FFmpeg process and persists the completed session.
 
 Web/server recording is outside the current local recording boundary and requires
 separate storage, quota and long-running-worker design before being exposed.
+
+## Brynse track ripping
+
+Track ripping uses a separate headless service and the optional
+`brynse.integrations.radio` API. `core/ripping.py` defines requests, results
+and the backend protocol; `core/ripping_service.py` owns run/stop workers.
+Request and path helpers capture the explicit station and profile destination.
+`recorders/brynse.py` loads the optional API and translates its payloads.
+
+Brynse owns stream ingestion, segmentation, finalization, filenames and stream
+closure. FluxTuner owns job scheduling and UI observations. GTK polls snapshots
+on its main context and waits for both workers asynchronously during actual
+shutdown. Closing to a compatible tray keeps the application running.
+
+Finalized files live under `rips/profile-<id>/<uuid.hex>/` in the configured
+data directory. Results remain in memory; this adds no SQLite migration or
+ripping history store. Session recording retains its existing manager and
+persistence model.
+
+See [the Brynse integration contract](brynse-integration.md) for availability,
+deferred cancellation, error handling and validation limits.
 
 ## Player capabilities and station compatibility
 

@@ -151,6 +151,32 @@ python -m fluxtuner --gui --player ffplay
 
 ---
 
+## Optional Brynse track ripping
+
+Install the pinned optional dependency with
+`python -m pip install -r requirements-brynse.txt` in the intended environment
+and ensure FFmpeg is available. Use isolated application data/config/cache
+locations for the smoke run.
+
+- After the availability probe completes, right-click station B while station A
+  is selected; `Rip tracks` must target B and preserve the selection.
+- Confirm `Stop ripping` belongs only to the active station/profile.
+- Allow metadata transitions and verify finalized tracks under
+  `<data_directory>/rips/profile-<id>/<uuid.hex>/`; listen to saved files.
+- Request stop and verify the final status, saved files and eventual return of
+  the start action. An incomplete title must not count as a finalized track.
+- Exercise a station failure and verify a visible error and subsequent retry.
+- Exercise actual window close during a job and confirm responsive shutdown
+  that waits for both workers. On Linux with a compatible tray, distinguish
+  hide-on-close from explicit tray `Quit`, which must wait for worker cleanup.
+- Without the optional capability, GTK must remain usable and omit `Rip tracks`.
+
+These are validation steps, not a statement that every platform has passed.
+See [the integration validation record](docs/brynse-integration.md) for evidence
+and remaining Linux/Flatpak checks.
+
+---
+
 # 7. Recording persistence
 
 After a short TUI or GTK recording, inspect the latest recording row:

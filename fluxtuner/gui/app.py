@@ -36,6 +36,7 @@ def run_gui(player_name: str = "mpv") -> None:
     window: MainWindow | None = None
     tray: LinuxStatusNotifierItem | None = None
     app_held_for_tray = False
+    quit_completed = False
 
     def show_window() -> None:
         if window is not None:
@@ -55,15 +56,24 @@ def run_gui(player_name: str = "mpv") -> None:
     def can_stop_playback() -> bool:
         return bool(window is not None and window.tray_can_stop())
 
-    def quit_application() -> None:
-        nonlocal app_held_for_tray
-        if window is not None:
-            window.close_to_tray = False
-            window.shutdown()
+    def finish_quit() -> None:
+        nonlocal app_held_for_tray, quit_completed
+        if quit_completed:
+            return
+        quit_completed = True
         if app_held_for_tray:
             app.release()
             app_held_for_tray = False
         app.quit()
+
+    def quit_application() -> None:
+        if quit_completed:
+            return
+        if window is not None:
+            window.close_to_tray = False
+            if not window.shutdown(on_complete=finish_quit):
+                return
+        finish_quit()
 
     if sys.platform.startswith("linux"):
         candidate = LinuxStatusNotifierItem(

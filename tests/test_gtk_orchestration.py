@@ -1046,3 +1046,150 @@ def test_gtk_ripping_window_start_contains_profile_failure(monkeypatch) -> None:
     harness.status_label.set_text.assert_called_once_with(
         "Could not start ripping: Ripping profile is unavailable."
     )
+
+
+def _ripping_state_harness(tmp_path, *, state="running") -> SimpleNamespace:
+    from fluxtuner.core.ripping import RippingRequest
+    from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
+
+    request = RippingRequest(
+        station_name="Clicked station",
+        source_url="https://example.com/clicked",
+        output_directory=tmp_path / "tracks",
+    )
+    service = Mock(spec=RippingService)
+    service.wait.return_value = False
+    service.snapshot.return_value = RippingSnapshot(job_id=1, request=request, state=state)
+    return SimpleNamespace(
+        ripping_service=service,
+        _ripping_shutting_down=False,
+        _ripping_state_timer_id=17,
+        _ripping_last_status=None,
+        selected_station={"name": "Other station"},
+        status_label=Mock(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("starting", "Starting ripping: Clicked station"),
+        ("running", "Ripping tracks: Clicked station"),
+        ("stopping", "Stopping ripping: Clicked station"),
+    ],
+)
+def test_gtk_ripping_state_refresh_projects_active_states(tmp_path, state, expected) -> None:
+    harness = _ripping_state_harness(tmp_path, state=state)
+    selection = harness.selected_station
+
+    keep_polling = window.MainWindow._refresh_ripping_state(harness)
+
+    assert keep_polling is True
+    assert harness._ripping_state_timer_id == 17
+    harness.ripping_service.wait.assert_called_once_with(timeout=0)
+    harness.status_label.set_text.assert_called_once_with(expected)
+    assert harness.selected_station is selection
+
+
+def test_gtk_ripping_state_refresh_waits_for_workers_after_terminal_state(tmp_path) -> None:
+    harness = _ripping_state_harness(tmp_path, state="completed")
+    harness.ripping_service.wait.side_effect = [False, True]
+
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    assert harness._ripping_state_timer_id == 17
+    assert window.MainWindow._refresh_ripping_state(harness) is False
+    assert harness._ripping_state_timer_id is None
+    harness.status_label.set_text.assert_called_once_with(
+        "Ripping completed: Clicked station (0 tracks saved)"
+    )
+    assert harness.ripping_service.wait.call_args_list == [call(timeout=0), call(timeout=0)]
+
+
+def test_gtk_ripping_state_refresh_deduplicates_within_each_job(tmp_path) -> None:
+    from dataclasses import replace
+
+    harness = _ripping_state_harness(tmp_path)
+
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    harness.status_label.set_text.reset_mock()
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    harness.status_label.set_text.assert_not_called()
+
+    previous = harness.ripping_service.snapshot.return_value
+    harness.ripping_service.snapshot.return_value = replace(previous, job_id=2)
+
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    harness.status_label.set_text.assert_called_once_with("Ripping tracks: Clicked station")
+
+
+def test_gtk_ripping_state_refresh_reports_late_outputs_after_failure(tmp_path) -> None:
+    from dataclasses import replace
+
+    from fluxtuner.core.ripping import RippedTrack, RippingResult
+
+    harness = _ripping_state_harness(tmp_path, state="failed")
+    snapshot = harness.ripping_service.snapshot.return_value
+    snapshot = replace(snapshot, error=RuntimeError("stop failed"))
+    harness.ripping_service.snapshot.return_value = snapshot
+
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    harness.status_label.set_text.assert_called_once_with(
+        "Ripping failed: Clicked station: stop failed"
+    )
+    harness.status_label.set_text.reset_mock()
+
+    result = RippingResult(
+        request=snapshot.request,
+        codec="mp3",
+        metaint=16000,
+        stopped=True,
+        tracks=(RippedTrack("Saved", snapshot.request.output_directory / "saved.mp3"),),
+    )
+    harness.ripping_service.snapshot.return_value = replace(snapshot, result=result)
+
+    assert window.MainWindow._refresh_ripping_state(harness) is True
+    harness.status_label.set_text.assert_called_once_with(
+        "Ripping failed: Clicked station: stop failed (1 track saved)"
+        f" → {snapshot.request.output_directory}"
+    )
+
+
+def test_gtk_ripping_state_refresh_reads_snapshot_after_readiness_check(tmp_path) -> None:
+    from dataclasses import replace
+
+    harness = _ripping_state_harness(tmp_path, state="starting")
+    initial = harness.ripping_service.snapshot.return_value
+
+    def finish_during_check(*, timeout):
+        assert timeout == 0
+        harness.ripping_service.snapshot.return_value = replace(initial, state="stopped")
+        return True
+
+    harness.ripping_service.wait.side_effect = finish_during_check
+
+    assert window.MainWindow._refresh_ripping_state(harness) is False
+    assert harness._ripping_state_timer_id is None
+    harness.status_label.set_text.assert_called_once_with(
+        "Ripping stopped: Clicked station (0 tracks saved)"
+    )
+
+
+def test_gtk_ripping_state_refresh_discards_updates_during_shutdown(tmp_path) -> None:
+    harness = _ripping_state_harness(tmp_path)
+    harness._ripping_shutting_down = True
+
+    assert window.MainWindow._refresh_ripping_state(harness) is False
+    assert harness._ripping_state_timer_id is None
+    harness.ripping_service.wait.assert_not_called()
+    harness.ripping_service.snapshot.assert_not_called()
+    harness.status_label.set_text.assert_not_called()
+
+
+def test_gtk_ripping_state_refresh_without_job_finishes_silently(tmp_path) -> None:
+    harness = _ripping_state_harness(tmp_path)
+    harness.ripping_service.wait.return_value = True
+    harness.ripping_service.snapshot.return_value = None
+
+    assert window.MainWindow._refresh_ripping_state(harness) is False
+    assert harness._ripping_state_timer_id is None
+    harness.status_label.set_text.assert_not_called()

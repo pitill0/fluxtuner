@@ -70,6 +70,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
 )
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     coordinate_ripping_start,
+    ripping_status,
     start_ripping_availability_probe,
 )
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
@@ -117,6 +118,8 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self._ripping_probe_worker: threading.Thread | None = None
         self._ripping_shutting_down = False
+        self._ripping_state_timer_id: int | None = None
+        self._ripping_last_status: tuple[int, str] | None = None
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
@@ -171,6 +174,25 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.status_label.set_text(result.status)
         return result.job_id
+
+    def _refresh_ripping_state(self) -> bool:
+        """Project current state until all ripping workers have finished."""
+        if self._ripping_shutting_down:
+            self._ripping_state_timer_id = None
+            return False
+
+        finished = self.ripping_service.wait(timeout=0)
+        snapshot = self.ripping_service.snapshot()
+        if snapshot is not None:
+            message = ripping_status(snapshot)
+            status_key = (snapshot.job_id, message)
+            if status_key != self._ripping_last_status:
+                self.status_label.set_text(message)
+                self._ripping_last_status = status_key
+
+        if finished:
+            self._ripping_state_timer_id = None
+        return not finished
 
     def _ripping_profile_context(self) -> tuple[int, str]:
         """Resolve the window's persistent profile and its canonical name."""

@@ -1572,3 +1572,35 @@ def test_gtk_ripping_close_wait_tray_hide_keeps_operation_running(monkeypatch) -
     harness.player.stop.assert_not_called()
     schedule.assert_not_called()
     assert harness._ripping_shutting_down is False
+
+
+@pytest.mark.parametrize("ready_on_close", [False, True])
+def test_gtk_ripping_close_priority_preserves_pending_quit(monkeypatch, ready_on_close) -> None:
+    harness = _ripping_shutdown_harness()
+    harness.close_to_tray = False
+    harness.ripping_service.wait.side_effect = [False, ready_on_close, True]
+    schedule = Mock(return_value=23)
+    remove = Mock()
+    monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
+    monkeypatch.setattr(window.GLib, "source_remove", remove, raising=False)
+    finish_quit = Mock()
+
+    assert window.MainWindow.shutdown(harness, on_complete=finish_quit) is False
+
+    assert window.MainWindow.on_close_request(harness, Mock()) is True
+
+    if not ready_on_close:
+        finish_quit.assert_not_called()
+        assert harness._shutdown_on_complete is finish_quit
+        assert window.MainWindow._poll_shutdown(harness) is False
+        remove.assert_not_called()
+    else:
+        remove.assert_called_once_with(23)
+
+    finish_quit.assert_called_once_with()
+    harness.close.assert_not_called()
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.player.stop.assert_called_once_with()
+    schedule.assert_called_once()
+    assert harness._shutdown_timer_id is None
+    assert harness._shutdown_on_complete is None

@@ -1990,6 +1990,12 @@ class MainWindow(Gtk.ApplicationWindow):
             self.set_visible(False)
             return True
 
+        pending_completion = self._shutdown_on_complete
+        if pending_completion is not None:
+            if MainWindow.shutdown(self, on_complete=pending_completion):
+                pending_completion()
+            return True
+
         return not MainWindow.shutdown(self, on_complete=self.close)
 
     def update_data_usage(self) -> None:

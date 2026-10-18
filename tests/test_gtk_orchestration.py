@@ -967,6 +967,7 @@ def _ripping_start_harness() -> SimpleNamespace:
         ripping_availability=RippingAvailability(True),
         _ripping_shutting_down=False,
         _ripping_profile_context=Mock(return_value=(7, "Focus")),
+        _ensure_ripping_state_timer=Mock(),
         selected_station={"name": "Other station", "url": "https://example.com/other"},
         status_label=Mock(),
     )
@@ -1000,6 +1001,7 @@ def test_gtk_ripping_window_starts_clicked_station(tmp_path, monkeypatch) -> Non
     assert request.output_directory == tmp_path / "rips" / "profile-7" / run_id.hex
     assert harness.selected_station is selection
     harness.status_label.set_text.assert_called_once_with("Starting ripping: Clicked station")
+    harness._ensure_ripping_state_timer.assert_called_once_with()
 
 
 @pytest.mark.parametrize("closing", [False, True])
@@ -1019,6 +1021,7 @@ def test_gtk_ripping_window_start_rejects_before_profile_lookup(monkeypatch, clo
     assert job_id is None
     harness._ripping_profile_context.assert_not_called()
     harness.ripping_service.start.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_not_called()
     new_uuid.assert_not_called()
     if closing:
         harness.status_label.set_text.assert_not_called()
@@ -1042,6 +1045,7 @@ def test_gtk_ripping_window_start_contains_profile_failure(monkeypatch) -> None:
 
     assert job_id is None
     harness.ripping_service.start.assert_not_called()
+    harness._ensure_ripping_state_timer.assert_not_called()
     new_uuid.assert_not_called()
     harness.status_label.set_text.assert_called_once_with(
         "Could not start ripping: Ripping profile is unavailable."
@@ -1193,3 +1197,64 @@ def test_gtk_ripping_state_refresh_without_job_finishes_silently(tmp_path) -> No
     assert window.MainWindow._refresh_ripping_state(harness) is False
     assert harness._ripping_state_timer_id is None
     harness.status_label.set_text.assert_not_called()
+
+
+def test_gtk_ripping_state_timer_schedules_once(monkeypatch) -> None:
+    harness = SimpleNamespace(
+        _ripping_shutting_down=False,
+        _ripping_state_timer_id=None,
+        _refresh_ripping_state=Mock(),
+    )
+    schedule = Mock(return_value=23)
+    monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
+
+    window.MainWindow._ensure_ripping_state_timer(harness)
+    window.MainWindow._ensure_ripping_state_timer(harness)
+
+    assert harness._ripping_state_timer_id == 23
+    schedule.assert_called_once()
+    interval, callback = schedule.call_args.args
+    assert 0 < interval <= 1000
+    assert callback is harness._refresh_ripping_state
+    harness._refresh_ripping_state.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("closing", "timer_id"),
+    [(True, None), (False, 17)],
+)
+def test_gtk_ripping_state_timer_rejects_shutdown_or_duplicate(
+    monkeypatch, closing, timer_id
+) -> None:
+    harness = SimpleNamespace(
+        _ripping_shutting_down=closing,
+        _ripping_state_timer_id=timer_id,
+        _refresh_ripping_state=Mock(),
+    )
+    schedule = Mock()
+    monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
+
+    window.MainWindow._ensure_ripping_state_timer(harness)
+
+    assert harness._ripping_state_timer_id == timer_id
+    schedule.assert_not_called()
+    harness._refresh_ripping_state.assert_not_called()
+
+
+def test_gtk_ripping_window_start_failure_does_not_schedule_timer(tmp_path, monkeypatch) -> None:
+    harness = _ripping_start_harness()
+    harness.ripping_service.start.side_effect = RuntimeError("Another job is active.")
+    selection = harness.selected_station
+    monkeypatch.setattr(window, "DATA_DIR", tmp_path)
+
+    job_id = window.MainWindow.start_station_ripping(
+        harness,
+        {"name": "Clicked station", "url": "https://example.com/clicked"},
+    )
+
+    assert job_id is None
+    harness._ensure_ripping_state_timer.assert_not_called()
+    assert harness.selected_station is selection
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not start ripping: Another job is active."
+    )

@@ -173,7 +173,15 @@ class MainWindow(Gtk.ApplicationWindow):
             return None
 
         self.status_label.set_text(result.status)
+        if result.job_id is not None:
+            self._ensure_ripping_state_timer()
         return result.job_id
+
+    def _ensure_ripping_state_timer(self) -> None:
+        """Schedule one GTK state timer after a ripping job is accepted."""
+        if self._ripping_shutting_down or self._ripping_state_timer_id is not None:
+            return
+        self._ripping_state_timer_id = GLib.timeout_add(200, self._refresh_ripping_state)
 
     def _refresh_ripping_state(self) -> bool:
         """Project current state until all ripping workers have finished."""

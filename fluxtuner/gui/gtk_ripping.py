@@ -150,3 +150,28 @@ def coordinate_ripping_stop(
     except Exception as exc:  # noqa: BLE001 - user-facing stop failure.
         return f"Could not stop ripping: {exc}"
     return f"Stopping ripping: {snapshot.request.station_name}"
+
+
+class RippingShutdown:
+    """Request stopping once and check worker completion without blocking."""
+
+    def __init__(self, *, service: RippingService) -> None:
+        self._service = service
+        self._requested = False
+        self.error: Exception | None = None
+
+    def request(self) -> None:
+        """Delegate stopping once, preserving an error for the caller."""
+        if self._requested:
+            return
+        self._requested = True
+        try:
+            self._service.stop()
+        except Exception as exc:  # noqa: BLE001 - contained shutdown failure.
+            self.error = exc
+
+    def poll(self) -> bool:
+        """Report readiness only after a request and both workers finishing."""
+        if not self._requested:
+            return False
+        return self._service.wait(timeout=0)

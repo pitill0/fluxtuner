@@ -252,3 +252,37 @@ def remove_web_station_from_playlist(
         user_id=int(user["id"]),
         profile_name=web_context.effective_profile_name(profile),
     )
+
+
+@router.post("/api/stations/custom")
+def create_custom_station(
+    request: Request,
+    payload: dict[str, Any] = required_body,
+    profile: str | None = Query(default=None, max_length=80),
+) -> dict[str, Any]:
+    user = _require_authenticated_user(request)
+    _require_csrf(request)
+
+    if (
+        set(payload) != {"name", "url"}
+        or not isinstance(payload.get("name"), str)
+        or not isinstance(payload.get("url"), str)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide only a station name and stream URL as text.",
+        )
+
+    try:
+        return library.create_custom_station_payload(
+            user_id=int(user["id"]),
+            profile_name=profile,
+            name=payload["name"],
+            url=payload["url"],
+        )
+    except LookupError:
+        raise HTTPException(
+            status_code=404, detail="The selected profile is unavailable."
+        ) from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None

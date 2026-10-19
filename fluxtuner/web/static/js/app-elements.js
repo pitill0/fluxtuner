@@ -4,7 +4,14 @@
 
 export function createAppElements(root = document) {
   return {
+    customStationMenuButton: root.querySelector("[data-nav-custom-station]"),
     statusNode: root.querySelector("[data-status]"),
+    customStationDialog: root.querySelector("[data-custom-station-dialog]"),
+    customStationForm: root.querySelector("[data-custom-station-form]"),
+    customStationMessageNode: root.querySelector("[data-custom-station-message]"),
+    customStationOpenButton: root.querySelector("[data-custom-station-open]"),
+    customStationCancelButtons: root.querySelectorAll("[data-custom-station-cancel]"),
+    customStationTools: root.querySelector("[data-custom-station-tools]"),
     healthStateNode: root.querySelector("[data-health-state]"),
     healthSummaryNode: root.querySelector("[data-health-summary]"),
     healthButton: root.querySelector("[data-health-check]"),

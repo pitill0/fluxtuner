@@ -16,6 +16,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
+from fluxtuner.core import db
 from fluxtuner.core.compatibility import (
     filter_supported_stations,
     station_is_supported,
@@ -41,7 +42,7 @@ from fluxtuner.core.manual_playlists import (
     summarize_playlist,
 )
 from fluxtuner.core.playlists import get_by_tag, get_tag_counts
-from fluxtuner.core.profiles import resolve_effective_profile_name
+from fluxtuner.core.profiles import get_profile_by_name, resolve_effective_profile_name
 from fluxtuner.core.recording import RecordingManager, RecordingRequest
 from fluxtuner.core.recordings import SqliteRecordingStore, recording_output_path
 from fluxtuner.core.search_service import SearchRequest, SearchService
@@ -63,6 +64,7 @@ from fluxtuner.players import create_player, selected_player_name
 from fluxtuner.recorders.ffmpeg import FfmpegRecorder
 from fluxtuner.theme_runtime import apply_theme_runtime
 from fluxtuner.themes import DEFAULT_THEME, get_theme_path, list_themes, theme_exists
+from fluxtuner.tui_custom_stations import CustomStationScreen
 from fluxtuner.tui_details import (
     dynamic_playlist_details_text,
     empty_station_details_text,
@@ -121,6 +123,7 @@ SHORTCUT_HELP_TEXT = """\
   f            Favorites
   h            History
   a            Add selected station to favorites
+  Ctrl+N       Add station by name and URL
   d            Delete favorite / remove playlist item
   e            Rename favorite
   g            Edit favorite tags
@@ -176,6 +179,7 @@ class FluxTunerTUI(App[None]):
         Binding("escape", "focus_station_list", "Results", show=False),
         Binding("enter", "activate_selected", "Play/apply", show=False),
         Binding("a", "add_selected", "Add", show=False),
+        Binding("ctrl+n", "add_custom_station", "Add station", show=False),
         Binding("h", "show_history", "History", show=False),
         Binding("l", "play_last_station", "Last", show=False),
         Binding("d", "remove_selected", "Delete fav", show=False),
@@ -367,6 +371,41 @@ class FluxTunerTUI(App[None]):
             self.smart_play_selected_playlist_or_tag()
             return
         self.play_selected_station()
+
+    def _custom_station_profile_id(self) -> int:
+        db.init_db()
+        name = self.profile_name
+        if name is None:
+            name = db.DEFAULT_PROFILE_NAME
+        with db.connect() as conn:
+            profile = get_profile_by_name(conn, name)
+        if profile is None:
+            raise ValueError("The current profile is unavailable.")
+        return int(profile["id"])
+
+    def action_add_custom_station(self) -> None:
+        self.cancel_pending_search()
+        try:
+            profile_id = self._custom_station_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained TUI profile failure.
+            self.set_status(f"Could not add station: {exc}")
+            return
+
+        async def finished(added: bool | None) -> None:
+            if added is None:
+                return
+            await self.show_favorites()
+            self.set_status(
+                "Station added to favorites." if added else "Station is already in favorites."
+            )
+
+        self.push_screen(
+            CustomStationScreen(
+                profile_id=profile_id,
+                profile_is_current=lambda: self._custom_station_profile_id() == profile_id,
+            ),
+            finished,
+        )
 
     def action_add_selected(self) -> None:
         if self.view_mode == "themes":

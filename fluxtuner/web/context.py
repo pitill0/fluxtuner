@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from fluxtuner.core import db
-from fluxtuner.core.profiles import resolve_effective_profile_name
 from fluxtuner.web import auth
 from fluxtuner.web.security import (
     SESSION_COOKIE_NAME,
@@ -31,5 +30,5 @@ def authenticated_user(request: Any) -> dict[str, Any] | None:
 
 
 def effective_profile_name(profile: str | None = None) -> str | None:
-    """Resolve the profile selected by a Web request."""
-    return resolve_effective_profile_name(profile)
+    """Use the Web user's default profile unless the request selects one."""
+    return profile.strip() if profile is not None else None

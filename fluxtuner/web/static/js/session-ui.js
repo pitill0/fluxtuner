@@ -3,6 +3,7 @@
  */
 
 export function createSessionUiController({
+  customStationController,
   accountRequestsController,
   adminController,
   appState,
@@ -29,6 +30,7 @@ export function createSessionUiController({
   adminPanel,
 }) {
   function updateAuthUi() {
+    customStationController?.syncSession();
     const currentUser = appState.getCurrentUser();
     const authenticated = appState.isAuthenticated();
     const setupAvailable = isSetupAvailable();

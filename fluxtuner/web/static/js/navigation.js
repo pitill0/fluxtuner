@@ -9,6 +9,7 @@ export function createNavigationController({
   authPanel,
   checkHealth,
   closeMobileMenu,
+  customStationController,
   dashboardPanel,
   loadAdminUsersIfNeeded,
   loadDashboard,
@@ -25,6 +26,8 @@ export function createNavigationController({
   showRadioBrowserView,
 }) {
   function closeOpenDialog() {
+    if (customStationController?.closeIfOpen()) return true;
+
     if (playlistDialog && !playlistDialog.hidden) {
       playlistController.closePlaylistDialog();
       return true;

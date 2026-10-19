@@ -310,8 +310,23 @@ shared station metadata.
 Names are limited to 200 characters and URLs to 2048. Invalid input leaves the
 dialog open for correction. Cancel does not save anything.
 
-Manual creation is currently exposed in GTK. TUI/Web creation and M3U/M3U8
-collection imports are follow-up work tracked in issue #224.
+### TUI
+
+Press **Ctrl+N** to open Add station. Enter a name and stream URL, then choose
+**Add**. Escape cancels. Saving refreshes favorites; existing URLs are preserved.
+
+### Web
+
+Sign in and choose **Add station…** from the main navigation menu, or use
+**Favorites → Library actions → Add station…**. Escape cancels the dialog.
+
+Stations are saved to the signed-in user's default profile. Web does not inherit
+the desktop's active profile. The API also accepts an explicit existing profile
+belonging to that user. Saving requires authentication and CSRF protection and
+does not contact the stream. Browser playback and server metadata requests
+retain their existing network restrictions.
+
+Local M3U/M3U8 collection imports remain follow-up work in issue #224.
 
 ## GTK appearance
 

@@ -279,6 +279,7 @@ initially. These filters are separate from persistent playlists.
 
 The hamburger button in the upper-right corner opens the application menu:
 
+- **Add station…** saves a personal stream URL to the current profile.
 - **Appearance** selects System, Dark or Light. Changes apply immediately
   and the selected mode is saved for the next launch.
 - **About FluxTuner** displays the application icon, installed version and
@@ -287,6 +288,30 @@ The hamburger button in the upper-right corner opens the application menu:
   closing the window would normally hide it to the Linux system tray.
 
 The Quit shortcut is Ctrl+Q on Linux and Command+Q on macOS.
+
+## Custom stations in GTK
+
+Open the application menu and choose **Add station…**. Enter a station name
+and an HTTP or HTTPS stream URL, then choose **Add**.
+
+The station is saved to the current profile's favorites and displayed in the
+library. Use its normal playback and context-menu actions to play it or add
+it to a saved playlist. No Radio Browser entry is required.
+
+Saving does not contact the stream or start playback. Desktop users can also
+save HTTP/HTTPS streams on their local network. URLs containing embedded
+credentials are not supported.
+
+An existing favorite with the same playable URL is kept unchanged, including
+its custom name, user tags and playlist membership. Adding that URL to another
+profile stores the chosen display name for that profile while preserving the
+shared station metadata.
+
+Names are limited to 200 characters and URLs to 2048. Invalid input leaves the
+dialog open for correction. Cancel does not save anything.
+
+Manual creation is currently exposed in GTK. TUI/Web creation and M3U/M3U8
+collection imports are follow-up work tracked in issue #224.
 
 ## GTK appearance
 

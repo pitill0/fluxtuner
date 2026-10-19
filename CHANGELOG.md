@@ -10,6 +10,8 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Added manual station creation from the GTK application menu, using a shared core service with profile-specific names, duplicate protection and atomic library writes.
+
 - Added a GTK application menu with appearance settings, an About dialog using the packaged application icon, and coordinated Quit with Ctrl+Q / Command+Q.
 
 - Added profile-aware persistent playlist management in GTK, including

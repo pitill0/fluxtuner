@@ -1857,6 +1857,7 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     harness = SimpleNamespace(
         _build_appearance_controls=Mock(),
         on_about_clicked=Mock(),
+        on_add_custom_station_clicked=Mock(),
     )
 
     window.MainWindow._build_application_menu(harness, container)
@@ -1867,6 +1868,9 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     popover.set_child.assert_called_once_with(box)
     harness._build_appearance_controls.assert_called_once_with(box)
     buttons["Quit"].set_action_name.assert_called_once_with("app.quit")
+    buttons["Add station…"].connect.assert_called_once_with(
+        "clicked", harness.on_add_custom_station_clicked
+    )
     buttons["About FluxTuner"].connect.assert_called_once_with("clicked", harness.on_about_clicked)
 
 
@@ -1902,3 +1906,130 @@ def test_about_dialog_reports_installed_version_and_project(monkeypatch) -> None
     assert logo_path.is_file()
     assert logo_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     dialog.set_logo.assert_called_once_with(logo)
+
+
+def _custom_station_dialog(monkeypatch):
+    from contextlib import nullcontext
+
+    name_entry, url_entry = Mock(), Mock()
+    name_entry.get_text.return_value = "Personal radio"
+    url_entry.get_text.return_value = "https://radio.example/live"
+    dialog, content, error, conn = Mock(), Mock(), Mock(), Mock()
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Entry=Mock(side_effect=[name_entry, url_entry]),
+            ResponseType=SimpleNamespace(ACCEPT=1, CANCEL=0),
+        ),
+    )
+    connect = Mock(side_effect=lambda: nullcontext(conn))
+    monkeypatch.setattr(window.db, "connect", connect)
+    save = Mock(return_value=True)
+    monkeypatch.setattr(window, "add_custom_station", save, raising=False)
+    harness = SimpleNamespace(
+        _playlist_profile_id=Mock(return_value=7),
+        _make_playlist_dialog=Mock(return_value=(dialog, content)),
+        _make_value_label=Mock(return_value=error),
+        application_menu_popover=Mock(),
+        _show_all_favorites=Mock(),
+        _refresh_saved_playlists=Mock(),
+        status_label=Mock(),
+    )
+    return harness, dialog, error, conn, connect, save
+
+
+def test_custom_station_dialog_opens_without_writing(monkeypatch):
+    harness, dialog, _error, conn, connect, save = _custom_station_dialog(monkeypatch)
+
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+
+    harness.application_menu_popover.popdown.assert_called_once_with()
+    harness._make_playlist_dialog.assert_called_once_with("Add station", "Add")
+    dialog.present.assert_called_once_with()
+    connect.assert_not_called()
+    save.assert_not_called()
+    conn.commit.assert_not_called()
+
+
+def test_custom_station_dialog_cancel_does_not_write(monkeypatch):
+    harness, dialog, _error, _conn, connect, save = _custom_station_dialog(monkeypatch)
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 0)
+
+    connect.assert_not_called()
+    save.assert_not_called()
+    dialog.destroy.assert_called_once_with()
+    harness._show_all_favorites.assert_not_called()
+
+
+def test_custom_station_dialog_rejects_profile_change(monkeypatch):
+    harness, dialog, error, _conn, connect, save = _custom_station_dialog(monkeypatch)
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    harness._playlist_profile_id.return_value = 8
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    connect.assert_not_called()
+    save.assert_not_called()
+    dialog.destroy.assert_not_called()
+    error.set_text.assert_called_once_with("The profile changed. Reopen this dialog.")
+
+
+def test_custom_station_dialog_rejects_missing_profile_on_open(monkeypatch):
+    harness, dialog, _error, _conn, connect, save = _custom_station_dialog(monkeypatch)
+    harness._playlist_profile_id.side_effect = ValueError("Profile unavailable")
+
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+
+    harness._make_playlist_dialog.assert_not_called()
+    dialog.present.assert_not_called()
+    connect.assert_not_called()
+    save.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not add station: Profile unavailable"
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ValueError("Enter a valid stream URL."),
+        OSError("Storage unavailable"),
+    ],
+)
+def test_custom_station_dialog_keeps_inputs_on_error(monkeypatch, failure):
+    harness, dialog, error, conn, _connect, save = _custom_station_dialog(monkeypatch)
+    save.side_effect = failure
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    dialog.destroy.assert_not_called()
+    conn.commit.assert_not_called()
+    harness._show_all_favorites.assert_not_called()
+    error.set_text.assert_called_once_with(str(failure))
+
+
+@pytest.mark.parametrize("added", [True, False])
+def test_custom_station_dialog_saves_captured_profile_and_refreshes(monkeypatch, added):
+    harness, dialog, _error, conn, _connect, save = _custom_station_dialog(monkeypatch)
+    save.return_value = added
+    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    save.assert_called_once_with(
+        conn,
+        profile_id=7,
+        name="Personal radio",
+        url="https://radio.example/live",
+    )
+    conn.commit.assert_called_once_with()
+    dialog.destroy.assert_called_once_with()
+    harness._show_all_favorites.assert_called_once_with()
+    harness._refresh_saved_playlists.assert_called_once_with()
+    harness.status_label.set_text.assert_called_once_with(
+        "Station added to favorites." if added else "Station is already in favorites."
+    )

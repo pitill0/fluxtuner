@@ -10,6 +10,8 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Added a GTK application menu with appearance settings, an About dialog using the packaged application icon, and coordinated Quit with Ctrl+Q / Command+Q.
+
 - Added profile-aware persistent playlist management in GTK, including
   creation, deletion, contents and a reusable station-to-playlist picker.
 - Added station context-menu actions to add to a saved playlist and remove

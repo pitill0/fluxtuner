@@ -19,7 +19,7 @@ from fluxtuner.config import (  # noqa: E402
     save_playback_state,
     set_config_value,
 )
-from fluxtuner.core import db  # noqa: E402
+from fluxtuner.core import db, manual_playlists  # noqa: E402
 from fluxtuner.core.compatibility import (  # noqa: E402
     filter_supported_stations,
     station_is_supported,
@@ -69,6 +69,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_playlists import create_playlist_picker  # noqa: E402
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     RippingShutdown,
     coordinate_ripping_start,
@@ -154,6 +155,7 @@ class MainWindow(Gtk.ApplicationWindow):
         root.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
+        self._refresh_saved_playlists()
         self._start_ripping_availability_probe()
 
     def start_station_ripping(self, station: dict[str, Any]) -> int | None:
@@ -424,6 +426,9 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.set_margin_end(6)
         side_scroller.set_child(side_panel)
 
+        self._build_library_controls(side_panel)
+        self._build_saved_playlist_controls(side_panel)
+
         self._append_section_title(side_panel, "Now Playing")
 
         self.now_playing_label = Gtk.Label(label="Nothing playing")
@@ -460,7 +465,6 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         side_panel.append(self.player_state_label)
 
-        self._build_library_controls(side_panel)
         self._build_favorite_controls(side_panel)
         self._build_playlist_controls(side_panel)
 
@@ -630,12 +634,277 @@ class MainWindow(Gtk.ApplicationWindow):
     def _all_favorite_playlist_tags(self) -> list[str]:
         return all_favorite_tags()
 
+    def on_context_add_playlist_clicked(self, _button: Gtk.Button, station: dict[str, Any]) -> None:
+        self.open_playlist_picker(station)
+
+    def open_playlist_picker(self, station: dict[str, Any]) -> None:
+        try:
+            profile_id = self._playlist_profile_id()
+            picker = create_playlist_picker(station, profile_id=profile_id)
+        except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+            self.status_label.set_text(f"Could not open playlist picker: {exc}")
+            return
+        if not picker.names:
+            self.status_label.set_text("Create a saved playlist with New playlist… first.")
+            return
+
+        dialog, content = self._make_playlist_dialog("Add to playlist", "Add")
+        content.append(self._make_value_label(f"Add {station_name(station)} to a saved playlist."))
+        dropdown = Gtk.DropDown.new_from_strings(list(picker.names))
+        dropdown.set_enable_search(True)
+        content.append(dropdown)
+        content.append(
+            self._make_value_label("Adding a station to a playlist also saves it to favorites.")
+        )
+        error = self._make_value_label()
+        content.append(error)
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            if response != Gtk.ResponseType.ACCEPT:
+                current.destroy()
+                return
+            try:
+                if self._playlist_profile_id() != profile_id:
+                    raise ValueError("The profile changed. Reopen this dialog.")
+                index = dropdown.get_selected()
+                if index < 0 or index >= len(picker.names):
+                    raise ValueError("Choose a playlist.")
+                name = picker.names[index]
+                added = picker.add(name)
+            except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+                error.set_text(str(exc))
+                return
+            current.destroy()
+            self._refresh_favorite_cache()
+            if (
+                self._view_state.current_view == "playlist"
+                and self._view_state.active_playlist_name == name
+            ):
+                self._show_saved_playlist(name, preserve_selection=True)
+            else:
+                self._refresh_saved_playlists()
+                self._render_results()
+            self.status_label.set_text(
+                f"Added to playlist: {name}."
+                if added
+                else f"Station is already in playlist: {name}."
+            )
+
+        dialog.connect("response", respond)
+        dialog.present()
+
+    def on_context_remove_playlist_clicked(
+        self, _button: Gtk.Button, station: dict[str, Any], name: str
+    ) -> None:
+        self.remove_station_from_saved_playlist(station, name)
+
+    def remove_station_from_saved_playlist(self, station: dict[str, Any], name: str) -> None:
+        try:
+            profile_id = self._playlist_profile_id()
+            removed = manual_playlists.remove_station_from_playlist(
+                name, station, profile_id=profile_id
+            )
+        except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+            self.status_label.set_text(f"Could not remove station from playlist: {exc}")
+            return
+        if (
+            self._view_state.current_view == "playlist"
+            and self._view_state.active_playlist_name == name
+        ):
+            self._show_saved_playlist(name, preserve_selection=True)
+        else:
+            self._refresh_saved_playlists()
+        self.status_label.set_text(
+            "Removed from playlist. Station remains in favorites."
+            if removed
+            else "Station is no longer in this playlist."
+        )
+
+    def _playlist_profile_id(self) -> int:
+        name = self.profile_name
+        if name is None:
+            name = db.DEFAULT_PROFILE_NAME
+        with db.connect() as conn:
+            profile = get_profile_by_name(conn, name)
+        if profile is None:
+            raise ValueError("The current profile is unavailable.")
+        return int(profile["id"])
+
+    def _build_saved_playlist_controls(self, side_panel: Gtk.Box) -> None:
+        self._append_section_title(side_panel, "Saved playlists")
+        self.saved_playlists_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        side_panel.append(self.saved_playlists_box)
+
+        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        create_button = Gtk.Button(label="New playlist…")
+        create_button.connect("clicked", self.on_create_playlist_clicked)
+        controls.append(create_button)
+        self.delete_saved_playlist_button = Gtk.Button(label="Delete…")
+        self.delete_saved_playlist_button.set_sensitive(False)
+        self.delete_saved_playlist_button.connect("clicked", self.on_delete_playlist_clicked)
+        controls.append(self.delete_saved_playlist_button)
+        side_panel.append(controls)
+
+    def _refresh_saved_playlists(self) -> None:
+        child = self.saved_playlists_box.get_first_child()
+        while child is not None:
+            self.saved_playlists_box.remove(child)
+            child = self.saved_playlists_box.get_first_child()
+        try:
+            profile_id = self._playlist_profile_id()
+            playlists = manual_playlists.load_playlists(profile_id=profile_id)
+            for playlist in playlists:
+                name = playlist["name"]
+                count = len(manual_playlists.get_playlist_stations(name, profile_id=profile_id))
+                button = Gtk.Button(label=f"{name} · {count}")
+                button.set_tooltip_text(name)
+                button.connect("clicked", self.on_saved_playlist_clicked, name)
+                if self._view_state.active_playlist_name == name:
+                    button.add_css_class("suggested-action")
+                self.saved_playlists_box.append(button)
+            if not playlists:
+                self.saved_playlists_box.append(self._make_value_label("No saved playlists yet."))
+        except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+            self.saved_playlists_box.append(self._make_value_label("Could not load playlists."))
+            self.status_label.set_text(f"Could not load playlists: {exc}")
+
+    def _show_saved_playlist(self, name: str, *, preserve_selection: bool = False) -> None:
+        try:
+            profile_id = self._playlist_profile_id()
+            if manual_playlists.get_playlist(name, profile_id=profile_id) is None:
+                raise ValueError("This playlist no longer exists.")
+            stations = manual_playlists.get_playlist_stations(name, profile_id=profile_id)
+        except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+            self.status_label.set_text(f"Could not open playlist: {exc}")
+            return
+
+        selected_key = (
+            station_key(self.selected_station)
+            if preserve_selection and self.selected_station is not None
+            else None
+        )
+        self._search_lifecycle.invalidate()
+        self._view_state.show_playlist(name)
+        self._refresh_favorite_cache()
+        self.stations = stations
+        self.selected_station = next(
+            (station for station in stations if station_key(station) == selected_key),
+            None,
+        )
+        self._render_results()
+        self._update_playlist_status()
+        self._refresh_saved_playlists()
+        self._set_view_status(
+            "Playlist",
+            len(stations),
+            detail=name,
+            empty_message=f"Playlist {name} is empty. Add stations from their context menu.",
+        )
+
+    def on_saved_playlist_clicked(self, _button: Gtk.Button, name: str) -> None:
+        self._show_saved_playlist(name)
+
+    def _make_playlist_dialog(self, title: str, action: str) -> tuple[Gtk.Dialog, Gtk.Box]:
+        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.set_default_size(380, -1)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button(action, Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.ACCEPT)
+        content = dialog.get_content_area()
+        content.set_spacing(10)
+        content.set_margin_top(16)
+        content.set_margin_bottom(16)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        return dialog, content
+
+    def on_create_playlist_clicked(self, _button: Gtk.Button) -> None:
+        try:
+            profile_id = self._playlist_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained GTK profile failure.
+            self.status_label.set_text(f"Could not create playlist: {exc}")
+            return
+
+        dialog, content = self._make_playlist_dialog("New playlist", "Create")
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("Playlist name")
+        entry.set_activates_default(True)
+        content.append(entry)
+        error = self._make_value_label()
+        content.append(error)
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            if response != Gtk.ResponseType.ACCEPT:
+                current.destroy()
+                return
+            try:
+                name = entry.get_text().strip()
+                if not name:
+                    raise ValueError("Enter a playlist name.")
+                if self._playlist_profile_id() != profile_id:
+                    raise ValueError("The profile changed. Reopen this dialog.")
+                if not manual_playlists.create_playlist(name, profile_id=profile_id):
+                    raise ValueError("A playlist with this name already exists.")
+            except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+                error.set_text(str(exc))
+                return
+            current.destroy()
+            self._show_saved_playlist(name)
+
+        dialog.connect("response", respond)
+        dialog.present()
+        entry.grab_focus()
+
+    def on_delete_playlist_clicked(self, _button: Gtk.Button) -> None:
+        name = self._view_state.active_playlist_name
+        if self._view_state.current_view != "playlist" or name is None:
+            return
+        try:
+            profile_id = self._playlist_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained GTK profile failure.
+            self.status_label.set_text(f"Could not delete playlist: {exc}")
+            return
+
+        dialog, content = self._make_playlist_dialog("Delete playlist", "Delete")
+        delete_button = dialog.get_widget_for_response(Gtk.ResponseType.ACCEPT)
+        if delete_button is not None:
+            delete_button.add_css_class("destructive-action")
+        content.append(
+            self._make_value_label(f'Delete "{name}"? Its stations will remain in your favorites.')
+        )
+        error = self._make_value_label()
+        content.append(error)
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            if response != Gtk.ResponseType.ACCEPT:
+                current.destroy()
+                return
+            try:
+                if self._playlist_profile_id() != profile_id:
+                    raise ValueError("The profile changed. Reopen this dialog.")
+                removed = manual_playlists.delete_playlist(name, profile_id=profile_id)
+            except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+                error.set_text(str(exc))
+                return
+            current.destroy()
+            if self._view_state.active_playlist_name == name:
+                self._show_all_favorites()
+            self._refresh_saved_playlists()
+            self.status_label.set_text(
+                "Playlist deleted." if removed else "Playlist was already deleted."
+            )
+
+        dialog.connect("response", respond)
+        dialog.present()
+
     def _build_playlist_controls(self, side_panel: Gtk.Box) -> None:
-        self._append_section_title(side_panel, "Playlists")
+        self.favorite_filters_expander = Gtk.Expander(label="Filter favorites")
+        self.favorite_filters_expander.set_expanded(False)
+        side_panel.append(self.favorite_filters_expander)
 
         playlist_controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         playlist_controls.set_hexpand(True)
-        side_panel.append(playlist_controls)
+        self.favorite_filters_expander.set_child(playlist_controls)
 
         self.playlist_status_label = self._make_value_label("No playlist filter", selectable=True)
         playlist_controls.append(self.playlist_status_label)
@@ -1000,6 +1269,23 @@ class MainWindow(Gtk.ApplicationWindow):
                 station,
             )
         menu_box.append(favorite_button)
+
+        playlist_button = Gtk.Button(label="Add to playlist…")
+        playlist_button.connect("clicked", self.on_context_add_playlist_clicked, station)
+        menu_box.append(playlist_button)
+
+        view_state = getattr(self, "_view_state", None)
+        if view_state is not None and view_state.current_view == "playlist":
+            playlist_name = view_state.active_playlist_name
+            if playlist_name is not None:
+                remove_button = Gtk.Button(label="Remove from playlist")
+                remove_button.connect(
+                    "clicked",
+                    self.on_context_remove_playlist_clicked,
+                    station,
+                    playlist_name,
+                )
+                menu_box.append(remove_button)
 
         recording_manager = getattr(self, "recording_manager", None)
         if recording_manager is not None:
@@ -1661,6 +1947,13 @@ class MainWindow(Gtk.ApplicationWindow):
                 else:
                     self.selected_station = None
 
+            if hasattr(self, "saved_playlists_box"):
+                if self._view_state.current_view == "playlist":
+                    name = self._view_state.active_playlist_name
+                    if name is not None:
+                        self._show_saved_playlist(name, preserve_selection=True)
+                else:
+                    self._refresh_saved_playlists()
             self._render_results()
             self._update_favorite_buttons()
             return True
@@ -1785,8 +2078,16 @@ class MainWindow(Gtk.ApplicationWindow):
             self.playlist_status_label.set_text(
                 f"Active tag: {self._view_state.active_playlist_tag}"
             )
+        elif self._view_state.active_playlist_name:
+            self.playlist_status_label.set_text(
+                f"Playlist: {self._view_state.active_playlist_name}"
+            )
         else:
-            self.playlist_status_label.set_text("No playlist filter")
+            self.playlist_status_label.set_text("No favorite tag filter")
+        if hasattr(self, "delete_saved_playlist_button"):
+            self.delete_saved_playlist_button.set_sensitive(
+                self._view_state.current_view == "playlist"
+            )
 
     def _playlist_tag_value(self) -> str:
         if not hasattr(self, "playlist_tag_entry"):

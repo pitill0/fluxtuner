@@ -250,6 +250,31 @@ Built-in themes:
 - `amber`
 - `ptmtrx`
 
+## Saved playlists in GTK
+
+The sidebar provides direct access to saved playlists in the current profile.
+Each playlist shows its name and visible station count.
+
+- Use **New playlist…** to create an empty list.
+- Click a playlist to display its stations.
+- Right-click a station and choose **Add to playlist…** to select a destination.
+  The action targets the clicked station and preserves the current selection.
+- In a playlist, use **Remove from playlist** to remove the clicked station.
+- With a playlist open, use **Delete…** and confirm to delete the list.
+
+Adding a station also saves it to the same profile's favorites, matching the
+Web behavior. Removing playlist membership or deleting a playlist preserves
+favorites. Playlist contents resolve through favorites; removing a favorite
+also removes it from the visible playlist contents.
+
+Names cannot be blank, and duplicate names are rejected without closing the
+creation dialog. Canceling a dialog does not modify playlist membership.
+The picker captures its station and profile when opened. A deleted destination
+is rejected instead of recreated.
+
+Custom favorite tags remain available under **Filter favorites**, collapsed
+initially. These filters are separate from persistent playlists.
+
 ## GTK appearance
 
 The GTK desktop GUI provides an appearance selector with three modes:

@@ -5,9 +5,10 @@ ingestion, metadata interpretation, boundary resolution, finalization, file
 naming and stream closure. FluxTuner owns requests, profile context, destination
 policy, worker scheduling and observations.
 
-The installed contract was tested against Brynse commit
-[`d7047eda161b861bfb7bfe56c99dfe7e26e014fa`](https://github.com/pitill0/brynse/tree/d7047eda161b861bfb7bfe56c99dfe7e26e014fa),
-which reports version 0.1.0.
+The optional requirements pin Brynse commit
+[`23971964c7d53da520351a4bbd322b078fdae07d`](https://github.com/pitill0/brynse/tree/23971964c7d53da520351a4bbd322b078fdae07d),
+which reports version 0.1.0. Historical validation checkpoints below retain
+their original Brynse revision.
 
 ## Components
 
@@ -113,6 +114,26 @@ The inspected runner passes its FFmpeg setting to analysis, while the default
 output writer constructs finalizers using the default `ffmpeg` command.
 The adapter resolves FFmpeg from PATH and offers no custom-binary setting.
 
+## Automatic filename ordering
+
+FluxTuner leaves Brynse's metadata-order setting at its default, `auto`.
+Brynse selects a verified stream profile using the requested URL.
+
+For Jazz Radio Classic Jazz, the HTTP and HTTPS URLs at
+`jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3` use title-artist metadata.
+Brynse saves an unambiguous `Song - Artist` title as `Artist - Song.mp3`.
+The profile accepts the default port or no explicit port, with no query
+string or URL credentials. Unknown stream URLs preserve the received order;
+the profile does not apply to the whole host or other Jazz Radio stations.
+
+Only filenames are reordered. `RippedTrack.title` retains the original
+stream metadata, while `RippedTrack.path` identifies the finalized file.
+FluxTuner needs no additional setting and performs no renaming.
+
+The synthetic output contract covers both profiled protocols and an unknown
+URL through the real Brynse runner, including original metadata preservation
+and FFmpeg decoding of finalized files. It uses a local controlled source.
+
 ## GTK integration
 
 Launch `python -m fluxtuner --gui` from the intended environment after installing
@@ -176,7 +197,8 @@ Focused tests do not replace the full repository quality gate.
 ## Headless validation checkpoint: 2026-10-17
 
 Validated on M1/native macOS with Python 3.14.4, at FluxTuner commit
-`6d0041061bf15913e6790bf0708d214a8869c74b` and the Brynse revision pinned above:
+`6d0041061bf15913e6790bf0708d214a8869c74b` and Brynse revision
+`d7047eda161b861bfb7bfe56c99dfe7e26e014fa`:
 
 - Full suite: 1099 passed, no skips; one PyGObject deprecation warning.
 - Ruff formatting and lint, compileall, mypy, JavaScript syntax, Bandit and
@@ -216,7 +238,8 @@ implementation and M1 validation.
 
 ## GTK validation checkpoint: 2026-10-18
 
-Validated on M1/native macOS with Python 3.14.4 and the pinned Brynse revision:
+Validated on M1/native macOS with Python 3.14.4 and Brynse revision
+`d7047eda161b861bfb7bfe56c99dfe7e26e014fa`:
 
 - Full suite: 1220 passed, no skips; one known PyGObject deprecation warning.
   The renderer smoke test now reloads the module explicitly so its
@@ -255,6 +278,32 @@ M1 evidence under Downloads:
   GTK close behavior.
 - `fluxtuner-brynse-gtk-real-smoke-01.txt` records the live GUI capture.
 
+## Filename ordering validation checkpoint: 2026-10-19
+
+Validated on M1/native macOS with Python 3.14.4 and Brynse revision
+`23971964c7d53da520351a4bbd322b078fdae07d`:
+
+- Before updating Brynse, the synthetic filename contract failed for both
+  profiled protocols and passed for the unknown URL.
+- After updating, all 33 adapter and real-runner contract tests passed.
+  The contracts preserve original metadata and decode finalized MP3 files.
+- Full suite: 1222 passed, no skips; one known PyGObject deprecation warning.
+  Validation used dedicated application directories and the external
+  legacy-source isolation plugin described in the historical checkpoints.
+- Ruff formatting/lint, compileall, mypy, JavaScript syntax, pip check,
+  Bandit and git diff whitespace checks passed.
+- pip-audit reported no known vulnerabilities in audited packages.
+  Brynse was skipped because it could not be audited through PyPI.
+- A live native GTK run using the HTTP Jazz Radio Classic Jazz endpoint
+  finalized four tracks with artist-first filenames. Observed callbacks
+  retained the original title-first metadata. All four files passed FFmpeg
+  decoding after stopping the job and closing the application normally.
+
+M1 evidence under Downloads: `fluxtuner-brynse-update-red-03.txt`,
+`fluxtuner-brynse-update-green-04.txt`,
+`fluxtuner-brynse-update-validation-05.txt` and
+`fluxtuner-brynse-update-gtk-06.txt`.
+
 ## Remaining scope and limits
 
 - Linux and Flatpak integration, sandbox behavior and distribution packaging
@@ -262,6 +311,6 @@ M1 evidence under Downloads:
   by this integration and no Flatpak permissions have changed.
 - Live AAC capture has not been validated by the M1 network smoke test.
 - The service has no persistent ripping history or track browser.
-- Artist/title ordering and other segmentation or filename refinements belong
-  to Brynse and are deferred to separate work. FluxTuner keeps the names it
-  receives.
+- Additional stream profiles and segmentation or filename refinements belong
+  to Brynse. Unknown stream URLs preserve the received metadata order;
+  FluxTuner keeps the filenames supplied by Brynse.

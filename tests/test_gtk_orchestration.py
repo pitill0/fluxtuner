@@ -1858,6 +1858,7 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
         _build_appearance_controls=Mock(),
         on_about_clicked=Mock(),
         on_add_custom_station_clicked=Mock(),
+        on_import_stations_clicked=Mock(),
     )
 
     window.MainWindow._build_application_menu(harness, container)
@@ -1872,6 +1873,9 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
         "clicked", harness.on_add_custom_station_clicked
     )
     buttons["About FluxTuner"].connect.assert_called_once_with("clicked", harness.on_about_clicked)
+    buttons["Import stations…"].connect.assert_called_once_with(
+        "clicked", harness.on_import_stations_clicked
+    )
 
 
 def test_about_dialog_reports_installed_version_and_project(monkeypatch) -> None:

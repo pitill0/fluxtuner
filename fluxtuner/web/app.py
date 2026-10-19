@@ -81,6 +81,7 @@ def create_app(
 
         from fluxtuner.web.routes import admin as admin_routes
         from fluxtuner.web.routes import auth as auth_routes
+        from fluxtuner.web.routes import imports as import_routes
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
@@ -220,6 +221,7 @@ def create_app(
     app.include_router(public_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(library_routes.router)
+    app.include_router(import_routes.router)
     app.include_router(metadata_routes.router)
     app.include_router(admin_routes.router)
 

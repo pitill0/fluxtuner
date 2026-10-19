@@ -4,6 +4,21 @@
 
 export function createAppElements(root = document) {
   return {
+    stationImportElements: {
+      openButton: root.querySelector("[data-nav-station-import]"),
+      dialog: root.querySelector("[data-station-import-dialog]"),
+      form: root.querySelector("[data-station-import-form]"),
+      fileInput: root.querySelector("[data-station-import-file]"),
+      previewButton: root.querySelector("[data-station-import-preview-button]"),
+      previewNode: root.querySelector("[data-station-import-preview]"),
+      destinationNode: root.querySelector("[data-station-import-destination]"),
+      selectNode: root.querySelector("[data-station-import-select]"),
+      nameField: root.querySelector("[data-station-import-name-field]"),
+      nameInput: root.querySelector("[data-station-import-name]"),
+      messageNode: root.querySelector("[data-station-import-message]"),
+      submitButton: root.querySelector("[data-station-import-submit]"),
+      cancelButton: root.querySelector("[data-station-import-cancel]"),
+    },
     customStationMenuButton: root.querySelector("[data-nav-custom-station]"),
     statusNode: root.querySelector("[data-status]"),
     customStationDialog: root.querySelector("[data-custom-station-dialog]"),

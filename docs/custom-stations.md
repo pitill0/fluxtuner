@@ -80,10 +80,30 @@ access, including keyboard and mobile-menu behavior. Automated coverage includes
 authentication, CSRF, profile ownership, invalid payloads, session changes,
 stale responses and repeated submissions.
 
+## Local M3U/M3U8 imports
+
+GTK provides Import stations in the application menu, and Web exposes it in
+the navigation menu. Both offer file selection, preview, destination selection
+and a result summary. The shared core parser
+and atomic persistence service preserve existing metadata and profile data.
+See [Playlist imports](playlist-imports.md) for behavior and limits.
+
+Native macOS validation used two launches and isolated data. The imported
+Jazz-smoke and existing Morning playlists each contained two stations.
+Reimporting preserved favorites, the existing personal name, tags and codec;
+the other profile stayed isolated. Cancellation and HLS rejection were also
+confirmed manually.
+
+Web validation used isolated data and two authenticated users. Creating
+Jazz-web, reimporting it and importing into Morning preserved two favorites
+and two memberships in each playlist. The existing personal name and tags,
+the second user's empty library and another profile's playlist were verified.
+Automated tests cover HLS rejection, upload limits, authorization, CSRF,
+rollback, stale responses and duplicate submissions.
+
 ## Remaining issue scope
 
-- Import local M3U/M3U8 station collections with preview and a result summary.
-- Preserve user metadata and resolve duplicates deterministically during import.
+- Expose the shared M3U/M3U8 importer through the TUI interface.
 - Evaluate PLS, export and remote catalog subscriptions as subsequent work.
 
 This delivery does not close issue #224 or change Brynse.

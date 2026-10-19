@@ -27,6 +27,7 @@ from fluxtuner.core.compatibility import (  # noqa: E402
     station_is_supported,
     unsupported_station_message,
 )
+from fluxtuner.core.custom_stations import add_custom_station  # noqa: E402
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
@@ -491,6 +492,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._build_appearance_controls(content)
 
+        add_station_button = Gtk.Button(label="Add station…")
+        add_station_button.connect("clicked", self.on_add_custom_station_clicked)
+        content.append(add_station_button)
+
         about_button = Gtk.Button(label="About FluxTuner")
         about_button.connect("clicked", self.on_about_clicked)
         content.append(about_button)
@@ -502,6 +507,62 @@ class MainWindow(Gtk.ApplicationWindow):
         self.application_menu_popover.set_child(content)
         self.application_menu_button.set_popover(self.application_menu_popover)
         container.append(self.application_menu_button)
+
+    def on_add_custom_station_clicked(self, _button: Gtk.Button) -> None:
+        popover = getattr(self, "application_menu_popover", None)
+        if popover is not None:
+            popover.popdown()
+        try:
+            profile_id = self._playlist_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained GTK profile failure.
+            self.status_label.set_text(f"Could not add station: {exc}")
+            return
+
+        dialog, content = self._make_playlist_dialog("Add station", "Add")
+        content.append(self._make_value_label("Station name"))
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("My radio")
+        name_entry.set_activates_default(True)
+        content.append(name_entry)
+
+        content.append(self._make_value_label("Stream URL"))
+        url_entry = Gtk.Entry()
+        url_entry.set_placeholder_text("https://example.org/live")
+        url_entry.set_activates_default(True)
+        content.append(url_entry)
+        content.append(self._make_value_label("Saved to favorites in the current profile."))
+        error = self._make_value_label("")
+        error.set_wrap(True)
+        content.append(error)
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            if response != Gtk.ResponseType.ACCEPT:
+                current.destroy()
+                return
+            try:
+                if self._playlist_profile_id() != profile_id:
+                    raise ValueError("The profile changed. Reopen this dialog.")
+                with db.connect() as conn:
+                    added = add_custom_station(
+                        conn,
+                        profile_id=profile_id,
+                        name=name_entry.get_text(),
+                        url=url_entry.get_text(),
+                    )
+                    conn.commit()
+            except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.
+                error.set_text(str(exc))
+                return
+            current.destroy()
+            self._show_all_favorites()
+            self._refresh_saved_playlists()
+            self.status_label.set_text(
+                "Station added to favorites." if added else "Station is already in favorites."
+            )
+
+        dialog.connect("response", respond)
+        dialog.present()
+        name_entry.grab_focus()
 
     def on_about_clicked(self, _button: Gtk.Button) -> None:
         popover = getattr(self, "application_menu_popover", None)

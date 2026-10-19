@@ -75,6 +75,11 @@ def run_gui(player_name: str = "mpv") -> None:
                 return
         finish_quit()
 
+    quit_action = Gio.SimpleAction.new("quit", None)
+    quit_action.connect("activate", lambda _action, _parameter: quit_application())
+    app.add_action(quit_action)
+    app.set_accels_for_action("app.quit", ["<Primary>q"])
+
     if sys.platform.startswith("linux"):
         candidate = LinuxStatusNotifierItem(
             application_id=application_id,

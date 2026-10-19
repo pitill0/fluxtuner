@@ -1830,3 +1830,75 @@ def test_delete_playlist_storage_error_preserves_view(monkeypatch) -> None:
     harness._show_all_favorites.assert_not_called()
     assert harness._view_state.active_playlist_name == "Morning"
     error.set_text.assert_called_once_with("Storage unavailable")
+
+
+def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeypatch) -> None:
+    menu_button, popover, box = Mock(), Mock(), Mock()
+    buttons = {}
+
+    def make_button(*, label):
+        result = Mock()
+        buttons[label] = result
+        return result
+
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            MenuButton=Mock(return_value=menu_button),
+            Popover=Mock(return_value=popover),
+            Box=Mock(return_value=box),
+            Button=make_button,
+            Orientation=SimpleNamespace(VERTICAL=object()),
+            Align=SimpleNamespace(END=object(), CENTER=object()),
+        ),
+    )
+    container = Mock()
+    harness = SimpleNamespace(
+        _build_appearance_controls=Mock(),
+        on_about_clicked=Mock(),
+    )
+
+    window.MainWindow._build_application_menu(harness, container)
+
+    window.Gtk.MenuButton.assert_called_once_with(icon_name="open-menu-symbolic")
+    container.append.assert_called_once_with(menu_button)
+    menu_button.set_popover.assert_called_once_with(popover)
+    popover.set_child.assert_called_once_with(box)
+    harness._build_appearance_controls.assert_called_once_with(box)
+    buttons["Quit"].set_action_name.assert_called_once_with("app.quit")
+    buttons["About FluxTuner"].connect.assert_called_once_with("clicked", harness.on_about_clicked)
+
+
+def test_about_dialog_reports_installed_version_and_project(monkeypatch) -> None:
+    logo = Mock()
+    texture_loader = Mock(return_value=logo)
+    monkeypatch.setattr(
+        sys.modules["gi.repository"],
+        "Gdk",
+        SimpleNamespace(Texture=SimpleNamespace(new_from_filename=texture_loader)),
+        raising=False,
+    )
+    from fluxtuner import __version__
+
+    dialog = Mock()
+    constructor = Mock(return_value=dialog)
+    monkeypatch.setattr(window, "Gtk", SimpleNamespace(AboutDialog=constructor))
+    harness = SimpleNamespace()
+
+    window.MainWindow.on_about_clicked(harness, Mock())
+
+    constructor.assert_called_once_with(transient_for=harness, modal=True)
+    dialog.set_program_name.assert_called_once_with("FluxTuner")
+    dialog.set_version.assert_called_once_with(__version__)
+    dialog.set_website.assert_called_once_with("https://github.com/pitill0/fluxtuner")
+    dialog.present.assert_called_once_with()
+
+    texture_loader.assert_called_once()
+    from pathlib import Path
+
+    logo_path = Path(texture_loader.call_args.args[0])
+    assert logo_path.name == "io.github.pitill0.Fluxtuner.png"
+    assert logo_path.is_file()
+    assert logo_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    dialog.set_logo.assert_called_once_with(logo)

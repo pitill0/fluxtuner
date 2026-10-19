@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from contextlib import suppress
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk, Pango  # noqa: E402
 
+from fluxtuner import __app_name__, __version__  # noqa: E402
 from fluxtuner.config import (  # noqa: E402
     get_config_value,
     get_playback_state,
@@ -316,7 +318,7 @@ class MainWindow(Gtk.ApplicationWindow):
         subtitle.add_css_class("dim-label")
         title_box.append(subtitle)
 
-        self._build_appearance_controls(header)
+        self._build_application_menu(header)
 
     def _build_search_bar(self, root: Gtk.Box) -> None:
         search_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -473,6 +475,52 @@ class MainWindow(Gtk.ApplicationWindow):
         hint.set_wrap(True)
         hint.add_css_class("dim-label")
         side_panel.append(hint)
+
+    def _build_application_menu(self, container: Gtk.Box) -> None:
+        self.application_menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic")
+        self.application_menu_button.set_tooltip_text("Application menu")
+        self.application_menu_button.set_halign(Gtk.Align.END)
+        self.application_menu_button.set_valign(Gtk.Align.CENTER)
+
+        self.application_menu_popover = Gtk.Popover()
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        self._build_appearance_controls(content)
+
+        about_button = Gtk.Button(label="About FluxTuner")
+        about_button.connect("clicked", self.on_about_clicked)
+        content.append(about_button)
+
+        quit_button = Gtk.Button(label="Quit")
+        quit_button.set_action_name("app.quit")
+        content.append(quit_button)
+
+        self.application_menu_popover.set_child(content)
+        self.application_menu_button.set_popover(self.application_menu_popover)
+        container.append(self.application_menu_button)
+
+    def on_about_clicked(self, _button: Gtk.Button) -> None:
+        popover = getattr(self, "application_menu_popover", None)
+        if popover is not None:
+            popover.popdown()
+
+        dialog = Gtk.AboutDialog(transient_for=self, modal=True)
+        dialog.set_destroy_with_parent(True)
+        from gi.repository import Gdk
+
+        logo_path = Path(__file__).resolve().parent / "assets" / "io.github.pitill0.Fluxtuner.png"
+        dialog.set_logo(Gdk.Texture.new_from_filename(str(logo_path)))
+        dialog.set_program_name(__app_name__)
+        dialog.set_version(__version__)
+        dialog.set_comments("Internet radio for terminal, desktop and web.")
+        dialog.set_website("https://github.com/pitill0/fluxtuner")
+        dialog.set_website_label("FluxTuner on GitHub")
+        self._about_dialog = dialog
+        dialog.present()
 
     def _build_appearance_controls(self, container: Gtk.Box) -> None:
         appearance_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)

@@ -275,6 +275,19 @@ is rejected instead of recreated.
 Custom favorite tags remain available under **Filter favorites**, collapsed
 initially. These filters are separate from persistent playlists.
 
+## GTK application menu
+
+The hamburger button in the upper-right corner opens the application menu:
+
+- **Appearance** selects System, Dark or Light. Changes apply immediately
+  and the selected mode is saved for the next launch.
+- **About FluxTuner** displays the application icon, installed version and
+  a link to the project on GitHub.
+- **Quit** exits through the coordinated shutdown process, including when
+  closing the window would normally hide it to the Linux system tray.
+
+The Quit shortcut is Ctrl+Q on Linux and Command+Q on macOS.
+
 ## GTK appearance
 
 The GTK desktop GUI provides an appearance selector with three modes:

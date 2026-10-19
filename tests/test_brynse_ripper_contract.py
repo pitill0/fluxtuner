@@ -266,7 +266,26 @@ def test_service_stops_real_brynse_runner_after_pending_open(tmp_path: Path) -> 
         assert service.wait(timeout=5)
 
 
-def test_service_preserves_real_finalized_track_files(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("source_url", "expected_first_filename"),
+    [
+        (
+            "http://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3",
+            "Synthetic Artist - Synthetic A.mp3",
+        ),
+        (
+            "https://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3",
+            "Synthetic Artist - Synthetic A.mp3",
+        ),
+        (
+            "https://example.invalid/synthetic",
+            "Synthetic A - Synthetic Artist.mp3",
+        ),
+    ],
+)
+def test_service_preserves_real_finalized_track_files(
+    tmp_path: Path, source_url: str, expected_first_filename: str
+) -> None:
     import subprocess
     from io import BytesIO
 
@@ -336,6 +355,7 @@ def test_service_preserves_real_finalized_track_files(tmp_path: Path) -> None:
             if end_offset < 640000
             else "Synthetic C"
         )
+        title = f"{title} - Synthetic Artist"
         payload = f"StreamTitle='{title}';".encode()
         units = (len(payload) + 15) // 16
         wire.append(units)
@@ -371,7 +391,7 @@ def test_service_preserves_real_finalized_track_files(tmp_path: Path) -> None:
     )
     request = RippingRequest(
         station_name="Synthetic output contract",
-        source_url="https://example.invalid/synthetic",
+        source_url=source_url,
         output_directory=tmp_path / "tracks",
         profile_name="output-contract",
     )
@@ -391,7 +411,8 @@ def test_service_preserves_real_finalized_track_files(tmp_path: Path) -> None:
         assert result.metaint == metaint
         assert not result.stopped
         assert result.tracks
-        assert result.tracks[0].title == "Synthetic A"
+        assert result.tracks[0].title == "Synthetic A - Synthetic Artist"
+        assert result.tracks[0].path.name == expected_first_filename
 
         for track in result.tracks:
             assert track.path.parent == request.output_directory

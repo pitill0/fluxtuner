@@ -140,7 +140,12 @@ Expected:
 - without a compatible tray watcher, closing the window performs the traditional application shutdown
 - data usage updates while streaming
 - favorites controls work
-- tag playlist controls work
+- saved playlists appear prominently in the sidebar with station counts
+- playlists can be created; blank and duplicate names remain editable
+- Add to playlist targets the clicked station without changing selection
+- removing membership and confirming playlist deletion preserve favorites
+- canceling creation, addition or deletion does not apply the operation
+- favorite tag filters remain available under the collapsed Filter favorites section
 
 Optional explicit backend tests:
 

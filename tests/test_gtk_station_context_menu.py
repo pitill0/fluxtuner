@@ -489,6 +489,8 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         _is_favorite_station=Mock(return_value=False),
         copy_station_url=Mock(),
@@ -521,6 +523,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     assert [button.label for button in popover.child.children] == [
         "Play",
         "Add to favorites",
+        "Add to playlist…",
         "Copy stream URL",
         "Copy station name",
     ]
@@ -528,6 +531,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     (
         play_button,
         favorite_button,
+        playlist_button,
         copy_url_button,
         copy_name_button,
     ) = popover.child.children
@@ -539,6 +543,9 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
             harness.on_context_add_favorite_clicked,
             (station,),
         )
+    ]
+    assert playlist_button.connections == [
+        ("clicked", harness.on_context_add_playlist_clicked, (station,))
     ]
     assert copy_url_button.connections == [("clicked", harness.copy_station_url, (station,))]
     assert copy_name_button.connections == [("clicked", harness.copy_station_name, (station,))]
@@ -627,6 +634,7 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(
     harness = SimpleNamespace(
         on_context_play_clicked=lambda _button, target: target,
         on_context_add_favorite_clicked=lambda _button, target: target,
+        on_context_add_playlist_clicked=lambda _button, target: target,
         on_context_remove_favorite_clicked=lambda _button, target: target,
         _is_favorite_station=lambda _station: False,
         copy_station_url=lambda _button, target: target,
@@ -728,6 +736,8 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         _is_favorite_station=Mock(return_value=False),
         copy_station_url=Mock(),
@@ -1148,6 +1158,8 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
@@ -1168,6 +1180,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
     assert labels == [
         "Play",
         "Add to favorites",
+        "Add to playlist…",
         "Copy stream URL",
         "Copy station name",
     ]
@@ -1266,6 +1279,8 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         copy_station_url=Mock(),
         copy_station_name=Mock(),
@@ -1286,6 +1301,7 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
     assert labels == [
         "Play",
         "Remove from favorites",
+        "Add to playlist…",
         "Copy stream URL",
         "Copy station name",
     ]
@@ -1527,6 +1543,8 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         copy_station_url=Mock(),
@@ -1548,12 +1566,13 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
     assert labels == [
         "Play",
         "Add to favorites",
+        "Add to playlist…",
         "Open station homepage",
         "Copy stream URL",
         "Copy station name",
     ]
 
-    homepage_button = FakePopover.last_created.child.children[2]
+    homepage_button = FakePopover.last_created.child.children[3]
     assert homepage_button.connections == [
         (
             "clicked",
@@ -1643,6 +1662,8 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
     harness = SimpleNamespace(
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         copy_station_url=Mock(),
@@ -1664,6 +1685,7 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
     assert labels == [
         "Play",
         "Add to favorites",
+        "Add to playlist…",
         "Copy stream URL",
         "Copy station name",
     ]
@@ -1938,6 +1960,8 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(
         recording_manager=SimpleNamespace(active_session=None),
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         on_context_record_clicked=Mock(),
@@ -2063,6 +2087,8 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(
         ),
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         on_context_record_clicked=Mock(),
@@ -2188,6 +2214,8 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(
         ),
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         on_context_record_clicked=Mock(),
@@ -2304,6 +2332,8 @@ def _ripping_menu_harness(
         status_label=Mock(),
         on_context_play_clicked=Mock(),
         on_context_add_favorite_clicked=Mock(),
+        on_context_add_playlist_clicked=Mock(),
+        on_context_remove_playlist_clicked=Mock(),
         on_context_remove_favorite_clicked=Mock(),
         on_context_open_homepage_clicked=Mock(),
         on_context_rip_clicked=Mock(),
@@ -2417,3 +2447,127 @@ def test_gtk_ripping_menu_wiring_reads_snapshot_after_wait(monkeypatch, tmp_path
     labels = {button.label for button in menu.children}
     assert "Rip tracks" in labels
     assert "Stop ripping" not in labels
+
+
+def test_playlist_context_callback_targets_clicked_station() -> None:
+    selected = {"name": "Selected", "url": "https://example.com/selected"}
+    clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
+    harness = SimpleNamespace(selected_station=selected, open_playlist_picker=Mock())
+
+    window.MainWindow.on_context_add_playlist_clicked(harness, Mock(), clicked)
+
+    harness.open_playlist_picker.assert_called_once_with(clicked)
+    assert harness.selected_station is selected
+
+
+def test_playlist_remove_callback_targets_clicked_station_and_playlist() -> None:
+    selected = {"name": "Selected"}
+    clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
+    harness = SimpleNamespace(selected_station=selected, remove_station_from_saved_playlist=Mock())
+
+    window.MainWindow.on_context_remove_playlist_clicked(harness, Mock(), clicked, "Morning")
+
+    harness.remove_station_from_saved_playlist.assert_called_once_with(clicked, "Morning")
+    assert harness.selected_station is selected
+
+
+def test_playlist_context_menu_binds_active_playlist(monkeypatch, tmp_path) -> None:
+    from fluxtuner.gui.gtk_view_state import ViewState
+
+    harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
+    harness._view_state = ViewState()
+    harness._view_state.show_playlist("Morning")
+
+    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+
+    add = next(button for button in menu.children if button.label == "Add to playlist…")
+    remove = next(button for button in menu.children if button.label == "Remove from playlist")
+    assert add.connections == [("clicked", harness.on_context_add_playlist_clicked, (station,))]
+    assert remove.connections == [
+        ("clicked", harness.on_context_remove_playlist_clicked, (station, "Morning"))
+    ]
+
+
+def _playlist_dialog_harness(monkeypatch):
+    from fluxtuner.gui.gtk_view_state import ViewState
+
+    picker = SimpleNamespace(names=("Morning",), add=Mock(return_value=True))
+    capture = Mock(return_value=picker)
+    monkeypatch.setattr(window, "create_playlist_picker", capture)
+    dropdown = Mock()
+    dropdown.get_selected.return_value = 0
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            ResponseType=SimpleNamespace(ACCEPT=1, CANCEL=0),
+            DropDown=SimpleNamespace(new_from_strings=Mock(return_value=dropdown)),
+        ),
+    )
+    dialog, content = Mock(), Mock()
+    label = Mock()
+    selection = {"name": "Selected", "url": "https://example.com/selected"}
+    harness = SimpleNamespace(
+        _playlist_profile_id=Mock(return_value=7),
+        _make_playlist_dialog=Mock(return_value=(dialog, content)),
+        _make_value_label=Mock(return_value=label),
+        _view_state=ViewState(),
+        _refresh_favorite_cache=Mock(),
+        _refresh_saved_playlists=Mock(),
+        _render_results=Mock(),
+        _show_saved_playlist=Mock(),
+        selected_station=selection,
+        status_label=Mock(),
+    )
+    clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
+    window.MainWindow.open_playlist_picker(harness, clicked)
+    callback = dialog.connect.call_args.args[1]
+    capture.assert_called_once_with(clicked, profile_id=7)
+    return harness, picker, dialog, label, callback
+
+
+def test_playlist_picker_cancel_does_not_write_or_change_selection(monkeypatch) -> None:
+    harness, picker, dialog, _label, respond = _playlist_dialog_harness(monkeypatch)
+    selection = harness.selected_station
+
+    respond(dialog, 0)
+
+    picker.add.assert_not_called()
+    dialog.destroy.assert_called_once_with()
+    harness._render_results.assert_not_called()
+    assert harness.selected_station is selection
+
+
+def test_playlist_picker_confirm_preserves_selection(monkeypatch) -> None:
+    harness, picker, dialog, _label, respond = _playlist_dialog_harness(monkeypatch)
+    selection = harness.selected_station
+
+    respond(dialog, 1)
+
+    picker.add.assert_called_once_with("Morning")
+    dialog.destroy.assert_called_once_with()
+    harness._refresh_favorite_cache.assert_called_once_with()
+    harness._refresh_saved_playlists.assert_called_once_with()
+    assert harness.selected_station is selection
+
+
+def test_playlist_picker_rejects_profile_change_before_write(monkeypatch) -> None:
+    harness, picker, dialog, label, respond = _playlist_dialog_harness(monkeypatch)
+    harness._playlist_profile_id.return_value = 8
+
+    respond(dialog, 1)
+
+    picker.add.assert_not_called()
+    dialog.destroy.assert_not_called()
+    label.set_text.assert_called_once_with("The profile changed. Reopen this dialog.")
+
+
+def test_playlist_picker_storage_error_keeps_dialog_open(monkeypatch) -> None:
+    harness, picker, dialog, label, respond = _playlist_dialog_harness(monkeypatch)
+    picker.add.side_effect = OSError("Storage unavailable")
+
+    respond(dialog, 1)
+
+    dialog.destroy.assert_not_called()
+    label.set_text.assert_called_once_with("Storage unavailable")
+    harness._render_results.assert_not_called()

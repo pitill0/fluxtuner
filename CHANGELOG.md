@@ -10,11 +10,15 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added profile-aware persistent playlist management in GTK, including
+  creation, deletion, contents and a reusable station-to-playlist picker.
+- Added station context-menu actions to add to a saved playlist and remove
+  from the currently displayed playlist.
 
 ### Changed
 
-- Nothing yet.
+- GTK places saved playlists prominently in the sidebar and folds favorite
+  tag filters into a secondary "Filter favorites" section.
 
 ### Fixed
 

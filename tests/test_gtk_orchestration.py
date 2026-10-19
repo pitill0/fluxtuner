@@ -1637,3 +1637,196 @@ def test_gtk_closing_actions_reject_new_runtime_work(monkeypatch, tmp_path, acti
     harness.status_label.set_text.assert_not_called()
     harness._update_record_button.assert_not_called()
     assert harness.selected_station is selection
+
+
+def test_saved_playlist_open_invalidates_search_and_resets_selection(monkeypatch) -> None:
+    stations = [{"name": "Saved FM", "url": "https://example.com/saved"}]
+    lifecycle = SearchLifecycle()
+    pending = lifecycle.begin()
+    harness = SimpleNamespace(
+        _playlist_profile_id=Mock(return_value=7),
+        _search_lifecycle=lifecycle,
+        _view_state=ViewState(active_playlist_tag="jazz"),
+        selected_station={"name": "Other", "url": "https://example.com/other"},
+        stations=[],
+        _refresh_favorite_cache=Mock(),
+        _render_results=Mock(),
+        _update_playlist_status=Mock(),
+        _refresh_saved_playlists=Mock(),
+        _set_view_status=Mock(),
+        status_label=Mock(),
+    )
+    lookup = Mock(return_value={"name": "Morning"})
+    contents = Mock(return_value=stations)
+    monkeypatch.setattr(window.manual_playlists, "get_playlist", lookup)
+    monkeypatch.setattr(window.manual_playlists, "get_playlist_stations", contents)
+
+    window.MainWindow._show_saved_playlist(harness, "Morning")
+
+    lookup.assert_called_once_with("Morning", profile_id=7)
+    contents.assert_called_once_with("Morning", profile_id=7)
+    assert not lifecycle.is_current(pending)
+    assert harness._view_state.current_view == "playlist"
+    assert harness._view_state.active_playlist_name == "Morning"
+    assert harness._view_state.active_playlist_tag is None
+    assert harness.stations is stations
+    assert harness.selected_station is None
+    harness._render_results.assert_called_once_with()
+
+
+def test_missing_saved_playlist_keeps_current_view_and_selection(monkeypatch) -> None:
+    selection = {"name": "Selected"}
+    state = ViewState()
+    harness = SimpleNamespace(
+        _playlist_profile_id=Mock(return_value=7),
+        _search_lifecycle=SearchLifecycle(),
+        _view_state=state,
+        selected_station=selection,
+        stations=[selection],
+        _render_results=Mock(),
+        status_label=Mock(),
+    )
+    monkeypatch.setattr(window.manual_playlists, "get_playlist", Mock(return_value=None))
+
+    window.MainWindow._show_saved_playlist(harness, "Deleted")
+
+    assert state.current_view == "search"
+    assert harness.selected_station is selection
+    assert harness.stations == [selection]
+    harness._render_results.assert_not_called()
+    harness.status_label.set_text.assert_called_once_with(
+        "Could not open playlist: This playlist no longer exists."
+    )
+
+
+def _playlist_management_dialog(monkeypatch):
+    entry = Mock()
+    entry.get_text.return_value = " Morning "
+    dialog, content, error = Mock(), Mock(), Mock()
+    monkeypatch.setattr(
+        window,
+        "Gtk",
+        SimpleNamespace(
+            Entry=Mock(return_value=entry),
+            ResponseType=SimpleNamespace(ACCEPT=1, CANCEL=0),
+        ),
+    )
+    state = ViewState()
+    state.show_playlist("Morning")
+    harness = SimpleNamespace(
+        _playlist_profile_id=Mock(return_value=7),
+        _make_playlist_dialog=Mock(return_value=(dialog, content)),
+        _make_value_label=Mock(return_value=error),
+        _view_state=state,
+        _show_saved_playlist=Mock(),
+        _show_all_favorites=Mock(),
+        _refresh_saved_playlists=Mock(),
+        status_label=Mock(),
+    )
+    return harness, dialog, entry, error
+
+
+@pytest.mark.parametrize("operation", ["create", "delete"])
+def test_playlist_management_cancel_does_not_write(monkeypatch, operation) -> None:
+    harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
+    storage = Mock()
+    monkeypatch.setattr(window.manual_playlists, f"{operation}_playlist", storage)
+    handler = getattr(window.MainWindow, f"on_{operation}_playlist_clicked")
+    handler(harness, Mock())
+    respond = dialog.connect.call_args.args[1]
+
+    respond(dialog, 0)
+
+    storage.assert_not_called()
+    dialog.destroy.assert_called_once_with()
+    harness._show_all_favorites.assert_not_called()
+    harness._show_saved_playlist.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["create", "delete"])
+def test_playlist_management_rejects_profile_change(monkeypatch, operation) -> None:
+    harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
+    storage = Mock()
+    monkeypatch.setattr(window.manual_playlists, f"{operation}_playlist", storage)
+    handler = getattr(window.MainWindow, f"on_{operation}_playlist_clicked")
+    handler(harness, Mock())
+    respond = dialog.connect.call_args.args[1]
+    harness._playlist_profile_id.return_value = 8
+
+    respond(dialog, 1)
+
+    storage.assert_not_called()
+    dialog.destroy.assert_not_called()
+    error.set_text.assert_called_once_with("The profile changed. Reopen this dialog.")
+
+
+def test_create_playlist_trims_name_and_opens_new_list(monkeypatch) -> None:
+    harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
+    storage = Mock(return_value=True)
+    monkeypatch.setattr(window.manual_playlists, "create_playlist", storage)
+    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    storage.assert_called_once_with("Morning", profile_id=7)
+    dialog.destroy.assert_called_once_with()
+    harness._show_saved_playlist.assert_called_once_with("Morning")
+
+
+@pytest.mark.parametrize("name", ["", "   "])
+def test_create_playlist_rejects_blank_name(monkeypatch, name) -> None:
+    harness, dialog, entry, error = _playlist_management_dialog(monkeypatch)
+    entry.get_text.return_value = name
+    storage = Mock()
+    monkeypatch.setattr(window.manual_playlists, "create_playlist", storage)
+    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    storage.assert_not_called()
+    dialog.destroy.assert_not_called()
+    error.set_text.assert_called_once_with("Enter a playlist name.")
+
+
+def test_duplicate_playlist_keeps_dialog_open(monkeypatch) -> None:
+    harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
+    monkeypatch.setattr(window.manual_playlists, "create_playlist", Mock(return_value=False))
+    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    dialog.destroy.assert_not_called()
+    harness._show_saved_playlist.assert_not_called()
+    error.set_text.assert_called_once_with("A playlist with this name already exists.")
+
+
+def test_delete_playlist_uses_captured_name_and_profile(monkeypatch) -> None:
+    harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
+    storage = Mock(return_value=True)
+    monkeypatch.setattr(window.manual_playlists, "delete_playlist", storage)
+    window.MainWindow.on_delete_playlist_clicked(harness, Mock())
+    respond = dialog.connect.call_args.args[1]
+
+    respond(dialog, 1)
+
+    storage.assert_called_once_with("Morning", profile_id=7)
+    dialog.destroy.assert_called_once_with()
+    harness._show_all_favorites.assert_called_once_with()
+    harness._refresh_saved_playlists.assert_called_once_with()
+
+
+def test_delete_playlist_storage_error_preserves_view(monkeypatch) -> None:
+    harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
+    monkeypatch.setattr(
+        window.manual_playlists,
+        "delete_playlist",
+        Mock(side_effect=OSError("Storage unavailable")),
+    )
+    window.MainWindow.on_delete_playlist_clicked(harness, Mock())
+
+    dialog.connect.call_args.args[1](dialog, 1)
+
+    dialog.destroy.assert_not_called()
+    harness._show_all_favorites.assert_not_called()
+    assert harness._view_state.active_playlist_name == "Morning"
+    error.set_text.assert_called_once_with("Storage unavailable")

@@ -67,6 +67,7 @@ from fluxtuner.gui.appearance import (  # noqa: E402
     GtkAppearanceManager,
     normalize_appearance,
 )
+from fluxtuner.gui.gtk_m3u_import import open_m3u_import  # noqa: E402
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
@@ -496,6 +497,10 @@ class MainWindow(Gtk.ApplicationWindow):
         add_station_button.connect("clicked", self.on_add_custom_station_clicked)
         content.append(add_station_button)
 
+        import_button = Gtk.Button(label="Import stations…")
+        import_button.connect("clicked", self.on_import_stations_clicked)
+        content.append(import_button)
+
         about_button = Gtk.Button(label="About FluxTuner")
         about_button.connect("clicked", self.on_about_clicked)
         content.append(about_button)
@@ -507,6 +512,32 @@ class MainWindow(Gtk.ApplicationWindow):
         self.application_menu_popover.set_child(content)
         self.application_menu_button.set_popover(self.application_menu_popover)
         container.append(self.application_menu_button)
+
+    def on_import_stations_clicked(self, _button: Gtk.Button) -> None:
+        popover = getattr(self, "application_menu_popover", None)
+        if popover is not None:
+            popover.popdown()
+        try:
+            profile_id = self._playlist_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained GTK profile failure.
+            self.status_label.set_text(f"Could not import stations: {exc}")
+            return
+        open_m3u_import(
+            self,
+            profile_id=profile_id,
+            profile_is_current=lambda: self._playlist_profile_id() == profile_id,
+            on_saved=self._on_m3u_import_saved,
+            on_error=self.status_label.set_text,
+        )
+
+    def _on_m3u_import_saved(self, name: str, result: Any) -> None:
+        self._refresh_saved_playlists()
+        self._show_saved_playlist(name)
+        self.status_label.set_text(
+            f"Imported {result.added_to_playlist} into {name}; "
+            f"{result.already_in_playlist} already in playlist. "
+            f"Favorites: {result.added_favorites} new, {result.existing_favorites} kept."
+        )
 
     def on_add_custom_station_clicked(self, _button: Gtk.Button) -> None:
         popover = getattr(self, "application_menu_popover", None)

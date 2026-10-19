@@ -87,6 +87,7 @@
             <button type="button" data-nav-search data-private-action disabled>Search</button>
             <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
             <button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
+            <button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
             <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
             <button type="button" data-nav-history data-private-action disabled>History</button>
             <button type="button" data-nav-admin hidden>Admin</button>
@@ -791,6 +792,46 @@
           <div class="station-actions">
             <button type="submit">Add station</button>
             <button type="button" data-custom-station-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="custom-station-dialog station-import-dialog"
+      data-station-import-dialog aria-labelledby="station-import-title">
+      <div class="playlist-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Personal library</p>
+            <h2 id="station-import-title">Import stations</h2>
+          </div>
+        </div>
+        <p>Choose an M3U or M3U8 collection, up to 1 MiB.
+          Existing favorite names and tags are preserved.</p>
+        <form class="playlist-dialog-form" data-station-import-form>
+          <label>
+            <span>Playlist file</span>
+            <input type="file" accept=".m3u,.m3u8" data-station-import-file>
+          </label>
+          <button type="button" data-station-import-preview-button>Preview file</button>
+          <pre class="station-import-preview" data-station-import-preview
+            aria-label="Playlist preview" tabindex="0" hidden></pre>
+          <div class="station-import-destination" data-station-import-destination hidden>
+            <label>
+              <span>Destination</span>
+              <select data-station-import-select disabled></select>
+            </label>
+            <label data-station-import-name-field>
+              <span>New playlist name</span>
+              <input type="text" maxlength="120" autocomplete="off"
+                data-station-import-name required disabled>
+            </label>
+          </div>
+          <p class="playlist-dialog-message" data-station-import-message
+            role="status" aria-live="polite"></p>
+          <div class="station-actions">
+            <button type="submit" data-station-import-submit disabled>Import stations</button>
+            <button type="button" data-station-import-cancel>Cancel</button>
           </div>
         </form>
       </div>

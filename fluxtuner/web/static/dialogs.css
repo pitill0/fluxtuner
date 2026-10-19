@@ -423,3 +423,29 @@ dialog.custom-station-dialog::backdrop {
 [data-custom-station-tools] summary {
   cursor: pointer;
 }
+
+/* Collection import preview. */
+dialog.station-import-dialog {
+  width: min(48rem, calc(100vw - 2rem));
+}
+.station-import-preview {
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+  border: 1px solid var(--field-border);
+  border-radius: 0.8rem;
+  color: var(--field-text);
+  background: var(--field-bg);
+  font-size: 0.85rem;
+}
+.station-import-destination {
+  display: grid;
+  gap: 0.85rem;
+}
+[data-station-import-destination][hidden],
+[data-station-import-name-field][hidden],
+[data-station-import-preview][hidden] {
+  display: none;
+}

@@ -3,6 +3,7 @@
  */
 
 export function createNavigationController({
+  stationImportController,
   accountRequestsController,
   adminPanel,
   appState,
@@ -26,6 +27,7 @@ export function createNavigationController({
   showRadioBrowserView,
 }) {
   function closeOpenDialog() {
+    if (stationImportController?.closeIfOpen()) return true;
     if (customStationController?.closeIfOpen()) return true;
 
     if (playlistDialog && !playlistDialog.hidden) {

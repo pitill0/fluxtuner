@@ -326,7 +326,34 @@ belonging to that user. Saving requires authentication and CSRF protection and
 does not contact the stream. Browser playback and server metadata requests
 retain their existing network restrictions.
 
-Local M3U/M3U8 collection imports remain follow-up work in issue #224.
+### Import station collections in GTK
+
+Open the application menu and choose **Import stations…**. Select a local
+M3U/M3U8 file and review the valid stations, repeated URLs and reported issues.
+Choose an existing playlist or create a new one, then select **Import**.
+
+Valid stations are saved to favorites and the destination playlist in file
+order. Existing station metadata, personal names and tags are preserved.
+Cancel saves nothing. Reimporting does not duplicate favorites or membership.
+
+Files must use UTF-8, optionally with a BOM, and contain HTTP/HTTPS stream URLs.
+The limits are 1 MiB, 5000 station entries and 25000 lines. HLS manifests are
+rejected as station collections; an individual station URL may still use HLS.
+
+### Import station collections in Web
+
+Sign in and choose **Import stations…** from the navigation menu. Choose an
+M3U/M3U8 file, then select **Preview file**. Review the stations and skipped
+entries, choose a new or existing destination playlist, and select
+**Import stations**.
+
+The same format limits and metadata-preservation rules apply as in GTK.
+Uploads are limited to 1 MiB. Preview and cancel make no library changes;
+confirmation saves into the signed-in user's default profile. Existing
+favorite names and tags are retained.
+
+The TUI import interface remains follow-up work in issue #224.
+See [Playlist imports](playlist-imports.md) for format and conflict rules.
 
 ## GTK appearance
 

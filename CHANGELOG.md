@@ -10,6 +10,10 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Added local M3U/M3U8 station imports in GTK and Web with preview, destination playlist
+  selection, duplicate reporting and atomic persistence that preserves existing
+  station metadata and personal favorite names and tags.
+
 - Added manual station creation to the TUI with Ctrl+N and to Web through
   the navigation menu and Favorites library actions, reusing shared
   validation and duplicate handling.
@@ -33,7 +37,6 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Web library operations use the authenticated user's default profile when
   no profile is requested, independently of the desktop's active profile.
 
-- Nothing yet.
 
 
 ## [1.3.0] - 2026-10-18

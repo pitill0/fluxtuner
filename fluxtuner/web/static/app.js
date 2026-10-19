@@ -11,6 +11,7 @@ import { bootstrapApplication } from "/static/js/app-bootstrap.js";
 import { createAppState } from "/static/js/app-state.js";
 import { createAuthController } from "/static/js/auth.js";
 import { createCustomStationController } from "/static/js/custom-stations.js";
+import { createStationImportController } from "/static/js/station-imports.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
@@ -33,6 +34,7 @@ import { createStationRenderer } from "/static/js/station-renderer.js";
 import { stationUrl } from "/static/js/stations.js";
 
 const {
+  stationImportElements,
   customStationMenuButton,
   customStationDialog,
   customStationForm,
@@ -335,7 +337,29 @@ const customStationController = createCustomStationController({
   },
 });
 
+const stationImportController = createStationImportController({
+  apiFetch,
+  elements: stationImportElements,
+  getCurrentUser: appState.getCurrentUser,
+  getSessionKey: appState.getCsrfToken,
+  beforeOpen: () => {
+    closeMobileMenu();
+    closeOpenDialog();
+  },
+  onSaved: async (payload) => {
+    showRadioBrowserView();
+    await loadPlaylistStations(payload.name);
+    if (authMessageNode && appState.isAuthenticated()) {
+      authMessageNode.hidden = false;
+      authMessageNode.textContent =
+        `Imported ${payload.added_to_playlist} stations into ${payload.name}. ` +
+        `${payload.existing_favorites} already in favorites.`;
+    }
+  },
+});
+
 const sessionUiController = createSessionUiController({
+  stationImportController,
   customStationController,
   accountRequestsController,
   adminController,
@@ -514,6 +538,7 @@ const playlistController = createPlaylistController({
 });
 
 const navigationController = createNavigationController({
+  stationImportController,
   customStationController,
   accountRequestsController,
   adminPanel,
@@ -546,6 +571,7 @@ const {
 
 
 customStationController.bind();
+stationImportController.bind();
 
 
 bindApplicationEvents({

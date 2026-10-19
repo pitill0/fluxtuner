@@ -395,3 +395,31 @@ html[data-theme="light"] .password-change-dialog .station-actions button[type="b
   font-size: 0.95rem;
   user-select: all;
 }
+
+/* Native personal-station modal; reuse shared dialog theme and form styles. */
+dialog.custom-station-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dialog-text);
+}
+dialog.custom-station-dialog:not([open]) {
+  display: none;
+}
+dialog.custom-station-dialog::backdrop {
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(0.6rem);
+}
+.custom-station-dialog .playlist-dialog-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+[data-custom-station-tools][hidden] {
+  display: none;
+}
+[data-custom-station-tools] summary {
+  cursor: pointer;
+}

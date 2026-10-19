@@ -3,6 +3,8 @@
  */
 
 export function bindApplicationEvents({
+  customStationController,
+  customStationMenuButton,
   accountRequestsController,
   adminCreateUserForm,
   adminLoadUsersButton,
@@ -195,6 +197,11 @@ export function bindApplicationEvents({
       else if (action === "history") await navigateToPrivateView(loadHistory);
       else if (action === "admin" && navAdminButton) navAdminButton.click();
     });
+  });
+
+  customStationMenuButton?.addEventListener("click", (event) => {
+    closeMobileMenu();
+    customStationController.openDialog(event);
   });
 
   if (navSearchButton) navSearchButton.addEventListener("click", navigateToSearch);

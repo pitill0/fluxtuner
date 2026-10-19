@@ -86,6 +86,7 @@
             <button type="button" data-nav-dashboard data-private-action disabled>Dashboard</button>
             <button type="button" data-nav-search data-private-action disabled>Search</button>
             <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
+            <button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
             <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
             <button type="button" data-nav-history data-private-action disabled>History</button>
             <button type="button" data-nav-admin hidden>Admin</button>
@@ -439,6 +440,10 @@
 
                   <div class="panel-tools">
                     <p data-result-count>No search yet.</p>
+                    <details data-custom-station-tools hidden>
+                      <summary>Library actions</summary>
+                      <button type="button" data-custom-station-open data-private-action disabled>Add station…</button>
+                    </details>
                     <button type="button" data-load-history data-private-action disabled>Load history</button>
                     <button type="button" data-load-favorites data-private-action disabled>Load favorites</button>
                     <button type="button" data-load-playlists data-private-action disabled>Load playlists</button>
@@ -764,5 +769,31 @@
 
       <audio data-audio preload="none"></audio>
     </aside>
+    <dialog class="custom-station-dialog" data-custom-station-dialog aria-labelledby="custom-station-title">
+      <div class="playlist-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Personal library</p>
+            <h2 id="custom-station-title">Add station</h2>
+          </div>
+        </div>
+        <p>Save a stream URL to your favorites. Playback starts only when you choose Play.</p>
+        <form class="playlist-dialog-form" data-custom-station-form>
+          <label for="custom_station_name">
+            <span>Station name</span>
+            <input id="custom_station_name" name="name" type="text" required maxlength="200" autocomplete="off">
+          </label>
+          <label for="custom_station_url">
+            <span>Stream URL</span>
+            <input id="custom_station_url" name="url" type="url" required maxlength="2048" autocomplete="off" placeholder="https://example.org/live">
+          </label>
+          <p class="playlist-dialog-message" data-custom-station-message role="status" aria-live="polite"></p>
+          <div class="station-actions">
+            <button type="submit">Add station</button>
+            <button type="button" data-custom-station-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
   </body>
 </html>

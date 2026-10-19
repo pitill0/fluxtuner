@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from fluxtuner.core import db
 from fluxtuner.core.api import search_stations_filtered_debug
-from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite
+from fluxtuner.core.custom_stations import add_custom_station
+from fluxtuner.core.favorites import add_favorite, list_favorites, load_favorites, remove_favorite
 from fluxtuner.core.history import add_history, load_history
 from fluxtuner.core.manual_playlists import (
     add_station_to_playlist,
@@ -15,6 +17,7 @@ from fluxtuner.core.manual_playlists import (
     load_playlists,
     remove_station_from_playlist,
 )
+from fluxtuner.core.profiles import get_profile_by_name
 from fluxtuner.web.payloads import station_payload
 
 SEARCH_STATUS_OK = "ok"
@@ -201,3 +204,35 @@ def remove_station_from_playlist_payload(
         user_id=user_id,
     )
     return {"status": "ok", "removed": removed, "name": name, "url": url}
+
+
+def create_custom_station_payload(
+    *,
+    user_id: int,
+    profile_name: str | None,
+    name: str,
+    url: str,
+) -> dict[str, Any]:
+    """Save a manual station within the authenticated user's profile."""
+    with db.connect() as conn:
+        if profile_name is None:
+            profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        else:
+            profile = get_profile_by_name(conn, profile_name, user_id=user_id)
+            if profile is None:
+                raise LookupError("The selected profile is unavailable.")
+            profile_id = int(profile["id"])
+
+        added = add_custom_station(conn, profile_id=profile_id, name=name, url=url)
+        saved = next(
+            station
+            for station in list_favorites(conn, profile_id=profile_id)
+            if station.get("url_resolved") == url.strip()
+        )
+        payload = {
+            "status": "ok",
+            "added": added,
+            "station": station_payload(saved),
+        }
+        conn.commit()
+        return payload

@@ -10,6 +10,10 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Added manual station creation to the TUI with Ctrl+N and to Web through
+  the navigation menu and Favorites library actions, reusing shared
+  validation and duplicate handling.
+
 - Added manual station creation from the GTK application menu, using a shared core service with profile-specific names, duplicate protection and atomic library writes.
 
 - Added a GTK application menu with appearance settings, an About dialog using the packaged application icon, and coordinated Quit with Ctrl+Q / Command+Q.
@@ -25,6 +29,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
   tag filters into a secondary "Filter favorites" section.
 
 ### Fixed
+
+- Web library operations use the authenticated user's default profile when
+  no profile is requested, independently of the desktop's active profile.
 
 - Nothing yet.
 

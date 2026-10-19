@@ -10,6 +10,7 @@ import { bindApplicationEvents } from "/static/js/app-events.js";
 import { bootstrapApplication } from "/static/js/app-bootstrap.js";
 import { createAppState } from "/static/js/app-state.js";
 import { createAuthController } from "/static/js/auth.js";
+import { createCustomStationController } from "/static/js/custom-stations.js";
 import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
@@ -32,6 +33,13 @@ import { createStationRenderer } from "/static/js/station-renderer.js";
 import { stationUrl } from "/static/js/stations.js";
 
 const {
+  customStationMenuButton,
+  customStationDialog,
+  customStationForm,
+  customStationMessageNode,
+  customStationOpenButton,
+  customStationCancelButtons,
+  customStationTools,
   adminCreateUserForm,
   adminLoadUsersButton,
   adminMessageNode,
@@ -304,7 +312,31 @@ const {
   setUserPassword: setAdminUserPassword,
 } = adminController;
 
+const customStationController = createCustomStationController({
+  apiFetch,
+  dialog: customStationDialog,
+  form: customStationForm,
+  messageNode: customStationMessageNode,
+  openButton: customStationOpenButton,
+  cancelButtons: customStationCancelButtons,
+  toolsNode: customStationTools,
+  getCurrentUser: appState.getCurrentUser,
+  getSessionKey: appState.getCsrfToken,
+  beforeOpen: () => closeOpenDialog(),
+  onSaved: async (added) => {
+    showRadioBrowserView();
+    await loadFavorites();
+    if (authMessageNode && appState.isAuthenticated()) {
+      authMessageNode.hidden = false;
+      authMessageNode.textContent = added
+        ? "Station added to favorites."
+        : "Station is already in favorites.";
+    }
+  },
+});
+
 const sessionUiController = createSessionUiController({
+  customStationController,
   accountRequestsController,
   adminController,
   appState,
@@ -421,6 +453,7 @@ const searchController = createSearchController({
   setSearchView: () => {
     showRadioBrowserView();
     appState.setCurrentView("search");
+    customStationController.updateVisibility("search");
     appState.setCurrentPlaylistName("");
   },
 });
@@ -447,6 +480,7 @@ const libraryViewsController = createLibraryViewsController({
   renderSearchError,
   setLibraryView: (view, playlistName = "") => {
     appState.setCurrentView(view);
+    customStationController.updateVisibility(view);
     appState.setCurrentPlaylistName(playlistName);
   },
 });
@@ -480,6 +514,7 @@ const playlistController = createPlaylistController({
 });
 
 const navigationController = createNavigationController({
+  customStationController,
   accountRequestsController,
   adminPanel,
   appState,
@@ -509,7 +544,13 @@ const {
   navigateToSearch,
 } = navigationController;
 
+
+customStationController.bind();
+
+
 bindApplicationEvents({
+  customStationController,
+  customStationMenuButton,
   accountRequestsController,
   adminCreateUserForm,
   adminLoadUsersButton,

@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -116,6 +116,45 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 )
                 stored_version = 2
                 conn.execute("PRAGMA user_version = 2")
+                continue
+
+            if stored_version == 2:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS web_reauth_attempts (
+                        id INTEGER PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        client_key TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        attempted_at TEXT NOT NULL,
+                        expires_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id)
+                            REFERENCES users(id) ON DELETE CASCADE,
+                        CHECK (length(trim(client_key)) > 0),
+                        CHECK (status IN ('pending', 'failed', 'succeeded'))
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_web_reauth_attempts_failed_window
+                    ON web_reauth_attempts(user_id, status, attempted_at)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_web_reauth_attempts_pending_lease
+                    ON web_reauth_attempts(user_id, status, expires_at)
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_web_reauth_attempts_expires
+                    ON web_reauth_attempts(expires_at)
+                    """
+                )
+                stored_version = 3
+                conn.execute("PRAGMA user_version = 3")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")

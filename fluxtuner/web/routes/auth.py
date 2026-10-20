@@ -293,6 +293,9 @@ def regenerate_recovery_codes(
     request: Request,
     payload: dict[str, Any] | None = optional_body,
 ) -> dict[str, Any]:
+    from fluxtuner.web import reauth_attempts
+    from fluxtuner.web.security import SESSION_COOKIE_NAME, session_absolute_max_age
+
     user = web_context.authenticated_user(request)
     if user is None:
         raise HTTPException(status_code=401, detail=AUTH_REQUIRED_DETAIL)
@@ -304,38 +307,127 @@ def regenerate_recovery_codes(
         raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
     user_id = int(user["id"])
+    client_key = auth.client_key_from_host(web_setup.request_client_host(request))
 
+    # Reserve capacity atomically, then release the SQLite writer.
     with db.connect() as conn:
-        # Keep reauthentication and recovery-code rotation in the same
-        # serialized credential-management transaction.
+        attempt_id = reauth_attempts.reserve_attempt(conn, user_id, client_key)
+
+    if attempt_id is None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many reauthentication attempts. Try again later.",
+        )
+
+    try:
+        with db.connect() as conn:
+            current_user = conn.execute(
+                """
+                SELECT password_hash
+                FROM users
+                WHERE id = ?
+                  AND is_active = 1
+                  AND approval_status = ?
+                """,
+                (user_id, db.APPROVAL_APPROVED),
+            ).fetchone()
+            password_hash = (
+                str(current_user["password_hash"] or "") if current_user is not None else ""
+            )
+    except Exception as read_error:
+        # The admission reservation has already been committed.
+        # Release it without masking the original hash-read failure.
+        try:
+            with db.connect() as failure_conn:
+                reauth_attempts.finish_attempt(
+                    failure_conn,
+                    attempt_id,
+                    success=False,
+                )
+                failure_conn.commit()
+        except Exception as accounting_error:
+            raise read_error from accounting_error
+        raise
+
+    # Argon2 runs without a SQLite writer reservation.
+    try:
+        verified = bool(password_hash and auth.verify_password(current_password, password_hash))
+    except Exception:
+        with db.connect() as conn:
+            reauth_attempts.finish_attempt(conn, attempt_id, success=False)
+            conn.commit()
+        raise
+
+    if not verified:
+        with db.connect() as conn:
+            reauth_attempts.finish_attempt(conn, attempt_id, success=False)
+            conn.commit()
+        raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+    # Serialize the final credential and session revalidation with
+    # recovery-code replacement. No Argon2 work occurs in this transaction.
+    with db.connect() as conn:
         conn.commit()
         conn.execute("BEGIN IMMEDIATE")
+        try:
+            session_user = auth.get_session_user(
+                conn,
+                request.cookies.get(SESSION_COOKIE_NAME),
+                absolute_max_age_seconds=session_absolute_max_age(),
+            )
 
-        current_user = conn.execute(
-            """
-            SELECT password_hash
-            FROM users
-            WHERE id = ?
-              AND is_active = 1
-              AND approval_status = ?
-            """,
-            (user_id, db.APPROVAL_APPROVED),
-        ).fetchone()
+            current_user = conn.execute(
+                """
+                SELECT password_hash
+                FROM users
+                WHERE id = ?
+                  AND is_active = 1
+                  AND approval_status = ?
+                """,
+                (user_id, db.APPROVAL_APPROVED),
+            ).fetchone()
 
-        password_hash = str(current_user["password_hash"] or "") if current_user is not None else ""
+            current_hash = (
+                str(current_user["password_hash"] or "") if current_user is not None else ""
+            )
 
-        if not password_hash or not auth.verify_password(
-            current_password,
-            password_hash,
-        ):
+            authorized = (
+                session_user is not None
+                and int(session_user["id"]) == user_id
+                and current_hash == password_hash
+                and bool(current_hash)
+            )
+
+            if not authorized:
+                reauth_attempts.finish_attempt(conn, attempt_id, success=False)
+                conn.commit()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            if not reauth_attempts.finish_attempt(conn, attempt_id, success=True):
+                conn.rollback()
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+
+            codes = recovery_codes.rotate_recovery_codes(conn, user_id)
+            conn.commit()
+        except HTTPException:
+            # Expected denials already handled their own accounting.
+            # Do not finalize the same reservation a second time.
             conn.rollback()
-            raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
+            raise
+        except Exception:
+            # Roll back any partial recovery-code rotation.
+            conn.rollback()
 
-        codes = recovery_codes.rotate_recovery_codes(
-            conn,
-            user_id,
-        )
-        conn.commit()
+            # Persist failure accounting in a separate transaction:
+            # the rollback above also reverted the reservation update.
+            with db.connect() as failure_conn:
+                reauth_attempts.finish_attempt(
+                    failure_conn,
+                    attempt_id,
+                    success=False,
+                )
+                failure_conn.commit()
+            raise
 
     return {
         "status": "ok",

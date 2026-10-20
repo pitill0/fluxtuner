@@ -10,8 +10,6 @@ from fluxtuner.core.m3u_import import MAX_FILE_BYTES
 from fluxtuner.core.profiles import get_or_create_profile
 from fluxtuner.web import m3u_import as service
 
-pytest_plugins = ["test_web_custom_stations"]
-
 PREVIEW = "/api/stations/import/preview"
 IMPORT = "/api/stations/import?playlist=Imported"
 DATA = (

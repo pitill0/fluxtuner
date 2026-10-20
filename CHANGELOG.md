@@ -10,9 +10,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Added local M3U/M3U8 station imports in GTK and Web with preview, destination playlist
+- Added local M3U/M3U8 station imports in GTK, TUI and Web with preview, destination playlist
   selection, duplicate reporting and atomic persistence that preserves existing
   station metadata and personal favorite names and tags.
+  TUI imports use Ctrl+O, with background file reading and saving, profile
+  validation, cancellation before saving and a destination playlist summary.
 
 - Added manual station creation to the TUI with Ctrl+N and to Web through
   the navigation menu and Favorites library actions, reusing shared

@@ -17,6 +17,34 @@ The selected profile is captured for the import. Saving rejects profile changes,
 deleted profiles and deleted existing destinations. Creating a new playlist with
 an existing name reports a conflict instead of silently merging it.
 
+## TUI workflow
+
+Press Ctrl+O to open Import stations. Enter or paste a local file path and
+press Enter or choose Preview file. Paths beginning with ~ are supported.
+Review valid stations, repeated URLs and skipped entries, then select an
+existing playlist or enter a new playlist name. Choose Import to save.
+
+The file's stem is proposed as the new playlist name. Imported stations are
+saved to favorites and the destination playlist using the shared core service.
+Success opens the destination playlist and reports newly added memberships,
+existing favorites and existing memberships.
+
+Escape or Cancel closes the dialog without saving before confirmation,
+including while a preview is loading. Reading and saving run in background
+workers. Once saving starts, cancellation and repeated submissions are disabled
+until it completes. Editing the path invalidates the previous preview.
+Late preview results cannot update a canceled or replaced preview.
+
+The current profile is captured when the dialog opens. Saving checks that it
+is still current. Deleted existing destinations are rejected rather than
+recreated, and an existing name conflicts with creating a new playlist.
+Storage failures roll back the import and keep the dialog available for retry.
+
+The preview uses plain text, displays up to 200 stations and 100 issue details,
+and reports when display limits are reached. All valid entries are imported.
+Tab moves between controls; the dialog scrolls to accommodate smaller terminals.
+Ctrl+O is also listed in the keyboard help opened with ?.
+
 ## Web workflow
 
 Sign in and choose Import stations from the navigation menu. Select a local
@@ -105,7 +133,7 @@ cannot be submitted again.
 
 ## Scope
 
-This delivery provides the shared core, GTK and Web interfaces. The TUI import
-interface remains subsequent work. Remote subscriptions, remote fetching, PLS,
+The shared core is available through GTK, TUI and Web interfaces.
+Remote subscriptions, remote fetching, PLS,
 export and source-provider abstractions are not implemented here.
 Brynse and existing Radio Browser discovery are unchanged.

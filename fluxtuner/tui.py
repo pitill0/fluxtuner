@@ -75,6 +75,7 @@ from fluxtuner.tui_details import (
     station_details_text,
     theme_details_text,
 )
+from fluxtuner.tui_m3u_import import M3UImportOutcome, M3UImportScreen
 from fluxtuner.tui_metadata import MetadataLifecycle
 from fluxtuner.tui_playback import coordinate_playback_start, coordinate_playback_stop
 from fluxtuner.tui_table import (
@@ -124,6 +125,7 @@ SHORTCUT_HELP_TEXT = """\
   h            History
   a            Add selected station to favorites
   Ctrl+N       Add station by name and URL
+  Ctrl+O       Import M3U/M3U8 station collection
   d            Delete favorite / remove playlist item
   e            Rename favorite
   g            Edit favorite tags
@@ -180,6 +182,7 @@ class FluxTunerTUI(App[None]):
         Binding("enter", "activate_selected", "Play/apply", show=False),
         Binding("a", "add_selected", "Add", show=False),
         Binding("ctrl+n", "add_custom_station", "Add station", show=False),
+        Binding("ctrl+o", "import_stations", "Import stations", show=False),
         Binding("h", "show_history", "History", show=False),
         Binding("l", "play_last_station", "Last", show=False),
         Binding("d", "remove_selected", "Delete fav", show=False),
@@ -382,6 +385,47 @@ class FluxTunerTUI(App[None]):
         if profile is None:
             raise ValueError("The current profile is unavailable.")
         return int(profile["id"])
+
+    def action_import_stations(self) -> None:
+        if getattr(self, "_m3u_import_open", False):
+            return
+        self.cancel_pending_search()
+        try:
+            profile_id = self._custom_station_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained TUI profile failure.
+            self.set_status(f"Could not import stations: {exc}")
+            return
+
+        self._m3u_import_open = True
+
+        async def finished(outcome: M3UImportOutcome | None) -> None:
+            self._m3u_import_open = False
+            if outcome is None:
+                return
+            try:
+                current = self._custom_station_profile_id() == profile_id
+            except Exception:  # noqa: BLE001 - the captured import already completed.
+                current = False
+            result = outcome.result
+            if current:
+                await self.show_persistent_playlist_stations(outcome.name)
+            self.set_status(
+                f"Imported {result.added_to_playlist} station(s) into "
+                f"'{outcome.name}'. {result.existing_favorites} already in favorites; "
+                f"{result.already_in_playlist} already in playlist."
+            )
+
+        try:
+            self.push_screen(
+                M3UImportScreen(
+                    profile_id=profile_id,
+                    profile_is_current=lambda: self._custom_station_profile_id() == profile_id,
+                ),
+                finished,
+            )
+        except Exception:  # noqa: BLE001 - restore the dialog guard on mount failure.
+            self._m3u_import_open = False
+            raise
 
     def action_add_custom_station(self) -> None:
         self.cancel_pending_search()

@@ -352,7 +352,22 @@ Uploads are limited to 1 MiB. Preview and cancel make no library changes;
 confirmation saves into the signed-in user's default profile. Existing
 favorite names and tags are retained.
 
-The TUI import interface remains follow-up work in issue #224.
+### Import station collections in TUI
+
+Press **Ctrl+O**, enter or paste the local M3U/M3U8 file path and press
+**Enter** or choose **Preview file**. Paths starting with `~` are supported.
+Review the preview, choose a new or existing destination playlist, then
+choose **Import**. The destination opens after saving.
+
+**Escape** cancels without saving before confirmation, including during file
+reading. Changing the path requires a new preview. Reading and saving run in
+the background; repeated submissions and cancellation are disabled while saving.
+
+The same format limits, duplicate handling and metadata-preservation rules
+apply across GTK, TUI and Web. TUI imports use the profile captured when the
+dialog opened and reject a changed profile or a deleted existing destination.
+Use **Tab** to move between controls and **?** for keyboard help.
+
 See [Playlist imports](playlist-imports.md) for format and conflict rules.
 
 ## GTK appearance

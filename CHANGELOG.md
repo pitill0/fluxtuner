@@ -31,6 +31,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
+- Added a dedicated CI job that installs pinned Brynse and FFmpeg,
+  executes real radio integration contracts, and rejects skipped or
+  missing contract coverage.
+
+
 - GTK places saved playlists prominently in the sidebar and folds favorite
   tag filters into a secondary "Filter favorites" section.
 

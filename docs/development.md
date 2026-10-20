@@ -258,6 +258,19 @@ python -m pytest tests/test_players_mpv.py tests/test_players_ffplay.py
 python -m build
 ```
 
+
+### Real Brynse integration contracts
+
+GitHub Actions runs a separate `brynse-contracts` job using Python 3.12,
+FFmpeg and the immutable Brynse revision from `requirements-brynse.txt`.
+
+The job rejects skipped, failed or missing integration contracts.
+The general Python 3.11/3.12/3.13 matrix continues without requiring
+the optional Brynse dependency.
+
+See [Brynse integration](brynse-integration.md#mandatory-brynse-ci-contracts)
+for the local reproduction procedure.
+
 ### Dependency audit
 
 Run this from a clean virtual environment to avoid auditing unrelated system packages:
@@ -274,6 +287,13 @@ fluxtuner Dependency not found on PyPI and could not be audited
 ```
 
 That is expected because the local project itself is not a published PyPI dependency. The important result is that no known vulnerabilities are found in installed dependencies.
+
+
+`pip-audit --local` checks installed dependencies against known
+vulnerability information. It does not review the source code of
+Brynse installed from Git, nor establish that the pinned VCS revision
+is free of vulnerabilities. The Brynse source and its dependencies
+require their own security review.
 
 ### Static security analysis
 

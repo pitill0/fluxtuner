@@ -179,6 +179,38 @@ python -m pytest \
   tests/test_ripping_requests.py
 ```
 
+
+### Mandatory Brynse CI contracts
+
+The dedicated `brynse-contracts` GitHub Actions job runs on Ubuntu
+with Python 3.12 and FFmpeg. It installs the exact Brynse revision
+from `requirements-brynse.txt`.
+
+The job verifies the installed Brynse commit using distribution
+metadata and requires the real radio integration to import.
+
+To reproduce the contracts locally, install FFmpeg and run these
+commands inside a dedicated virtual environment:
+
+    python -m pip install -e ".[dev]"
+    python -m pip install -r requirements-brynse.txt
+    python -m pip install "pytest-json-report>=1.5,<2"
+    python -m pytest -q --strict-markers --json-report \
+      --json-report-file=brynse-contracts.json \
+      tests/test_brynse_ripper_contract.py
+
+The CI requires at least seven collected contracts. Every collected
+contract must pass, with no skips, failures or errors.
+
+The general quality matrix continues to test FluxTuner without
+requiring optional Brynse.
+
+These contracts use controlled synthetic sources and FFmpeg. They
+do not replace native GTK or real-network smoke tests.
+
+Updating the pinned Brynse revision remains dependent on resolving
+Brynse issue #5.
+
 Real-runner tests skip when Brynse or FFmpeg is absent. A run with skips does
 not establish the installed integration contract.
 

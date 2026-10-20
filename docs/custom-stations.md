@@ -82,10 +82,11 @@ stale responses and repeated submissions.
 
 ## Local M3U/M3U8 imports
 
-GTK provides Import stations in the application menu, and Web exposes it in
-the navigation menu. Both offer file selection, preview, destination selection
-and a result summary. The shared core parser
-and atomic persistence service preserve existing metadata and profile data.
+GTK provides Import stations in the application menu, Web exposes it in
+the navigation menu, and TUI opens the import dialog with Ctrl+O.
+All three provide a preview, destination selection and a result summary.
+The shared core parser and atomic persistence service preserve existing
+metadata and profile data.
 See [Playlist imports](playlist-imports.md) for behavior and limits.
 
 Native macOS validation used two launches and isolated data. The imported
@@ -101,9 +102,15 @@ the second user's empty library and another profile's playlist were verified.
 Automated tests cover HLS rejection, upload limits, authorization, CSRF,
 rollback, stale responses and duplicate submissions.
 
+TUI validation used two launches with isolated data. Jazz-tui and Morning
+each retained two stations, with two favorites overall. The existing personal
+name and tags were preserved, and the second profile remained unchanged.
+The interactive workflow covered cancellation, HLS rejection, keyboard
+navigation and persistence. Automated tests also verify that Escape remains
+responsive during file reading and that destination failures make no writes.
+
 ## Remaining issue scope
 
-- Expose the shared M3U/M3U8 importer through the TUI interface.
 - Evaluate PLS, export and remote catalog subscriptions as subsequent work.
 
 This delivery does not close issue #224 or change Brynse.

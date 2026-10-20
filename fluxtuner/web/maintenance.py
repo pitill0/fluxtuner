@@ -8,7 +8,7 @@ from threading import Lock
 from time import monotonic
 
 from fluxtuner.core import db, recovery_codes
-from fluxtuner.web import auth
+from fluxtuner.web import auth, reauth_attempts
 
 AUTH_ATTEMPT_RETENTION_SECONDS = 24 * 60 * 60
 AUTH_MAINTENANCE_INTERVAL_SECONDS = 60 * 60
@@ -22,6 +22,7 @@ class AuthMaintenanceResult:
     expired_sessions: int
     old_login_attempts: int
     old_recovery_attempts: int
+    old_reauth_attempts: int = 0
 
 
 def run_auth_maintenance(
@@ -43,12 +44,20 @@ def run_auth_maintenance(
             now=now,
             window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
         )
+        old_reauth_attempts = (
+            reauth_attempts.purge_old_reauth_attempts(
+                conn,
+                now=now,
+                window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
+            )
+        )
         conn.commit()
 
     return AuthMaintenanceResult(
         expired_sessions=expired_sessions,
         old_login_attempts=old_login_attempts,
         old_recovery_attempts=old_recovery_attempts,
+        old_reauth_attempts=old_reauth_attempts,
     )
 
 

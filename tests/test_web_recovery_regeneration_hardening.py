@@ -119,15 +119,10 @@ def test_regeneration_rejects_password_change_during_verification(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
-    replacement_hash = auth.hash_password(
-        "replacement credential for concurrent change"
-    )
+    replacement_hash = auth.hash_password("replacement credential for concurrent change")
     original_verify = auth.verify_password
     updated = False
 
@@ -159,10 +154,7 @@ def test_regeneration_rejects_password_change_during_verification(
 
     with db.connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     assert current_codes == original_codes
@@ -176,10 +168,7 @@ def test_regeneration_rejects_session_revocation_during_verification(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     original_verify = auth.verify_password
@@ -220,10 +209,7 @@ def test_regeneration_rejects_session_revocation_during_verification(
 
     with db.connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     assert current_codes == original_codes
@@ -257,10 +243,7 @@ def test_rate_limited_regeneration_preserves_existing_codes(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     for _ in range(5):
@@ -273,10 +256,7 @@ def test_rate_limited_regeneration_preserves_existing_codes(
 
     with db.connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     assert current_codes == original_codes
@@ -294,10 +274,7 @@ def test_expired_successful_verification_cannot_rotate_codes(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     original_finish = reauth_attempts.finish_attempt
@@ -337,10 +314,7 @@ def test_expired_successful_verification_cannot_rotate_codes(
 
     with db.connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     assert current_codes == original_codes
@@ -358,10 +332,7 @@ def test_rotation_exception_releases_reservation_without_changing_codes(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     def failed_rotation(conn, user_id):
@@ -383,10 +354,7 @@ def test_rotation_exception_releases_reservation_without_changing_codes(
 
     with db.connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
         attempts = conn.execute(
             """
@@ -491,10 +459,7 @@ def test_concurrent_http_regenerations_limit_pending_argon2(
         assert verification_count == 2
 
 
-
-def test_hash_read_exception_finalizes_reserved_attempt(
-    tmp_path, monkeypatch
-) -> None:
+def test_hash_read_exception_finalizes_reserved_attempt(tmp_path, monkeypatch) -> None:
     import sqlite3
 
     import pytest
@@ -505,10 +470,7 @@ def test_hash_read_exception_finalizes_reserved_attempt(
 
     with db.connect() as conn:
         original_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
 
     original_connect = db.connect
@@ -519,9 +481,7 @@ def test_hash_read_exception_finalizes_reserved_attempt(
     def reserve_then_arm_failure(conn, user_id, client_key, **kwargs):
         nonlocal inject_failure
 
-        attempt_id = original_reserve(
-            conn, user_id, client_key, **kwargs
-        )
+        attempt_id = original_reserve(conn, user_id, client_key, **kwargs)
         assert attempt_id is not None
         inject_failure = True
         return attempt_id
@@ -532,9 +492,7 @@ def test_hash_read_exception_finalizes_reserved_attempt(
         if inject_failure:
             inject_failure = False
             failure_injected = True
-            raise sqlite3.OperationalError(
-                "Simulated password-hash read failure"
-            )
+            raise sqlite3.OperationalError("Simulated password-hash read failure")
 
         return original_connect(*args, **kwargs)
 
@@ -555,10 +513,7 @@ def test_hash_read_exception_finalizes_reserved_attempt(
 
     with original_connect() as conn:
         current_codes = {
-            row["code_hash"]
-            for row in conn.execute(
-                "SELECT code_hash FROM web_recovery_codes"
-            )
+            row["code_hash"] for row in conn.execute("SELECT code_hash FROM web_recovery_codes")
         }
         recorded = conn.execute(
             """
@@ -573,10 +528,7 @@ def test_hash_read_exception_finalizes_reserved_attempt(
     assert recorded[0]["status"] == "failed"
 
 
-
-def test_hash_read_error_survives_failure_accounting_error(
-    tmp_path, monkeypatch
-) -> None:
+def test_hash_read_error_survives_failure_accounting_error(tmp_path, monkeypatch) -> None:
     import sqlite3
 
     import pytest
@@ -594,9 +546,7 @@ def test_hash_read_error_survives_failure_accounting_error(
 
     def reserve_then_arm_failure(conn, user_id, client_key, **kwargs):
         nonlocal fail_hash_connection
-        attempt_id = original_reserve(
-            conn, user_id, client_key, **kwargs
-        )
+        attempt_id = original_reserve(conn, user_id, client_key, **kwargs)
         assert attempt_id is not None
         fail_hash_connection = True
         return attempt_id
@@ -607,26 +557,18 @@ def test_hash_read_error_survives_failure_accounting_error(
         if fail_hash_connection:
             fail_hash_connection = False
             hash_failure_seen = True
-            raise sqlite3.OperationalError(
-                "Simulated password-hash read failure"
-            )
+            raise sqlite3.OperationalError("Simulated password-hash read failure")
 
         return original_connect(*args, **kwargs)
 
     def fail_accounting(conn, attempt_id, *, success, now=None):
         nonlocal accounting_failure_seen
         accounting_failure_seen = True
-        raise sqlite3.OperationalError(
-            "Simulated failure-accounting error"
-        )
+        raise sqlite3.OperationalError("Simulated failure-accounting error")
 
-    monkeypatch.setattr(
-        reauth_attempts, "reserve_attempt", reserve_then_arm_failure
-    )
+    monkeypatch.setattr(reauth_attempts, "reserve_attempt", reserve_then_arm_failure)
     monkeypatch.setattr(db, "connect", fail_hash_read_connection)
-    monkeypatch.setattr(
-        reauth_attempts, "finish_attempt", fail_accounting
-    )
+    monkeypatch.setattr(reauth_attempts, "finish_attempt", fail_accounting)
 
     with pytest.raises(
         sqlite3.OperationalError,
@@ -642,9 +584,7 @@ def test_hash_read_error_survives_failure_accounting_error(
     assert "Simulated failure-accounting error" in str(cause)
 
     with original_connect() as conn:
-        attempts = conn.execute(
-            "SELECT status FROM web_reauth_attempts ORDER BY id"
-        ).fetchall()
+        attempts = conn.execute("SELECT status FROM web_reauth_attempts ORDER BY id").fetchall()
 
     assert len(attempts) == 1
     assert attempts[0]["status"] == "pending"

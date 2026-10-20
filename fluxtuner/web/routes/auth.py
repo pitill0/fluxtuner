@@ -307,15 +307,11 @@ def regenerate_recovery_codes(
         raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
     user_id = int(user["id"])
-    client_key = auth.client_key_from_host(
-        web_setup.request_client_host(request)
-    )
+    client_key = auth.client_key_from_host(web_setup.request_client_host(request))
 
     # Reserve capacity atomically, then release the SQLite writer.
     with db.connect() as conn:
-        attempt_id = reauth_attempts.reserve_attempt(
-            conn, user_id, client_key
-        )
+        attempt_id = reauth_attempts.reserve_attempt(conn, user_id, client_key)
 
     if attempt_id is None:
         raise HTTPException(
@@ -336,9 +332,7 @@ def regenerate_recovery_codes(
                 (user_id, db.APPROVAL_APPROVED),
             ).fetchone()
             password_hash = (
-                str(current_user["password_hash"] or "")
-                if current_user is not None
-                else ""
+                str(current_user["password_hash"] or "") if current_user is not None else ""
             )
     except Exception as read_error:
         # The admission reservation has already been committed.
@@ -357,23 +351,16 @@ def regenerate_recovery_codes(
 
     # Argon2 runs without a SQLite writer reservation.
     try:
-        verified = bool(
-            password_hash
-            and auth.verify_password(current_password, password_hash)
-        )
+        verified = bool(password_hash and auth.verify_password(current_password, password_hash))
     except Exception:
         with db.connect() as conn:
-            reauth_attempts.finish_attempt(
-                conn, attempt_id, success=False
-            )
+            reauth_attempts.finish_attempt(conn, attempt_id, success=False)
             conn.commit()
         raise
 
     if not verified:
         with db.connect() as conn:
-            reauth_attempts.finish_attempt(
-                conn, attempt_id, success=False
-            )
+            reauth_attempts.finish_attempt(conn, attempt_id, success=False)
             conn.commit()
         raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
@@ -401,9 +388,7 @@ def regenerate_recovery_codes(
             ).fetchone()
 
             current_hash = (
-                str(current_user["password_hash"] or "")
-                if current_user is not None
-                else ""
+                str(current_user["password_hash"] or "") if current_user is not None else ""
             )
 
             authorized = (
@@ -414,25 +399,15 @@ def regenerate_recovery_codes(
             )
 
             if not authorized:
-                reauth_attempts.finish_attempt(
-                    conn, attempt_id, success=False
-                )
+                reauth_attempts.finish_attempt(conn, attempt_id, success=False)
                 conn.commit()
-                raise HTTPException(
-                    status_code=401, detail=AUTH_ERROR_DETAIL
-                )
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
-            if not reauth_attempts.finish_attempt(
-                conn, attempt_id, success=True
-            ):
+            if not reauth_attempts.finish_attempt(conn, attempt_id, success=True):
                 conn.rollback()
-                raise HTTPException(
-                    status_code=401, detail=AUTH_ERROR_DETAIL
-                )
+                raise HTTPException(status_code=401, detail=AUTH_ERROR_DETAIL)
 
-            codes = recovery_codes.rotate_recovery_codes(
-                conn, user_id
-            )
+            codes = recovery_codes.rotate_recovery_codes(conn, user_id)
             conn.commit()
         except HTTPException:
             # Expected denials already handled their own accounting.
@@ -458,6 +433,8 @@ def regenerate_recovery_codes(
         "status": "ok",
         "recovery_codes": codes,
     }
+
+
 @router.post("/api/auth/logout")
 def logout(request: Request, response: Response) -> dict[str, Any]:
     require_csrf(request)

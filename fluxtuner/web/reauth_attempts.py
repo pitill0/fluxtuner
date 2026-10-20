@@ -87,9 +87,7 @@ def reserve_attempt(
         )
         attempt_id = cursor.lastrowid
         if attempt_id is None:
-            raise RuntimeError(
-                "SQLite did not return a reauthentication attempt ID."
-            )
+            raise RuntimeError("SQLite did not return a reauthentication attempt ID.")
         conn.commit()
         return attempt_id
     except Exception:
@@ -144,7 +142,6 @@ def finish_attempt(
     return cursor.rowcount == 1
 
 
-
 def purge_old_reauth_attempts(
     conn: sqlite3.Connection,
     *,
@@ -154,14 +151,11 @@ def purge_old_reauth_attempts(
     """Remove expired reservations and completed attempts beyond retention."""
     if window_seconds < FAILED_WINDOW_SECONDS:
         raise ValueError(
-            "Reauthentication retention cannot be shorter than "
-            "the failed-attempt window."
+            "Reauthentication retention cannot be shorter than the failed-attempt window."
         )
 
     current = now or datetime.now(UTC)
-    pending_cutoff = _timestamp(
-        current - timedelta(seconds=PENDING_CLEANUP_GRACE_SECONDS)
-    )
+    pending_cutoff = _timestamp(current - timedelta(seconds=PENDING_CLEANUP_GRACE_SECONDS))
     cutoff = _timestamp(current - timedelta(seconds=window_seconds))
 
     cursor = conn.execute(

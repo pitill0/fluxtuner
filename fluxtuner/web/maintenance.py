@@ -44,12 +44,10 @@ def run_auth_maintenance(
             now=now,
             window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
         )
-        old_reauth_attempts = (
-            reauth_attempts.purge_old_reauth_attempts(
-                conn,
-                now=now,
-                window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
-            )
+        old_reauth_attempts = reauth_attempts.purge_old_reauth_attempts(
+            conn,
+            now=now,
+            window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
         )
         conn.commit()
 

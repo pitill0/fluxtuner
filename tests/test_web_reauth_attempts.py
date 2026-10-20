@@ -15,9 +15,7 @@ def setup_storage(tmp_path):
     path = tmp_path / "reauth-admission.db"
     db.init_db(path)
     with db.connect(path) as conn:
-        user_id = db.get_or_create_user(
-            conn, "alice", password_hash="test-hash", is_active=True
-        )
+        user_id = db.get_or_create_user(conn, "alice", password_hash="test-hash", is_active=True)
         conn.commit()
     return path, user_id
 
@@ -48,17 +46,18 @@ def test_failures_persist_between_connections_and_expire(tmp_path) -> None:
         assert attempt_id is not None
 
         with db.connect(path) as conn:
-            assert attempts.finish_attempt(
-                conn, attempt_id, success=False, now=NOW
-            )
+            assert attempts.finish_attempt(conn, attempt_id, success=False, now=NOW)
             conn.commit()
 
     assert reserve(path, user_id) is None
-    assert reserve(
-        path,
-        user_id,
-        now=NOW + timedelta(seconds=attempts.FAILED_WINDOW_SECONDS + 1),
-    ) is not None
+    assert (
+        reserve(
+            path,
+            user_id,
+            now=NOW + timedelta(seconds=attempts.FAILED_WINDOW_SECONDS + 1),
+        )
+        is not None
+    )
 
 
 def test_expired_reservation_cannot_finalize_successfully(tmp_path) -> None:
@@ -69,9 +68,7 @@ def test_expired_reservation_cannot_finalize_successfully(tmp_path) -> None:
     expired = NOW + timedelta(seconds=attempts.PENDING_LEASE_SECONDS + 1)
 
     with db.connect(path) as conn:
-        assert not attempts.finish_attempt(
-            conn, attempt_id, success=True, now=expired
-        )
+        assert not attempts.finish_attempt(conn, attempt_id, success=True, now=expired)
         conn.commit()
 
     assert reserve(path, user_id, now=expired) is not None
@@ -114,9 +111,7 @@ def test_expired_reservation_still_records_failed_password(tmp_path) -> None:
     expired = NOW + timedelta(seconds=attempts.PENDING_LEASE_SECONDS + 1)
 
     with db.connect(path) as conn:
-        assert attempts.finish_attempt(
-            conn, attempt_id, success=False, now=expired
-        )
+        assert attempts.finish_attempt(conn, attempt_id, success=False, now=expired)
         conn.commit()
 
     with db.connect(path) as conn:
@@ -138,47 +133,33 @@ def test_expired_reservation_still_records_failed_password(tmp_path) -> None:
         assert count["count"] == 1
 
 
-
 def test_failures_from_different_clients_share_account_limit(tmp_path) -> None:
     path, user_id = setup_storage(tmp_path)
 
     for number in range(attempts.MAX_FAILED_ATTEMPTS):
         with db.connect(path) as conn:
-            attempt_id = attempts.reserve_attempt(
-                conn, user_id, f"source-{number}", now=NOW
-            )
+            attempt_id = attempts.reserve_attempt(conn, user_id, f"source-{number}", now=NOW)
             assert attempt_id is not None
 
         with db.connect(path) as conn:
-            assert attempts.finish_attempt(
-                conn, attempt_id, success=False, now=NOW
-            )
+            assert attempts.finish_attempt(conn, attempt_id, success=False, now=NOW)
             conn.commit()
 
     with db.connect(path) as conn:
-        assert attempts.reserve_attempt(
-            conn, user_id, "previously-unseen-source", now=NOW
-        ) is None
+        assert attempts.reserve_attempt(conn, user_id, "previously-unseen-source", now=NOW) is None
 
 
 def test_pending_from_different_clients_share_account_limit(tmp_path) -> None:
     path, user_id = setup_storage(tmp_path)
 
     with db.connect(path) as conn:
-        first = attempts.reserve_attempt(
-            conn, user_id, "source-1", now=NOW
-        )
-        second = attempts.reserve_attempt(
-            conn, user_id, "source-2", now=NOW
-        )
-        blocked = attempts.reserve_attempt(
-            conn, user_id, "source-3", now=NOW
-        )
+        first = attempts.reserve_attempt(conn, user_id, "source-1", now=NOW)
+        second = attempts.reserve_attempt(conn, user_id, "source-2", now=NOW)
+        blocked = attempts.reserve_attempt(conn, user_id, "source-3", now=NOW)
 
     assert first is not None
     assert second is not None
     assert blocked is None
-
 
 
 def test_failed_plus_pending_reservations_share_five_attempt_budget(
@@ -188,24 +169,16 @@ def test_failed_plus_pending_reservations_share_five_attempt_budget(
 
     for number in range(attempts.MAX_FAILED_ATTEMPTS - 1):
         with db.connect(path) as conn:
-            attempt_id = attempts.reserve_attempt(
-                conn, user_id, f"failed-source-{number}", now=NOW
-            )
+            attempt_id = attempts.reserve_attempt(conn, user_id, f"failed-source-{number}", now=NOW)
             assert attempt_id is not None
 
         with db.connect(path) as conn:
-            assert attempts.finish_attempt(
-                conn, attempt_id, success=False, now=NOW
-            )
+            assert attempts.finish_attempt(conn, attempt_id, success=False, now=NOW)
             conn.commit()
 
     with db.connect(path) as conn:
-        pending = attempts.reserve_attempt(
-            conn, user_id, "pending-source", now=NOW
-        )
-        blocked = attempts.reserve_attempt(
-            conn, user_id, "another-source", now=NOW
-        )
+        pending = attempts.reserve_attempt(conn, user_id, "pending-source", now=NOW)
+        blocked = attempts.reserve_attempt(conn, user_id, "another-source", now=NOW)
 
     assert pending is not None
     assert blocked is None

@@ -12,12 +12,7 @@ def test_fresh_database_has_reauthentication_storage(tmp_path) -> None:
 
     with db.connect(path) as conn:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        columns = {
-            row["name"]
-            for row in conn.execute(
-                "PRAGMA table_info(web_reauth_attempts)"
-            )
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(web_reauth_attempts)")}
 
     assert version == 3
     assert {
@@ -52,15 +47,11 @@ def test_v2_upgrade_preserves_existing_users(tmp_path) -> None:
         user = db.get_user_by_username(conn, "migration-alice")
         tables = {
             row["name"]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         indexes = {
             row["name"]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'index'"
-            )
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
         }
 
     assert version == 3

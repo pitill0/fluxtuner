@@ -51,9 +51,7 @@ def _insert(conn, user_id, status, attempted_at, expires_at):
     )
 
 
-def test_maintenance_removes_only_stale_reauth_rows(
-    tmp_path, monkeypatch
-) -> None:
+def test_maintenance_removes_only_stale_reauth_rows(tmp_path, monkeypatch) -> None:
     path, user_id = _setup(tmp_path, monkeypatch)
 
     old = NOW - timedelta(hours=25)
@@ -61,32 +59,52 @@ def test_maintenance_removes_only_stale_reauth_rows(
 
     with db.connect(path) as conn:
         _insert(
-            conn, user_id, "pending",
+            conn,
+            user_id,
+            "pending",
             NOW - timedelta(minutes=10),
             NOW - timedelta(minutes=8),
         )
         _insert(
-            conn, user_id, "pending", recent,
+            conn,
+            user_id,
+            "pending",
+            recent,
             NOW - timedelta(seconds=1),
         )
         _insert(
-            conn, user_id, "pending", recent,
+            conn,
+            user_id,
+            "pending",
+            recent,
             NOW + timedelta(seconds=60),
         )
         _insert(
-            conn, user_id, "failed", old,
+            conn,
+            user_id,
+            "failed",
+            old,
             old + timedelta(minutes=5),
         )
         _insert(
-            conn, user_id, "failed", recent,
+            conn,
+            user_id,
+            "failed",
+            recent,
             NOW + timedelta(minutes=3),
         )
         _insert(
-            conn, user_id, "succeeded", old,
+            conn,
+            user_id,
+            "succeeded",
+            old,
             old + timedelta(minutes=5),
         )
         _insert(
-            conn, user_id, "succeeded", recent,
+            conn,
+            user_id,
+            "succeeded",
+            recent,
             NOW + timedelta(minutes=3),
         )
         conn.commit()
@@ -109,17 +127,11 @@ def test_maintenance_removes_only_stale_reauth_rows(
         "failed",
         "succeeded",
     ]
-    assert remaining[0]["expires_at"] == _ts(
-        NOW - timedelta(seconds=1)
-    )
-    assert remaining[1]["expires_at"] == _ts(
-        NOW + timedelta(seconds=60)
-    )
+    assert remaining[0]["expires_at"] == _ts(NOW - timedelta(seconds=1))
+    assert remaining[1]["expires_at"] == _ts(NOW + timedelta(seconds=60))
 
 
-def test_reauth_retention_rejects_unsafe_short_window(
-    tmp_path, monkeypatch
-) -> None:
+def test_reauth_retention_rejects_unsafe_short_window(tmp_path, monkeypatch) -> None:
     path, _ = _setup(tmp_path, monkeypatch)
 
     with db.connect(path) as conn, pytest.raises(ValueError, match="retention"):
@@ -130,9 +142,7 @@ def test_reauth_retention_rejects_unsafe_short_window(
         )
 
 
-def test_reauth_maintenance_commits_deletions(
-    tmp_path, monkeypatch
-) -> None:
+def test_reauth_maintenance_commits_deletions(tmp_path, monkeypatch) -> None:
     path, user_id = _setup(tmp_path, monkeypatch)
 
     with db.connect(path) as conn:
@@ -149,23 +159,16 @@ def test_reauth_maintenance_commits_deletions(
     assert result.old_reauth_attempts == 1
 
     with db.connect(path) as conn:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM web_reauth_attempts"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM web_reauth_attempts").fetchone()[0]
 
     assert count == 0
 
 
-
-def test_cleanup_does_not_discard_inflight_failure_accounting(
-    tmp_path, monkeypatch
-) -> None:
+def test_cleanup_does_not_discard_inflight_failure_accounting(tmp_path, monkeypatch) -> None:
     path, user_id = _setup(tmp_path, monkeypatch)
 
     # The reservation expires while password verification is still running.
-    started = NOW - timedelta(
-        seconds=reauth_attempts.PENDING_LEASE_SECONDS + 1
-    )
+    started = NOW - timedelta(seconds=reauth_attempts.PENDING_LEASE_SECONDS + 1)
 
     with db.connect(path) as conn:
         attempt_id = reauth_attempts.reserve_attempt(

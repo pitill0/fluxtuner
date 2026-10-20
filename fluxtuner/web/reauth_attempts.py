@@ -116,24 +116,31 @@ def finish_attempt(
     # Only a live lease may authorize a successful operation.
     # A failed verification must still count even if Argon2 outlasted
     # the lease; otherwise expensive requests could escape throttling.
-    expiry_guard = "AND expires_at > ?" if success else ""
-    parameters: tuple[str | int, ...] = (
+    parameters = (
         status,
         timestamp,
         _timestamp(current + timedelta(seconds=FAILED_WINDOW_SECONDS)),
         attempt_id,
     )
-    if success:
-        parameters += (timestamp,)
 
-    cursor = conn.execute(
-        f"""
-        UPDATE web_reauth_attempts
-        SET status = ?, attempted_at = ?, expires_at = ?
-        WHERE id = ? AND status = 'pending' {expiry_guard}
-        """,
-        parameters,
-    )
+    if success:
+        cursor = conn.execute(
+            """
+            UPDATE web_reauth_attempts
+            SET status = ?, attempted_at = ?, expires_at = ?
+            WHERE id = ? AND status = 'pending' AND expires_at > ?
+            """,
+            (*parameters, timestamp),
+        )
+    else:
+        cursor = conn.execute(
+            """
+            UPDATE web_reauth_attempts
+            SET status = ?, attempted_at = ?, expires_at = ?
+            WHERE id = ? AND status = 'pending'
+            """,
+            parameters,
+        )
     return cursor.rowcount == 1
 
 

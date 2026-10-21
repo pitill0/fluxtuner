@@ -41,6 +41,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
+- Fixed direct Web radio playback for streams without CORS headers by
+  removing stale `crossorigin` attributes before assigning the audio
+  source, while preserving Media Session metadata and playback lifecycle
+  handling.
+
 - Web library operations use the authenticated user's default profile when
   no profile is requested, independently of the desktop's active profile.
 

@@ -164,7 +164,7 @@ export function createPlayerController({
     const title = currentStationTitle();
     audioNode.title = title;
     audioNode.setAttribute("aria-label", title);
-    audioNode.crossOrigin = "anonymous";
+    audioNode.removeAttribute("crossorigin");
   }
 
   function nextPlaybackRun() {

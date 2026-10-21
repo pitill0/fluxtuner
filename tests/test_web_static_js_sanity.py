@@ -852,7 +852,8 @@ def test_web_player_prepares_audio_for_mobile_media_handoff() -> None:
 
     assert response.status_code == 200
     assert "function prepareAudioElementForMediaHandoff()" in response.text
-    assert 'audioNode.crossOrigin = "anonymous";' in response.text
+    assert 'audioNode.removeAttribute("crossorigin");' in response.text
+    assert 'audioNode.crossOrigin = "anonymous";' not in response.text
     assert "audioNode.title = title;" in response.text
     assert 'audioNode.setAttribute("aria-label", title);' in response.text
     assert "document-hidden" in response.text

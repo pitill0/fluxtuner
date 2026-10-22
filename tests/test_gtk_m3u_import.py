@@ -211,3 +211,85 @@ def test_window_refreshes_destination_only_after_successful_import():
     harness._refresh_saved_playlists.assert_called_once_with()
     harness._show_saved_playlist.assert_called_once_with("Jazz")
     assert "2" in harness.status_label.set_text.call_args.args[0]
+
+
+def test_remote_preview_reuses_session_and_does_not_write(library, monkeypatch):
+    before = counts()
+    local = prepare(library)
+    calls = []
+
+    def fake_download(url, resolver):
+        calls.append(url)
+        return b"ignored", local.preview
+
+    monkeypatch.setattr(gtk_m3u_import, "preview_remote_station_collection", fake_download)
+    session = gtk_m3u_import.prepare_remote_m3u_import(
+        "https://catalog.example/lists/Jazz.m3u",
+        profile_id=library.profile_id,
+        profile_is_current=lambda: True,
+    )
+    assert counts() == before
+    assert session.preview is local.preview
+    assert session.source_name == "Jazz.m3u"
+    assert session.playlist_names == ("Morning",)
+    assert calls == ["https://catalog.example/lists/Jazz.m3u"]
+
+    monkeypatch.setattr(
+        gtk_m3u_import,
+        "preview_remote_station_collection",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("refetched")),
+    )
+    assert session.commit("Remote Jazz", existing=False).added_to_playlist == 2
+    assert counts() != before
+
+
+def test_remote_profile_change_prevents_download(library, monkeypatch):
+    called = []
+    monkeypatch.setattr(
+        gtk_m3u_import,
+        "preview_remote_station_collection",
+        lambda *_args, **_kwargs: called.append(True),
+    )
+    with pytest.raises(ValueError, match="profile changed"):
+        gtk_m3u_import.prepare_remote_m3u_import(
+            "https://catalog.example/jazz.m3u",
+            profile_id=library.profile_id,
+            profile_is_current=lambda: False,
+        )
+    assert called == []
+
+
+def test_remote_preview_rejects_changed_profile_after_download(library, monkeypatch):
+    preview = prepare(library).preview
+    state = {"current": True}
+
+    def fake_download(url, resolver):
+        state["current"] = False
+        return b"ignored", preview
+
+    monkeypatch.setattr(gtk_m3u_import, "preview_remote_station_collection", fake_download)
+    with pytest.raises(ValueError, match="profile changed"):
+        gtk_m3u_import.prepare_remote_m3u_import(
+            "https://catalog.example/jazz.m3u",
+            profile_id=library.profile_id,
+            profile_is_current=lambda: state["current"],
+        )
+
+
+def test_window_remote_menu_captures_profile(monkeypatch):
+    from test_gtk_orchestration import window
+
+    opener = Mock()
+    monkeypatch.setattr(window, "open_remote_m3u_import", opener, raising=False)
+    harness = SimpleNamespace(
+        application_menu_popover=Mock(),
+        _playlist_profile_id=Mock(return_value=7),
+        _on_m3u_import_saved=Mock(),
+        status_label=Mock(),
+    )
+    window.MainWindow.on_import_stations_url_clicked(harness, Mock())
+    harness.application_menu_popover.popdown.assert_called_once_with()
+    assert opener.call_count == 1
+    assert opener.call_args.kwargs["profile_id"] == 7
+    harness._playlist_profile_id.return_value = 8
+    assert opener.call_args.kwargs["profile_is_current"]() is False

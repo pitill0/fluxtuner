@@ -93,6 +93,7 @@ packages = [
     "fluxtuner.themes",
     "fluxtuner.web.routes",
     "fluxtuner.web.metadata",
+    "fluxtuner.network",
     "fluxtuner.web",
     "fluxtuner.web.static",
     "fluxtuner.web.templates",

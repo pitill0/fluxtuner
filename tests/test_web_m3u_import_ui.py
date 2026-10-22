@@ -31,7 +31,7 @@ const elements = {
   dialog: node({
     open: false, showModal() { this.open = true; }, close() { this.open = false; },
   }),
-  fileInput: node({ files: [file] }),
+  fileInput: node({ files: [file] }), urlInput: node(),
   previewButton: node(), previewNode: node(), destinationNode: node(),
   selectNode: node({ ownerDocument: { createElement: () => node() } }),
   nameField: node(), nameInput: node(), messageNode: node(),
@@ -57,6 +57,10 @@ const controller = createStationImportController({
   apiFetch: async (endpoint, options) => {
     requests.push({ endpoint, options });
     if (delay) return await new Promise((resolve) => { resolveRequest = resolve; });
+    if (endpoint === "/api/stations/import/remote") {
+      return { ok: !fail, arrayBuffer: async () => data,
+        json: async () => ({ detail: "Rejected remote URL" }) };
+    }
     return {
       ok: !fail,
       json: async () => fail ? { detail: "Rejected file" }
@@ -94,6 +98,55 @@ if (scenario === "preview-cancel") {
   assert.equal(request.options.headers["Content-Type"], "application/octet-stream");
   assert.equal(elements.dialog.open, false);
   assert.equal(saved.length, 1);
+} else if (scenario === "remote-snapshot") {
+  elements.urlInput.value = "https://catalog.example/lists/Radio.m3u";
+  await controller.preview();
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].endpoint, "/api/stations/import/remote");
+  assert.equal(requests[0].options.method, "POST");
+  assert.equal(requests[0].options.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(requests[0].options.body), { url: elements.urlInput.value });
+  assert.equal(requests[1].endpoint, "/api/stations/import/preview");
+  assert.equal(requests[1].options.body, data);
+  assert.equal(elements.nameInput.value, "Radio");
+  await controller.submit(event);
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].options.body, requests[1].options.body);
+  assert.equal(saved.length, 1);
+} else if (scenario === "remote-stale") {
+  elements.urlInput.value = "https://catalog.example/list.m3u";
+  delay = true;
+  const request = controller.preview();
+  await Promise.resolve();
+  assert.equal(requests.length, 1);
+  controller.closeIfOpen();
+  controller.openDialog();
+  elements.messageNode.textContent = "New dialog";
+  resolveRequest({ ok: true, arrayBuffer: async () => data });
+  await request;
+  assert.equal(requests.length, 1);
+  assert.equal(elements.messageNode.textContent, "New dialog");
+  assert.equal(elements.submitButton.disabled, true);
+} else if (scenario === "remote-session-change") {
+  elements.urlInput.value = "https://catalog.example/list.m3u";
+  delay = true;
+  const request = controller.preview();
+  await Promise.resolve();
+  state.session = "two";
+  controller.syncSession();
+  resolveRequest({ ok: true, arrayBuffer: async () => data });
+  await request;
+  assert.equal(requests.length, 1);
+  assert.equal(elements.dialog.open, false);
+  assert.equal(saved.length, 0);
+} else if (scenario === "remote-edit-invalidates") {
+  elements.urlInput.value = "https://catalog.example/list.m3u";
+  await controller.preview();
+  elements.urlInput.value = "https://catalog.example/changed.m3u";
+  elements.urlInput.listeners.input();
+  await controller.submit(event);
+  assert.equal(requests.length, 2);
+  assert.equal(elements.submitButton.disabled, true);
 } else if (scenario === "oversized") {
   elements.fileInput.files = [{ ...file, size: 1024 * 1024 + 1 }];
   await controller.preview();
@@ -185,6 +238,10 @@ console.log(JSON.stringify({ passed: true }));
     "scenario",
     [
         "preview-cancel",
+        "remote-snapshot",
+        "remote-stale",
+        "remote-session-change",
+        "remote-edit-invalidates",
         "new-playlist",
         "existing-playlist",
         "oversized",

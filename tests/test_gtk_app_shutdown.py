@@ -91,16 +91,29 @@ def _run_tray_quit_scenario(
 @pytest.mark.parametrize("ready", [True, False])
 def test_gtk_app_tray_quit_respects_shutdown_readiness(monkeypatch, ready) -> None:
     def scenario(application, window, callbacks):
+        pending = []
+        initial_tray_mode = window.close_to_tray
+
+        def request_quit(*, on_complete):
+            if ready:
+                on_complete()
+            else:
+                pending.append(on_complete)
+
+        window.request_quit.side_effect = request_quit
+
         callbacks["on_quit"]()
 
-        assert window.close_to_tray is False
-        window.shutdown.assert_called_once()
-        completion = window.shutdown.call_args.kwargs.get("on_complete")
-        assert callable(completion)
+        window.request_quit.assert_called_once()
+        window.shutdown.assert_not_called()
+        assert window.close_to_tray is initial_tray_mode
+
         if not ready:
             application.release.assert_not_called()
             application.quit.assert_not_called()
-            completion()
+            assert len(pending) == 1
+            pending[0]()
+
         application.release.assert_called_once_with()
         application.quit.assert_called_once_with()
 
@@ -109,16 +122,23 @@ def test_gtk_app_tray_quit_respects_shutdown_readiness(monkeypatch, ready) -> No
 
 def test_gtk_app_tray_quit_finishes_once_after_repeated_requests(monkeypatch) -> None:
     def scenario(application, window, callbacks):
+        pending = []
+        window.request_quit.side_effect = lambda *, on_complete: pending.append(on_complete)
+
         callbacks["on_quit"]()
         callbacks["on_quit"]()
+
+        assert len(pending) == 2
+        window.shutdown.assert_not_called()
         application.release.assert_not_called()
         application.quit.assert_not_called()
 
-        completion = window.shutdown.call_args.kwargs["on_complete"]
-        completion()
-        completion()
+        pending[0]()
+        pending[0]()
+        pending[1]()
         callbacks["on_quit"]()
 
+        assert window.request_quit.call_count == 2
         application.release.assert_called_once_with()
         application.quit.assert_called_once_with()
 
@@ -129,6 +149,7 @@ def test_gtk_app_tray_quit_before_window_activation(monkeypatch) -> None:
     def scenario(application, window, callbacks):
         callbacks["on_quit"]()
 
+        window.request_quit.assert_not_called()
         window.shutdown.assert_not_called()
         application.release.assert_called_once_with()
         application.quit.assert_called_once_with()
@@ -145,23 +166,39 @@ def test_menu_quit_waits_for_shutdown_with_or_without_tray(
     monkeypatch, platform, tray_available, ready
 ) -> None:
     def scenario(application, window, callbacks):
+        pending = []
+        initial_tray_mode = window.close_to_tray
+
+        def request_quit(*, on_complete):
+            if ready:
+                on_complete()
+            else:
+                pending.append(on_complete)
+
+        window.request_quit.side_effect = request_quit
+
         callbacks["menu_quit"]()
 
-        assert window.close_to_tray is False
-        window.shutdown.assert_called_once()
-        completion = window.shutdown.call_args.kwargs["on_complete"]
+        window.request_quit.assert_called_once()
+        window.shutdown.assert_not_called()
+        assert window.close_to_tray is initial_tray_mode
+
         if not ready:
             application.quit.assert_not_called()
             application.release.assert_not_called()
-            completion()
+            assert len(pending) == 1
+            pending[0]()
+
         application.quit.assert_called_once_with()
         if platform == "linux" and tray_available:
             application.release.assert_called_once_with()
         else:
             application.release.assert_not_called()
 
+        completion = window.request_quit.call_args.kwargs["on_complete"]
         completion()
         callbacks["menu_quit"]()
+        window.request_quit.assert_called_once()
         application.quit.assert_called_once_with()
 
     _run_tray_quit_scenario(
@@ -171,3 +208,47 @@ def test_menu_quit_waits_for_shutdown_with_or_without_tray(
         platform=platform,
         tray_available=tray_available,
     )
+
+
+def test_gtk_app_quit_delegates_confirmation_to_window(monkeypatch) -> None:
+    """A Quit request must not start shutdown before window approval."""
+
+    def scenario(application, window, callbacks):
+        callbacks["menu_quit"]()
+
+        window.request_quit.assert_called_once()
+        completion = window.request_quit.call_args.kwargs["on_complete"]
+        assert callable(completion)
+
+        window.shutdown.assert_not_called()
+        application.quit.assert_not_called()
+        application.release.assert_not_called()
+
+    _run_tray_quit_scenario(monkeypatch, scenario, ready=False)
+
+
+def test_gtk_app_quit_finishes_once_after_window_approval(monkeypatch) -> None:
+    """The window approval callback owns the actual application exit."""
+
+    def scenario(application, window, callbacks):
+        approved = []
+
+        def request_quit(*, on_complete):
+            approved.append(on_complete)
+
+        window.request_quit.side_effect = request_quit
+
+        callbacks["menu_quit"]()
+
+        assert len(approved) == 1
+        window.shutdown.assert_not_called()
+        application.quit.assert_not_called()
+
+        approved[0]()
+        approved[0]()
+        callbacks["menu_quit"]()
+
+        application.release.assert_called_once_with()
+        application.quit.assert_called_once_with()
+
+    _run_tray_quit_scenario(monkeypatch, scenario, ready=False)

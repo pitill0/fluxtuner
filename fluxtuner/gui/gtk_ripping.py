@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
+from fluxtuner.core.recording import RecordingManager
 from fluxtuner.core.ripping import RippedTrack, RippingAvailability, RippingError
 from fluxtuner.core.ripping_requests import build_ripping_request
 from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
@@ -175,6 +176,17 @@ def coordinate_ripping_stop(
     except Exception as exc:  # noqa: BLE001 - user-facing stop failure.
         return f"Could not stop ripping: {exc}"
     return f"Stopping ripping: {snapshot.request.station_name}"
+
+
+def shutdown_has_pending_recordings(
+    *,
+    recording_manager: RecordingManager,
+    ripping_service: RippingService,
+) -> bool:
+    """Detect pending recording work without requesting shutdown."""
+    recording_active = recording_manager.active_session is not None
+    workers_finished = ripping_service.wait(timeout=0)
+    return recording_active or not workers_finished
 
 
 class RippingShutdown:

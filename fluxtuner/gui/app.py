@@ -70,9 +70,8 @@ def run_gui(player_name: str = "mpv") -> None:
         if quit_completed:
             return
         if window is not None:
-            window.close_to_tray = False
-            if not window.shutdown(on_complete=finish_quit):
-                return
+            window.request_quit(on_complete=finish_quit)
+            return
         finish_quit()
 
     quit_action = Gio.SimpleAction.new("quit", None)

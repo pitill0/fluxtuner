@@ -6,6 +6,7 @@ import threading
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -74,12 +75,14 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_stop,
 )
 from fluxtuner.gui.gtk_playlists import create_playlist_picker  # noqa: E402
+from fluxtuner.gui.gtk_recording_shutdown import AsyncRecordingStop  # noqa: E402
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     RippingShutdown,
     coordinate_ripping_start,
     coordinate_ripping_stop,
     ripping_menu_action,
     ripping_status,
+    shutdown_has_pending_recordings,
     start_ripping_availability_probe,
 )
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
@@ -124,6 +127,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._ripping_shutdown = RippingShutdown(service=self.ripping_service)
         self._shutdown_timer_id: int | None = None
         self._shutdown_on_complete: Callable[[], None] | None = None
+        self._quit_confirmation_pending = False
+        self._recording_shutdown = AsyncRecordingStop(stop=self.recording_manager.stop)
+        self._shutdown_deadline: float | None = None
+        self._shutdown_warning_open = False
+        self._shutdown_close_authorized = False
         self.ripping_availability = RippingAvailability(
             False,
             "Checking Brynse availability.",
@@ -2431,10 +2439,105 @@ class MainWindow(Gtk.ApplicationWindow):
         self.update_data_usage()
         return True
 
+    def _show_quit_confirmation(
+        self,
+        *,
+        on_confirm: Callable[[], None],
+        on_cancel: Callable[[], None],
+    ) -> None:
+        """Ask before interrupting unfinished recording work."""
+        dialog = Gtk.Dialog(
+            title="Recording in progress",
+            transient_for=self,
+            modal=True,
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Stop recording & Quit", Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        for margin in (
+            "margin_top",
+            "margin_bottom",
+            "margin_start",
+            "margin_end",
+        ):
+            setattr(content.props, margin, 16)
+
+        message = Gtk.Label(
+            label=(
+                "A recording is still active or finishing. "
+                "Quitting FluxTuner will request that it stop. "
+                "Do you want to continue?"
+            )
+        )
+        message.set_wrap(True)
+        content.append(message)
+
+        response_handled = False
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            nonlocal response_handled
+            if response_handled:
+                return
+            response_handled = True
+
+            current.destroy()
+            if response == Gtk.ResponseType.ACCEPT:
+                on_confirm()
+            else:
+                on_cancel()
+
+        dialog.connect("response", respond)
+        dialog.present()
+
+    def request_quit(self, *, on_complete: Callable[[], None]) -> None:
+        """Confirm pending recording work before beginning shutdown."""
+        if self._quit_confirmation_pending or self._ripping_shutting_down:
+            return
+
+        if not shutdown_has_pending_recordings(
+            recording_manager=self.recording_manager,
+            ripping_service=self.ripping_service,
+        ):
+            self.close_to_tray = False
+            if MainWindow.shutdown(self, on_complete=on_complete):
+                self._shutdown_close_authorized = True
+                on_complete()
+            return
+
+        self._quit_confirmation_pending = True
+        settled = False
+
+        def cancel() -> None:
+            nonlocal settled
+            if settled:
+                return
+            settled = True
+            self._quit_confirmation_pending = False
+
+        def confirm() -> None:
+            nonlocal settled
+            if settled:
+                return
+            settled = True
+            self._quit_confirmation_pending = False
+            self.close_to_tray = False
+            if MainWindow.shutdown(self, on_complete=on_complete):
+                self._shutdown_close_authorized = True
+                on_complete()
+
+        self._show_quit_confirmation(
+            on_confirm=confirm,
+            on_cancel=cancel,
+        )
+
     def shutdown(self, *, on_complete: Callable[[], None] | None = None) -> bool:
-        """Return readiness; schedule on_complete only when closing is deferred."""
+        """Request orderly stops; never block or force a timed-out exit."""
         if not self._ripping_shutting_down:
             self._ripping_shutting_down = True
+            self._shutdown_deadline = monotonic() + 12.0
             self._ripping_shutdown.request()
             if self._ripping_shutdown.error is not None:
                 self.status_label.set_text(
@@ -2447,39 +2550,131 @@ class MainWindow(Gtk.ApplicationWindow):
             self._stop_player_state_timer()
             self._stop_metadata_polling()
             self.usage_tracker.stop()
-            with suppress(Exception):
-                if self.recording_manager.active_session is not None:
-                    self.recording_manager.stop()
+            if self.recording_manager.active_session is not None:
+                self._recording_shutdown.request()
             with suppress(Exception):
                 self.player.stop()
-        ready = self._ripping_shutdown.poll()
-        if ready:
+
+        if on_complete is not None and self._shutdown_on_complete is None:
+            self._shutdown_on_complete = on_complete
+
+        ripping_done = self._ripping_shutdown.poll()
+        ffmpeg_done = not self._recording_shutdown.requested or self._recording_shutdown.poll()
+        successful = (
+            ripping_done
+            and ffmpeg_done
+            and self._ripping_shutdown.error is None
+            and self._recording_shutdown.error is None
+        )
+        if successful:
             if self._shutdown_timer_id is not None:
                 GLib.source_remove(self._shutdown_timer_id)
                 self._shutdown_timer_id = None
             self._shutdown_on_complete = None
-        elif on_complete is not None:
-            self._shutdown_on_complete = on_complete
-            if self._shutdown_timer_id is None:
-                self._shutdown_timer_id = GLib.timeout_add(200, self._poll_shutdown)
-        return ready
-
-    def _poll_shutdown(self) -> bool:
-        """Continue a deferred close while GTK keeps processing events."""
-        if self._shutdown_on_complete is None:
-            self._shutdown_timer_id = None
-            return False
-        if not self._ripping_shutdown.poll():
+            self._shutdown_deadline = None
             return True
 
-        callback = self._shutdown_on_complete
-        self._shutdown_on_complete = None
-        self._shutdown_timer_id = None
-        callback()
+        if self._shutdown_on_complete is not None and self._shutdown_timer_id is None:
+            self._shutdown_timer_id = GLib.timeout_add(200, self._poll_shutdown)
         return False
+
+    def _show_shutdown_warning(
+        self,
+        *,
+        on_wait: Callable[[], None],
+        on_force: Callable[[], None],
+        has_error: bool,
+    ) -> None:
+        """Only an explicit user response may abandon unfinished recordings."""
+        dialog = Gtk.Dialog(
+            title="Recording has not finished",
+            transient_for=self,
+            modal=True,
+        )
+        dialog.add_button("Keep waiting", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Quit anyway", Gtk.ResponseType.ACCEPT)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        content = dialog.get_content_area()
+        content.set_spacing(12)
+        content.props.margin_top = 16
+        content.props.margin_bottom = 16
+        content.props.margin_start = 16
+        content.props.margin_end = 16
+        if has_error:
+            detail = "A recording could not be finalized successfully. "
+        else:
+            detail = "A recording is still being finalized. "
+        label = Gtk.Label(
+            label=(
+                detail + "Quitting anyway may leave the current file incomplete. "
+                "Already finalized tracks are not intentionally removed."
+            )
+        )
+        label.set_wrap(True)
+        content.append(label)
+        answered = False
+
+        def respond(current: Gtk.Dialog, response: int) -> None:
+            nonlocal answered
+            if answered:
+                return
+            answered = True
+            current.destroy()
+            if response == Gtk.ResponseType.ACCEPT:
+                on_force()
+            else:
+                on_wait()
+
+        dialog.connect("response", respond)
+        dialog.present()
+
+    def _poll_shutdown(self) -> bool:
+        """Inspect both workers and a monotonic deadline on GTK's main loop."""
+        callback = self._shutdown_on_complete
+        if callback is None:
+            self._shutdown_timer_id = None
+            return False
+
+        ripping_done = self._ripping_shutdown.poll()
+        ffmpeg_done = not self._recording_shutdown.requested or self._recording_shutdown.poll()
+        has_error = (
+            self._ripping_shutdown.error is not None or self._recording_shutdown.error is not None
+        )
+        if ripping_done and ffmpeg_done and not has_error and not self._shutdown_warning_open:
+            self._shutdown_on_complete = None
+            self._shutdown_timer_id = None
+            self._shutdown_deadline = None
+            self._shutdown_close_authorized = True
+            callback()
+            return False
+
+        deadline = self._shutdown_deadline
+        if not self._shutdown_warning_open and (deadline is not None and monotonic() >= deadline):
+            self._shutdown_warning_open = True
+
+            def keep_waiting() -> None:
+                self._shutdown_warning_open = False
+                self._shutdown_deadline = monotonic() + 12.0
+
+            def quit_anyway() -> None:
+                self._shutdown_warning_open = False
+                self._shutdown_on_complete = None
+                self._shutdown_timer_id = None
+                self._shutdown_deadline = None
+                self._shutdown_close_authorized = True
+                callback()
+
+            self._show_shutdown_warning(
+                on_wait=keep_waiting,
+                on_force=quit_anyway,
+                has_error=has_error,
+            )
+        return True
 
     def on_close_request(self, _window: Gtk.Window) -> bool:
         """Hide to tray or defer destruction until ripping workers finish."""
+        if getattr(self, "_shutdown_close_authorized", False):
+            return False
         if getattr(self, "close_to_tray", False):
             self.set_visible(False)
             return True
@@ -2490,7 +2685,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 pending_completion()
             return True
 
-        return not MainWindow.shutdown(self, on_complete=self.close)
+        self.request_quit(on_complete=self.close)
+        return True
 
     def update_data_usage(self) -> None:
         if hasattr(self, "data_usage_label"):

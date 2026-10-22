@@ -31,9 +31,11 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
+- Updated the optional Brynse pin to revision `23971964c7d53da520351a4bbd322b078fdae07d` for automatic filename ordering on verified stream profiles (#246). FluxTuner preserves Brynse's original track metadata and finalized file paths.
 - Added a dedicated CI job that installs pinned Brynse and FFmpeg,
   executes real radio integration contracts, and rejects skipped or
-  missing contract coverage.
+  missing contract coverage (#266), including verification of the
+  installed pinned revision.
 
 
 - GTK places saved playlists prominently in the sidebar and folds favorite

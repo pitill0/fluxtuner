@@ -205,10 +205,16 @@ def test_gtk_stop_clears_runtime_and_projects_stopped_state() -> None:
 
 def test_gtk_close_stops_runtime_dependencies() -> None:
     harness = _ripping_shutdown_harness()
+    harness._quit_confirmation_pending = False
+    harness.request_quit = lambda *, on_complete: window.MainWindow.request_quit(
+        harness, on_complete=on_complete
+    )
 
     result = window.MainWindow.on_close_request(harness, Mock())
 
-    assert result is False
+    assert result is True
+    harness.close.assert_called_once_with()
+    harness.ripping_service.stop.assert_called_once_with()
     harness._stop_usage_timer.assert_called_once_with()
     harness._stop_player_state_timer.assert_called_once_with()
     harness._stop_metadata_polling.assert_called_once_with()
@@ -240,11 +246,18 @@ def test_gtk_close_to_tray_hides_without_stopping_runtime() -> None:
 
 def test_gtk_close_contains_player_stop_failure() -> None:
     harness = _ripping_shutdown_harness()
+    harness._quit_confirmation_pending = False
+    harness.request_quit = lambda *, on_complete: window.MainWindow.request_quit(
+        harness, on_complete=on_complete
+    )
     harness.player.stop.side_effect = RuntimeError("already gone")
 
     result = window.MainWindow.on_close_request(harness, Mock())
 
-    assert result is False
+    assert result is True
+    harness.player.stop.assert_called_once_with()
+    harness.close.assert_called_once_with()
+    harness.ripping_service.stop.assert_called_once_with()
     harness._stop_metadata_polling.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()
 
@@ -1368,7 +1381,15 @@ def _ripping_shutdown_harness() -> SimpleNamespace:
     service.wait.return_value = True
     recording_manager = Mock()
     recording_manager.active_session = None
+    recording_shutdown = Mock()
+    recording_shutdown.requested = False
+    recording_shutdown.error = None
+    recording_shutdown.poll.return_value = True
     return SimpleNamespace(
+        _recording_shutdown=recording_shutdown,
+        _shutdown_deadline=None,
+        _shutdown_warning_open=False,
+        _shutdown_close_authorized=False,
         ripping_service=service,
         _ripping_shutdown=RippingShutdown(service=service),
         _ripping_shutting_down=False,
@@ -1415,7 +1436,8 @@ def test_gtk_ripping_window_shutdown_repeats_only_completion_check() -> None:
     harness._stop_player_state_timer.assert_called_once_with()
     harness._stop_metadata_polling.assert_called_once_with()
     harness.usage_tracker.stop.assert_called_once_with()
-    harness.recording_manager.stop.assert_called_once_with()
+    harness._recording_shutdown.request.assert_called_once_with()
+    harness.recording_manager.stop.assert_not_called()
     harness.player.stop.assert_called_once_with()
 
 
@@ -1442,7 +1464,8 @@ def test_gtk_ripping_window_shutdown_contains_and_reports_stop_failure() -> None
     harness.ripping_service.wait.side_effect = [False, True]
 
     assert window.MainWindow.shutdown(harness) is False
-    assert window.MainWindow.shutdown(harness) is True
+    # A Brynse stop failure must not authorize automatic exit.
+    assert window.MainWindow.shutdown(harness) is False
 
     assert harness._ripping_shutdown.error is error
     harness.ripping_service.stop.assert_called_once_with()
@@ -1464,11 +1487,31 @@ def test_gtk_ripping_window_shutdown_without_workers_is_ready() -> None:
 
 def test_gtk_ripping_close_wait_defers_window_close(monkeypatch) -> None:
     harness = _ripping_shutdown_harness()
-    harness.ripping_service.wait.side_effect = [False, False, True]
+    harness.close_to_tray = False
+    harness._quit_confirmation_pending = False
+    harness.ripping_service.wait.side_effect = [False, False, False, True]
+    dialogs = []
+
+    harness.request_quit = lambda *, on_complete: window.MainWindow.request_quit(
+        harness, on_complete=on_complete
+    )
+    harness._show_quit_confirmation = Mock(
+        side_effect=lambda *, on_confirm, on_cancel: dialogs.append((on_confirm, on_cancel))
+    )
+
     schedule = Mock(return_value=23)
     monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
 
     assert window.MainWindow.on_close_request(harness, Mock()) is True
+    assert len(dialogs) == 1
+
+    harness.close.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    schedule.assert_not_called()
+
+    dialogs[0][0]()
+
+    harness.ripping_service.stop.assert_called_once_with()
     harness.close.assert_not_called()
     assert harness._shutdown_timer_id == 23
     schedule.assert_called_once()
@@ -1478,22 +1521,40 @@ def test_gtk_ripping_close_wait_defers_window_close(monkeypatch) -> None:
 
     assert window.MainWindow._poll_shutdown(harness) is True
     harness.close.assert_not_called()
-    assert window.MainWindow._poll_shutdown(harness) is False
 
+    assert window.MainWindow._poll_shutdown(harness) is False
     harness.close.assert_called_once_with()
     assert harness._shutdown_timer_id is None
     assert harness._shutdown_on_complete is None
-    harness.ripping_service.stop.assert_called_once_with()
 
 
 def test_gtk_ripping_close_wait_repeated_close_uses_one_timer(monkeypatch) -> None:
     harness = _ripping_shutdown_harness()
+    harness.close_to_tray = False
+    harness._quit_confirmation_pending = False
     harness.ripping_service.wait.side_effect = [False, False, True]
+    dialogs = []
+
+    harness.request_quit = lambda *, on_complete: window.MainWindow.request_quit(
+        harness, on_complete=on_complete
+    )
+    harness._show_quit_confirmation = Mock(
+        side_effect=lambda *, on_confirm, on_cancel: dialogs.append((on_confirm, on_cancel))
+    )
+
     schedule = Mock(return_value=23)
     monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
 
     assert window.MainWindow.on_close_request(harness, Mock()) is True
     assert window.MainWindow.on_close_request(harness, Mock()) is True
+
+    assert len(dialogs) == 1
+    harness.ripping_service.stop.assert_not_called()
+    schedule.assert_not_called()
+
+    dialogs[0][0]()
+
+    assert harness._shutdown_timer_id == 23
     assert window.MainWindow._poll_shutdown(harness) is False
 
     schedule.assert_called_once()
@@ -1517,8 +1578,9 @@ def test_gtk_ripping_close_wait_latest_completion_replaces_pending_callback(monk
 
     assert window.MainWindow._poll_shutdown(harness) is False
 
-    first.assert_not_called()
-    latest.assert_called_once_with()
+    # Preserve the first pending completion (Quit priority).
+    first.assert_called_once_with()
+    latest.assert_not_called()
     schedule.assert_called_once()
 
 
@@ -2037,3 +2099,310 @@ def test_custom_station_dialog_saves_captured_profile_and_refreshes(monkeypatch,
     harness.status_label.set_text.assert_called_once_with(
         "Station added to favorites." if added else "Station is already in favorites."
     )
+
+
+def test_gtk_quit_request_without_recordings_starts_shutdown(monkeypatch) -> None:
+    harness = _ripping_shutdown_harness()
+    harness._quit_confirmation_pending = False
+    harness._show_quit_confirmation = Mock()
+    completed = Mock()
+
+    from fluxtuner.gui.gtk_ripping import shutdown_has_pending_recordings
+
+    assert (
+        shutdown_has_pending_recordings(
+            recording_manager=harness.recording_manager,
+            ripping_service=harness.ripping_service,
+        )
+        is False
+    )
+
+    window.MainWindow.request_quit(harness, on_complete=completed)
+
+    harness._show_quit_confirmation.assert_not_called()
+    harness.ripping_service.stop.assert_called_once_with()
+    completed.assert_called_once_with()
+
+
+def test_gtk_quit_request_requires_confirmation(monkeypatch) -> None:
+    harness = _ripping_shutdown_harness()
+    harness.recording_manager.active_session = object()
+    harness._quit_confirmation_pending = False
+    harness._show_quit_confirmation = Mock()
+    completed = Mock()
+
+    window.MainWindow.request_quit(harness, on_complete=completed)
+
+    harness._show_quit_confirmation.assert_called_once()
+    harness.recording_manager.stop.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness.player.stop.assert_not_called()
+    completed.assert_not_called()
+
+
+def test_gtk_quit_confirmation_cancel_or_accept(monkeypatch) -> None:
+    harness = _ripping_shutdown_harness()
+    harness.recording_manager.active_session = object()
+    harness._quit_confirmation_pending = False
+    callbacks = []
+    completed = Mock()
+
+    def capture_dialog(*, on_confirm, on_cancel):
+        callbacks.append((on_confirm, on_cancel))
+
+    harness._show_quit_confirmation = Mock(side_effect=capture_dialog)
+
+    window.MainWindow.request_quit(harness, on_complete=completed)
+    window.MainWindow.request_quit(harness, on_complete=completed)
+
+    assert len(callbacks) == 1
+    harness.ripping_service.stop.assert_not_called()
+    harness.recording_manager.stop.assert_not_called()
+
+    callbacks[0][1]()
+
+    harness.ripping_service.stop.assert_not_called()
+    harness.recording_manager.stop.assert_not_called()
+    completed.assert_not_called()
+
+    window.MainWindow.request_quit(harness, on_complete=completed)
+    assert len(callbacks) == 2
+
+    callbacks[1][0]()
+
+    harness.ripping_service.stop.assert_called_once_with()
+    harness._recording_shutdown.request.assert_called_once_with()
+    harness.recording_manager.stop.assert_not_called()
+    completed.assert_called_once_with()
+
+
+def test_gtk_window_x_routes_pending_recording_to_confirmation() -> None:
+    harness = _ripping_shutdown_harness()
+    harness.close_to_tray = False
+    harness.recording_manager.active_session = object()
+    harness.request_quit = Mock()
+
+    assert window.MainWindow.on_close_request(harness, Mock()) is True
+
+    harness.request_quit.assert_called_once()
+    callback = harness.request_quit.call_args.kwargs["on_complete"]
+    assert callable(callback)
+    harness.recording_manager.stop.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness.player.stop.assert_not_called()
+    harness.close.assert_not_called()
+
+
+def test_gtk_window_x_cancel_keeps_recording_then_confirm_stops() -> None:
+    harness = _ripping_shutdown_harness()
+    harness.close_to_tray = False
+    harness.recording_manager.active_session = object()
+    harness._quit_confirmation_pending = False
+    callbacks = []
+
+    harness.request_quit = lambda *, on_complete: window.MainWindow.request_quit(
+        harness, on_complete=on_complete
+    )
+
+    def capture_dialog(*, on_confirm, on_cancel):
+        callbacks.append((on_confirm, on_cancel))
+
+    harness._show_quit_confirmation = Mock(side_effect=capture_dialog)
+
+    assert window.MainWindow.on_close_request(harness, Mock()) is True
+    assert len(callbacks) == 1
+    harness.recording_manager.stop.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness.close.assert_not_called()
+
+    callbacks[0][1]()
+
+    assert harness._quit_confirmation_pending is False
+    harness.recording_manager.stop.assert_not_called()
+    harness.ripping_service.stop.assert_not_called()
+    harness.close.assert_not_called()
+
+    assert window.MainWindow.on_close_request(harness, Mock()) is True
+    assert len(callbacks) == 2
+    callbacks[1][0]()
+
+    harness._recording_shutdown.request.assert_called_once_with()
+    harness.recording_manager.stop.assert_not_called()
+    harness.ripping_service.stop.assert_called_once_with()
+    harness.close.assert_called_once_with()
+
+
+def _quit_dialog_harness(monkeypatch):
+    """Capture Gtk.Dialog construction and its response callback."""
+    responses = SimpleNamespace(
+        CANCEL=-6,
+        ACCEPT=-3,
+        DELETE_EVENT=-4,
+    )
+    dialog = Mock()
+    dialog.get_content_area.return_value = Mock()
+    captured = {}
+
+    def connect(signal, callback):
+        assert signal == "response"
+        captured["respond"] = callback
+
+    dialog.connect.side_effect = connect
+
+    constructor = Mock(return_value=dialog)
+    monkeypatch.setattr(window.Gtk, "Dialog", constructor, raising=False)
+    monkeypatch.setattr(window.Gtk, "Label", Mock(return_value=Mock()), raising=False)
+    monkeypatch.setattr(window.Gtk, "ResponseType", responses, raising=False)
+
+    owner = Mock()
+    on_confirm = Mock()
+    on_cancel = Mock()
+
+    window.MainWindow._show_quit_confirmation(
+        owner,
+        on_confirm=on_confirm,
+        on_cancel=on_cancel,
+    )
+
+    constructor.assert_called_once_with(
+        title="Recording in progress",
+        transient_for=owner,
+        modal=True,
+    )
+    dialog.add_button.assert_any_call("Cancel", responses.CANCEL)
+    dialog.add_button.assert_any_call("Stop recording & Quit", responses.ACCEPT)
+    dialog.present.assert_called_once_with()
+    assert "respond" in captured
+    return dialog, responses, captured["respond"], on_confirm, on_cancel
+
+
+def test_gtk_quit_dialog_cancel(monkeypatch) -> None:
+    dialog, responses, respond, on_confirm, on_cancel = _quit_dialog_harness(monkeypatch)
+
+    respond(dialog, responses.CANCEL)
+
+    dialog.destroy.assert_called_once_with()
+    on_cancel.assert_called_once_with()
+    on_confirm.assert_not_called()
+
+
+@pytest.mark.parametrize("response", [-4, -5, -1])
+def test_gtk_quit_dialog_close_or_escape_cancels(monkeypatch, response) -> None:
+    dialog, _, respond, on_confirm, on_cancel = _quit_dialog_harness(monkeypatch)
+
+    respond(dialog, response)
+
+    dialog.destroy.assert_called_once_with()
+    on_cancel.assert_called_once_with()
+    on_confirm.assert_not_called()
+
+
+def test_gtk_quit_dialog_accept(monkeypatch) -> None:
+    dialog, responses, respond, on_confirm, on_cancel = _quit_dialog_harness(monkeypatch)
+
+    respond(dialog, responses.ACCEPT)
+
+    dialog.destroy.assert_called_once_with()
+    on_confirm.assert_called_once_with()
+    on_cancel.assert_not_called()
+
+
+def test_gtk_quit_dialog_duplicate_response_is_idempotent(monkeypatch) -> None:
+    dialog, responses, respond, on_confirm, on_cancel = _quit_dialog_harness(monkeypatch)
+
+    respond(dialog, responses.ACCEPT)
+    respond(dialog, responses.CANCEL)
+
+    dialog.destroy.assert_called_once_with()
+    on_confirm.assert_called_once_with()
+    on_cancel.assert_not_called()
+
+
+def _shutdown_coordinator_harness():
+    harness = _ripping_shutdown_harness()
+    harness._recording_shutdown = Mock()
+    harness._recording_shutdown.requested = False
+    harness._recording_shutdown.poll.return_value = True
+    harness._recording_shutdown.error = None
+    harness._shutdown_deadline = None
+    harness._shutdown_warning_open = False
+    return harness
+
+
+def test_gtk_shutdown_combined_worker_pending_does_not_complete(monkeypatch) -> None:
+    harness = _shutdown_coordinator_harness()
+    harness.recording_manager.active_session = object()
+    harness._recording_shutdown.requested = True
+    harness._recording_shutdown.poll.return_value = False
+    completed = Mock()
+    monkeypatch.setattr(window.GLib, "timeout_add", Mock(return_value=29), raising=False)
+
+    assert window.MainWindow.shutdown(harness, on_complete=completed) is False
+    harness._recording_shutdown.request.assert_called_once_with()
+    harness.recording_manager.stop.assert_not_called()
+    completed.assert_not_called()
+    assert harness._shutdown_timer_id == 29
+
+
+def test_gtk_shutdown_combined_worker_finishes_then_completes(monkeypatch) -> None:
+    harness = _shutdown_coordinator_harness()
+    harness._ripping_shutting_down = True
+    harness._shutdown_on_complete = Mock()
+    harness._shutdown_timer_id = 29
+    harness._shutdown_deadline = 100.0
+    harness._recording_shutdown.requested = True
+    harness._recording_shutdown.poll.side_effect = [False, True]
+    harness._ripping_shutdown.poll = Mock(return_value=True)
+    monkeypatch.setattr(window, "monotonic", lambda: 10.0)
+
+    assert window.MainWindow._poll_shutdown(harness) is True
+    callback = harness._shutdown_on_complete
+    callback.assert_not_called()
+    assert window.MainWindow._poll_shutdown(harness) is False
+    callback.assert_called_once_with()
+
+
+def test_gtk_shutdown_deadline_offers_wait_or_force(monkeypatch) -> None:
+    harness = _shutdown_coordinator_harness()
+    harness._ripping_shutting_down = True
+    harness._shutdown_on_complete = Mock()
+    finish = harness._shutdown_on_complete
+    harness._shutdown_deadline = 10.0
+    harness._shutdown_timer_id = 29
+    harness._ripping_shutdown.poll = Mock(return_value=False)
+    harness._show_shutdown_warning = Mock()
+    clock = [11.0, 11.0, 20.0]
+    monkeypatch.setattr(window, "monotonic", lambda: clock.pop(0))
+
+    assert window.MainWindow._poll_shutdown(harness) is True
+    harness._show_shutdown_warning.assert_called_once()
+    callbacks = harness._show_shutdown_warning.call_args.kwargs
+    finish.assert_not_called()
+    assert window.MainWindow._poll_shutdown(harness) is True
+    harness._show_shutdown_warning.assert_called_once()
+
+    callbacks["on_wait"]()
+    assert harness._shutdown_warning_open is False
+    assert harness._shutdown_deadline == 23.0
+    finish.assert_not_called()
+    assert window.MainWindow._poll_shutdown(harness) is True
+    assert harness._show_shutdown_warning.call_count == 1
+
+
+def test_gtk_shutdown_failure_requires_explicit_decision(monkeypatch) -> None:
+    harness = _shutdown_coordinator_harness()
+    harness._ripping_shutting_down = True
+    harness._shutdown_on_complete = Mock()
+    finish = harness._shutdown_on_complete
+    harness._shutdown_timer_id = 29
+    harness._shutdown_deadline = 100.0
+    harness._ripping_shutdown.poll = Mock(return_value=True)
+    harness._recording_shutdown.error = RuntimeError("disk failure")
+    harness._show_shutdown_warning = Mock()
+    monkeypatch.setattr(window, "monotonic", lambda: 110.0)
+
+    assert window.MainWindow._poll_shutdown(harness) is True
+    assert harness._show_shutdown_warning.call_args.kwargs["has_error"] is True
+    finish.assert_not_called()
+    harness._show_shutdown_warning.call_args.kwargs["on_force"]()
+    finish.assert_called_once_with()

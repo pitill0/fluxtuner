@@ -150,6 +150,7 @@ def test_gtk_recording_reports_missing_ffmpeg() -> None:
 
 
 def test_gtk_shutdown_finalizes_active_recording() -> None:
+    from fluxtuner.gui.gtk_recording_shutdown import AsyncRecordingStop
     from fluxtuner.gui.gtk_ripping import RippingShutdown
 
     manager = FakeRecordingManager()
@@ -161,6 +162,10 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
     service.wait.return_value = True
     harness = SimpleNamespace(
         _ripping_shutdown=RippingShutdown(service=service),
+        _recording_shutdown=AsyncRecordingStop(stop=manager.stop),
+        _shutdown_deadline=None,
+        _shutdown_warning_open=False,
+        _shutdown_close_authorized=False,
         _ripping_shutting_down=False,
         _ripping_state_timer_id=None,
         _shutdown_timer_id=None,
@@ -174,7 +179,11 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
         _stop_metadata_polling=Mock(),
     )
 
+    # The first request schedules FFmpeg stop without blocking GTK.
     window.MainWindow.shutdown(harness)
+    assert harness._recording_shutdown.wait(timeout=2) is True
+    assert harness._recording_shutdown.error is None
+    assert window.MainWindow.shutdown(harness) is True
 
     assert manager.stop_calls == 1
     harness.player.stop.assert_called_once_with()

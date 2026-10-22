@@ -346,3 +346,22 @@ M1 evidence under Downloads: `fluxtuner-brynse-update-red-03.txt`,
 - Additional stream profiles and segmentation or filename refinements belong
   to Brynse. Unknown stream URLs preserve the received metadata order;
   FluxTuner keeps the filenames supplied by Brynse.
+
+## GTK shutdown confirmation and deadlines
+
+When quitting FluxTuner with an active or pending recording, GTK asks for
+confirmation before requesting an orderly stop. Cancelling does not stop
+recording work. Closing to the system tray does not initiate shutdown.
+
+FFmpeg stopping runs in a supervised worker outside the GTK main thread.
+Brynse workers are polled independently. Automatic shutdown requires both
+workers to finish without a reported error.
+
+A monotonic 12-second deadline controls the waiting dialog. The deadline
+never forces an exit. Users may choose **Keep waiting** to continue supervising
+the workers or **Quit anyway** to explicitly authorize termination.
+
+An FFmpeg backend stop may escalate from SIGINT to SIGKILL. A successful
+return from the backend does not independently prove that the output file
+was finalized gracefully. This limitation requires separate backend-level
+handling and should not be interpreted as a guarantee of file integrity.

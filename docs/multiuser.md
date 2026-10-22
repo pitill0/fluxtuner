@@ -158,7 +158,7 @@ Requirements:
   password hashing library.
 - Login responses do not reveal whether the username or password was wrong.
 - Login attempts are rate-limited.
-- Users can change their password only after re-entering their current password.
+- No self-service password-change endpoint using the current password is implemented. Users recover a forgotten password with a valid recovery code; administrators can reset passwords when recovery is unavailable.
 - Approved active users receive a server-generated recovery-code set when they
   successfully log in without an existing set.
 - Recovery codes are shown in plaintext only when issued and are stored only as

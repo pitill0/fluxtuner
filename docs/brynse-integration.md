@@ -160,7 +160,9 @@ the UI thread. Window close and explicit tray Quit complete after worker
 cleanup. Closing to a compatible Linux tray only hides the window and leaves
 the application running. Playback and session recording cannot restart once
 actual shutdown begins. The deferred-opening limitation described above still
-applies; shutdown has no fixed completion deadline.
+applies to backend cleanup. GTK now uses a monotonic 12-second waiting
+deadline and asks whether to keep waiting or quit anyway. Reaching that
+deadline does not kill Python threads or prove that files are finalized.
 
 Errors are contained and reported in the status label. Final statuses show
 finalized track counts and, when tracks exist, the destination. Filenames and

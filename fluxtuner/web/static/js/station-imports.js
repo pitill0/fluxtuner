@@ -6,7 +6,7 @@ export function createStationImportController({
   apiFetch, elements, getCurrentUser, getSessionKey, beforeOpen, onSaved,
 }) {
   const {
-    openButton, dialog, form, fileInput, previewButton, previewNode,
+    openButton, dialog, form, fileInput, urlInput, previewButton, previewNode,
     destinationNode, selectNode, nameField, nameInput, messageNode,
     submitButton, cancelButton,
   } = elements;
@@ -34,6 +34,7 @@ export function createStationImportController({
     const ready = bytes !== null;
     const busy = Boolean(pending);
     fileInput.disabled = busy;
+    if (urlInput) urlInput.disabled = busy;
     previewButton.disabled = busy;
     selectNode.disabled = busy || !ready;
     nameField.hidden = selectNode.value !== "";
@@ -159,13 +160,18 @@ export function createStationImportController({
       return;
     }
     clearPreview();
+    const url = urlInput?.value.trim() || "";
     const file = fileInput.files?.[0];
-    if (!file) {
-      messageNode.textContent = "Choose an M3U, M3U8 or PLS file first.";
+    if (!url && !file) {
+      messageNode.textContent = "Choose a playlist file or enter an HTTP/HTTPS URL.";
       return;
     }
-    if (file.size > MAX_BYTES) {
+    if (!url && file.size > MAX_BYTES) {
       messageNode.textContent = "The playlist exceeds 1 MiB.";
+      return;
+    }
+    if (url && !/^https?:\/\//i.test(url)) {
+      messageNode.textContent = "Enter an HTTP/HTTPS collection URL.";
       return;
     }
 
@@ -173,16 +179,42 @@ export function createStationImportController({
     const requestContext = context;
     pending = "preview";
     updateControls();
-    messageNode.textContent = "Reading playlist…";
+    messageNode.textContent = url ? "Downloading collection…" : "Reading playlist…";
     try {
-      const data = await file.arrayBuffer();
+      let data;
+      if (url) {
+        const download = await apiFetch("/api/stations/import/remote", {
+          method: "POST",
+          headers: { Accept: "application/octet-stream", "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        if (!current(requestGeneration, requestContext)) return;
+        if (!download.ok) {
+          let detail = "Could not download remote collection.";
+          try {
+            const payload = await download.json();
+            if (typeof payload?.detail === "string") detail = payload.detail;
+          } catch { /* Keep the fallback message. */ }
+          throw new Error(detail);
+        }
+        data = await download.arrayBuffer();
+        if (!current(requestGeneration, requestContext)) return;
+        if (data.byteLength > MAX_BYTES) throw new Error("The playlist exceeds 1 MiB.");
+      } else {
+        data = await file.arrayBuffer();
+      }
       if (!current(requestGeneration, requestContext)) return;
       const response = await post("/api/stations/import/preview", data);
       if (!current(requestGeneration, requestContext)) return;
       const payload = await readPayload(response);
       if (!current(requestGeneration, requestContext)) return;
       bytes = data;
-      nameInput.value = file.name.replace(/\.(?:m3u8?|pls)$/i, "").slice(0, 120) || "Imported stations";
+      let sourceName = file?.name || "Imported stations";
+      if (url) {
+        const parsed = new URL(url);
+        sourceName = parsed.pathname.split("/").filter(Boolean).pop() || parsed.hostname;
+      }
+      nameInput.value = sourceName.replace(/\.(?:m3u8?|pls)$/i, "").slice(0, 120) || "Imported stations";
       renderPreview(payload);
     } catch (error) {
       if (!current(requestGeneration, requestContext)) return;
@@ -243,6 +275,7 @@ export function createStationImportController({
     bound = true;
     openButton?.addEventListener("click", openDialog);
     fileInput.addEventListener("change", fileChanged);
+    urlInput?.addEventListener("input", fileChanged);
     previewButton.addEventListener("click", preview);
     selectNode.addEventListener("change", updateControls);
     form.addEventListener("submit", submit);

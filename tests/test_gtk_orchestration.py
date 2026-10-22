@@ -1923,6 +1923,7 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
         on_import_stations_clicked=Mock(),
     )
 
+    harness.on_import_stations_url_clicked = Mock()
     window.MainWindow._build_application_menu(harness, container)
 
     window.Gtk.MenuButton.assert_called_once_with(icon_name="open-menu-symbolic")

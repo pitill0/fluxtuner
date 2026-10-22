@@ -7,6 +7,7 @@ from collections.abc import Callable
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -25,6 +26,8 @@ from fluxtuner.core.m3u_import import (
     load_m3u_file,
     load_station_collection,
 )
+from fluxtuner.network.network_policy import SystemStreamTargetResolver
+from fluxtuner.network.remote_station_collection import preview_remote_station_collection
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +37,17 @@ class M3UImportOutcome:
 
 
 def _load_preview(
-    path: Path, profile_id: int
+    path: Path | str, profile_id: int
 ) -> tuple[M3UPreview, tuple[str, ...], frozenset[str]]:
-    preview = (
-        load_station_collection(path) if path.suffix.lower() == ".pls" else load_m3u_file(path)
-    )
+    if isinstance(path, str) and path.lower().startswith(("http://", "https://")):
+        _snapshot, preview = preview_remote_station_collection(path, SystemStreamTargetResolver())
+    else:
+        local_path = Path(path)
+        preview = (
+            load_station_collection(local_path)
+            if local_path.suffix.lower() == ".pls"
+            else load_m3u_file(local_path)
+        )
     if not preview.entries:
         raise ValueError("The file contains no valid stations to import.")
     with closing(db.connect()) as conn:
@@ -141,13 +150,15 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="m3u-form"):
             yield Label("Import stations")
-            yield Static("Local M3U/M3U8/PLS collection, up to 1 MiB. Preview before saving.")
-            yield Label("File path")
+            yield Static(
+                "Local file or HTTP(S) URL, M3U/M3U8/PLS, up to 1 MiB. Preview before saving."
+            )
+            yield Label("File path or URL")
             yield Input(
-                placeholder="~/Downloads/stations.m3u",
+                placeholder="~/Downloads/stations.m3u or https://example.org/stations.pls",
                 id="m3u-path",
             )
-            yield Button("Preview file", id="m3u-load")
+            yield Button("Preview collection", id="m3u-load")
             with Vertical(id="m3u-review"):
                 yield Static("", id="m3u-summary", markup=False)
                 yield TextArea(
@@ -242,11 +253,14 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
         self._pending = "preview"
         self._controls()
         self._message("Reading playlist…")
-        path = Path(self.query_one("#m3u-path", Input).value.strip()).expanduser()
-        self._read_file(path, self._generation)
+        raw = self.query_one("#m3u-path", Input).value.strip()
+        source: Path | str = (
+            raw if raw.lower().startswith(("http://", "https://")) else Path(raw).expanduser()
+        )
+        self._read_file(source, self._generation)
 
     @work(exclusive=True, group="m3u-preview")
-    async def _read_file(self, path: Path, generation: int) -> None:
+    async def _read_file(self, path: Path | str, generation: int) -> None:
         try:
             if not self._profile_is_current():
                 raise ValueError("The profile changed. Reopen the import dialog.")
@@ -266,7 +280,12 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
                 ]
             )
             select.value = "new"
-            self.query_one("#m3u-name", Input).value = path.stem[:MAX_PLAYLIST_NAME_LENGTH]
+            if isinstance(path, str):
+                target = urlsplit(path)
+                source_name = Path(target.path).stem or target.hostname or "stations"
+            else:
+                source_name = path.stem
+            self.query_one("#m3u-name", Input).value = source_name[:MAX_PLAYLIST_NAME_LENGTH]
             self.query_one("#m3u-summary", Static).update(
                 f"{len(preview.entries)} valid stations; "
                 f"{preview.duplicates} repeated URLs; "

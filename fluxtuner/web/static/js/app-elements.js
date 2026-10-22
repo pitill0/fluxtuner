@@ -9,6 +9,7 @@ export function createAppElements(root = document) {
       dialog: root.querySelector("[data-station-import-dialog]"),
       form: root.querySelector("[data-station-import-form]"),
       fileInput: root.querySelector("[data-station-import-file]"),
+      urlInput: root.querySelector("[data-station-import-url]"),
       previewButton: root.querySelector("[data-station-import-preview-button]"),
       previewNode: root.querySelector("[data-station-import-preview]"),
       destinationNode: root.querySelector("[data-station-import-destination]"),

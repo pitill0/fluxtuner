@@ -806,14 +806,19 @@
             <h2 id="station-import-title">Import stations</h2>
           </div>
         </div>
-        <p>Choose an M3U, M3U8 or PLS collection, up to 1 MiB.
+        <p>Choose a local M3U, M3U8 or PLS collection, or enter a remote HTTP/HTTPS URL (up to 1 MiB).
           Existing favorite names and tags are preserved.</p>
         <form class="playlist-dialog-form" data-station-import-form>
           <label>
             <span>Playlist file</span>
             <input type="file" accept=".m3u,.m3u8,.pls" data-station-import-file>
           </label>
-          <button type="button" data-station-import-preview-button>Preview file</button>
+          <label>
+            <span>Or collection URL</span>
+            <input type="url" autocomplete="url" maxlength="2048"
+              placeholder="https://example.org/stations.m3u" data-station-import-url>
+          </label>
+          <button type="button" data-station-import-preview-button>Preview collection</button>
           <pre class="station-import-preview" data-station-import-preview
             aria-label="Playlist preview" tabindex="0" hidden></pre>
           <div class="station-import-destination" data-station-import-destination hidden>

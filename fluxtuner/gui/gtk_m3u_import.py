@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+from urllib.parse import urlsplit
 
 from fluxtuner.core import db
 from fluxtuner.core.m3u_import import (
@@ -18,6 +20,8 @@ from fluxtuner.core.m3u_import import (
     import_m3u,
     load_station_collection,
 )
+from fluxtuner.network.network_policy import SystemStreamTargetResolver
+from fluxtuner.network.remote_station_collection import preview_remote_station_collection
 
 
 @dataclass
@@ -74,6 +78,44 @@ def prepare_m3u_import(
     if not profile_is_current():
         raise ValueError("The profile changed. Reopen the import dialog.")
     preview = load_station_collection(path)
+    return prepare_m3u_preview(
+        preview,
+        source_name=Path(path).name,
+        profile_id=profile_id,
+        profile_is_current=profile_is_current,
+    )
+
+
+def prepare_remote_m3u_import(
+    url: str,
+    *,
+    profile_id: int,
+    profile_is_current: Callable[[], bool],
+) -> M3UImportSession:
+    """Download once, then retain a parsed snapshot for confirmation."""
+    if not profile_is_current():
+        raise ValueError("The profile changed. Reopen the import dialog.")
+    _data, preview = preview_remote_station_collection(url, SystemStreamTargetResolver())
+    source = urlsplit(url)
+    source_name = Path(source.path).name or source.hostname or "stations"
+    return prepare_m3u_preview(
+        preview,
+        source_name=source_name,
+        profile_id=profile_id,
+        profile_is_current=profile_is_current,
+    )
+
+
+def prepare_m3u_preview(
+    preview: M3UPreview,
+    *,
+    source_name: str,
+    profile_id: int,
+    profile_is_current: Callable[[], bool],
+) -> M3UImportSession:
+    """Create a session from an already loaded local or remote preview."""
+    if not profile_is_current():
+        raise ValueError("The profile changed. Reopen the import dialog.")
     if not preview.entries:
         raise ValueError("The file contains no valid stations to import.")
     if type(profile_id) is not int or profile_id <= 0:
@@ -99,7 +141,7 @@ def prepare_m3u_import(
         preview=preview,
         playlist_names=names,
         existing_urls=urls,
-        source_name=Path(path).name,
+        source_name=source_name,
         profile_is_current=profile_is_current,
     )
 
@@ -201,6 +243,118 @@ def _show_preview(
     dialog.connect("response", respond)
     dialog.present()
     name_entry.grab_focus()
+
+
+def open_remote_m3u_import(
+    parent: Any,
+    *,
+    profile_id: int,
+    profile_is_current: Callable[[], bool],
+    on_saved: Callable[[str, M3UImportResult], None],
+    on_error: Callable[[str], None],
+) -> None:
+    """Download outside GTK main loop; discard late results after dismissal."""
+    import gi
+
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import GLib, Gtk
+
+    active = getattr(parent, "_m3u_import_dialog", None)
+    if active is not None:
+        active.present()
+        return
+    active = getattr(parent, "_m3u_import_remote_dialog", None)
+    if active is not None:
+        active.present()
+        return
+
+    dialog: Any = Gtk.Dialog(title="Import stations from URL", transient_for=parent, modal=True)
+    dialog.set_default_size(560, 160)
+    dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    preview_button = dialog.add_button("Preview", Gtk.ResponseType.ACCEPT)
+    content = dialog.get_content_area()
+    content.set_spacing(10)
+    for side in ("top", "bottom", "start", "end"):
+        getattr(content, f"set_margin_{side}")(16)
+    entry = Gtk.Entry()
+    entry.set_placeholder_text("https://example.org/stations.m3u")
+    content.append(entry)
+    status = Gtk.Label(label="No stations are saved before confirmation.", xalign=0)
+    status.set_wrap(True)
+    content.append(status)
+    parent._m3u_import_remote_dialog = dialog
+    state = {"closed": False, "busy": False}
+
+    def dispose() -> None:
+        state["closed"] = True
+        if getattr(parent, "_m3u_import_remote_dialog", None) is dialog:
+            parent._m3u_import_remote_dialog = None
+
+    def destroyed(_widget: Any) -> None:
+        dispose()
+
+    def finish(session: M3UImportSession | None, error: str | None) -> bool:
+        if state["closed"] or getattr(parent, "_m3u_import_remote_dialog", None) is not dialog:
+            return False
+        state["busy"] = False
+        if not profile_is_current():
+            dispose()
+            cast(Any, dialog).destroy()
+            return False
+        if error is not None:
+            status.set_text(error)
+            preview_button.set_sensitive(True)
+            entry.set_sensitive(True)
+            return False
+        if session is None:
+            return False
+        dispose()
+        cast(Any, dialog).destroy()
+        _show_preview(parent, session, on_saved=on_saved)
+        return False
+
+    def respond(_dialog: Any, response: int) -> None:
+        if response != Gtk.ResponseType.ACCEPT:
+            dispose()
+            dialog.destroy()
+            return
+        if state["busy"] or state["closed"]:
+            return
+        url = entry.get_text().strip()
+        if not url:
+            status.set_text("Enter an HTTP/HTTPS collection URL.")
+            return
+        if not profile_is_current():
+            dispose()
+            dialog.destroy()
+            return
+        state["busy"] = True
+        preview_button.set_sensitive(False)
+        entry.set_sensitive(False)
+        status.set_text("Downloading collection…")
+
+        def worker() -> None:
+            try:
+                session = prepare_remote_m3u_import(
+                    url, profile_id=profile_id, profile_is_current=profile_is_current
+                )
+            except Exception as exc:  # noqa: BLE001 - report download failures on GTK thread.
+                GLib.idle_add(finish, None, str(exc))
+            else:
+                GLib.idle_add(finish, session, None)
+
+        try:
+            threading.Thread(target=worker, name="fluxtuner-remote-import", daemon=True).start()
+        except Exception as exc:  # noqa: BLE001 - thread launch failure.
+            state["busy"] = False
+            preview_button.set_sensitive(True)
+            entry.set_sensitive(True)
+            on_error(f"Could not start remote import: {exc}")
+
+    dialog.connect("destroy", destroyed)
+    dialog.connect("response", respond)
+    dialog.present()
+    entry.grab_focus()
 
 
 def open_m3u_import(

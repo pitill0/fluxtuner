@@ -68,7 +68,10 @@ from fluxtuner.gui.appearance import (  # noqa: E402
     GtkAppearanceManager,
     normalize_appearance,
 )
-from fluxtuner.gui.gtk_m3u_import import open_m3u_import  # noqa: E402
+from fluxtuner.gui.gtk_m3u_import import (  # noqa: E402
+    open_m3u_import,
+    open_remote_m3u_import,
+)
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
@@ -509,6 +512,10 @@ class MainWindow(Gtk.ApplicationWindow):
         import_button.connect("clicked", self.on_import_stations_clicked)
         content.append(import_button)
 
+        remote_import_button = Gtk.Button(label="Import stations from URL…")
+        remote_import_button.connect("clicked", self.on_import_stations_url_clicked)
+        content.append(remote_import_button)
+
         about_button = Gtk.Button(label="About FluxTuner")
         about_button.connect("clicked", self.on_about_clicked)
         content.append(about_button)
@@ -531,6 +538,23 @@ class MainWindow(Gtk.ApplicationWindow):
             self.status_label.set_text(f"Could not import stations: {exc}")
             return
         open_m3u_import(
+            self,
+            profile_id=profile_id,
+            profile_is_current=lambda: self._playlist_profile_id() == profile_id,
+            on_saved=self._on_m3u_import_saved,
+            on_error=self.status_label.set_text,
+        )
+
+    def on_import_stations_url_clicked(self, _button: Gtk.Button) -> None:
+        popover = getattr(self, "application_menu_popover", None)
+        if popover is not None:
+            popover.popdown()
+        try:
+            profile_id = self._playlist_profile_id()
+        except Exception as exc:  # noqa: BLE001 - contained GTK profile failure.
+            self.status_label.set_text(f"Could not import stations: {exc}")
+            return
+        open_remote_m3u_import(
             self,
             profile_id=profile_id,
             profile_is_current=lambda: self._playlist_profile_id() == profile_id,

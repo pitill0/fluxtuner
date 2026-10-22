@@ -9,7 +9,7 @@ from typing import Any
 
 from fluxtuner.core import db
 from fluxtuner.core.favorites import list_favorites
-from fluxtuner.core.m3u_import import import_m3u, parse_m3u
+from fluxtuner.core.m3u_import import import_m3u, parse_station_collection
 from fluxtuner.core.profiles import get_profile_by_name
 
 
@@ -28,7 +28,7 @@ def _profile_id(conn: sqlite3.Connection, *, user_id: int, profile_name: str | N
 def preview_payload(data: bytes, *, user_id: int, profile_name: str | None) -> dict[str, Any]:
     with closing(db.connect()) as conn:
         profile_id = _profile_id(conn, user_id=user_id, profile_name=profile_name)
-        preview = parse_m3u(data)
+        preview = parse_station_collection(data)
         if not preview.entries:
             raise ValueError("The file contains no valid stations.")
         existing_urls = {
@@ -58,7 +58,7 @@ def import_payload(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(conn, user_id=user_id, profile_name=profile_name)
-        preview = parse_m3u(data)
+        preview = parse_station_collection(data)
         if not preview.entries:
             raise ValueError("The file contains no valid stations.")
 

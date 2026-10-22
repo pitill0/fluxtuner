@@ -125,7 +125,7 @@ SHORTCUT_HELP_TEXT = """\
   h            History
   a            Add selected station to favorites
   Ctrl+N       Add station by name and URL
-  Ctrl+O       Import M3U/M3U8 station collection
+  Ctrl+O       Import M3U/M3U8/PLS station collection
   d            Delete favorite / remove playlist item
   e            Rename favorite
   g            Edit favorite tags

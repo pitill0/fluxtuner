@@ -48,7 +48,7 @@ Ctrl+O is also listed in the keyboard help opened with ?.
 ## Web workflow
 
 Sign in and choose Import stations from the navigation menu. Select a local
-M3U/M3U8 file and choose Preview file. Review the stations, repeated URLs and
+M3U/M3U8/PLS file and choose Preview file. Review the stations, repeated URLs and
 skipped entries, then choose an existing playlist or name a new one.
 
 Import stations saves the valid entries and opens the destination playlist.
@@ -78,7 +78,11 @@ session's interface.
 
 ## Supported input
 
-- UTF-8 text, optionally with a BOM, in M3U or M3U8 files.
+- UTF-8 text, optionally with a BOM, in M3U, M3U8 or PLS files.
+- PLS version 2 supports indexed `FileN` / `TitleN` entries; missing titles fall back
+  to the hostname. Index gaps are allowed, and output follows ascending indices.
+- Duplicate PLS keys, malformed entries and mismatched `NumberOfEntries` are
+  reported in the preview without changing existing station metadata.
 - Plain HTTP/HTTPS URLs, or extended entries with EXTINF station names.
 - CRLF, LF and CR line endings.
 - Quoted EXTINF attributes may contain commas.
@@ -134,6 +138,6 @@ cannot be submitted again.
 ## Scope
 
 The shared core is available through GTK, TUI and Web interfaces.
-Remote subscriptions, remote fetching, PLS,
-export and source-provider abstractions are not implemented here.
+Remote subscriptions, remote fetching, export and source-provider
+abstractions are not implemented here.
 Brynse and existing Radio Browser discovery are unchanged.

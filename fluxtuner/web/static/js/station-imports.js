@@ -161,7 +161,7 @@ export function createStationImportController({
     clearPreview();
     const file = fileInput.files?.[0];
     if (!file) {
-      messageNode.textContent = "Choose an M3U or M3U8 file first.";
+      messageNode.textContent = "Choose an M3U, M3U8 or PLS file first.";
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -182,7 +182,7 @@ export function createStationImportController({
       const payload = await readPayload(response);
       if (!current(requestGeneration, requestContext)) return;
       bytes = data;
-      nameInput.value = file.name.replace(/\.m3u8?$/i, "").slice(0, 120) || "Imported stations";
+      nameInput.value = file.name.replace(/\.(?:m3u8?|pls)$/i, "").slice(0, 120) || "Imported stations";
       renderPreview(payload);
     } catch (error) {
       if (!current(requestGeneration, requestContext)) return;

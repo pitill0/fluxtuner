@@ -143,6 +143,134 @@ def parse_m3u(data: bytes) -> M3UPreview:
     return M3UPreview(tuple(entries), tuple(issues), duplicates)
 
 
+def parse_pls(data: bytes) -> M3UPreview:
+    """Parse bounded PLS v2 station collections without any I/O."""
+    import re
+
+    if not isinstance(data, bytes):
+        raise ValueError("Playlist content must be bytes.")
+    if len(data) > MAX_FILE_BYTES:
+        raise ValueError(f"Playlist exceeds the {MAX_FILE_BYTES} byte limit.")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise ValueError("Playlist must be UTF-8 text.") from None
+    if "\x00" in text:
+        raise ValueError("Playlist contains binary data.")
+    lines = text.splitlines()
+    if len(lines) > MAX_LINES:
+        raise ValueError(f"Playlist exceeds the {MAX_LINES} line limit.")
+
+    header = False
+    attributes: dict[int, dict[str, tuple[str, int]]] = {}
+    issues: list[M3UIssue] = []
+    declared: int | None = None
+    seen_keys: set[str] = set()
+    for number, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        if not line or line.startswith((";", "#")):
+            continue
+        if not header:
+            if line.casefold() != "[playlist]":
+                raise ValueError("PLS playlist must begin with [playlist].")
+            header = True
+            continue
+        if line.startswith("["):
+            issues.append(M3UIssue(number, "Unexpected PLS section."))
+            continue
+        if "=" not in line:
+            issues.append(M3UIssue(number, "Malformed PLS key/value line."))
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().casefold()
+        value = value.strip()
+        if key in seen_keys:
+            issues.append(M3UIssue(number, f"Duplicate PLS key: {key}."))
+            continue
+        seen_keys.add(key)
+        if key == "numberofentries":
+            if not value.isascii() or not value.isdecimal() or len(value) > 6:
+                issues.append(M3UIssue(number, "Invalid NumberOfEntries."))
+            else:
+                declared = int(value)
+                if declared > MAX_STATIONS:
+                    raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
+            continue
+        if key == "version":
+            if value != "2":
+                issues.append(M3UIssue(number, "Unsupported PLS version."))
+            continue
+        match = re.fullmatch(r"(file|title|length)([1-9][0-9]*)", key)
+        if match is None:
+            issues.append(M3UIssue(number, f"Unrecognized PLS field: {key}."))
+            continue
+        kind, raw_index = match.groups()
+        if len(raw_index) > 6:
+            raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
+        index = int(raw_index)
+        if index > MAX_STATIONS:
+            raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
+        attributes.setdefault(index, {})[kind] = (value, number)
+    if not header:
+        raise ValueError("PLS playlist must begin with [playlist].")
+    if len(attributes) > MAX_STATIONS:
+        raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
+
+    file_count = sum("file" in fields for fields in attributes.values())
+    if declared is not None and declared != file_count:
+        issues.append(M3UIssue(1, "NumberOfEntries does not match File entries."))
+
+    entries: list[M3UEntry] = []
+    urls: set[str] = set()
+    duplicates = 0
+    for index in sorted(attributes):
+        fields = attributes[index]
+        file_record = fields.get("file")
+        if file_record is None:
+            number = next(iter(fields.values()))[1]
+            issues.append(M3UIssue(number, f"PLS entry {index} has no File field."))
+            continue
+        raw_url, number = file_record
+        try:
+            url = _validate_url(raw_url)
+            title = fields.get("title", ("", number))[0]
+            if not title.strip():
+                title = (urlsplit(url).hostname or "Unknown station")[:MAX_NAME_LENGTH]
+            name = _validate_name(title)
+        except ValueError as exc:
+            issues.append(M3UIssue(number, str(exc)))
+            continue
+        if url in urls:
+            duplicates += 1
+            continue
+        urls.add(url)
+        entries.append(M3UEntry(name, url, number))
+    return M3UPreview(tuple(entries), tuple(issues), duplicates)
+
+
+def parse_station_collection(data: bytes) -> M3UPreview:
+    """Dispatch PLS by its header, preserving existing M3U behavior."""
+    if not isinstance(data, bytes):
+        raise ValueError("Playlist content must be bytes.")
+    if len(data) > MAX_FILE_BYTES:
+        raise ValueError(f"Playlist exceeds the {MAX_FILE_BYTES} byte limit.")
+    if data.decode("utf-8-sig", errors="replace").lstrip().lower().startswith("[playlist]"):
+        return parse_pls(data)
+    return parse_m3u(data)
+
+
+def load_station_collection(path: Path) -> M3UPreview:
+    """Bound file reading and select PLS according to the local extension."""
+    path = Path(path)
+    if not path.is_file():
+        raise ValueError("Choose a local playlist file.")
+    with path.open("rb") as source:
+        data = source.read(MAX_FILE_BYTES + 1)
+    if path.suffix.lower() == ".pls":
+        return parse_pls(data)
+    return parse_station_collection(data)
+
+
 def load_m3u_file(path: Path) -> M3UPreview:
     """Read at most the configured byte limit plus one detection byte."""
     path = Path(path)

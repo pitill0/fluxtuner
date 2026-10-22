@@ -10,6 +10,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Added bounded PLS station-collection import through the existing GTK, TUI
+  and Web preview/confirmation workflow (#253).
+
 - Added local M3U/M3U8 station imports in GTK, TUI and Web with preview, destination playlist
   selection, duplicate reporting and atomic persistence that preserves existing
   station metadata and personal favorite names and tags.

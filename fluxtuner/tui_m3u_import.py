@@ -23,6 +23,7 @@ from fluxtuner.core.m3u_import import (
     M3UPreview,
     import_m3u,
     load_m3u_file,
+    load_station_collection,
 )
 
 
@@ -35,7 +36,9 @@ class M3UImportOutcome:
 def _load_preview(
     path: Path, profile_id: int
 ) -> tuple[M3UPreview, tuple[str, ...], frozenset[str]]:
-    preview = load_m3u_file(path)
+    preview = (
+        load_station_collection(path) if path.suffix.lower() == ".pls" else load_m3u_file(path)
+    )
     if not preview.entries:
         raise ValueError("The file contains no valid stations to import.")
     with closing(db.connect()) as conn:
@@ -138,7 +141,7 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="m3u-form"):
             yield Label("Import stations")
-            yield Static("Local M3U/M3U8 collection, up to 1 MiB. Preview before saving.")
+            yield Static("Local M3U/M3U8/PLS collection, up to 1 MiB. Preview before saving.")
             yield Label("File path")
             yield Input(
                 placeholder="~/Downloads/stations.m3u",

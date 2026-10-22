@@ -16,7 +16,7 @@ from fluxtuner.core.m3u_import import (
     M3UImportResult,
     M3UPreview,
     import_m3u,
-    load_m3u_file,
+    load_station_collection,
 )
 
 
@@ -73,7 +73,7 @@ def prepare_m3u_import(
 ) -> M3UImportSession:
     if not profile_is_current():
         raise ValueError("The profile changed. Reopen the import dialog.")
-    preview = load_m3u_file(path)
+    preview = load_station_collection(path)
     if not preview.entries:
         raise ValueError("The file contains no valid stations to import.")
     if type(profile_id) is not int or profile_id <= 0:
@@ -229,8 +229,8 @@ def open_m3u_import(
     )
     chooser.set_modal(True)
     file_filter = Gtk.FileFilter()
-    file_filter.set_name("M3U / M3U8 station collections")
-    for pattern in ("*.m3u", "*.m3u8", "*.M3U", "*.M3U8"):
+    file_filter.set_name("M3U / M3U8 / PLS station collections")
+    for pattern in ("*.m3u", "*.m3u8", "*.pls", "*.M3U", "*.M3U8", "*.PLS"):
         file_filter.add_pattern(pattern)
     chooser.add_filter(file_filter)
     parent._m3u_import_chooser = chooser
@@ -243,7 +243,7 @@ def open_m3u_import(
             return
         path = selected.get_path()
         if path is None:
-            on_error("Choose a local M3U or M3U8 file.")
+            on_error("Choose a local M3U, M3U8 or PLS file.")
             return
         try:
             session = prepare_m3u_import(

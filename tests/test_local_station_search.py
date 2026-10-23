@@ -35,9 +35,7 @@ def test_union_of_favorites_and_playlist_stations(library):
         "url": "https://example.org/playlist",
         "tags": "ambient",
     }
-    assert add_station_to_playlist_record(
-        conn, "Collection", playlist_station, profile_id=first
-    )
+    assert add_station_to_playlist_record(conn, "Collection", playlist_station, profile_id=first)
 
     # Adding the same stream to a playlist must not duplicate it.
     assert add_station_to_playlist_record(
@@ -78,16 +76,10 @@ def test_search_never_exposes_another_profile(library):
     first_results = search_local_stations(conn, profile_id=first)
     second_results = search_local_stations(conn, profile_id=second)
 
-    assert [station_key(item) for item in first_results] == [
-        "https://example.org/first"
-    ]
-    assert [station_key(item) for item in second_results] == [
-        "https://example.org/second"
-    ]
+    assert [station_key(item) for item in first_results] == ["https://example.org/first"]
+    assert [station_key(item) for item in second_results] == ["https://example.org/second"]
 
-    assert search_local_stations(
-        conn, profile_id=first, query="Private Second"
-    ) == []
+    assert search_local_stations(conn, profile_id=first, query="Private Second") == []
 
 
 def test_custom_names_are_searchable_without_changing_shared_identity(library):
@@ -95,19 +87,11 @@ def test_custom_names_are_searchable_without_changing_shared_identity(library):
 
     url = "https://example.org/shared"
 
-    add_custom_station(
-        conn, profile_id=first, name="My Jazz Station", url=url
-    )
-    add_custom_station(
-        conn, profile_id=second, name="Work Radio", url=url
-    )
+    add_custom_station(conn, profile_id=first, name="My Jazz Station", url=url)
+    add_custom_station(conn, profile_id=second, name="Work Radio", url=url)
 
-    own = search_local_stations(
-        conn, profile_id=first, query="My Jazz Station"
-    )
-    other = search_local_stations(
-        conn, profile_id=second, query="My Jazz Station"
-    )
+    own = search_local_stations(conn, profile_id=first, query="My Jazz Station")
+    other = search_local_stations(conn, profile_id=second, query="My Jazz Station")
 
     assert len(own) == 1
     assert station_key(own[0]) == url
@@ -153,17 +137,11 @@ def test_favorite_tags_are_scoped_to_the_owner(library):
     add_custom_station(conn, profile_id=first, name="Jazz", url=url)
     add_custom_station(conn, profile_id=second, name="Jazz", url=url)
 
-    assert update_favorite_record(
-        conn, url, favorite_tags=["private-collection"], profile_id=first
-    )
+    assert update_favorite_record(conn, url, favorite_tags=["private-collection"], profile_id=first)
 
-    assert len(search_local_stations(
-        conn, profile_id=first, query="private-collection"
-    )) == 1
+    assert len(search_local_stations(conn, profile_id=first, query="private-collection")) == 1
 
-    assert search_local_stations(
-        conn, profile_id=second, query="private-collection"
-    ) == []
+    assert search_local_stations(conn, profile_id=second, query="private-collection") == []
 
 
 def test_country_and_bitrate_filters_preserve_unknown_metadata(library):
@@ -192,13 +170,9 @@ def test_country_and_bitrate_filters_preserve_unknown_metadata(library):
         profile_id=first,
     )
 
-    results = search_local_stations(
-        conn, profile_id=first, country="ES", min_bitrate=128
-    )
+    results = search_local_stations(conn, profile_id=first, country="ES", min_bitrate=128)
 
-    assert [station_key(item) for item in results] == [
-        "https://example.org/es"
-    ]
+    assert [station_key(item) for item in results] == ["https://example.org/es"]
 
     assert len(search_local_stations(conn, profile_id=first)) == 2
 
@@ -218,12 +192,8 @@ def test_ranking_and_limits_are_deterministic(library):
             url=f"https://example.org/{suffix}",
         )
 
-    first_run = search_local_stations(
-        conn, profile_id=first, query="Jazz", limit=2
-    )
-    second_run = search_local_stations(
-        conn, profile_id=first, query="Jazz", limit=2
-    )
+    first_run = search_local_stations(conn, profile_id=first, query="Jazz", limit=2)
+    second_run = search_local_stations(conn, profile_id=first, query="Jazz", limit=2)
 
     assert [station_key(item) for item in first_run] == [
         "https://example.org/exact",
@@ -261,12 +231,8 @@ def test_untrusted_station_metadata_cannot_supply_private_favorite_fields(librar
 
     assert not results[0].get("custom_name")
     assert not results[0].get("favorite_tags")
-    assert search_local_stations(
-        conn, profile_id=second, query="Secret Alias"
-    ) == []
-    assert search_local_stations(
-        conn, profile_id=second, query="secret-tag"
-    ) == []
+    assert search_local_stations(conn, profile_id=second, query="Secret Alias") == []
+    assert search_local_stations(conn, profile_id=second, query="secret-tag") == []
 
 
 def test_search_is_scoped_to_profile_even_across_users(tmp_path):
@@ -277,12 +243,8 @@ def test_search_is_scoped_to_profile_even_across_users(tmp_path):
         first_user = db.get_or_create_user(conn, "discovery-user-a")
         second_user = db.get_or_create_user(conn, "discovery-user-b")
 
-        first_profile = profiles.get_or_create_profile(
-            conn, "library", user_id=first_user
-        )
-        second_profile = profiles.get_or_create_profile(
-            conn, "library", user_id=second_user
-        )
+        first_profile = profiles.get_or_create_profile(conn, "library", user_id=first_user)
+        second_profile = profiles.get_or_create_profile(conn, "library", user_id=second_user)
 
         add_custom_station(
             conn,
@@ -298,13 +260,11 @@ def test_search_is_scoped_to_profile_even_across_users(tmp_path):
         )
 
         assert [
-            station_key(item)
-            for item in search_local_stations(conn, profile_id=first_profile)
+            station_key(item) for item in search_local_stations(conn, profile_id=first_profile)
         ] == ["https://example.org/user-a"]
 
         assert [
-            station_key(item)
-            for item in search_local_stations(conn, profile_id=second_profile)
+            station_key(item) for item in search_local_stations(conn, profile_id=second_profile)
         ] == ["https://example.org/user-b"]
 
 
@@ -343,11 +303,13 @@ def test_legacy_metadata_cannot_leak_private_fields(library, membership):
         WHERE station_key = ?
         """,
         (
-            json.dumps({
-                "custom_name": "Other Profile Secret",
-                "favorite_tags": ["confidential-tag"],
-                "source_profile_id": first,
-            }),
+            json.dumps(
+                {
+                    "custom_name": "Other Profile Secret",
+                    "favorite_tags": ["confidential-tag"],
+                    "source_profile_id": first,
+                }
+            ),
             url,
         ),
     )
@@ -363,13 +325,9 @@ def test_legacy_metadata_cannot_leak_private_fields(library, membership):
     assert not results[0].get("favorite_tags")
     assert "source_profile_id" not in results[0]
 
-    assert search_local_stations(
-        conn, profile_id=second, query="Other Profile Secret"
-    ) == []
+    assert search_local_stations(conn, profile_id=second, query="Other Profile Secret") == []
 
-    assert search_local_stations(
-        conn, profile_id=second, query="confidential-tag"
-    ) == []
+    assert search_local_stations(conn, profile_id=second, query="confidential-tag") == []
 
 
 # N14_CODEC_CONTRACT
@@ -384,9 +342,7 @@ def test_legacy_metadata_cannot_leak_private_fields(library, membership):
         ("mimetype", "audio/mpeg"),
     ],
 )
-def test_local_discovery_preserves_public_mime_hints(
-    library, mime_key, mime_value
-):
+def test_local_discovery_preserves_public_mime_hints(library, mime_key, mime_value):
     """Known MIME hints should remain useful to specialized players."""
     import json
 
@@ -411,10 +367,12 @@ def test_local_discovery_preserves_public_mime_hints(
         WHERE station_key = ?
         """,
         (
-            json.dumps({
-                mime_key: mime_value,
-                "private_note": "Never expose this",
-            }),
+            json.dumps(
+                {
+                    mime_key: mime_value,
+                    "private_note": "Never expose this",
+                }
+            ),
             url,
         ),
     )
@@ -425,9 +383,7 @@ def test_local_discovery_preserves_public_mime_hints(
     assert result[0].get(mime_key) == mime_value
     assert "private_note" not in result[0]
 
-    mp3_player = PlayerCapabilities(
-        supported_codecs=frozenset({"mp3"})
-    )
+    mp3_player = PlayerCapabilities(supported_codecs=frozenset({"mp3"}))
     assert station_is_supported(result[0], mp3_player)
 
 
@@ -446,9 +402,7 @@ def test_local_discovery_unknown_codec_remains_unknown(library):
     result = search_local_stations(conn, profile_id=first)
     assert len(result) == 1
 
-    specialized = PlayerCapabilities(
-        supported_codecs=frozenset({"mp3"})
-    )
+    specialized = PlayerCapabilities(supported_codecs=frozenset({"mp3"}))
     general = PlayerCapabilities(general_purpose=True)
 
     assert not station_is_supported(result[0], specialized)
@@ -480,9 +434,7 @@ def test_discovery_works_with_read_only_sqlite_connection(tmp_path):
 
         results = search_local_stations(conn, profile_id=profile_id)
 
-        assert [station_key(item) for item in results] == [
-            "https://example.org/readonly-radio"
-        ]
+        assert [station_key(item) for item in results] == ["https://example.org/readonly-radio"]
         assert not conn.in_transaction
 
 
@@ -501,17 +453,13 @@ def test_empty_query_is_deterministic_and_respects_limit(library):
             url=f"https://example.org/{suffix}",
         )
 
-    results = search_local_stations(
-        conn, profile_id=first, query="  ", limit=2
-    )
+    results = search_local_stations(conn, profile_id=first, query="  ", limit=2)
 
     assert [station_key(item) for item in results] == [
         "https://example.org/alpha",
         "https://example.org/bravo",
     ]
-    assert results == search_local_stations(
-        conn, profile_id=first, query="", limit=2
-    )
+    assert results == search_local_stations(conn, profile_id=first, query="", limit=2)
 
 
 def test_unknown_bitrate_does_not_satisfy_positive_minimum(library):
@@ -526,6 +474,4 @@ def test_unknown_bitrate_does_not_satisfy_positive_minimum(library):
 
     assert len(search_local_stations(conn, profile_id=first)) == 1
 
-    assert search_local_stations(
-        conn, profile_id=first, min_bitrate=128
-    ) == []
+    assert search_local_stations(conn, profile_id=first, min_bitrate=128) == []

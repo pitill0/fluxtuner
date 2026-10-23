@@ -179,7 +179,7 @@ def create_app(
             )
 
         response = await call_next(request)
-        if renewed_cookie_max_age is not None:
+        if token and renewed_cookie_max_age is not None:
             set_session_cookie(response, token, max_age=renewed_cookie_max_age)
         return response
 

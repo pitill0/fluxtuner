@@ -17,7 +17,7 @@ def _metadata_harness(*, mounted: bool = False) -> SimpleNamespace:
         current_artist="Old artist",
         current_track="Old track",
         metadata_lifecycle=MetadataLifecycle(),
-        is_mounted=mounted,
+        is_running=mounted,
         query_one=Mock(return_value=widget),
         station_url=Mock(return_value="https://radio.example/stream"),
     )
@@ -441,3 +441,49 @@ def test_metadata_lifecycle_rejects_previous_request_for_same_url() -> None:
 
     assert projection is None
     assert lifecycle.last_raw is None
+
+
+# N9_TUI_RUNNING_CONTRACTS
+
+
+def test_clear_metadata_without_running_app_does_not_touch_widget() -> None:
+    harness = _metadata_harness(mounted=False)
+
+    tui.FluxTunerTUI._clear_metadata(harness)
+
+    assert harness.current_artist == "—"
+    assert harness.current_track == "—"
+    assert harness.metadata_lifecycle.last_raw is None
+    harness.query_one.assert_not_called()
+
+
+def test_usage_display_without_running_app_does_not_query_widget() -> None:
+    harness = _metadata_harness(mounted=False)
+
+    tui.FluxTunerTUI._update_usage_display(harness)
+
+    harness.query_one.assert_not_called()
+
+
+def test_player_display_without_running_app_does_not_query_widget() -> None:
+    harness = _metadata_harness(mounted=False)
+
+    tui.FluxTunerTUI._update_player_state_display(harness)
+
+    harness.query_one.assert_not_called()
+
+
+def test_missing_bitrate_only_updates_widget_while_running() -> None:
+    for running in (False, True):
+        harness = _metadata_harness(mounted=running)
+        harness.usage_tracker = Mock()
+
+        tui.FluxTunerTUI._start_usage_tracking(harness, {"name": "Unknown bitrate", "bitrate": 0})
+
+        harness.usage_tracker.stop.assert_called_once_with()
+        if running:
+            harness.metadata_widget.update.assert_called_once_with(
+                "[b]Data usage[/b]\nUnavailable · missing bitrate"
+            )
+        else:
+            harness.query_one.assert_not_called()

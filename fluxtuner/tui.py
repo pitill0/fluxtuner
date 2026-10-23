@@ -1783,13 +1783,10 @@ class FluxTunerTUI(App[None]):
             now_playing.styles.padding = (1, 2)
             now_playing.styles.content_align = ("left", "top")
             now_playing.styles.text_align = "left"
-            now_playing.styles.overflow = "hidden"
+            now_playing.styles.overflow_x = "hidden"
+            now_playing.styles.overflow_y = "hidden"
             now_playing.styles.text_overflow = "ellipsis"
-            # Textual versions differ here; ignore unsupported style names.
-            try:
-                now_playing.styles.white_space = "normal"
-            except Exception:  # noqa: BLE001
-                logger.debug("Textual style property not supported: white_space", exc_info=True)
+            now_playing.styles.text_wrap = "wrap"
         except Exception:  # noqa: BLE001
             logger.debug("Could not apply Now Playing layout adjustments", exc_info=True)
 
@@ -1799,7 +1796,7 @@ class FluxTunerTUI(App[None]):
 
         bitrate = int(station.get("bitrate") or 0)
         if bitrate <= 0:
-            if self.is_mounted:
+            if self.is_running:
                 self.query_one("#data-usage", Static).update(
                     "[b]Data usage[/b]\nUnavailable · missing bitrate"
                 )
@@ -1813,7 +1810,7 @@ class FluxTunerTUI(App[None]):
             start(station)
 
     def _update_usage_display(self) -> None:
-        if not self.is_mounted:
+        if not self.is_running:
             return
         with suppress(Exception):
             usage_line = format_usage_line(self.usage_tracker.snapshot())
@@ -1834,7 +1831,7 @@ class FluxTunerTUI(App[None]):
         return "playing" if self.playing_station else "stopped"
 
     def _update_player_state_display(self) -> None:
-        if not self.is_mounted:
+        if not self.is_running:
             return
 
         state = self._player_state_snapshot()
@@ -1860,7 +1857,7 @@ class FluxTunerTUI(App[None]):
         self.current_artist = "—"
         self.current_track = "—"
         self.metadata_lifecycle.reset_projection()
-        if self.is_mounted:
+        if self.is_running:
             self.query_one("#metadata", Static).update("[b]Metadata[/b]\nArtist: —\nTrack: —")
 
     def _cancel_metadata_request(self) -> None:
@@ -1900,7 +1897,7 @@ class FluxTunerTUI(App[None]):
 
         self.current_artist = projection.artist
         self.current_track = projection.track
-        if self.is_mounted:
+        if self.is_running:
             self.query_one("#metadata", Static).update(
                 f"[b]Metadata[/b]\nArtist: {self.current_artist}\nTrack: {self.current_track}"
             )

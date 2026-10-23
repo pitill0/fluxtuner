@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from textual.app import App
+from textual.widget import Widget
 from textual.widgets import Button, Footer, Header
 
 from fluxtuner.logging_config import get_logger
@@ -168,7 +169,7 @@ def apply_theme_runtime(app: App[Any], theme_name: str) -> Path:
     if "Screen" in rules:
         _apply_declarations(app.screen, rules["Screen"])
 
-    selector_map = {
+    selector_map: dict[str, str | type[Widget]] = {
         "Header": Header,
         "Footer": Footer,
         "Button": Button,
@@ -198,7 +199,7 @@ def apply_theme_runtime(app: App[Any], theme_name: str) -> Path:
         if not declarations:
             continue
         try:
-            widgets = app.query(target) if isinstance(target, str) else app.query(target)
+            widgets = app.query(target)
             for widget in widgets:
                 _apply_declarations(widget, declarations)
         except Exception:  # noqa: BLE001

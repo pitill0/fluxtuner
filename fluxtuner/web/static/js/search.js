@@ -74,6 +74,32 @@ export function createSearchController({
   let activeSearchController = null;
   let searchRequestId = 0;
 
+  const sourceSelector = searchForm?.querySelector('[name="source"]');
+  const sourceLabels = {
+    "radio-browser": "Radio Browser",
+    local: "Local library",
+    all: "All sources",
+  };
+
+  function selectedSource() {
+    const value = sourceSelector?.value || "radio-browser";
+    return Object.hasOwn(sourceLabels, value) ? value : "radio-browser";
+  }
+
+  sourceSelector?.addEventListener("change", () => {
+    activeSearchController?.abort();
+    activeSearchController = null;
+    ++searchRequestId;
+
+    setSearchView();
+    setResultsHeader(sourceLabels[selectedSource()], "Search stations");
+    if (resultCountNode) resultCountNode.textContent = "No search yet.";
+    if (resultsNode) {
+      resultsNode.innerHTML =
+        '<p class="empty">Search with the selected source to see results.</p>';
+    }
+  });
+
   function renderResults(payload) {
     if (!resultsNode || !resultCountNode) return;
 
@@ -83,7 +109,7 @@ export function createSearchController({
 
     if (status === "unavailable") {
       resultCountNode.textContent = "Search unavailable.";
-      resultsNode.innerHTML = `${debugPanel}<p class="error">Radio Browser is temporarily unavailable. Please try again.</p>`;
+      resultsNode.innerHTML = `${debugPanel}<p class="error">The selected search sources are temporarily unavailable. Please try again.</p>`;
       return;
     }
 
@@ -133,6 +159,7 @@ export function createSearchController({
     const params = new URLSearchParams();
 
     params.set("q", String(formData.get("q") || "").trim());
+    params.set("source", selectedSource());
     params.set("country", String(formData.get("country") || "").trim());
     const minBitrate = String(formData.get("min_bitrate") || "0").trim();
     params.set("min_bitrate", minBitrate || "0");
@@ -147,10 +174,11 @@ export function createSearchController({
       return;
     }
 
+    const sourceLabel = sourceLabels[selectedSource()];
     setSearchView();
-    setResultsHeader("Radio Browser", "Search stations");
+    setResultsHeader(sourceLabel, "Search stations");
     resultCountNode.textContent = "Searching...";
-    resultsNode.innerHTML = '<p class="empty">Searching Radio Browser...</p>';
+    resultsNode.innerHTML = `<p class="empty">Searching ${sourceLabel}...</p>`;
 
     try {
       const response = await fetch(`/api/search?${params.toString()}`, {

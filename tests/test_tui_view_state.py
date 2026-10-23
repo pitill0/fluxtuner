@@ -12,6 +12,8 @@ from fluxtuner import tui
 def _selection_harness(*, view_mode: str = "search") -> SimpleNamespace:
     harness = SimpleNamespace(
         view_mode=view_mode,
+        _search_generation=0,
+        _search_task=None,
         selected_station={"name": "Old station"},
         selected_theme="old-theme",
         selected_tag="old-tag",
@@ -39,6 +41,7 @@ def _selection_harness(*, view_mode: str = "search") -> SimpleNamespace:
         selected_payload_from_event=Mock(),
     )
     for method_name in (
+        "cancel_pending_search",
         "_clear_view_selection",
         "_set_view_mode",
         "_clear_station_view_selection",
@@ -245,6 +248,9 @@ def test_station_highlight_preserves_parent_playlist_in_playlist_station_view() 
 
 def test_search_view_clears_incompatible_selection(monkeypatch) -> None:
     harness = _selection_harness(view_mode="playlist_stations")
+    harness._selected_discovery_source = lambda: tui.FluxTunerTUI._selected_discovery_source(
+        harness
+    )
     query_input = SimpleNamespace(value="Flux")
     country_input = SimpleNamespace(value="")
     bitrate_input = SimpleNamespace(value="")
@@ -254,6 +260,7 @@ def test_search_view_clears_incompatible_selection(monkeypatch) -> None:
         "#query": query_input,
         "#country-filter": country_input,
         "#bitrate-filter": bitrate_input,
+        "#source-filter": SimpleNamespace(value="radio-browser"),
         "#stations": table,
     }
     harness.query_one = Mock(side_effect=lambda selector, *_args: widgets[selector])

@@ -578,6 +578,9 @@ def test_gtk_search_worker_binds_callbacks_to_lifecycle_generation(monkeypatch) 
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
+        _selected_search_source=lambda: "radio-browser",
+        profile_name="default",
+        player_capabilities=None,
         search_entry=SimpleNamespace(get_text=lambda: " jazz "),
         country_entry=SimpleNamespace(get_text=lambda: " Spain "),
         min_bitrate_entry=SimpleNamespace(get_text=lambda: "128"),

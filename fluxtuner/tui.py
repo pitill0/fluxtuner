@@ -6,14 +6,14 @@ import textwrap
 import time
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Static
+from textual.widgets import Button, DataTable, Footer, Header, Input, Label, Select, Static
 
 from fluxtuner.config import get_playback_state, save_playback_state, set_config_value
 from fluxtuner.core import db
@@ -22,6 +22,7 @@ from fluxtuner.core.compatibility import (
     station_is_supported,
 )
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line
+from fluxtuner.core.discovery_execution import search_desktop_stations
 from fluxtuner.core.favorites import (
     add_favorite,
     all_favorite_tags,
@@ -172,6 +173,13 @@ class ShortcutHelpScreen(ModalScreen[None]):
 class FluxTunerTUI(App[None]):
     """Textual application for FluxTuner."""
 
+    CSS = """
+    #source-filter {
+        width: 22;
+        height: 3;
+    }
+    """
+
     BINDINGS = [
         Binding("space", "play_stop", "Play/Stop"),
         Binding("/", "focus_search", "Search"),
@@ -233,6 +241,7 @@ class FluxTunerTUI(App[None]):
         self.restored_muted: bool = False
         self.view_mode = "search"
         self._search_task: asyncio.Task[None] | None = None
+        self._search_generation = 0
         self.pending_input_action: str | None = None
         self.favorite_tag_filter: str | None = None
         self.table_items: dict[str, tuple[str, Any]] = {}
@@ -253,6 +262,17 @@ class FluxTunerTUI(App[None]):
             yield Input(placeholder="optional", id="country-filter")
             yield Label("Min kbps", classes="filter-label")
             yield Input(placeholder="0", id="bitrate-filter")
+            yield Label("Source", classes="filter-label")
+            yield Select(
+                [
+                    ("Radio Browser", "radio-browser"),
+                    ("Local", "local"),
+                    ("All sources", "all"),
+                ],
+                value="radio-browser",
+                allow_blank=False,
+                id="source-filter",
+            )
             yield Button(
                 "Clear filters", id="clear-filters", classes="toolbar-button secondary-button"
             )
@@ -566,6 +586,27 @@ class FluxTunerTUI(App[None]):
             return
         self.schedule_live_search(event.value)
 
+    def _selected_discovery_source(
+        self,
+    ) -> Literal["radio-browser", "local", "all"]:
+        selected = self.query_one("#source-filter", Select).value
+        if selected == "radio-browser":
+            return "radio-browser"
+        if selected == "local":
+            return "local"
+        if selected == "all":
+            return "all"
+        raise ValueError("Unknown station discovery source.")
+
+    @on(Select.Changed, "#source-filter")
+    def discovery_source_changed(self, _event: Select.Changed) -> None:
+        self.cancel_pending_search()
+        self._set_view_mode("search")
+        self.query_one("#stations", DataTable).clear(columns=True)
+        self._clear_station_view_selection()
+        self.update_mode_title("Search results")
+        self.set_status("Discovery source changed. Search to refresh results.")
+
     @on(Input.Submitted, "#country-filter")
     async def search_from_country_filter(self, _event: Input.Submitted) -> None:
         self.cancel_pending_search()
@@ -649,6 +690,8 @@ class FluxTunerTUI(App[None]):
         self.selected_playlist = None
 
     def _set_view_mode(self, mode: str) -> None:
+        if mode != "search":
+            self.cancel_pending_search()
         self.view_mode = mode
 
     def _clear_station_view_selection(self) -> None:
@@ -657,11 +700,11 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
     def _enter_playlists_view(self) -> None:
-        self.view_mode = "playlists"
+        self._set_view_mode("playlists")
         self.active_playlist_name = None
 
     def _enter_playlist_stations_view(self, playlist_name: str) -> None:
-        self.view_mode = "playlist_stations"
+        self._set_view_mode("playlist_stations")
         self.active_playlist_name = playlist_name
 
     def _clear_playlist_station_selection(self, playlist_name: str) -> None:
@@ -672,7 +715,7 @@ class FluxTunerTUI(App[None]):
         self.update_details(None)
 
     def _enter_themes_view(self) -> None:
-        self.view_mode = "themes"
+        self._set_view_mode("themes")
 
     def _clear_theme_selection(self) -> None:
         self.selected_station = None
@@ -755,6 +798,7 @@ class FluxTunerTUI(App[None]):
             self.smart_play_selected_playlist_or_tag()
 
     def cancel_pending_search(self) -> None:
+        self._search_generation = getattr(self, "_search_generation", 0) + 1
         if self._search_task and not self._search_task.done():
             self._search_task.cancel()
         self._search_task = None
@@ -794,6 +838,8 @@ class FluxTunerTUI(App[None]):
             self.set_status("Type a station name/genre, or use country/min kbps filters.")
             return
 
+        self._search_generation = getattr(self, "_search_generation", 0) + 1
+        generation = self._search_generation
         self._set_view_mode("search")
         self._search_task = None
         self.update_mode_title("Search results")
@@ -810,22 +856,36 @@ class FluxTunerTUI(App[None]):
                 except ValueError:
                     self.set_status("Min kbps must be a number.")
                     return
-            result = await asyncio.to_thread(
-                self.search_service.search,
-                SearchRequest(
-                    query=query,
-                    country=country or None,
-                    min_bitrate=min_bitrate,
-                    limit=50,
-                ),
+            source = self._selected_discovery_source()
+            request = SearchRequest(
+                query=query,
+                country=country or None,
+                min_bitrate=min_bitrate,
+                limit=50,
+                source=source,
             )
+            if source == "radio-browser":
+                result = await asyncio.to_thread(self.search_service.search, request)
+            else:
+                result = await asyncio.to_thread(
+                    search_desktop_stations,
+                    request,
+                    profile_name=self.profile_name,
+                    capabilities=self.player_capabilities,
+                )
+            if generation != self._search_generation or self.view_mode != "search":
+                return
             stations = result.stations
         except Exception as exc:  # noqa: BLE001
+            if generation != self._search_generation or self.view_mode != "search":
+                return
             self.set_status(f"Search failed: {exc}")
             self.notify(f"Search failed: {exc}", severity="error")
             return
 
         await self.populate_station_list(stations)
+        if generation != self._search_generation or self.view_mode != "search":
+            return
         if not live:
             self.query_one("#stations", DataTable).focus()
         filters = []
@@ -1563,7 +1623,7 @@ class FluxTunerTUI(App[None]):
         )
 
     def prepare_favorites_tag_filter(self) -> None:
-        self.view_mode = "favorites"
+        self._set_view_mode("favorites")
         query = self.query_one("#query", Input)
         query.value = self.favorite_tag_filter or ""
         query.focus()

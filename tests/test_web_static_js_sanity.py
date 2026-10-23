@@ -54,7 +54,10 @@ def test_web_search_module_handles_status_and_concurrency() -> None:
     assert 'const status = payload.status || "ok";' in response.text
     assert 'status === "partial"' in response.text
     assert 'status === "unavailable"' in response.text
-    assert "Radio Browser is temporarily unavailable. Please try again." in response.text
+    assert (
+        "The selected search sources are temporarily unavailable. Please try again."
+        in response.text
+    )
     assert "Some search sources were unavailable. Showing available results." in response.text
     assert "let activeSearchController = null;" in response.text
     assert "let searchRequestId = 0;" in response.text

@@ -428,3 +428,120 @@ def test_web_playlist_path_rejects_oversized_name(tmp_path, monkeypatch) -> None
     )
 
     assert response.status_code == 422
+
+
+def test_web_discovery_sources_are_isolated(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    bob_id = create_user("bob")
+
+    # A local search must not implicitly create a missing profile.
+    # Provision Bob's default profile explicitly for the isolation test.
+    with db.connect() as conn:
+        db.ensure_default_profile(conn, user_id=bob_id)
+        conn.commit()
+
+    alice_csrf = login(client, "alice")
+    response = client.post(
+        "/api/favorites",
+        json=station_payload("Alice Private Station", "https://example.com/alice"),
+        headers=csrf_headers(alice_csrf),
+    )
+    assert response.status_code == 200
+
+    alice_local = client.get("/api/search?q=Private&source=local")
+    assert alice_local.status_code == 200
+    assert [item["name"] for item in alice_local.json()["stations"]] == ["Alice Private Station"]
+
+    login(client, "bob")
+    bob_local = client.get("/api/search?q=Private&source=local")
+    assert bob_local.status_code == 200
+    assert bob_local.json()["stations"] == []
+
+
+def test_web_discovery_rejects_invalid_source_and_profile(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    login(client, "alice")
+
+    assert client.get("/api/search?q=test&source=invalid").status_code == 422
+    assert client.get("/api/search?q=test&source=local&profile=missing").status_code == 404
+    assert client.get("/api/search?q=test&source=all&profile=missing").status_code == 404
+
+
+def test_web_discovery_local_requires_authentication(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    assert client.get("/api/search?q=test&source=local").status_code == 401
+    assert client.get("/api/search?q=test&source=all").status_code == 401
+
+
+def test_web_discovery_isolates_profiles_of_same_user(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core.profiles import get_or_create_profile
+
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+    csrf_token = login(client, "alice")
+
+    with db.connect() as conn:
+        get_or_create_profile(conn, "secondary", user_id=user_id)
+        conn.commit()
+
+    response = client.post(
+        "/api/favorites",
+        json=station_payload("Default Only Radio", "https://example.com/default-only"),
+        headers=csrf_headers(csrf_token),
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/api/favorites?profile=secondary",
+        json=station_payload("Secondary Only Radio", "https://example.com/secondary-only"),
+        headers=csrf_headers(csrf_token),
+    )
+    assert response.status_code == 200
+
+    default = client.get("/api/search?q=Only&source=local")
+    secondary = client.get("/api/search?q=Only&source=local&profile=secondary")
+
+    assert default.status_code == 200
+    assert secondary.status_code == 200
+    assert [station["name"] for station in default.json()["stations"]] == ["Default Only Radio"]
+    assert [station["name"] for station in secondary.json()["stations"]] == ["Secondary Only Radio"]
+
+
+def test_web_discovery_all_survives_remote_failure(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core.search_service import SearchResult
+
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+    with db.connect() as conn:
+        db.ensure_default_profile(conn, user_id=user_id)
+        conn.commit()
+    login(client, "alice")
+
+    def remote_failure_with_local(self, request):
+        assert request.source == "all"
+        return SearchResult(
+            stations=[
+                {
+                    "name": "Local Survivor Radio",
+                    "url": "https://example.com/local-survivor",
+                }
+            ],
+            total_found=1,
+            remote_status="error",
+        )
+
+    monkeypatch.setattr(
+        "fluxtuner.web.library.SearchService.search",
+        remote_failure_with_local,
+    )
+
+    response = client.get("/api/search?q=Survivor&source=all&debug=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "partial"
+    assert payload["count"] == 1
+    assert payload["stations"][0]["name"] == "Local Survivor Radio"
+    assert payload["debug"]["remote_status"] == "error"

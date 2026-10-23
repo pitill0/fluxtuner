@@ -7,7 +7,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from time import monotonic
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 import gi
@@ -30,6 +30,7 @@ from fluxtuner.core.compatibility import (  # noqa: E402
 )
 from fluxtuner.core.custom_stations import add_custom_station  # noqa: E402
 from fluxtuner.core.data_usage import DataUsageTracker, format_usage_line  # noqa: E402
+from fluxtuner.core.discovery_execution import search_desktop_stations  # noqa: E402
 from fluxtuner.core.favorites import (  # noqa: E402
     add_favorite,
     all_favorite_tags,
@@ -357,6 +358,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.min_bitrate_entry.set_placeholder_text("Min kbps")
         self.min_bitrate_entry.connect("activate", self.on_search_clicked)
         search_bar.append(self.min_bitrate_entry)
+
+        self.search_source_dropdown = Gtk.DropDown.new_from_strings(
+            ["Radio Browser", "Local", "All"]
+        )
+        self.search_source_dropdown.set_selected(0)
+        self.search_source_dropdown.set_tooltip_text("Station discovery source")
+        search_bar.append(self.search_source_dropdown)
+        self.search_source_dropdown.connect("notify::selected", self._on_search_source_changed)
 
         search_button = Gtk.Button(label="Search")
         search_button.connect("clicked", self.on_search_clicked)
@@ -1354,25 +1363,56 @@ class MainWindow(Gtk.ApplicationWindow):
         station_word = "station" if count == 1 else "stations"
         self.status_label.set_text(f"{view_name}{suffix} · {count} {station_word}")
 
+    def _selected_search_source(self) -> Literal["radio-browser", "local", "all"]:
+        sources: tuple[Literal["radio-browser", "local", "all"], ...] = (
+            "radio-browser",
+            "local",
+            "all",
+        )
+        selected = self.search_source_dropdown.get_selected()
+        if selected >= len(sources):
+            raise ValueError("Unknown station discovery source.")
+        return sources[selected]
+
+    def _on_search_source_changed(self, _dropdown: Gtk.DropDown, _param: object) -> None:
+        self._search_lifecycle.invalidate()
+        self._view_state.show_search()
+        self.last_search_results = []
+        self.stations = []
+        self.selected_station = None
+        self._render_results()
+        self._update_playlist_status()
+        self._set_view_status("Search results", 0)
+
     def on_search_clicked(self, _widget: Gtk.Widget) -> None:
         query = self.search_entry.get_text().strip()
         country = self.country_entry.get_text().strip() or None
         min_bitrate_text = self.min_bitrate_entry.get_text().strip()
         min_bitrate = int(min_bitrate_text) if min_bitrate_text.isdigit() else None
 
+        source = self._selected_search_source()
+        profile_name = self.profile_name
+        capabilities = self.player_capabilities
         generation = self._search_lifecycle.begin()
         self.status_label.set_text("Searching…")
 
         def worker() -> None:
             try:
-                result = self.search_service.search(
-                    SearchRequest(
-                        query=query,
-                        country=country,
-                        min_bitrate=min_bitrate,
-                        limit=50,
-                    )
+                request = SearchRequest(
+                    query=query,
+                    country=country,
+                    min_bitrate=min_bitrate,
+                    limit=50,
+                    source=source,
                 )
+                if source == "radio-browser":
+                    result = self.search_service.search(request)
+                else:
+                    result = search_desktop_stations(
+                        request,
+                        profile_name=profile_name,
+                        capabilities=capabilities,
+                    )
                 stations = result.stations
             except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
                 GLib.idle_add(self._search_failed, generation, str(exc))

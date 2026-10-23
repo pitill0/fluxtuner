@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fluxtuner.core import db
 from fluxtuner.core.api import search_stations_filtered_debug
@@ -18,6 +18,7 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.core.profiles import get_profile_by_name
+from fluxtuner.core.search_service import SearchRequest, SearchService
 from fluxtuner.web.payloads import station_payload
 
 SEARCH_STATUS_OK = "ok"
@@ -45,21 +46,75 @@ def search_payload(
     min_bitrate: int,
     limit: int,
     debug: bool = False,
+    source: Literal["radio-browser", "local", "all"] = "radio-browser",
+    user_id: int | None = None,
+    profile_name: str | None = None,
 ) -> dict[str, Any]:
     normalized_query = query.strip()
     country_filter = country.strip() or None
     bitrate_filter = min_bitrate if min_bitrate > 0 else None
 
-    stations, debug_info = search_stations_filtered_debug(
-        query=normalized_query,
-        country=country_filter,
-        min_bitrate=bitrate_filter,
-        limit=limit,
-        use_cache=not debug,
-    )
+    if source == "radio-browser":
+        # Preserve the existing remote search API and diagnostic contract.
+        stations, debug_info = search_stations_filtered_debug(
+            query=normalized_query,
+            country=country_filter,
+            min_bitrate=bitrate_filter,
+            limit=limit,
+            use_cache=not debug,
+        )
+        status = _aggregate_search_status(debug_info)
+    else:
+        if source not in ("local", "all"):
+            raise ValueError("Unknown station discovery source.")
+        if user_id is None:
+            raise ValueError("Authenticated user is required.")
+
+        requested_profile = db.DEFAULT_PROFILE_NAME if profile_name is None else profile_name
+        if not requested_profile:
+            raise ValueError("The requested profile is unavailable.")
+
+        # Only the authenticated Web user's profile is eligible for discovery.
+        # Never use the desktop user or create profiles during search.
+        with db.connect() as conn:
+            profile = get_profile_by_name(conn, requested_profile, user_id=user_id)
+            if profile is None:
+                raise ValueError("The requested profile is unavailable.")
+
+            result = SearchService(
+                local_connection=conn,
+                profile_id=int(profile["id"]),
+            ).search(
+                SearchRequest(
+                    query=normalized_query,
+                    country=country_filter,
+                    min_bitrate=bitrate_filter,
+                    limit=limit,
+                    use_cache=not debug,
+                    source=source,
+                )
+            )
+
+        stations = result.stations
+        if source == "local":
+            status = SEARCH_STATUS_OK
+        elif result.remote_status == "error":
+            status = SEARCH_STATUS_PARTIAL if stations else SEARCH_STATUS_UNAVAILABLE
+        elif result.remote_status == "partial_error":
+            status = SEARCH_STATUS_PARTIAL
+        else:
+            status = SEARCH_STATUS_OK
+
+        debug_info = {
+            "source": source,
+            "total_found": result.total_found,
+            "unsupported_count": result.unsupported_count,
+            "remote_status": result.remote_status,
+            "source_observations": result.source_observations,
+        }
 
     payload = {
-        "status": _aggregate_search_status(debug_info),
+        "status": status,
         "query": normalized_query,
         "country": country_filter or "",
         "min_bitrate": min_bitrate,

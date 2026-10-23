@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
 
@@ -55,16 +55,24 @@ def search(
     min_bitrate: int = Query(default=0, ge=0, le=1000),
     limit: int = Query(default=25, ge=1, le=100),
     debug: bool = Query(default=False),
+    source: Literal["radio-browser", "local", "all"] = Query(default="radio-browser"),
+    profile: str | None = Query(default=None, max_length=80),
 ) -> dict[str, Any]:
-    _require_authenticated_user(request)
+    user = _require_authenticated_user(request)
 
-    return library.search_payload(
-        query=q,
-        country=country,
-        min_bitrate=min_bitrate,
-        limit=limit,
-        debug=debug,
-    )
+    try:
+        return library.search_payload(
+            query=q,
+            country=country,
+            min_bitrate=min_bitrate,
+            limit=limit,
+            debug=debug,
+            source=source,
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/api/history")

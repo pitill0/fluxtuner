@@ -67,6 +67,17 @@ Footer .footer--highlight {
     color: #e5e7eb;
 }
 
+#source-filter > SelectCurrent {
+    border: round #60a5fa;
+    background: #0f172a;
+    color: #e5e7eb;
+}
+
+#source-filter:focus > SelectCurrent {
+    border: heavy #60a5fa;
+}
+
+
 .filter-label {
     width: 10;
     content-align: right middle;

@@ -452,7 +452,10 @@ def _filtered_search_result(
     for source, _station in selected:
         debug[f"{source}_returned_results"] += 1
 
-    if use_cache:
+    # A complete provider failure is not a valid empty search result.
+    # Successful empty responses and partial successes remain cacheable.
+    source_outcomes = debug["sources"].values()
+    if use_cache and any(outcome.get("status") == REQUEST_STATUS_OK for outcome in source_outcomes):
         set_cached_search(cache_key, results)
 
     logger.debug("Search returned %s filtered result(s)", len(results))

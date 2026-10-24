@@ -216,6 +216,38 @@ At minimum, preserve:
 For SQLite, prefer stopping the service or using a SQLite-aware backup method
 before copying the database.
 
+## Static asset deployment verification
+
+After upgrading FluxTuner Web, verify both the application listener
+and the externally exposed HTTPS origin:
+
+1. Request `/static/app.js` and `/static/js/player.js` with
+   `Accept-Encoding: identity`, then with `Accept-Encoding: gzip`.
+   Confirm that public text assets compress and advertise
+   `Vary: Accept-Encoding` when gzip is used.
+2. Repeat a gzip GET using the returned `ETag` as `If-None-Match`.
+   Expect `304` with no response body.
+3. Check a HEAD and a `Range: bytes=0-99` request. Verify the
+   application's native response behavior and account for any
+   additional proxy encoding.
+4. Check Webmanifest and PNG behavior independently; a proxy
+   may compress a small manifest even when the application does not.
+5. Check that public asset requests do not require authentication,
+   and do not infer anything about secret-bearing API compression
+   from these public routes.
+6. After a new deployment, reload the Web UI in a previously used
+   browser and confirm that the complete JavaScript module graph
+   loads without import errors.
+
+Record transferred bytes, response status, ETag, Content-Encoding,
+Vary and Cache-Control for cold and conditional requests. A `304`
+documents zero response-body bytes, not necessarily zero network
+transfer once HTTP headers and protocol overhead are included.
+
+Keep the JavaScript module graph revalidatable until there is a
+complete content-versioned invalidation strategy. Do not apply
+`immutable` caching to stable module URLs independently.
+
 ## Post-deploy verification
 
 After deployment, verify:

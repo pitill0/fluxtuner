@@ -57,6 +57,91 @@ should try signing in later; pending users with the correct password see
 
 For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).
 
+## Static asset compression and caching
+
+FluxTuner Web uses a no-build JavaScript ES-module entrypoint,
+`/static/app.js`, with supporting modules under `/static/js/`.
+
+### Compression
+
+The application selectively compresses public JS, CSS, SVG and
+Webmanifest assets when worthwhile. Large public text assets support
+gzip without applying the same middleware to authenticated API routes
+or private responses. PNG files are not additionally compressed.
+
+Gzip responses carry `Vary: Accept-Encoding` and representation-specific
+weak ETags. Matching conditional GET requests return `304 Not Modified`
+without retransmitting the resource body.
+
+The application preserves native `StaticFiles` behavior for HEAD,
+byte-range requests and small uncompressed resources.
+
+### Cache invalidation and deployments
+
+JavaScript and Webmanifest responses use `Cache-Control: no-cache`,
+which permits storage but requires revalidation before reuse.
+
+FluxTuner currently uses stable ES-module URLs rather than
+content-hashed filenames. Do not configure long-lived `immutable`
+caching for the JavaScript module graph without first introducing
+a strategy that invalidates every dependent module.
+
+A successful HTTP revalidation protects new resource loads from stale
+content. It does not make a multi-file deployment atomic or guarantee
+that tabs already running an older module graph will update in place.
+After upgrading, perform a new page load and verify that the browser
+successfully loads the new module graph.
+
+Deployment proxies may separately compress small resources; this does
+not require applying gzip twice to assets already encoded by the
+application. Check real response headers instead of assuming a
+particular proxy behavior.
+
+### Production measurement: issue #262
+
+Measured on Lokalix on 2026-10-24 after deploying FluxTuner 1.3.0
+through the production HTTPS reverse proxy:
+
+| Asset | Identity bytes | HTTPS gzip bytes | Reduction |
+| --- | ---: | ---: | ---: |
+| `app.js` | 17,901 | 3,599 | 79.9% |
+| `js/player.js` | 25,747 | 5,289 | 79.5% |
+| `player.css` | 12,384 | 2,653 | 78.6% |
+| `site.webmanifest` | 682 | 307 | 55.0% |
+| `app-icon.png` | 132,383 | 132,383 | 0.0% |
+
+These are individual HTTP response-body transfer measurements,
+not a browser-wide page-load benchmark.
+
+The earlier FluxTuner 1.2.3 deployment had no application-level
+gzip compression. Its HTTPS proxy already compressed public text
+resources. For example, the previous `app.js` transferred 3,282
+bytes via HTTPS gzip, compared with 3,599 bytes for version 1.3.0;
+the source file also changed between versions. Accordingly, the
+79.9% figure compares gzip with identity **within version 1.3.0**,
+not the total improvement over version 1.2.3.
+
+Direct ASGI and HTTPS delivery both returned the expected gzip
+representation for large text assets. Conditional gzip GETs returned
+`304` with zero response-body bytes; byte-range requests returned
+`206`. The proxy compressed the small Webmanifest independently.
+
+All 31 JavaScript files delivered through the production HTTPS proxy
+matched the deployed image byte-for-byte and successfully returned
+`304` on conditional identity GET requests. A browser reload and
+navigation check after the 1.2.3 to 1.3.0 deployment also succeeded.
+
+### Icon delivery
+
+The 512-pixel application icon is 132,383 bytes. A prior lossless
+optimization experiment across the icon set offered approximately
+3% combined savings. The original artwork and PWA icon variants
+are retained to preserve the existing branding and packaged assets.
+Icons continue to support HTTP validator-based revalidation.
+
+For deployment validation steps, see
+[`secure-web-deployment.md`](secure-web-deployment.md).
+
 ## Web playback
 
 FluxTuner Web plays streams directly in the browser using the browser audio

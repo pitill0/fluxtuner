@@ -449,3 +449,10 @@ dialog.station-import-dialog {
 [data-station-import-preview][hidden] {
   display: none;
 }
+
+/* Recovery dialogs must sit above the sticky header and mobile navigation.
+ * Keep this scoped: other playlist dialogs retain their original layer. */
+.recovery-codes-dialog,
+[data-recovery-codes-regenerate-dialog] {
+  z-index: 100;
+}

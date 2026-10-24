@@ -34,6 +34,9 @@ def test_init_db_creates_expected_tables(
 
     with db.connect() as conn:
         assert db.table_names(conn) == {
+            "remote_import_receipts",
+            "station_sources",
+            "station_source_memberships",
             "web_reauth_attempts",
             "favorites",
             "history_entries",
@@ -535,7 +538,7 @@ def test_fresh_database_contains_auth_retention_indexes(tmp_path) -> None:
     assert "idx_web_recovery_attempts_attempted_at" in indexes
 
 
-def test_schema_v0_upgrades_through_v3(tmp_path) -> None:
+def test_schema_v0_upgrades_through_v4(tmp_path) -> None:
     db_path = tmp_path / "fluxtuner.db"
 
     with db.connect(db_path) as conn:
@@ -561,6 +564,6 @@ def test_schema_v0_upgrades_through_v3(tmp_path) -> None:
         }
 
     assert version == db.CURRENT_SCHEMA_VERSION
-    assert version == 3
+    assert version == 4
     assert "idx_web_login_attempts_attempted_at" in indexes
     assert "idx_web_recovery_attempts_attempted_at" in indexes

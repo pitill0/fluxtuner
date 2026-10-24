@@ -7,6 +7,7 @@ import unicodedata
 from urllib.parse import urlsplit
 
 from fluxtuner.core import db
+from fluxtuner.core import station_provenance as provenance
 from fluxtuner.core.stations import station_metadata
 
 MAX_NAME_LENGTH = 200
@@ -63,6 +64,7 @@ def add_custom_station(
     profile_id: int,
     name: str,
     url: str,
+    record_manual_provenance: bool = False,
 ) -> bool:
     """Add a manual station to one existing profile's favorites.
 
@@ -71,6 +73,8 @@ def add_custom_station(
     belongs to the new profile favorite, so other profiles remain unchanged.
     The caller owns the transaction and must commit successful changes.
     """
+    if type(record_manual_provenance) is not bool:
+        raise ValueError("Invalid manual provenance option.")
     clean_name = _validate_name(name)
     clean_url = _validate_url(url)
     if type(profile_id) is not int or profile_id <= 0:
@@ -124,6 +128,14 @@ def add_custom_station(
             (profile_id, int(row["id"]), clean_name, now, now),
         )
         added = cursor.rowcount > 0
+        if added and record_manual_provenance:
+            source_id = provenance.create_source(conn, profile_id=profile_id, kind="manual_entry")
+            provenance.record_observation(
+                conn,
+                profile_id=profile_id,
+                source_id=source_id,
+                station_id=int(row["id"]),
+            )
     except Exception:
         conn.execute("ROLLBACK TO SAVEPOINT add_custom_station")
         conn.execute("RELEASE SAVEPOINT add_custom_station")

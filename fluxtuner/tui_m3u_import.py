@@ -23,6 +23,7 @@ from fluxtuner.core.m3u_import import (
     M3UImportResult,
     M3UPreview,
     import_m3u,
+    import_m3u_with_new_source,
     load_m3u_file,
     load_station_collection,
 )
@@ -65,6 +66,9 @@ def _save_import(
     name: str,
     existing: bool,
     profile_is_current: Callable[[], bool],
+    *,
+    local_source: bool = False,
+    remote_source: bool = False,
 ) -> M3UImportOutcome:
     if not profile_is_current():
         raise ValueError("The profile changed. Reopen the import dialog.")
@@ -78,12 +82,24 @@ def _save_import(
             raise ValueError(
                 "A playlist with this name already exists. Choose it as an existing destination."
             )
-        result = import_m3u(
-            conn,
-            profile_id=profile_id,
-            playlist_name=name,
-            entries=preview.entries,
-        )
+        if local_source and remote_source:
+            raise ValueError("Conflicting collection source context.")
+        if local_source or remote_source:
+            outcome = import_m3u_with_new_source(
+                conn,
+                profile_id=profile_id,
+                playlist_name=name,
+                entries=preview.entries,
+                kind="remote_collection" if remote_source else "local_collection",
+            )
+            result = outcome.result
+        else:
+            result = import_m3u(
+                conn,
+                profile_id=profile_id,
+                playlist_name=name,
+                entries=preview.entries,
+            )
         conn.commit()
     return M3UImportOutcome(name, result)
 
@@ -142,6 +158,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
         self._profile_id = profile_id
         self._profile_is_current = profile_is_current
         self._preview: M3UPreview | None = None
+        self._local_source = False
+        self._remote_source = False
         self._names: tuple[str, ...] = ()
         self._generation = 0
         self._pending = ""
@@ -222,6 +240,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
             return
         self._generation += 1
         self._preview = None
+        self._local_source = False
+        self._remote_source = False
         self._names = ()
         self._pending = ""
         self._message("")
@@ -249,6 +269,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
             return
         self._generation += 1
         self._preview = None
+        self._local_source = False
+        self._remote_source = False
         self._names = ()
         self._pending = "preview"
         self._controls()
@@ -272,6 +294,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
             if not self._profile_is_current():
                 raise ValueError("The profile changed. Reopen the import dialog.")
             self._preview, self._names = preview, names
+            self._local_source = isinstance(path, Path)
+            self._remote_source = isinstance(path, str)
             select = self.query_one("#m3u-destination", Select)
             select.set_options(
                 [
@@ -312,6 +336,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
         except Exception as exc:  # noqa: BLE001 - contained file/profile failure.
             if self._current(generation):
                 self._preview = None
+                self._local_source = False
+                self._remote_source = False
                 self._message(str(exc))
         finally:
             if self._current(generation):
@@ -340,7 +366,14 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
         self._pending = "save"
         self._controls()
         self._message("Importing stations…")
-        self._save_file(self._preview, name, existing, self._generation)
+        self._save_file(
+            self._preview,
+            name,
+            existing,
+            self._generation,
+            local_source=self._local_source,
+            remote_source=self._remote_source,
+        )
 
     @work(exclusive=True, group="m3u-save")
     async def _save_file(
@@ -349,6 +382,9 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
         name: str,
         existing: bool,
         generation: int,
+        *,
+        local_source: bool = False,
+        remote_source: bool = False,
     ) -> None:
         try:
             outcome = await asyncio.to_thread(
@@ -358,6 +394,8 @@ class M3UImportScreen(ModalScreen[M3UImportOutcome | None]):
                 name,
                 existing,
                 self._profile_is_current,
+                local_source=local_source,
+                remote_source=remote_source,
             )
             if self._current(generation):
                 self._import_closed = True

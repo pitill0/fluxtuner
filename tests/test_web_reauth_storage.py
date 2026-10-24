@@ -14,7 +14,7 @@ def test_fresh_database_has_reauthentication_storage(tmp_path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(web_reauth_attempts)")}
 
-    assert version == 3
+    assert version == db.CURRENT_SCHEMA_VERSION
     assert {
         "id",
         "user_id",
@@ -54,7 +54,7 @@ def test_v2_upgrade_preserves_existing_users(tmp_path) -> None:
             for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
         }
 
-    assert version == 3
+    assert version == db.CURRENT_SCHEMA_VERSION
     assert user is not None
     assert user["password_hash"] == "test-hash-not-a-credential"
     assert "web_reauth_attempts" in tables

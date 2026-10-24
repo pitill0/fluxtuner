@@ -620,6 +620,7 @@ class MainWindow(Gtk.ApplicationWindow):
                         profile_id=profile_id,
                         name=name_entry.get_text(),
                         url=url_entry.get_text(),
+                        record_manual_provenance=True,
                     )
                     conn.commit()
             except Exception as exc:  # noqa: BLE001 - contained GTK storage failure.

@@ -108,6 +108,7 @@ class CustomStationScreen(ModalScreen[bool | None]):
                     profile_id=self._profile_id,
                     name=self.query_one("#custom-station-name", Input).value,
                     url=self.query_one("#custom-station-url", Input).value,
+                    record_manual_provenance=True,
                 )
                 conn.commit()
         except Exception as exc:  # noqa: BLE001 - contained form/storage failure.

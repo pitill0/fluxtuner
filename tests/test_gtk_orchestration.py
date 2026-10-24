@@ -2095,6 +2095,7 @@ def test_custom_station_dialog_saves_captured_profile_and_refreshes(monkeypatch,
         profile_id=7,
         name="Personal radio",
         url="https://radio.example/live",
+        record_manual_provenance=True,
     )
     conn.commit.assert_called_once_with()
     dialog.destroy.assert_called_once_with()

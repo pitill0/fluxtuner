@@ -18,6 +18,7 @@ from fluxtuner.core.m3u_import import (
     M3UImportResult,
     M3UPreview,
     import_m3u,
+    import_m3u_with_new_source,
     load_station_collection,
 )
 from fluxtuner.network.network_policy import SystemStreamTargetResolver
@@ -32,6 +33,8 @@ class M3UImportSession:
     existing_urls: frozenset[str]
     source_name: str
     profile_is_current: Callable[[], bool]
+    local_source: bool = False
+    remote_source: bool = False
     _closed: bool = False
 
     def cancel(self) -> None:
@@ -58,12 +61,24 @@ class M3UImportSession:
                 raise ValueError("The selected playlist no longer exists.")
             if not existing and destination is not None:
                 raise ValueError("This playlist already exists. Select it from the list.")
-            result = import_m3u(
-                conn,
-                profile_id=self.profile_id,
-                playlist_name=name,
-                entries=self.preview.entries,
-            )
+            if self.local_source and self.remote_source:
+                raise ValueError("Conflicting collection source context.")
+            if self.local_source or self.remote_source:
+                outcome = import_m3u_with_new_source(
+                    conn,
+                    profile_id=self.profile_id,
+                    playlist_name=name,
+                    entries=self.preview.entries,
+                    kind="remote_collection" if self.remote_source else "local_collection",
+                )
+                result = outcome.result
+            else:
+                result = import_m3u(
+                    conn,
+                    profile_id=self.profile_id,
+                    playlist_name=name,
+                    entries=self.preview.entries,
+                )
             conn.commit()
         self._closed = True
         return result
@@ -81,6 +96,7 @@ def prepare_m3u_import(
     return prepare_m3u_preview(
         preview,
         source_name=Path(path).name,
+        local_source=True,
         profile_id=profile_id,
         profile_is_current=profile_is_current,
     )
@@ -103,6 +119,7 @@ def prepare_remote_m3u_import(
         source_name=source_name,
         profile_id=profile_id,
         profile_is_current=profile_is_current,
+        remote_source=True,
     )
 
 
@@ -112,6 +129,8 @@ def prepare_m3u_preview(
     source_name: str,
     profile_id: int,
     profile_is_current: Callable[[], bool],
+    local_source: bool = False,
+    remote_source: bool = False,
 ) -> M3UImportSession:
     """Create a session from an already loaded local or remote preview."""
     if not profile_is_current():
@@ -143,6 +162,8 @@ def prepare_m3u_preview(
         existing_urls=urls,
         source_name=source_name,
         profile_is_current=profile_is_current,
+        local_source=local_source,
+        remote_source=remote_source,
     )
 
 

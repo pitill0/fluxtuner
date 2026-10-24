@@ -278,7 +278,9 @@ def create_custom_station_payload(
                 raise LookupError("The selected profile is unavailable.")
             profile_id = int(profile["id"])
 
-        added = add_custom_station(conn, profile_id=profile_id, name=name, url=url)
+        added = add_custom_station(
+            conn, profile_id=profile_id, name=name, url=url, record_manual_provenance=True
+        )
         saved = next(
             station
             for station in list_favorites(conn, profile_id=profile_id)

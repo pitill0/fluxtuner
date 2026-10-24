@@ -3,7 +3,7 @@
  */
 
 export function createStationImportController({
-  apiFetch, elements, getCurrentUser, getSessionKey, beforeOpen, onSaved,
+  apiFetch, elements, getCurrentUser, getSessionKey, getProfileName = () => null, beforeOpen, onSaved,
 }) {
   const {
     openButton, dialog, form, fileInput, urlInput, previewButton, previewNode,
@@ -14,6 +14,7 @@ export function createStationImportController({
   let generation = 0;
   let context = null;
   let bytes = null;
+  let remoteReceipt = null;
   let playlists = [];
   let pending = "";
   let bound = false;
@@ -22,7 +23,8 @@ export function createStationImportController({
     return Boolean(
       captured &&
       getCurrentUser()?.id === captured.userId &&
-      getSessionKey() === captured.sessionKey
+      getSessionKey() === captured.sessionKey &&
+      (getProfileName() || null) === captured.profileName
     );
   }
 
@@ -46,6 +48,7 @@ export function createStationImportController({
 
   function clearPreview() {
     bytes = null;
+    remoteReceipt = null;
     playlists = [];
     selectNode.replaceChildren();
     selectNode.value = "";
@@ -81,7 +84,7 @@ export function createStationImportController({
     if (!user || dialog.open) return;
     beforeOpen?.();
     generation += 1;
-    context = { userId: user.id, sessionKey: getSessionKey() };
+    context = { userId: user.id, sessionKey: getSessionKey(), profileName: getProfileName() || null };
     pending = "";
     form.reset();
     clearPreview();
@@ -95,6 +98,12 @@ export function createStationImportController({
     pending = "";
     clearPreview();
     messageNode.textContent = "";
+  }
+
+  function profileEndpoint(endpoint, captured) {
+    if (!captured?.profileName) return endpoint;
+    const join = endpoint.includes("?") ? "&" : "?";
+    return `${endpoint}${join}profile=${encodeURIComponent(captured.profileName)}`;
   }
 
   async function post(endpoint, body) {
@@ -183,7 +192,7 @@ export function createStationImportController({
     try {
       let data;
       if (url) {
-        const download = await apiFetch("/api/stations/import/remote", {
+        const download = await apiFetch(profileEndpoint("/api/stations/import/remote", requestContext), {
           method: "POST",
           headers: { Accept: "application/octet-stream", "Content-Type": "application/json" },
           body: JSON.stringify({ url }),
@@ -198,13 +207,14 @@ export function createStationImportController({
           throw new Error(detail);
         }
         data = await download.arrayBuffer();
+        remoteReceipt = download.headers?.get?.("X-FluxTuner-Remote-Receipt") || null;
         if (!current(requestGeneration, requestContext)) return;
         if (data.byteLength > MAX_BYTES) throw new Error("The playlist exceeds 1 MiB.");
       } else {
         data = await file.arrayBuffer();
       }
       if (!current(requestGeneration, requestContext)) return;
-      const response = await post("/api/stations/import/preview", data);
+      const response = await post(profileEndpoint("/api/stations/import/preview", requestContext), data);
       if (!current(requestGeneration, requestContext)) return;
       const payload = await readPayload(response);
       if (!current(requestGeneration, requestContext)) return;
@@ -253,7 +263,18 @@ export function createStationImportController({
     messageNode.textContent = "Importing stations…";
     try {
       const query = new URLSearchParams({ playlist: name, existing: String(existing) });
-      const response = await post(`/api/stations/import?${query}`, bytes);
+      const endpoint = profileEndpoint(`/api/stations/import?${query}`, requestContext);
+      const response = remoteReceipt
+        ? await apiFetch(endpoint, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/octet-stream",
+              "X-FluxTuner-Remote-Receipt": remoteReceipt,
+            },
+            body: bytes,
+          })
+        : await post(endpoint, bytes);
       if (!current(requestGeneration, requestContext)) return;
       const payload = await readPayload(response);
       if (!current(requestGeneration, requestContext)) return;

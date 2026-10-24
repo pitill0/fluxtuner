@@ -144,18 +144,18 @@ def test_profile_change_rejects_save_without_writing(library):
 def test_storage_failure_rolls_back_and_leaves_session_retryable(library, monkeypatch):
     session = prepare(library)
     before = counts()
-    original = gtk_m3u_import.import_m3u
+    original = gtk_m3u_import.import_m3u_with_new_source
 
     def fail(conn, **kwargs):
         db.create_playlist_record(conn, "Should roll back", profile_id=library.profile_id)
         raise RuntimeError("simulated storage failure")
 
-    monkeypatch.setattr(gtk_m3u_import, "import_m3u", fail)
+    monkeypatch.setattr(gtk_m3u_import, "import_m3u_with_new_source", fail)
     with pytest.raises(RuntimeError, match="simulated"):
         session.commit("Jazz", existing=False)
     assert counts() == before
 
-    monkeypatch.setattr(gtk_m3u_import, "import_m3u", original)
+    monkeypatch.setattr(gtk_m3u_import, "import_m3u_with_new_source", original)
     assert session.commit("Jazz", existing=False).added_to_playlist == 2
 
 
@@ -293,3 +293,61 @@ def test_window_remote_menu_captures_profile(monkeypatch):
     assert opener.call_args.kwargs["profile_id"] == 7
     harness._playlist_profile_id.return_value = 8
     assert opener.call_args.kwargs["profile_is_current"]() is False
+
+
+def test_local_commit_persists_profile_scoped_provenance(library):
+    session = prepare(library)
+    assert session.local_source is True
+
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+
+    result = session.commit("Jazz", existing=False)
+    assert result.added_to_playlist == 2
+
+    with db.connect() as conn:
+        sources = conn.execute(
+            "SELECT id, profile_id, kind, display_name FROM station_sources"
+        ).fetchall()
+        assert len(sources) == 1
+        assert sources[0]["profile_id"] == library.profile_id
+        assert sources[0]["kind"] == "local_collection"
+        assert sources[0]["display_name"] is None
+        assert conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 2
+
+
+def test_remote_commit_records_remote_provenance(library, monkeypatch):
+    preview = prepare(library).preview
+    monkeypatch.setattr(
+        gtk_m3u_import,
+        "preview_remote_station_collection",
+        lambda *_args, **_kwargs: (b"snapshot", preview),
+    )
+    session = gtk_m3u_import.prepare_remote_m3u_import(
+        "https://catalog.example/jazz.m3u",
+        profile_id=library.profile_id,
+        profile_is_current=lambda: True,
+    )
+    assert session.local_source is False
+    assert session.remote_source is True
+
+    session.commit("Remote Jazz", existing=False)
+
+    with db.connect() as conn:
+        sources = conn.execute(
+            "SELECT profile_id, kind, display_name FROM station_sources"
+        ).fetchall()
+        assert len(sources) == 1
+        assert sources[0]["profile_id"] == library.profile_id
+        assert sources[0]["kind"] == "remote_collection"
+        assert sources[0]["display_name"] is None
+        assert conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 2
+
+
+def test_local_cancel_creates_no_provenance(library):
+    session = prepare(library)
+    session.cancel()
+
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 0

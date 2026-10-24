@@ -9,8 +9,13 @@ from typing import Any
 
 from fluxtuner.core import db
 from fluxtuner.core.favorites import list_favorites
-from fluxtuner.core.m3u_import import import_m3u, parse_station_collection
+from fluxtuner.core.m3u_import import (
+    import_m3u,
+    import_m3u_with_new_source,
+    parse_station_collection,
+)
 from fluxtuner.core.profiles import get_profile_by_name
+from fluxtuner.web import remote_import_receipts as receipts
 
 
 class DestinationConflict(ValueError):
@@ -54,6 +59,8 @@ def import_payload(
     profile_name: str | None,
     playlist_name: str,
     existing: bool,
+    remote_receipt: str | None = None,
+    session_token: str | None = None,
 ) -> dict[str, Any]:
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -68,11 +75,28 @@ def import_payload(
         if not existing and destination is not None:
             raise DestinationConflict("A playlist with this name already exists.")
 
-        result = import_m3u(
-            conn,
-            profile_id=profile_id,
-            playlist_name=playlist_name,
-            entries=preview.entries,
-        )
+        if remote_receipt is not None:
+            receipts.consume(
+                conn,
+                token=remote_receipt,
+                user_id=user_id,
+                profile_id=profile_id,
+                session_token=session_token,
+                data=data,
+            )
+            result = import_m3u_with_new_source(
+                conn,
+                profile_id=profile_id,
+                playlist_name=playlist_name,
+                entries=preview.entries,
+                kind="remote_collection",
+            ).result
+        else:
+            result = import_m3u(
+                conn,
+                profile_id=profile_id,
+                playlist_name=playlist_name,
+                entries=preview.entries,
+            )
         conn.commit()
         return {"status": "ok", "name": playlist_name.strip(), **asdict(result)}

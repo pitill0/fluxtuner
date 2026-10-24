@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -155,6 +155,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 )
                 stored_version = 3
                 conn.execute("PRAGMA user_version = 3")
+                continue
+
+            if stored_version == 3:
+                _create_station_provenance_schema(conn)
+                stored_version = 4
+                conn.execute("PRAGMA user_version = 4")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -426,6 +432,72 @@ def create_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_playlist_stations_playlist_position
         ON playlist_stations(playlist_id, position);
+        """,
+    )
+    _create_station_provenance_schema(conn)
+
+
+def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:
+    """Create profile-scoped station provenance storage, without committing."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS station_sources (
+            id INTEGER PRIMARY KEY,
+            profile_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            source_ref TEXT NOT NULL,
+            display_name TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (profile_id)
+                REFERENCES profiles(id) ON DELETE CASCADE,
+            UNIQUE (profile_id, kind, source_ref),
+            CHECK (
+                kind IN ('local_collection', 'remote_collection', 'manual_entry')
+            ),
+            CHECK (
+                length(source_ref) BETWEEN 1 AND 128
+                AND length(trim(source_ref)) = length(source_ref)
+            ),
+            CHECK (
+                display_name IS NULL
+                OR length(display_name) BETWEEN 1 AND 120
+            )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_station_sources_profile_kind
+        ON station_sources(profile_id, kind);
+
+        CREATE TABLE IF NOT EXISTS station_source_memberships (
+            source_id INTEGER NOT NULL,
+            station_id INTEGER NOT NULL,
+            first_observed_at TEXT NOT NULL,
+            last_observed_at TEXT NOT NULL,
+            PRIMARY KEY (source_id, station_id),
+            FOREIGN KEY (source_id)
+                REFERENCES station_sources(id) ON DELETE CASCADE,
+            FOREIGN KEY (station_id)
+                REFERENCES stations(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_station_source_memberships_station
+        ON station_source_memberships(station_id);
+
+        CREATE TABLE IF NOT EXISTS remote_import_receipts (
+            token_hash TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            profile_id INTEGER NOT NULL,
+            session_hash TEXT NOT NULL,
+            payload_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_remote_import_receipts_expires
+        ON remote_import_receipts(expires_at);
         """,
     )
 

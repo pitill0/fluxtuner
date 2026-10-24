@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fluxtuner.core import db
+from fluxtuner.core import station_provenance as provenance
 from fluxtuner.core.custom_stations import (
     MAX_NAME_LENGTH,
     _has_controls,
@@ -51,6 +52,14 @@ class M3UImportResult:
     existing_favorites: int
     added_to_playlist: int
     already_in_playlist: int
+
+
+@dataclass(frozen=True, slots=True)
+class M3UImportWithSourceResult:
+    """A newly created provenance source and the unchanged import result."""
+
+    result: M3UImportResult
+    source_id: int
 
 
 def _extinf_name(line: str) -> str:
@@ -306,6 +315,7 @@ def import_m3u(
     profile_id: int,
     playlist_name: str,
     entries: Sequence[M3UEntry],
+    source_id: int | None = None,
 ) -> M3UImportResult:
     """Import stations into favorites and one playlist without committing.
 
@@ -325,6 +335,8 @@ def import_m3u(
     if conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone() is None:
         raise ValueError("The selected profile no longer exists.")
     accepted = _validated_entries(entries)
+    if source_id is not None:
+        provenance.get_source(conn, profile_id=profile_id, source_id=source_id)
 
     if not conn.in_transaction:
         conn.execute("BEGIN")
@@ -367,6 +379,14 @@ def import_m3u(
             if station is None:
                 raise RuntimeError("Could not find the imported station.")
 
+            if source_id is not None:
+                provenance.record_observation(
+                    conn,
+                    profile_id=profile_id,
+                    source_id=source_id,
+                    station_id=int(station["id"]),
+                )
+
             # Link the existing row directly: the normal playlist helper
             # upserts station metadata, which imports must preserve.
             cursor = conn.execute(
@@ -393,3 +413,42 @@ def import_m3u(
         raise
     conn.execute("RELEASE SAVEPOINT m3u_import")
     return result
+
+
+def import_m3u_with_new_source(
+    conn: sqlite3.Connection,
+    *,
+    profile_id: int,
+    playlist_name: str,
+    entries: Sequence[M3UEntry],
+    display_name: str | None = None,
+    kind: str = "local_collection",
+) -> M3UImportWithSourceResult:
+    """Atomically create a collection source and import its stations.
+
+    The caller controls commit/rollback. Remote kind is reserved for
+    callers that have obtained a validated remote collection snapshot.
+    """
+    if not conn.in_transaction:
+        conn.execute("BEGIN")
+    conn.execute("SAVEPOINT m3u_import_new_source")
+    try:
+        source_id = provenance.create_source(
+            conn,
+            profile_id=profile_id,
+            kind=kind,
+            display_name=display_name,
+        )
+        result = import_m3u(
+            conn,
+            profile_id=profile_id,
+            playlist_name=playlist_name,
+            entries=entries,
+            source_id=source_id,
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT m3u_import_new_source")
+        conn.execute("RELEASE SAVEPOINT m3u_import_new_source")
+        raise
+    conn.execute("RELEASE SAVEPOINT m3u_import_new_source")
+    return M3UImportWithSourceResult(result=result, source_id=source_id)

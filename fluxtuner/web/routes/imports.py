@@ -12,6 +12,8 @@ from fluxtuner.network.network_policy import SystemStreamTargetResolver
 from fluxtuner.network.remote_station_collection import fetch_remote_station_collection
 from fluxtuner.web import guards
 from fluxtuner.web import m3u_import as service
+from fluxtuner.web import remote_import_receipts as receipts
+from fluxtuner.web.security import SESSION_COOKIE_NAME
 
 router = APIRouter()
 
@@ -68,9 +70,11 @@ async def _read_remote_url(request: Request) -> str:
 
 
 @router.post("/api/stations/import/remote")
-async def fetch_remote_import(request: Request) -> Response:
+async def fetch_remote_import(
+    request: Request, profile: str | None = Query(default=None, max_length=80)
+) -> Response:
     """Return one validated byte snapshot; the browser owns preview and confirmation."""
-    _authorize(request)
+    user_id = _authorize(request)
     url = await _read_remote_url(request)
     try:
         data = await asyncio.to_thread(
@@ -82,9 +86,18 @@ async def fetch_remote_import(request: Request) -> Response:
         raise HTTPException(
             status_code=502, detail="Could not retrieve the remote collection."
         ) from exc
-    return Response(
-        content=data, media_type="application/octet-stream", headers={"Cache-Control": "no-store"}
-    )
+    headers = {"Cache-Control": "no-store"}
+    session_token = getattr(request, "cookies", {}).get(SESSION_COOKIE_NAME)
+    if session_token:
+        receipt = await asyncio.to_thread(
+            receipts.issue_for_profile,
+            user_id=user_id,
+            profile_name=profile,
+            session_token=session_token,
+            data=data,
+        )
+        headers["X-FluxTuner-Remote-Receipt"] = receipt
+    return Response(content=data, media_type="application/octet-stream", headers=headers)
 
 
 @router.post("/api/stations/import/preview")
@@ -113,6 +126,8 @@ async def confirm_import(
 ) -> dict[str, Any]:
     user_id = _authorize(request)
     data = await _read_upload(request)
+    remote_receipt = request.headers.get("X-FluxTuner-Remote-Receipt")
+    session_token = getattr(request, "cookies", {}).get(SESSION_COOKIE_NAME)
     try:
         return await asyncio.to_thread(
             service.import_payload,
@@ -121,6 +136,8 @@ async def confirm_import(
             profile_name=profile,
             playlist_name=playlist,
             existing=existing,
+            remote_receipt=remote_receipt,
+            session_token=session_token,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None

@@ -298,3 +298,90 @@ def test_application_opens_destination_only_after_confirmation(monkeypatch, conf
         harness.show_persistent_playlist_stations.assert_awaited_once_with("Imported")
     else:
         harness.show_persistent_playlist_stations.assert_not_awaited()
+
+
+def test_tui_local_import_records_provenance(library):
+    async def scenario():
+        app, screen = form_app(library)
+        async with app.run_test(size=(100, 44)) as pilot:
+            await preview(app, screen, pilot, library)
+            assert screen._local_source is True
+            with db.connect() as conn:
+                assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+
+            screen.query_one("#m3u-name", Input).value = "Local provenance"
+            await save(app, screen, pilot)
+            assert len(app.results) == 1
+            assert app.results[0].result.added_to_playlist == 2
+
+        with db.connect() as conn:
+            sources = conn.execute(
+                "SELECT profile_id, kind, display_name FROM station_sources"
+            ).fetchall()
+            assert len(sources) == 1
+            assert sources[0]["profile_id"] == library["first"]
+            assert sources[0]["kind"] == "local_collection"
+            assert sources[0]["display_name"] is None
+            assert (
+                conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 2
+            )
+
+    asyncio.run(scenario())
+
+
+def test_tui_path_edit_clears_provenance_context(library):
+    async def scenario():
+        app, screen = form_app(library)
+        async with app.run_test(size=(100, 44)) as pilot:
+            await preview(app, screen, pilot, library)
+            assert screen._local_source is True
+            screen.query_one("#m3u-path", Input).value += ".changed"
+            await pilot.pause()
+            assert screen._preview is None
+            assert screen._local_source is False
+            assert screen.query_one("#m3u-save", Button).disabled
+            assert not app.results
+
+        with db.connect() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+
+    asyncio.run(scenario())
+
+
+def test_tui_cancelled_preview_creates_no_provenance(library):
+    async def scenario():
+        app, screen = form_app(library)
+        async with app.run_test(size=(100, 44)) as pilot:
+            await preview(app, screen, pilot, library)
+            assert screen._local_source is True
+            await pilot.press("escape")
+            await pilot.pause()
+            assert app.results == [None]
+
+        with db.connect() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+            assert (
+                conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 0
+            )
+
+    asyncio.run(scenario())
+
+
+def test_tui_remote_save_does_not_claim_local_provenance(library):
+    from fluxtuner.core.m3u_import import parse_station_collection
+
+    captured = parse_station_collection(
+        b"#EXTM3U\n#EXTINF:-1,Remote\nhttps://remote.example/live\n"
+    )
+    outcome = importer._save_import(
+        library["first"],
+        captured,
+        "Remote provenance guard",
+        False,
+        lambda: True,
+    )
+    assert outcome.result.added_to_playlist == 1
+
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM station_source_memberships").fetchone()[0] == 0

@@ -85,6 +85,7 @@ def create_app(
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
+        from fluxtuner.web.static_compression import StaticCompression
 
         globals()["Request"] = Request
         globals()["Response"] = Response
@@ -194,7 +195,7 @@ def create_app(
     static_dir = resources.files("fluxtuner.web").joinpath("static")
     app.mount(
         "/static",
-        StaticFiles(directory=str(static_dir)),
+        StaticCompression(StaticFiles(directory=str(static_dir))),
         name="static",
     )
 

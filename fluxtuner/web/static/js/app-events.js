@@ -33,10 +33,12 @@ export function bindApplicationEvents({
   logout,
   logoutButton,
   mutateAdminUser,
+  navigateToAccount,
   navigateToAdmin,
   navigateToDashboard,
   navigateToPrivateView,
   navigateToSearch,
+  navAccountButton,
   navAdminButton,
   navDashboardButton,
   navFavoritesButton,
@@ -214,6 +216,7 @@ export function bindApplicationEvents({
   if (navHistoryButton) {
     navHistoryButton.addEventListener("click", () => navigateToPrivateView(loadHistory));
   }
+  if (navAccountButton) navAccountButton.addEventListener("click", navigateToAccount);
   if (navAdminButton) navAdminButton.addEventListener("click", navigateToAdmin);
   if (searchForm) searchForm.addEventListener("submit", searchController.searchStations);
   if (loadHistoryButton) loadHistoryButton.addEventListener("click", loadHistory);

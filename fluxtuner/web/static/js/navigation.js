@@ -3,6 +3,7 @@
  */
 
 export function createNavigationController({
+  accountPanel,
   stationImportController,
   accountRequestsController,
   adminPanel,
@@ -23,6 +24,7 @@ export function createNavigationController({
   resetRadioBrowserView,
   scrollToSection,
   searchPanel,
+  showAccountView,
   showAdminView,
   showRadioBrowserView,
 }) {
@@ -86,6 +88,17 @@ export function createNavigationController({
     scrollToSection(searchPanel);
   }
 
+  function navigateToAccount() {
+    closeMobileMenu();
+    if (!appState.isAuthenticated() || !accountPanel) {
+      renderAuthRequired();
+      scrollToSection(authPanel);
+      return;
+    }
+    showAccountView();
+    scrollToSection(accountPanel);
+  }
+
   async function navigateToAdmin() {
     closeMobileMenu();
 
@@ -100,6 +113,7 @@ export function createNavigationController({
 
   return {
     closeOpenDialog,
+    navigateToAccount,
     navigateToAdmin,
     navigateToDashboard,
     navigateToPrivateView,

@@ -12,6 +12,8 @@ export function createSessionUiController({
   authPanel,
   authUserPanel,
   authUsernameNode,
+  accountPanel,
+  accountUsernameNode,
   dashboardPanel,
   isSetupAvailable,
   loginForm,
@@ -61,12 +63,19 @@ export function createSessionUiController({
     const showAdminPanel =
       authenticated && Boolean(currentUser.is_admin) && !setupAvailable;
 
-    if (authenticated && !showAdminPanel && searchPanel && searchPanel.hidden) {
+    if (
+      authenticated && !showAdminPanel && searchPanel && searchPanel.hidden &&
+      !(accountPanel && !accountPanel.hidden)
+    ) {
       showRadioBrowserView();
     }
 
     if (adminPanel && !showAdminPanel) {
       adminPanel.hidden = true;
+    }
+
+    if (accountPanel && (!authenticated || setupAvailable)) {
+      accountPanel.hidden = true;
     }
 
     if (dashboardPanel && !authenticated) {
@@ -98,6 +107,12 @@ export function createSessionUiController({
     if (authUsernameNode) {
       const displayName = currentUser?.display_name || currentUser?.username || "User";
       authUsernameNode.textContent = authenticated ? displayName : "";
+    }
+
+    if (accountUsernameNode) {
+      accountUsernameNode.textContent = authenticated
+        ? currentUser?.username || ""
+        : "";
     }
 
     privateActionNodes.forEach((node) => {

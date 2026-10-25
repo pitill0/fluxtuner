@@ -51,9 +51,6 @@
         <div class="app-header-actions">
           <div class="app-user" data-auth-user hidden>
             <span data-auth-username></span>
-            <button type="button" data-recovery-codes-regenerate-open>
-              Generate new recovery codes
-            </button>
             <button type="button" data-logout>Logout</button>
           </div>
 
@@ -90,6 +87,7 @@
             <button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
             <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
             <button type="button" data-nav-history data-private-action disabled>History</button>
+            <button type="button" data-nav-account data-private-action disabled>Account</button>
             <button type="button" data-nav-admin hidden>Admin</button>
           </nav>
         </div>
@@ -235,6 +233,36 @@
       </section>
 
       <div class="app-content" data-app-content hidden>
+        <section class="panel account-panel" data-account-panel hidden aria-labelledby="account-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Your account</p>
+              <h2 id="account-title">Account</h2>
+            </div>
+          </div>
+
+          <div class="account-sections">
+            <section class="account-card" aria-labelledby="account-information-title">
+              <h3 id="account-information-title">Account information</h3>
+              <dl class="account-details">
+                <div>
+                  <dt>Username</dt>
+                  <dd data-account-username></dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="account-card account-security" aria-labelledby="account-security-title">
+              <h3 id="account-security-title">Security</h3>
+              <p>Recovery codes help you regain access to your account if you forget your password.</p>
+              <p>Generating new recovery codes invalidates all previously generated codes.</p>
+              <button type="button" data-recovery-codes-regenerate-open>
+                Generate new recovery codes
+              </button>
+            </section>
+          </div>
+        </section>
+
               <section class="panel dashboard-panel" data-dashboard-panel hidden aria-labelledby="dashboard-title">
                 <div class="panel-heading">
                   <div>

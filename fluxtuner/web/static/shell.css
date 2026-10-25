@@ -296,3 +296,50 @@ html[data-theme="light"] .theme-toggle span::before {
 .app-content[hidden] {
   display: none !important;
 }
+
+/* Account section - shared desktop and mobile layout. */
+.account-sections {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.account-card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--field-border);
+  border-radius: 1rem;
+}
+
+.account-card h3 {
+  margin-top: 0;
+}
+
+.account-details {
+  margin-bottom: 0;
+}
+
+.account-details dt {
+  color: var(--muted);
+}
+
+.account-details dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.account-security button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 38rem) {
+  .account-panel .account-card {
+    padding: 1rem;
+  }
+
+  .account-security button {
+    width: 100%;
+  }
+}

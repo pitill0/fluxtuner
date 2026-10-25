@@ -3,6 +3,7 @@
  */
 
 export function createUiShellController({
+  accountPanel,
   adminPanel,
   appContentNodes,
   appHeader,
@@ -77,6 +78,10 @@ export function createUiShellController({
   }
 
   function showRadioBrowserView() {
+    if (accountPanel) {
+      accountPanel.hidden = true;
+    }
+
     if (searchPanel) {
       searchPanel.hidden = false;
     }
@@ -91,6 +96,10 @@ export function createUiShellController({
   }
 
   function showDashboardView() {
+    if (accountPanel) {
+      accountPanel.hidden = true;
+    }
+
     if (searchPanel) {
       searchPanel.hidden = true;
     }
@@ -105,6 +114,10 @@ export function createUiShellController({
   }
 
   function showAdminView() {
+    if (accountPanel) {
+      accountPanel.hidden = true;
+    }
+
     if (searchPanel) {
       searchPanel.hidden = true;
     }
@@ -116,6 +129,13 @@ export function createUiShellController({
     if (adminPanel) {
       adminPanel.hidden = false;
     }
+  }
+
+  function showAccountView() {
+    if (searchPanel) searchPanel.hidden = true;
+    if (dashboardPanel) dashboardPanel.hidden = true;
+    if (adminPanel) adminPanel.hidden = true;
+    if (accountPanel) accountPanel.hidden = false;
   }
 
   function resetRadioBrowserView() {
@@ -141,6 +161,7 @@ export function createUiShellController({
     setMobileMenuOpen,
     setPlayerVisible,
     setResultsHeader,
+    showAccountView,
     showAdminView,
     showDashboardView,
     showRadioBrowserView,

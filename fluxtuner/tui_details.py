@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from rich.markup import escape
+
 from fluxtuner.core.favorites import favorite_display_name
 from fluxtuner.core.stations import (
     station_bitrate,
@@ -63,13 +65,13 @@ def station_details_text(
 
     return (
         "[b]Station details[/b]\n"
-        f"{name}\n\n"
-        f"Country: {country}\n"
-        f"Codec: {codec}\n"
-        f"Bitrate: {bitrate} kbps\n"
-        f"Genre/tags: {genre_tags}\n\n"
-        f"Favorite: {favorite_status_text(favorite)}\n"
-        f"Favorite tags: {favorite_tags_text(favorite)}\n\n"
+        f"{escape(str(name))}\n\n"
+        f"Country: {escape(str(country))}\n"
+        f"Codec: {escape(str(codec))}\n"
+        f"Bitrate: {escape(str(bitrate))} kbps\n"
+        f"Genre/tags: {escape(str(genre_tags))}\n\n"
+        f"Favorite: {escape(favorite_status_text(favorite))}\n"
+        f"Favorite tags: {escape(favorite_tags_text(favorite))}\n\n"
         f"{favorite_hint_text(favorite)}"
     )
 
@@ -89,9 +91,9 @@ def theme_details_text(
 
     return (
         "[b]Theme Preview[/b]\n\n"
-        f"[b]{theme_name}[/b]\n"
+        f"[b]{escape(theme_name)}[/b]\n"
         f"Status: {status}\n"
-        f"File: {Path(path).name}\n\n"
+        f"File: {escape(Path(path).name)}\n\n"
         "Highlight previews temporarily.\n"
         "Enter: apply selected theme.\n"
         "y: save active theme as default.\n"
@@ -106,7 +108,11 @@ def dynamic_playlist_details_text(
     preview_names: list[str],
     total_count: int,
 ) -> str:
-    preview = "\n".join(f"• {name}" for name in preview_names) if preview_names else "No stations."
+    preview = (
+        "\n".join(f"• {escape(name)}" for name in preview_names)
+        if preview_names
+        else "No stations."
+    )
     extra = (
         ""
         if total_count <= len(preview_names)
@@ -115,7 +121,7 @@ def dynamic_playlist_details_text(
 
     return (
         "[b]Dynamic Playlist[/b]\n\n"
-        f"[b]#{tag}[/b]\n"
+        f"[b]#{escape(tag)}[/b]\n"
         f"Stations: {count}\n\n"
         "Enter / r: smart play random station\n"
         "f: show matching favorites\n\n"
@@ -131,11 +137,11 @@ def persistent_playlist_details_text(
 ) -> str:
     return (
         "[b]Persistent Playlist[/b]\n\n"
-        f"[b]{playlist_name}[/b]\n"
+        f"[b]{escape(playlist_name)}[/b]\n"
         f"Stations: {count}\n\n"
         "Enter / r: smart play random station\n"
         "f: show playlist stations\n"
         "d: delete this playlist\n"
         "b: add selected station to a playlist from other views\n\n"
-        f"{preview}"
+        f"{escape(preview)}"
     )

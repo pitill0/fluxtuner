@@ -80,9 +80,7 @@ async def fetch_remote_import(
         data = await asyncio.to_thread(
             fetch_remote_station_collection, url, SystemStreamTargetResolver()
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from None
-    except (OSError, TimeoutError, RuntimeError) as exc:
+    except (ValueError, OSError, TimeoutError, RuntimeError) as exc:
         raise HTTPException(
             status_code=502, detail="Could not retrieve the remote collection."
         ) from exc

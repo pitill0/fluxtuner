@@ -18,8 +18,18 @@ def _has_controls(value: str) -> bool:
     return any(unicodedata.category(character) == "Cc" for character in value)
 
 
+def _has_unsafe_bidi_controls(value: str) -> bool:
+    """Reject directional formatting controls without rejecting RTL text."""
+    return any(
+        character in {"\u061c", "\u200e", "\u200f"}
+        or "\u202a" <= character <= "\u202e"
+        or "\u2066" <= character <= "\u2069"
+        for character in value
+    )
+
+
 def _validate_name(name: str) -> str:
-    if not isinstance(name, str) or _has_controls(name):
+    if not isinstance(name, str) or _has_controls(name) or _has_unsafe_bidi_controls(name):
         raise ValueError("Station name contains invalid characters.")
     clean_name = name.strip()
     if not clean_name:

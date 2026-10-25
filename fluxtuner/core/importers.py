@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from fluxtuner.core.custom_stations import _has_unsafe_bidi_controls
 from fluxtuner.players.security import is_supported_stream_url
 
 MAX_TEXT_FIELD_LENGTH = 500
@@ -19,7 +20,9 @@ class ImportResult:
 def _clean_text(value: Any, *, max_length: int = MAX_TEXT_FIELD_LENGTH) -> str:
     if not isinstance(value, str):
         return ""
-    return value.strip()[:max_length]
+    clean = value.strip()
+    clean = "".join(character for character in clean if not _has_unsafe_bidi_controls(character))
+    return clean[:max_length]
 
 
 def _clean_optional_text(value: Any, *, max_length: int = MAX_TEXT_FIELD_LENGTH) -> str | None:

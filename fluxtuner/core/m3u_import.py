@@ -15,6 +15,7 @@ from fluxtuner.core import station_provenance as provenance
 from fluxtuner.core.custom_stations import (
     MAX_NAME_LENGTH,
     _has_controls,
+    _has_unsafe_bidi_controls,
     _validate_name,
     _validate_url,
     add_custom_station,
@@ -323,7 +324,11 @@ def import_m3u(
     operation are rolled back together on failure. Earlier caller writes survive.
     Existing station records, favorite names, tags and memberships are preserved.
     """
-    if not isinstance(playlist_name, str) or _has_controls(playlist_name):
+    if (
+        not isinstance(playlist_name, str)
+        or _has_controls(playlist_name)
+        or _has_unsafe_bidi_controls(playlist_name)
+    ):
         raise ValueError("Playlist name contains invalid characters.")
     clean_name = playlist_name.strip()
     if not clean_name:

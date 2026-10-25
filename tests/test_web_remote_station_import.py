@@ -89,4 +89,5 @@ def test_remote_url_protected_fetch_failure(monkeypatch):
                 FakeRequest(json.dumps({"url": "http://127.0.0.1/"}).encode())
             )
         )
-    assert exc.value.status_code == 400
+    assert exc.value.status_code == 502
+    assert exc.value.detail == "Could not retrieve the remote collection."

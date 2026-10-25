@@ -8,6 +8,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Literal
 
+from rich.markup import escape
+from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -970,7 +972,11 @@ class FluxTunerTUI(App[None]):
             key = self.next_table_key("playlist")
             self.add_table_payload(key, "playlist", {"name": name, "count": count})
             table.add_row(
-                "Persistent", name, str(count), "Manual playlist saved in your library", key=key
+                "Persistent",
+                Text(str(name)),
+                str(count),
+                "Manual playlist saved in your library",
+                key=key,
             )
             first_actionable_key = first_actionable_key or key
 
@@ -979,7 +985,7 @@ class FluxTunerTUI(App[None]):
             self.add_table_payload(key, "tag", {"tag": tag, "count": count})
             table.add_row(
                 "Dynamic",
-                f"#{tag}",
+                Text(f"#{tag}"),
                 str(count),
                 "Generated automatically from favorite tags",
                 key=key,
@@ -1013,7 +1019,11 @@ class FluxTunerTUI(App[None]):
             self.add_table_payload(key, "theme", theme_name)
             status = "active" if theme_name == self.active_theme else "available"
             table.add_row(
-                "Theme", theme_name, status, f"{Path(get_theme_path(theme_name)).name}", key=key
+                "Theme",
+                Text(theme_name),
+                status,
+                Text(Path(get_theme_path(theme_name)).name),
+                key=key,
             )
 
         if themes:
@@ -1107,14 +1117,14 @@ class FluxTunerTUI(App[None]):
         marker = self.station_marker(station)
         name = ellipsize(favorite_display_name(station), 40)
         table.add_row(
-            marker,
-            name,
-            self.station_short_id(station),
-            ellipsize(station_country(station), 14),
-            self.station_genre_tags(station, max_length=32),
-            station_codec(station),
-            str(station_bitrate(station) or "-"),
-            self.station_custom_tags(station, max_length=22),
+            Text(str(marker)),
+            Text(str(name)),
+            Text(str(self.station_short_id(station))),
+            Text(str(ellipsize(station_country(station), 14))),
+            Text(str(self.station_genre_tags(station, max_length=32))),
+            Text(str(station_codec(station))),
+            Text(str(station_bitrate(station) or "-")),
+            Text(str(self.station_custom_tags(station, max_length=22))),
             key=key,
         )
 
@@ -1959,7 +1969,8 @@ class FluxTunerTUI(App[None]):
         self.current_track = projection.track
         if self.is_running:
             self.query_one("#metadata", Static).update(
-                f"[b]Metadata[/b]\nArtist: {self.current_artist}\nTrack: {self.current_track}"
+                f"[b]Metadata[/b]\nArtist: {escape(self.current_artist)}"
+                f"\nTrack: {escape(self.current_track)}"
             )
 
     def update_now_playing(self) -> None:
@@ -1976,17 +1987,19 @@ class FluxTunerTUI(App[None]):
         codec = self.playing_station.get("codec") or "?"
         country = self.playing_station.get("country") or "Unknown"
         now_playing.update(
-            f"[b]Now Playing[/b]\n{station_name}\n{country} · {codec} · {bitrate} kbps"
+            f"[b]Now Playing[/b]\n{escape(str(station_name))}"
+            f"\n{escape(str(country))} · {escape(str(codec))}"
+            f" · {escape(str(bitrate))} kbps"
         )
         self._maybe_fetch_metadata()
         self._update_usage_display()
         self._update_player_state_display()
 
     def update_mode_title(self, title: str) -> None:
-        self.query_one("#mode-title", Static).update(title)
+        self.query_one("#mode-title", Static).update(Text(title))
 
     def set_status(self, message: str) -> None:
-        self.query_one("#status", Static).update(message)
+        self.query_one("#status", Static).update(Text(message))
 
 
 def run_tui(theme: str | None = None, player_name: str = "mpv") -> None:

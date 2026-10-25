@@ -6,9 +6,9 @@ naming and stream closure. FluxTuner owns requests, profile context, destination
 policy, worker scheduling and observations.
 
 The optional requirements pin Brynse commit
-[`23971964c7d53da520351a4bbd322b078fdae07d`](https://github.com/pitill0/brynse/tree/23971964c7d53da520351a4bbd322b078fdae07d),
-which reports version 0.1.0. Historical validation checkpoints below retain
-their original Brynse revision.
+[`e8418776e54ba7df4f3c5abeca5dc1033c7322c6`](https://github.com/pitill0/brynse/tree/e8418776e54ba7df4f3c5abeca5dc1033c7322c6),
+which corresponds to Brynse v0.1.1. Historical validation checkpoints below
+retain their original Brynse revisions.
 
 ## Components
 

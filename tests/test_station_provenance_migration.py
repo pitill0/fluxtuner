@@ -85,7 +85,7 @@ def test_v3_upgrade_preserves_existing_library_data(tmp_path):
     db.init_db(path)
 
     with db.connect(path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert (
             tuple(conn.execute("SELECT * FROM stations WHERE id = ?", (station_id,)).fetchone())
             == station_before
@@ -103,7 +103,7 @@ def test_v3_upgrade_preserves_existing_library_data(tmp_path):
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
-def test_v3_upgrade_matches_fresh_v4_schema(tmp_path):
+def test_v3_upgrade_matches_fresh_v5_schema(tmp_path):
     legacy = tmp_path / "legacy.db"
     fresh = tmp_path / "fresh.db"
 
@@ -113,8 +113,8 @@ def test_v3_upgrade_matches_fresh_v4_schema(tmp_path):
 
     with db.connect(legacy) as old_conn, db.connect(fresh) as fresh_conn:
         assert _schema_objects(old_conn) == _schema_objects(fresh_conn)
-        assert old_conn.execute("PRAGMA user_version").fetchone()[0] == 4
-        assert fresh_conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert old_conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert fresh_conn.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
 def test_failed_v3_upgrade_rolls_back_ddl_and_version(tmp_path, monkeypatch):
@@ -151,7 +151,7 @@ def test_concurrent_v3_initializers_create_one_consistent_schema(tmp_path):
     assert results == [None] * 4
 
     with db.connect(path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert "station_sources" in db.table_names(conn)
         assert "station_source_memberships" in db.table_names(conn)
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []

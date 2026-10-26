@@ -206,6 +206,19 @@ def _parse_response_head(
     return status, headers, body
 
 
+def _conditional_header(name: str, value: str | None) -> str:
+    """Accept only bounded, single-line ASCII HTTP cache validators."""
+    if value is None:
+        return ""
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 512
+        or any(ord(char) < 32 or ord(char) > 126 for char in value)
+    ):
+        raise ValueError("Invalid HTTP cache validator.")
+    return f"{name}: {value}\r\n"
+
+
 class ProtectedHTTPTransport:
     """Perform one bounded request through an exact validated destination."""
 
@@ -218,7 +231,14 @@ class ProtectedHTTPTransport:
         address: ResolvedAddress,
         policy: MetadataFetchPolicy,
         timeout: float,
+        *,
+        if_none_match: str | None = None,
+        if_modified_since: str | None = None,
     ) -> ProtectedHTTPResponse:
+        conditional = (
+            _conditional_header("If-None-Match", if_none_match)
+            + _conditional_header("If-Modified-Since", if_modified_since)
+        )
         if timeout <= 0:
             raise MetadataTransportError("Metadata request budget is exhausted.")
 
@@ -237,6 +257,7 @@ class ProtectedHTTPTransport:
                 "User-Agent: FluxTuner-Web/1\r\n"
                 "Accept: */*\r\n"
                 "Icy-MetaData: 1\r\n"
+                f"{conditional}"
                 "Connection: close\r\n"
                 "\r\n"
             ).encode("ascii")

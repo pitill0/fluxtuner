@@ -85,6 +85,7 @@
             <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
             <button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
             <button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
+            <button type="button" data-nav-subscriptions data-private-action disabled>Remote catalogs…</button>
             <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
             <button type="button" data-nav-history data-private-action disabled>History</button>
             <button type="button" data-nav-account data-private-action disabled>Account</button>
@@ -876,6 +877,38 @@
             <button type="button" data-station-import-cancel>Cancel</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="custom-station-dialog station-import-dialog"
+      data-subscriptions-dialog aria-labelledby="subscriptions-title">
+      <div class="playlist-dialog-card">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Personal library</p>
+            <h2 id="subscriptions-title">Remote catalogs</h2>
+          </div>
+        </div>
+        <p>Subscribe to a remote collection and review changes before applying them.
+          Favorites and playlists remain independent.</p>
+        <form class="playlist-dialog-form" data-subscriptions-form>
+          <label>
+            <span>Collection URL</span>
+            <input type="url" required maxlength="2048"
+              autocomplete="off" placeholder="https://example.org/stations.m3u"
+              data-subscriptions-url>
+          </label>
+          <button type="submit" data-subscriptions-add>Add subscription</button>
+        </form>
+        <div data-subscriptions-list aria-label="Subscribed catalogs"></div>
+        <pre class="station-import-preview" data-subscriptions-preview
+          aria-label="Catalog changes" tabindex="0" hidden></pre>
+        <p class="playlist-dialog-message" data-subscriptions-message
+          role="status" aria-live="polite"></p>
+        <div class="station-actions">
+          <button type="button" data-subscriptions-confirm hidden>Apply changes</button>
+          <button type="button" data-subscriptions-close>Close</button>
+        </div>
       </div>
     </dialog>
   </body>

@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -161,6 +161,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_station_provenance_schema(conn)
                 stored_version = 4
                 conn.execute("PRAGMA user_version = 4")
+                continue
+
+            if stored_version == 4:
+                _create_remote_subscription_schema(conn)
+                stored_version = 5
+                conn.execute("PRAGMA user_version = 5")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -435,6 +441,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
         """,
     )
     _create_station_provenance_schema(conn)
+    _create_remote_subscription_schema(conn)
 
 
 def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:
@@ -498,6 +505,75 @@ def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_remote_import_receipts_expires
         ON remote_import_receipts(expires_at);
+        """,
+    )
+
+
+def _create_remote_subscription_schema(conn: sqlite3.Connection) -> None:
+    """Create profile-owned remote catalog state without committing."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS remote_catalog_subscriptions (
+            source_id INTEGER PRIMARY KEY,
+            profile_id INTEGER NOT NULL,
+            catalog_url TEXT NOT NULL,
+            etag TEXT,
+            last_modified TEXT,
+            revision INTEGER NOT NULL DEFAULT 1,
+            refreshed_at TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (source_id)
+                REFERENCES station_sources(id) ON DELETE CASCADE,
+            FOREIGN KEY (profile_id)
+                REFERENCES profiles(id) ON DELETE CASCADE,
+            CHECK (length(trim(catalog_url)) > 0),
+            CHECK (revision > 0)
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_remote_catalog_profile_url
+        ON remote_catalog_subscriptions(profile_id, catalog_url);
+
+        CREATE TABLE IF NOT EXISTS remote_catalog_entries (
+            source_id INTEGER NOT NULL,
+            stream_url TEXT NOT NULL,
+            name TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            PRIMARY KEY (source_id, stream_url),
+            UNIQUE (source_id, position),
+            FOREIGN KEY (source_id)
+                REFERENCES remote_catalog_subscriptions(source_id)
+                ON DELETE CASCADE,
+            CHECK (length(trim(stream_url)) > 0),
+            CHECK (length(trim(name)) > 0),
+            CHECK (position >= 0)
+        );
+        CREATE TABLE IF NOT EXISTS remote_catalog_refresh_receipts (
+            token_hash TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            profile_id INTEGER NOT NULL,
+            source_id INTEGER NOT NULL,
+            revision INTEGER NOT NULL,
+            session_hash TEXT NOT NULL,
+            payload_hash TEXT NOT NULL,
+            snapshot_bytes BLOB NOT NULL,
+            pending_etag TEXT,
+            pending_last_modified TEXT,
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (profile_id) REFERENCES profiles(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (source_id)
+                REFERENCES remote_catalog_subscriptions(source_id)
+                ON DELETE CASCADE,
+            CHECK (revision > 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_remote_catalog_receipt_expiry
+        ON remote_catalog_refresh_receipts(expires_at);
+
         """,
     )
 

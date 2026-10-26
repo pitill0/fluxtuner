@@ -2110,3 +2110,146 @@ console.log(JSON.stringify({
         "pausedState": {"requests": 3, "timers": 0},
         "stoppedRequests": 3,
     }
+
+
+def test_metadata_controller_skips_identical_render_updates(tmp_path: Path) -> None:
+    result = _run_es_module(
+        tmp_path,
+        "metadata.js",
+        r"""
+const { createMetadataController } = await import(process.argv[1]);
+
+let writes = 0;
+let notifications = 0;
+let requests = 0;
+let track = "Track A";
+
+const timers = new Map();
+let nextId = 0;
+
+function mockNode() {
+  let value = "";
+  return {
+    disabled: false,
+    hidden: false,
+    dataset: {},
+    scrollWidth: 300,
+    clientWidth: 100,
+    set textContent(next) {
+      writes++;
+      value = next;
+    },
+    get textContent() { return value; },
+    setAttribute() { writes++; },
+    addEventListener() {},
+    style: {
+      setProperty() { writes++; },
+      removeProperty() { writes++; },
+    },
+  };
+}
+
+const titleNode = mockNode();
+const stationNode = mockNode();
+const copyButton = mockNode();
+
+const windowRef = {
+  setTimeout(callback, delay) {
+    const id = ++nextId;
+    timers.set(id, { callback, delay });
+    return id;
+  },
+  clearTimeout(id) { timers.delete(id); },
+  requestAnimationFrame(callback) {
+    return this.setTimeout(callback, 0);
+  },
+  cancelAnimationFrame(id) { timers.delete(id); },
+  addEventListener() {},
+};
+
+const controller = createMetadataController({
+  titleNode,
+  stationNode,
+  copyButton,
+  windowRef,
+  documentRef: {
+    visibilityState: "visible",
+    addEventListener() {},
+  },
+  navigatorRef: {},
+  onMetadataChange() { notifications++; },
+  apiFetch: async () => {
+    requests++;
+    return {
+      ok: true,
+      json: async () => ({
+        status: "fresh",
+        metadata: { artist: "Artist", title: track },
+      }),
+    };
+  },
+});
+
+async function settle() {
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+}
+
+async function pollAgain() {
+  const scheduled = [...timers.entries()].find(
+    ([, item]) => item.delay === 15000
+  );
+  if (!scheduled) throw new Error("Missing metadata poll");
+  timers.delete(scheduled[0]);
+  scheduled[1].callback();
+  await settle();
+}
+
+controller.setStation("https://example.org/a", "Station A");
+controller.updatePlaybackState("playing");
+await settle();
+
+const first = { writes, notifications, requests };
+
+await pollAgain();
+
+const repeated = {
+  requests: requests - first.requests,
+  writes: writes - first.writes,
+  notifications: notifications - first.notifications,
+};
+
+track = "Track B";
+await pollAgain();
+
+const changed = {
+  title: titleNode.textContent,
+  writes: writes - first.writes,
+  notifications: notifications - first.notifications,
+};
+
+controller.setStation("https://example.org/b", "Station B");
+track = "Track C";
+controller.updatePlaybackState("playing");
+await settle();
+
+console.log(JSON.stringify({
+  first,
+  repeated,
+  changed,
+  station: stationNode.textContent,
+  finalTitle: titleNode.textContent,
+}));
+""",
+    )
+
+    assert result["first"]["requests"] == 1
+    assert result["repeated"] == {
+        "requests": 1,
+        "writes": 0,
+        "notifications": 0,
+    }
+    assert result["changed"]["title"] == "Artist — Track B"
+    assert result["changed"]["writes"] > 0
+    assert result["changed"]["notifications"] > 0
+    assert result["station"] == "Station B"
+    assert result["finalTitle"] == "Artist — Track C"

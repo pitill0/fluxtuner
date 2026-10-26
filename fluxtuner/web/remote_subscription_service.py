@@ -52,7 +52,9 @@ def preview_refresh(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile_name,
+            conn,
+            user_id=user_id,
+            profile_name=profile_name,
         )
         revision, diff = preview_update(
             conn,
@@ -104,7 +106,9 @@ def confirm_refresh(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile_name,
+            conn,
+            user_id=user_id,
+            profile_name=profile_name,
         )
         receipts.consume(
             conn,
@@ -136,7 +140,6 @@ def confirm_refresh(
     }
 
 
-
 def confirm_stored_refresh(
     *,
     user_id: int,
@@ -154,16 +157,18 @@ def confirm_stored_refresh(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile_name,
+            conn,
+            user_id=user_id,
+            profile_name=profile_name,
         )
         data, pending_etag, pending_last_modified = (
             receipts.snapshot_and_validators_for_confirmation(
                 conn,
-            token=receipt,
-            user_id=user_id,
-            profile_id=profile_id,
-            source_id=source_id,
-            revision=revision,
+                token=receipt,
+                user_id=user_id,
+                profile_id=profile_id,
+                source_id=source_id,
+                revision=revision,
                 session_token=session_token,
             )
         )
@@ -203,7 +208,6 @@ def confirm_stored_refresh(
     }
 
 
-
 def create_from_snapshot(
     data: bytes,
     *,
@@ -226,7 +230,9 @@ def create_from_snapshot(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile_name,
+            conn,
+            user_id=user_id,
+            profile_name=profile_name,
         )
         source_id = create_subscription(
             conn,

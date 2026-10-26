@@ -57,22 +57,15 @@ def compare_catalogs(
     old_by_url = {entry.url: entry for entry in old}
     new_by_url = {entry.url: entry for entry in new}
 
-    added = tuple(
-        entry for entry in new if entry.url not in old_by_url
-    )
-    removed = tuple(
-        entry for entry in old if entry.url not in new_by_url
-    )
+    added = tuple(entry for entry in new if entry.url not in old_by_url)
+    removed = tuple(entry for entry in old if entry.url not in new_by_url)
     changed = tuple(
         StationChange(old_by_url[entry.url], entry)
         for entry in new
-        if entry.url in old_by_url
-        and entry.name != old_by_url[entry.url].name
+        if entry.url in old_by_url and entry.name != old_by_url[entry.url].name
     )
     unchanged = sum(
-        entry.url in old_by_url
-        and entry.name == old_by_url[entry.url].name
-        for entry in new
+        entry.url in old_by_url and entry.name == old_by_url[entry.url].name for entry in new
     )
 
     return CatalogDiff(added, removed, changed, unchanged)

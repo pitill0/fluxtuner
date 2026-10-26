@@ -146,8 +146,6 @@ def fetch_remote_station_collection(
     raise RemoteCollectionError("Remote redirect limit exceeded.")
 
 
-
-
 @dataclass(frozen=True, slots=True)
 class ConditionalCollectionResult:
     """A complete HTTP 200 snapshot, or a validated HTTP 304 result."""
@@ -225,9 +223,7 @@ def fetch_conditional_remote_station_collection(
             if 300 <= response.status < 400:
                 location = response.headers.get("location")
                 if not location or redirect_index >= active_policy.max_redirects:
-                    raise RemoteCollectionError(
-                        "Remote redirect missing or limit exceeded."
-                    )
+                    raise RemoteCollectionError("Remote redirect missing or limit exceeded.")
                 redirect = normalize_stream_target(
                     urljoin(target.url, location),
                     active_policy,
@@ -237,17 +233,13 @@ def fetch_conditional_remote_station_collection(
                     and redirect.scheme == "http"
                     and not active_policy.allow_https_to_http_redirect
                 ):
-                    raise RemoteCollectionError(
-                        "HTTPS-to-HTTP redirect is not allowed."
-                    )
+                    raise RemoteCollectionError("HTTPS-to-HTTP redirect is not allowed.")
                 target = redirect
                 redirected = True
                 continue
 
             if not 200 <= response.status < 300:
-                raise RemoteCollectionError(
-                    f"Remote collection returned HTTP {response.status}."
-                )
+                raise RemoteCollectionError(f"Remote collection returned HTTP {response.status}.")
 
             data = _read_body(response.body, response.headers)
             if not data:
@@ -255,22 +247,18 @@ def fetch_conditional_remote_station_collection(
 
             preview = parse_station_collection(data)
             if not preview.entries or preview.issues:
-                raise RemoteCollectionError(
-                    "Remote collection has no complete valid snapshot."
-                )
+                raise RemoteCollectionError("Remote collection has no complete valid snapshot.")
 
             # A redirected response's validators belong to its target,
             # not necessarily to the original subscribed URL.
             return ConditionalCollectionResult(
                 status=200,
                 data=data,
-                etag=(
-                    None if redirected else
-                    _safe_cache_validator(response.headers.get("etag"))
-                ),
+                etag=(None if redirected else _safe_cache_validator(response.headers.get("etag"))),
                 last_modified=(
-                    None if redirected else
-                    _safe_cache_validator(response.headers.get("last-modified"))
+                    None
+                    if redirected
+                    else _safe_cache_validator(response.headers.get("last-modified"))
                 ),
             )
         finally:

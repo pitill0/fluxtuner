@@ -14,11 +14,7 @@ URL = "https://catalog.example/radios.m3u"
 
 
 def catalog(name: str, stream: str) -> bytes:
-    return (
-        "#EXTM3U\n"
-        f"#EXTINF:-1,{name}\n"
-        f"https://stream.example/{stream}\n"
-    ).encode()
+    return (f"#EXTM3U\n#EXTINF:-1,{name}\nhttps://stream.example/{stream}\n").encode()
 
 
 def test_http_subscription_full_lifecycle(web_library, monkeypatch):
@@ -48,15 +44,15 @@ def test_http_subscription_full_lifecycle(web_library, monkeypatch):
     assert listed.status_code == 200, listed.text
     assert len(listed.json()["subscriptions"]) == 1
     assert set(listed.json()["subscriptions"][0]) == {
-        "source_id", "revision", "refreshed_at",
+        "source_id",
+        "revision",
+        "refreshed_at",
     }
     assert URL not in listed.text
     assert "catalog_url" not in listed.text
 
     with db.connect() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM favorites"
-        ).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0] == 0
 
     snapshots.append(catalog("Second", "second"))
 
@@ -96,14 +92,14 @@ def test_http_subscription_full_lifecycle(web_library, monkeypatch):
     assert replay.status_code == 409
 
     with db.connect() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM favorites"
-        ).fetchone()[0] == 0
-        assert conn.execute(
-            "SELECT COUNT(*) FROM remote_catalog_entries "
-            "WHERE source_id = ?",
-            (source,),
-        ).fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0] == 0
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM remote_catalog_entries WHERE source_id = ?",
+                (source,),
+            ).fetchone()[0]
+            == 1
+        )
 
     deleted = client.delete(
         f"{ENDPOINT}/{source}",
@@ -113,12 +109,8 @@ def test_http_subscription_full_lifecycle(web_library, monkeypatch):
     assert client.get(ENDPOINT).json()["subscriptions"] == []
 
     with db.connect() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM favorites"
-        ).fetchone()[0] == 0
-        assert conn.execute(
-            "SELECT COUNT(*) FROM stations"
-        ).fetchone()[0] >= 1
+        assert conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM stations").fetchone()[0] >= 1
 
 
 def test_http_auth_and_csrf_precede_download(web_library, monkeypatch):
@@ -132,14 +124,16 @@ def test_http_auth_and_csrf_precede_download(web_library, monkeypatch):
     assert client.get(ENDPOINT).status_code == 401
 
     unauthenticated = client.post(
-        ENDPOINT, json={"url": URL},
+        ENDPOINT,
+        json={"url": URL},
     )
     assert unauthenticated.status_code == 401
 
     headers = login(client)
 
     missing_csrf = client.post(
-        ENDPOINT, json={"url": URL},
+        ENDPOINT,
+        json={"url": URL},
     )
     assert missing_csrf.status_code == 403
 
@@ -154,14 +148,13 @@ def test_http_auth_and_csrf_precede_download(web_library, monkeypatch):
     assert valid_listing.status_code == 200
 
     # A valid session alone must not authorize mutation.
-    assert client.post(
-        ENDPOINT, json={"url": URL}
-    ).status_code == 403
+    assert client.post(ENDPOINT, json={"url": URL}).status_code == 403
     assert headers
 
 
 def test_http_foreign_profile_cannot_access_subscription(
-    web_library, monkeypatch,
+    web_library,
+    monkeypatch,
 ):
     client, users = web_library
     headers = login(client)
@@ -172,39 +165,61 @@ def test_http_foreign_profile_cannot_access_subscription(
     monkeypatch.setattr(routes, "_download_catalog", download)
 
     created = client.post(
-        ENDPOINT, json={"url": URL}, headers=headers,
+        ENDPOINT,
+        json={"url": URL},
+        headers=headers,
     )
     assert created.status_code == 200, created.text
     source = created.json()["source_id"]
 
     with db.connect() as conn:
         bob_profile = db.get_or_create_profile(
-            conn, "Bob only", user_id=users["bob"][0],
+            conn,
+            "Bob only",
+            user_id=users["bob"][0],
         )
         conn.commit()
 
     assert bob_profile > 0
 
     foreign = {"profile": "Bob only"}
-    assert client.get(
-        ENDPOINT, params=foreign,
-    ).status_code == 404
-    assert client.post(
-        f"{ENDPOINT}/{source}/preview",
-        params=foreign, headers=headers,
-    ).status_code == 404
-    assert client.delete(
-        f"{ENDPOINT}/{source}",
-        params=foreign, headers=headers,
-    ).status_code == 404
+    assert (
+        client.get(
+            ENDPOINT,
+            params=foreign,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"{ENDPOINT}/{source}/preview",
+            params=foreign,
+            headers=headers,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.delete(
+            f"{ENDPOINT}/{source}",
+            params=foreign,
+            headers=headers,
+        ).status_code
+        == 404
+    )
 
-    assert len(client.get(
-        ENDPOINT,
-    ).json()["subscriptions"]) == 1
+    assert (
+        len(
+            client.get(
+                ENDPOINT,
+            ).json()["subscriptions"]
+        )
+        == 1
+    )
 
 
 def test_http_invalid_refresh_preserves_last_snapshot(
-    web_library, monkeypatch,
+    web_library,
+    monkeypatch,
 ):
     client, users = web_library
     headers = login(client)
@@ -216,14 +231,14 @@ def test_http_invalid_refresh_preserves_last_snapshot(
     monkeypatch.setattr(routes, "_download_catalog", download)
 
     created = client.post(
-        ENDPOINT, json={"url": URL}, headers=headers,
+        ENDPOINT,
+        json={"url": URL},
+        headers=headers,
     )
     assert created.status_code == 200, created.text
     source = created.json()["source_id"]
 
-    current.append(
-        b"#EXTM3U\n#EXTINF:-1,Bad\nfile:///etc/passwd\n"
-    )
+    current.append(b"#EXTM3U\n#EXTINF:-1,Bad\nfile:///etc/passwd\n")
 
     preview = client.post(
         f"{ENDPOINT}/{source}/preview",
@@ -233,18 +248,18 @@ def test_http_invalid_refresh_preserves_last_snapshot(
 
     with db.connect() as conn:
         row = conn.execute(
-            "SELECT revision FROM remote_catalog_subscriptions "
-            "WHERE source_id = ?",
+            "SELECT revision FROM remote_catalog_subscriptions WHERE source_id = ?",
             (source,),
         ).fetchone()
         assert row["revision"] == 1
-        assert conn.execute(
-            "SELECT name FROM remote_catalog_entries "
-            "WHERE source_id = ?",
-            (source,),
-        ).fetchone()["name"] == "Original"
+        assert (
+            conn.execute(
+                "SELECT name FROM remote_catalog_entries WHERE source_id = ?",
+                (source,),
+            ).fetchone()["name"]
+            == "Original"
+        )
         assert users["alice"][1] > 0
-
 
 
 def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
@@ -266,7 +281,9 @@ def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
     monkeypatch.setattr(routes, "_download_catalog", download)
 
     created = client.post(
-        ENDPOINT, json={"url": URL}, headers=headers,
+        ENDPOINT,
+        json={"url": URL},
+        headers=headers,
     )
     assert created.status_code == 200, created.text
     source = created.json()["source_id"]
@@ -281,7 +298,8 @@ def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
             (source,),
         ).fetchone()
         membership_before = [
-            tuple(row) for row in conn.execute(
+            tuple(row)
+            for row in conn.execute(
                 """
                 SELECT station_id, first_observed_at, last_observed_at
                 FROM station_source_memberships
@@ -294,16 +312,15 @@ def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
     assert before["etag"] == '"version-1"'
 
     checked = client.post(
-        f"{ENDPOINT}/{source}/preview", headers=headers,
+        f"{ENDPOINT}/{source}/preview",
+        headers=headers,
     )
     assert checked.status_code == 200, checked.text
     assert checked.json()["not_modified"] is True
     assert checked.json()["revision"] == 1
     assert "receipt" not in checked.json()
     assert observed[1][1]["etag"] == '"version-1"'
-    assert observed[1][1]["last_modified"] == (
-        "Wed, 21 Oct 2015 07:28:00 GMT"
-    )
+    assert observed[1][1]["last_modified"] == ("Wed, 21 Oct 2015 07:28:00 GMT")
 
     with db.connect() as conn:
         after = conn.execute(
@@ -315,7 +332,8 @@ def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
             (source,),
         ).fetchone()
         membership_after = [
-            tuple(row) for row in conn.execute(
+            tuple(row)
+            for row in conn.execute(
                 """
                 SELECT station_id, first_observed_at, last_observed_at
                 FROM station_source_memberships
@@ -338,7 +356,8 @@ def test_http_conditional_304_keeps_committed_catalog(web_library, monkeypatch):
 
 
 def test_http_duplicate_subscription_rejected_before_download(
-    web_library, monkeypatch,
+    web_library,
+    monkeypatch,
 ):
     client, _ = web_library
     headers = login(client)
@@ -354,45 +373,59 @@ def test_http_duplicate_subscription_rejected_before_download(
     assert first.status_code == 200, first.text
 
     duplicate = client.post(
-        ENDPOINT, json={"url": URL}, headers=headers,
+        ENDPOINT,
+        json={"url": URL},
+        headers=headers,
     )
     assert duplicate.status_code == 409
     assert called == [URL]
 
 
 def test_http_conditional_candidate_commits_validators_only_on_confirm(
-    web_library, monkeypatch,
+    web_library,
+    monkeypatch,
 ):
     client, _ = web_library
     headers = login(client)
-    current = [ConditionalCollectionResult(
-        200, catalog("Initial", "initial"), etag='"old"',
-    )]
+    current = [
+        ConditionalCollectionResult(
+            200,
+            catalog("Initial", "initial"),
+            etag='"old"',
+        )
+    ]
 
     async def download(_url, **_kwargs):
         return current[-1]
 
     monkeypatch.setattr(routes, "_download_catalog", download)
     created = client.post(
-        ENDPOINT, json={"url": URL}, headers=headers,
+        ENDPOINT,
+        json={"url": URL},
+        headers=headers,
     )
     assert created.status_code == 200, created.text
     source = created.json()["source_id"]
 
-    current.append(ConditionalCollectionResult(
-        200, catalog("Updated", "updated"), etag='"new"',
-    ))
+    current.append(
+        ConditionalCollectionResult(
+            200,
+            catalog("Updated", "updated"),
+            etag='"new"',
+        )
+    )
 
     preview = client.post(
-        f"{ENDPOINT}/{source}/preview", headers=headers,
+        f"{ENDPOINT}/{source}/preview",
+        headers=headers,
     )
     assert preview.status_code == 200, preview.text
     pending = preview.json()
 
     with db.connect() as conn:
         stored = conn.execute(
-            "SELECT revision, etag FROM remote_catalog_subscriptions "
-            "WHERE source_id = ?", (source,),
+            "SELECT revision, etag FROM remote_catalog_subscriptions WHERE source_id = ?",
+            (source,),
         ).fetchone()
         assert tuple(stored) == (1, '"old"')
 
@@ -408,7 +441,7 @@ def test_http_conditional_candidate_commits_validators_only_on_confirm(
 
     with db.connect() as conn:
         stored = conn.execute(
-            "SELECT revision, etag FROM remote_catalog_subscriptions "
-            "WHERE source_id = ?", (source,),
+            "SELECT revision, etag FROM remote_catalog_subscriptions WHERE source_id = ?",
+            (source,),
         ).fetchone()
         assert tuple(stored) == (2, '"new"')

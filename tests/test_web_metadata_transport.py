@@ -330,15 +330,13 @@ def test_unexpected_status_is_rejected() -> None:
         )
 
 
-
 def _conditional_transport():
-    stream = FakeConnectedStream(
-        b"HTTP/1.1 304 Not Modified\r\nContent-Length: 0\r\n\r\n"
-    )
+    stream = FakeConnectedStream(b"HTTP/1.1 304 Not Modified\r\nContent-Length: 0\r\n\r\n")
     transport = ProtectedHTTPTransport(FakeSocketFactory(stream))
     target = normalize_stream_target("https://radio.example/list.m3u")
     address = FakeResolver({"radio.example": "8.8.8.8"}).resolve(
-        "radio.example", 443,
+        "radio.example",
+        443,
     )[0]
     return transport, stream, target, address
 
@@ -346,7 +344,10 @@ def _conditional_transport():
 def test_transport_sends_bounded_conditional_headers():
     transport, stream, target, address = _conditional_transport()
     response = transport.request(
-        target, address, MetadataFetchPolicy(), 5.0,
+        target,
+        address,
+        MetadataFetchPolicy(),
+        5.0,
         if_none_match='"revision-12"',
         if_modified_since="Wed, 21 Oct 2015 07:28:00 GMT",
     )
@@ -372,7 +373,10 @@ def test_transport_rejects_unsafe_conditional_headers_before_connection(value):
     transport, stream, target, address = _conditional_transport()
     with pytest.raises(ValueError, match="cache validator"):
         transport.request(
-            target, address, MetadataFetchPolicy(), 5.0,
+            target,
+            address,
+            MetadataFetchPolicy(),
+            5.0,
             if_none_match=value,
         )
     assert stream.sent == b""
@@ -381,7 +385,10 @@ def test_transport_rejects_unsafe_conditional_headers_before_connection(value):
 def test_transport_without_validators_keeps_original_request():
     transport, stream, target, address = _conditional_transport()
     response = transport.request(
-        target, address, MetadataFetchPolicy(), 5.0,
+        target,
+        address,
+        MetadataFetchPolicy(),
+        5.0,
     )
     assert response.status == 304
     assert b"If-None-Match:" not in stream.sent

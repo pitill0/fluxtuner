@@ -31,13 +31,12 @@ def test_create_requires_authorization_before_download(monkeypatch):
 
     monkeypatch.setattr(routes, "_authorize", deny)
     monkeypatch.setattr(
-        routes, "_download_catalog",
+        routes,
+        "_download_catalog",
         lambda *_: pytest.fail("Unexpected download"),
     )
 
-    request = FakeRequest(
-        json.dumps({"url": "https://catalog.example/a"}).encode()
-    )
+    request = FakeRequest(json.dumps({"url": "https://catalog.example/a"}).encode())
     with pytest.raises(HTTPException) as exc:
         asyncio.run(routes.subscriptions_create(request))
 
@@ -52,16 +51,13 @@ def test_preview_checks_ownership_before_download(monkeypatch):
 
     monkeypatch.setattr(routes, "_owned_catalog", deny_owned)
     monkeypatch.setattr(
-        routes, "_download_catalog",
+        routes,
+        "_download_catalog",
         lambda *_: pytest.fail("Unexpected download"),
     )
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(
-            routes.subscriptions_preview(
-                99, FakeRequest()
-            )
-        )
+        asyncio.run(routes.subscriptions_preview(99, FakeRequest()))
     assert exc.value.status_code == 404
 
 
@@ -74,15 +70,9 @@ def test_confirm_uses_server_snapshot_only(monkeypatch):
         calls.update(kwargs)
         return {"status": "ok"}
 
-    monkeypatch.setattr(
-        routes.service, "confirm_stored_refresh", confirm
-    )
+    monkeypatch.setattr(routes.service, "confirm_stored_refresh", confirm)
 
-    result = asyncio.run(
-        routes.subscriptions_confirm(
-            3, FakeRequest(), revision=2
-        )
-    )
+    result = asyncio.run(routes.subscriptions_confirm(3, FakeRequest(), revision=2))
     assert result == {"status": "ok"}
     assert calls["source_id"] == 3
     assert calls["revision"] == 2
@@ -95,14 +85,11 @@ def test_delete_calls_owned_removal(monkeypatch):
 
     monkeypatch.setattr(routes, "_authorize", lambda request: 7)
     monkeypatch.setattr(
-        routes, "_remove_owned",
-        lambda user, profile, source: calls.append(
-            (user, source)
-        ),
+        routes,
+        "_remove_owned",
+        lambda user, profile, source: calls.append((user, source)),
     )
 
-    result = asyncio.run(
-        routes.subscriptions_delete(5, FakeRequest())
-    )
+    result = asyncio.run(routes.subscriptions_delete(5, FakeRequest()))
     assert result == {"status": "ok"}
     assert calls == [(7, 5)]

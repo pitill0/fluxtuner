@@ -54,7 +54,9 @@ def _catalog_url(value: str) -> str:
 
 def _owned(conn: sqlite3.Connection, *, profile_id: int, source_id: int) -> sqlite3.Row:
     station_provenance.get_source(
-        conn, profile_id=profile_id, source_id=source_id,
+        conn,
+        profile_id=profile_id,
+        source_id=source_id,
     )
     row = conn.execute(
         """
@@ -72,18 +74,24 @@ def _owned(conn: sqlite3.Connection, *, profile_id: int, source_id: int) -> sqli
 
 
 def get_subscription(
-    conn: sqlite3.Connection, *, profile_id: int, source_id: int,
+    conn: sqlite3.Connection,
+    *,
+    profile_id: int,
+    source_id: int,
 ) -> dict:
     row = _owned(conn, profile_id=profile_id, source_id=source_id)
     return dict(row)
 
 
 def list_subscriptions(
-    conn: sqlite3.Connection, *, profile_id: int,
+    conn: sqlite3.Connection,
+    *,
+    profile_id: int,
 ) -> list[dict]:
     station_provenance.list_sources(conn, profile_id=profile_id)
     return [
-        dict(row) for row in conn.execute(
+        dict(row)
+        for row in conn.execute(
             """
             SELECT sub.*
             FROM remote_catalog_subscriptions AS sub
@@ -98,7 +106,10 @@ def list_subscriptions(
 
 
 def get_entries(
-    conn: sqlite3.Connection, *, profile_id: int, source_id: int,
+    conn: sqlite3.Connection,
+    *,
+    profile_id: int,
+    source_id: int,
 ) -> tuple[M3UEntry, ...]:
     _owned(conn, profile_id=profile_id, source_id=source_id)
     rows = conn.execute(
@@ -219,8 +230,13 @@ def create_subscription(
             ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
             """,
             (
-                source_id, profile_id, url, etag, last_modified,
-                db.utc_now(), db.utc_now(),
+                source_id,
+                profile_id,
+                url,
+                etag,
+                last_modified,
+                db.utc_now(),
+                db.utc_now(),
             ),
         )
         _replace_entries(conn, source_id=source_id, entries=accepted)
@@ -286,10 +302,15 @@ def mark_not_modified(
 
 
 def delete_subscription(
-    conn: sqlite3.Connection, *, profile_id: int, source_id: int,
+    conn: sqlite3.Connection,
+    *,
+    profile_id: int,
+    source_id: int,
 ) -> None:
     with _atomic(conn):
         _owned(conn, profile_id=profile_id, source_id=source_id)
         station_provenance.delete_source(
-            conn, profile_id=profile_id, source_id=source_id,
+            conn,
+            profile_id=profile_id,
+            source_id=source_id,
         )

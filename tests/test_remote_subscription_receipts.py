@@ -21,7 +21,9 @@ def test_receipt_is_one_use_and_bound_to_exact_context(tmp_path):
         user = db.ensure_default_user(conn)
         profile = db.ensure_default_profile(conn, user_id=user)
         other = db.get_or_create_profile(
-            conn, "another", user_id=user,
+            conn,
+            "another",
+            user_id=user,
         )
         source = create_subscription(
             conn,
@@ -33,16 +35,24 @@ def test_receipt_is_one_use_and_bound_to_exact_context(tmp_path):
 
         data = b"#EXTM3U\n#EXTINF:-1,B\nhttps://stream.example/b\n"
         token = receipts.issue(
-            conn, user_id=user, profile_id=profile,
-            source_id=source, revision=1,
-            session_token="session-a", data=data,
+            conn,
+            user_id=user,
+            profile_id=profile,
+            source_id=source,
+            revision=1,
+            session_token="session-a",
+            data=data,
         )
         conn.commit()
 
         context = dict(
-            token=token, user_id=user, profile_id=profile,
-            source_id=source, revision=1,
-            session_token="session-a", data=data,
+            token=token,
+            user_id=user,
+            profile_id=profile,
+            source_id=source,
+            revision=1,
+            session_token="session-a",
+            data=data,
         )
 
         for changed in (
@@ -70,7 +80,8 @@ def test_stale_revision_cannot_issue_or_reuse_receipt(tmp_path):
         user = db.ensure_default_user(conn)
         profile = db.ensure_default_profile(conn, user_id=user)
         source = create_subscription(
-            conn, profile_id=profile,
+            conn,
+            profile_id=profile,
             catalog_url="https://catalog.example/list.m3u",
             entries=[M3UEntry("A", "https://stream.example/a")],
         )
@@ -78,14 +89,20 @@ def test_stale_revision_cannot_issue_or_reuse_receipt(tmp_path):
 
         data = b"#EXTM3U\nhttps://stream.example/b\n"
         receipts.issue(
-            conn, user_id=user, profile_id=profile,
-            source_id=source, revision=1,
-            session_token="session-a", data=data,
+            conn,
+            user_id=user,
+            profile_id=profile,
+            source_id=source,
+            revision=1,
+            session_token="session-a",
+            data=data,
         )
         conn.commit()
 
         apply_update(
-            conn, profile_id=profile, source_id=source,
+            conn,
+            profile_id=profile,
+            source_id=source,
             expected_revision=1,
             entries=[M3UEntry("B", "https://stream.example/b")],
         )
@@ -93,16 +110,22 @@ def test_stale_revision_cannot_issue_or_reuse_receipt(tmp_path):
 
         with pytest.raises(ValueError, match="revision"):
             receipts.issue(
-                conn, user_id=user, profile_id=profile,
-                source_id=source, revision=1,
-                session_token="session-a", data=data,
+                conn,
+                user_id=user,
+                profile_id=profile,
+                source_id=source,
+                revision=1,
+                session_token="session-a",
+                data=data,
             )
 
         # The receipt alone never authorizes an update: the store
         # must independently reject obsolete revisions.
         with pytest.raises(ValueError, match="Stale"):
             apply_update(
-                conn, profile_id=profile, source_id=source,
+                conn,
+                profile_id=profile,
+                source_id=source,
                 expected_revision=1,
                 entries=[M3UEntry("C", "https://stream.example/c")],
             )
@@ -116,7 +139,8 @@ def test_foreign_user_cannot_issue_receipt(tmp_path):
         user = db.ensure_default_user(conn)
         profile = db.ensure_default_profile(conn, user_id=user)
         source = create_subscription(
-            conn, profile_id=profile,
+            conn,
+            profile_id=profile,
             catalog_url="https://catalog.example/list.m3u",
             entries=[M3UEntry("A", "https://stream.example/a")],
         )
@@ -124,7 +148,11 @@ def test_foreign_user_cannot_issue_receipt(tmp_path):
 
         with pytest.raises(ValueError, match="Profile"):
             receipts.issue(
-                conn, user_id=user + 1000, profile_id=profile,
-                source_id=source, revision=1,
-                session_token="session-a", data=b"payload",
+                conn,
+                user_id=user + 1000,
+                profile_id=profile,
+                source_id=source,
+                revision=1,
+                session_token="session-a",
+                data=b"payload",
             )

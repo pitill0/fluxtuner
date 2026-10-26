@@ -200,6 +200,4 @@ def test_remote_subscription_controller(tmp_path: Path, scenario: str) -> None:
         timeout=20,
         check=False,
     )
-    assert result.returncode == 0, (
-        f"Scenario {scenario} failed\n{result.stdout}\n{result.stderr}"
-    )
+    assert result.returncode == 0, f"Scenario {scenario} failed\n{result.stdout}\n{result.stderr}"

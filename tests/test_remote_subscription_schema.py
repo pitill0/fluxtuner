@@ -20,9 +20,7 @@ def test_fresh_schema_has_remote_subscription_tables() -> None:
         db.create_schema(conn)
         tables = {
             row["name"]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert "remote_catalog_subscriptions" in tables
         assert "remote_catalog_entries" in tables
@@ -43,9 +41,7 @@ def test_v4_schema_migrates_to_v5_without_losing_existing_rows() -> None:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         tables = {
             row["name"]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert "station_sources" in tables
         assert "remote_catalog_subscriptions" in tables
@@ -59,18 +55,14 @@ def test_subscription_tables_have_cascade_foreign_keys() -> None:
         subscription_fks = conn.execute(
             "PRAGMA foreign_key_list(remote_catalog_subscriptions)"
         ).fetchall()
-        entry_fks = conn.execute(
-            "PRAGMA foreign_key_list(remote_catalog_entries)"
-        ).fetchall()
+        entry_fks = conn.execute("PRAGMA foreign_key_list(remote_catalog_entries)").fetchall()
 
         assert any(
-            row["table"] == "station_sources"
-            and row["on_delete"] == "CASCADE"
+            row["table"] == "station_sources" and row["on_delete"] == "CASCADE"
             for row in subscription_fks
         )
         assert any(
-            row["table"] == "remote_catalog_subscriptions"
-            and row["on_delete"] == "CASCADE"
+            row["table"] == "remote_catalog_subscriptions" and row["on_delete"] == "CASCADE"
             for row in entry_fks
         )
 
@@ -97,13 +89,19 @@ def test_v4_migration_preserves_existing_profile_and_source() -> None:
         db.migrate_schema(conn)
 
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
-        assert conn.execute(
-            "SELECT name FROM profiles WHERE id = ?",
-            (profile_id,),
-        ).fetchone()["name"] == db.DEFAULT_PROFILE_NAME
+        assert (
+            conn.execute(
+                "SELECT name FROM profiles WHERE id = ?",
+                (profile_id,),
+            ).fetchone()["name"]
+            == db.DEFAULT_PROFILE_NAME
+        )
 
-        assert provenance.get_source(
-            conn,
-            profile_id=profile_id,
-            source_id=source_id,
-        )["display_name"] == "Existing catalog"
+        assert (
+            provenance.get_source(
+                conn,
+                profile_id=profile_id,
+                source_id=source_id,
+            )["display_name"]
+            == "Existing catalog"
+        )

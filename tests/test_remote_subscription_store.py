@@ -31,7 +31,9 @@ def setup(tmp_path):
     user_id = db.ensure_default_user(conn)
     profile_a = db.ensure_default_profile(conn, user_id=user_id)
     profile_b = db.get_or_create_profile(
-        conn, "second", user_id=user_id,
+        conn,
+        "second",
+        user_id=user_id,
     )
     conn.commit()
     return conn, profile_a, profile_b
@@ -41,7 +43,8 @@ def test_create_and_refresh_preserve_user_data(tmp_path):
     conn, a, b = setup(tmp_path)
     try:
         source = create_subscription(
-            conn, profile_id=a,
+            conn,
+            profile_id=a,
             catalog_url="https://catalog.example/list.m3u",
             entries=[entry("Original", "one"), entry("Gone", "two")],
         )
@@ -66,7 +69,9 @@ def test_create_and_refresh_preserve_user_data(tmp_path):
         conn.commit()
 
         revision, diff = preview_update(
-            conn, profile_id=a, source_id=source,
+            conn,
+            profile_id=a,
+            source_id=source,
             incoming=[entry("Renamed", "one"), entry("New", "three")],
         )
         assert revision == 1
@@ -74,27 +79,46 @@ def test_create_and_refresh_preserve_user_data(tmp_path):
 
         with pytest.raises(ValueError):
             apply_update(
-                conn, profile_id=b, source_id=source,
+                conn,
+                profile_id=b,
+                source_id=source,
                 expected_revision=revision,
                 entries=[entry("Foreign", "four")],
             )
 
-        assert apply_update(
-            conn, profile_id=a, source_id=source,
-            expected_revision=revision,
-            entries=[entry("Renamed", "one"), entry("New", "three")],
-        ) == diff
+        assert (
+            apply_update(
+                conn,
+                profile_id=a,
+                source_id=source,
+                expected_revision=revision,
+                entries=[entry("Renamed", "one"), entry("New", "three")],
+            )
+            == diff
+        )
         conn.commit()
 
-        assert get_subscription(
-            conn, profile_id=a, source_id=source,
-        )["revision"] == 2
-        assert [s.name for s in get_entries(
-            conn, profile_id=a, source_id=source,
-        )] == ["Renamed", "New"]
+        assert (
+            get_subscription(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )["revision"]
+            == 2
+        )
+        assert [
+            s.name
+            for s in get_entries(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )
+        ] == ["Renamed", "New"]
         with pytest.raises(ValueError, match="Stale"):
             apply_update(
-                conn, profile_id=a, source_id=source,
+                conn,
+                profile_id=a,
+                source_id=source,
                 expected_revision=revision,
                 entries=[entry("Other", "five")],
             )
@@ -112,10 +136,13 @@ def test_create_and_refresh_preserve_user_data(tmp_path):
         delete_subscription(conn, profile_id=a, source_id=source)
         conn.commit()
         assert not list_subscriptions(conn, profile_id=a)
-        assert conn.execute(
-            "SELECT COUNT(*) FROM favorites WHERE profile_id = ?",
-            (a,),
-        ).fetchone()[0] == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM favorites WHERE profile_id = ?",
+                (a,),
+            ).fetchone()[0]
+            == 1
+        )
     finally:
         conn.close()
 
@@ -124,7 +151,8 @@ def test_failed_update_and_rollback_keep_previous_catalog(tmp_path):
     conn, a, _ = setup(tmp_path)
     try:
         source = create_subscription(
-            conn, profile_id=a,
+            conn,
+            profile_id=a,
             catalog_url="https://catalog.example/list.m3u",
             entries=[entry("One", "one")],
         )
@@ -132,30 +160,55 @@ def test_failed_update_and_rollback_keep_previous_catalog(tmp_path):
 
         with pytest.raises(ValueError):
             apply_update(
-                conn, profile_id=a, source_id=source,
-                expected_revision=1, entries=[],
+                conn,
+                profile_id=a,
+                source_id=source,
+                expected_revision=1,
+                entries=[],
             )
 
-        assert [e.name for e in get_entries(
-            conn, profile_id=a, source_id=source,
-        )] == ["One"]
-        assert get_subscription(
-            conn, profile_id=a, source_id=source,
-        )["revision"] == 1
+        assert [
+            e.name
+            for e in get_entries(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )
+        ] == ["One"]
+        assert (
+            get_subscription(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )["revision"]
+            == 1
+        )
 
         apply_update(
-            conn, profile_id=a, source_id=source,
+            conn,
+            profile_id=a,
+            source_id=source,
             expected_revision=1,
             entries=[entry("Two", "two")],
         )
         conn.rollback()
 
-        assert [e.name for e in get_entries(
-            conn, profile_id=a, source_id=source,
-        )] == ["One"]
-        assert get_subscription(
-            conn, profile_id=a, source_id=source,
-        )["revision"] == 1
+        assert [
+            e.name
+            for e in get_entries(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )
+        ] == ["One"]
+        assert (
+            get_subscription(
+                conn,
+                profile_id=a,
+                source_id=source,
+            )["revision"]
+            == 1
+        )
     finally:
         conn.close()
 
@@ -164,7 +217,8 @@ def test_duplicate_and_foreign_subscription_rejected(tmp_path):
     conn, a, b = setup(tmp_path)
     try:
         source = create_subscription(
-            conn, profile_id=a,
+            conn,
+            profile_id=a,
             catalog_url="https://catalog.example/list.m3u",
             entries=[entry("One", "one")],
         )
@@ -172,7 +226,8 @@ def test_duplicate_and_foreign_subscription_rejected(tmp_path):
 
         with pytest.raises(sqlite3.IntegrityError):
             create_subscription(
-                conn, profile_id=a,
+                conn,
+                profile_id=a,
                 catalog_url="https://catalog.example/list.m3u",
                 entries=[entry("Two", "two")],
             )
@@ -183,13 +238,19 @@ def test_duplicate_and_foreign_subscription_rejected(tmp_path):
         with pytest.raises(ValueError):
             delete_subscription(conn, profile_id=b, source_id=source)
 
-        assert len(get_entries(
-            conn, profile_id=a, source_id=source,
-        )) == 1
+        assert (
+            len(
+                get_entries(
+                    conn,
+                    profile_id=a,
+                    source_id=source,
+                )
+            )
+            == 1
+        )
     finally:
         conn.rollback()
         conn.close()
-
 
 
 def test_refresh_preserves_first_observation_for_survivors(tmp_path):
@@ -233,10 +294,7 @@ def test_refresh_preserves_first_observation_for_survivors(tmp_path):
             (source,),
         ).fetchall()
 
-        history = {
-            row["station_key"]: row["first_observed_at"]
-            for row in rows
-        }
+        history = {row["station_key"]: row["first_observed_at"] for row in rows}
         assert len(history) == 2
         assert history["https://stream.example/keep"] == first_seen
         assert "https://stream.example/remove" not in history

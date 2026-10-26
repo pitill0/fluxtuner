@@ -36,9 +36,7 @@ def _authorize(request: Request, *, mutation: bool = True) -> int:
         request, auth_required_detail="Authentication required."
     )
     if mutation:
-        guards.require_csrf(
-            request, csrf_error_detail="CSRF token is missing or invalid."
-        )
+        guards.require_csrf(request, csrf_error_detail="CSRF token is missing or invalid.")
     return int(user["id"])
 
 
@@ -51,9 +49,7 @@ def _session(request: Request) -> str:
 
 def _list_owned(user_id: int, profile: str | None) -> list[dict[str, Any]]:
     with closing(db.connect()) as conn:
-        profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile
-        )
+        profile_id = _profile_id(conn, user_id=user_id, profile_name=profile)
         return [
             {
                 "source_id": item["source_id"],
@@ -65,30 +61,42 @@ def _list_owned(user_id: int, profile: str | None) -> list[dict[str, Any]]:
 
 
 def _owned_catalog(
-    user_id: int, profile: str | None, source_id: int,
+    user_id: int,
+    profile: str | None,
+    source_id: int,
 ) -> dict[str, Any]:
     with closing(db.connect()) as conn:
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile,
+            conn,
+            user_id=user_id,
+            profile_name=profile,
         )
         return get_subscription(
-            conn, profile_id=profile_id, source_id=source_id,
+            conn,
+            profile_id=profile_id,
+            source_id=source_id,
         )
 
 
 def _owned_url(
-    user_id: int, profile: str | None, source_id: int,
+    user_id: int,
+    profile: str | None,
+    source_id: int,
 ) -> str:
     return str(_owned_catalog(user_id, profile, source_id)["catalog_url"])
 
 
 def _check_creation_access(
-    user_id: int, profile: str | None, url: str,
+    user_id: int,
+    profile: str | None,
+    url: str,
 ) -> None:
     """Reject invalid profile and duplicate URL before network I/O."""
     with closing(db.connect()) as conn:
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile,
+            conn,
+            user_id=user_id,
+            profile_name=profile,
         )
         duplicate = conn.execute(
             """
@@ -101,17 +109,11 @@ def _check_creation_access(
             raise ValueError("Catalog is already subscribed.")
 
 
-def _remove_owned(
-    user_id: int, profile: str | None, source_id: int
-) -> None:
+def _remove_owned(user_id: int, profile: str | None, source_id: int) -> None:
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
-        profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile
-        )
-        delete_subscription(
-            conn, profile_id=profile_id, source_id=source_id
-        )
+        profile_id = _profile_id(conn, user_id=user_id, profile_name=profile)
+        delete_subscription(conn, profile_id=profile_id, source_id=source_id)
         conn.commit()
 
 
@@ -147,7 +149,9 @@ def _mark_unchanged(
     with closing(db.connect()) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
         profile_id = _profile_id(
-            conn, user_id=user_id, profile_name=profile,
+            conn,
+            user_id=user_id,
+            profile_name=profile,
         )
         current = mark_not_modified(
             conn,
@@ -187,7 +191,10 @@ async def subscriptions_create(
     url = await _read_remote_url(request)
     try:
         await asyncio.to_thread(
-            _check_creation_access, user_id, profile, url,
+            _check_creation_access,
+            user_id,
+            profile,
+            url,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
@@ -214,7 +221,8 @@ async def subscriptions_create(
         raise HTTPException(status_code=404, detail=str(exc)) from None
     except sqlite3.IntegrityError as exc:
         raise HTTPException(
-            status_code=409, detail="Catalog is already subscribed.",
+            status_code=409,
+            detail="Catalog is already subscribed.",
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
@@ -230,7 +238,10 @@ async def subscriptions_preview(
     session = _session(request)
     try:
         subscription = await asyncio.to_thread(
-            _owned_catalog, user_id, profile, source_id,
+            _owned_catalog,
+            user_id,
+            profile,
+            source_id,
         )
     except (LookupError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
@@ -245,7 +256,10 @@ async def subscriptions_preview(
         if result.status == 304:
             return await asyncio.to_thread(
                 _mark_unchanged,
-                user_id, profile, source_id, int(subscription["revision"]),
+                user_id,
+                profile,
+                source_id,
+                int(subscription["revision"]),
             )
 
         if result.status != 200 or result.data is None:
@@ -301,9 +315,7 @@ async def subscriptions_delete(
 ) -> dict[str, str]:
     user_id = _authorize(request)
     try:
-        await asyncio.to_thread(
-            _remove_owned, user_id, profile, source_id
-        )
+        await asyncio.to_thread(_remove_owned, user_id, profile, source_id)
         return {"status": "ok"}
     except (LookupError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None

@@ -38,11 +38,7 @@ def _fixture(tmp_path, monkeypatch):
 
 
 def _payload(url="https://stream.example/new"):
-    return (
-        "#EXTM3U\n"
-        "#EXTINF:-1,New\n"
-        f"{url}\n"
-    ).encode()
+    return (f"#EXTM3U\n#EXTINF:-1,New\n{url}\n").encode()
 
 
 def test_preview_then_confirm_is_one_use(tmp_path, monkeypatch):
@@ -50,15 +46,20 @@ def test_preview_then_confirm_is_one_use(tmp_path, monkeypatch):
     data = _payload()
 
     preview = preview_refresh(
-        data, user_id=user, profile_name=None,
-        source_id=source, session_token="session-a",
+        data,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
+        session_token="session-a",
     )
     assert preview["revision"] == 1
     assert len(preview["added"]) == 1
     assert len(preview["removed"]) == 1
 
     arguments = dict(
-        user_id=user, profile_name=None, source_id=source,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
         revision=preview["revision"],
         receipt=preview["receipt"],
         session_token="session-a",
@@ -79,8 +80,11 @@ def test_preview_then_confirm_is_one_use(tmp_path, monkeypatch):
 
     with db.connect() as conn:
         names = [
-            item.name for item in get_entries(
-                conn, profile_id=profile, source_id=source,
+            item.name
+            for item in get_entries(
+                conn,
+                profile_id=profile,
+                source_id=source,
             )
         ]
         assert names == ["New"]
@@ -103,39 +107,63 @@ def test_stale_preview_preserves_committed_catalog(tmp_path, monkeypatch):
     data = _payload()
 
     first = preview_refresh(
-        data, user_id=user, profile_name=None,
-        source_id=source, session_token="session-a",
+        data,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
+        session_token="session-a",
     )
     second = preview_refresh(
-        data, user_id=user, profile_name=None,
-        source_id=source, session_token="session-a",
+        data,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
+        session_token="session-a",
     )
 
     confirm_refresh(
-        data, user_id=user, profile_name=None,
-        source_id=source, revision=first["revision"],
-        receipt=first["receipt"], session_token="session-a",
+        data,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
+        revision=first["revision"],
+        receipt=first["receipt"],
+        session_token="session-a",
     )
 
     with pytest.raises(ValueError, match="Stale"):
         confirm_refresh(
-            data, user_id=user, profile_name=None,
-            source_id=source, revision=second["revision"],
-            receipt=second["receipt"], session_token="session-a",
+            data,
+            user_id=user,
+            profile_name=None,
+            source_id=source,
+            revision=second["revision"],
+            receipt=second["receipt"],
+            session_token="session-a",
         )
 
     with db.connect() as conn:
-        assert get_subscription(
-            conn, profile_id=profile, source_id=source,
-        )["revision"] == 2
-        assert [entry.name for entry in get_entries(
-            conn, profile_id=profile, source_id=source,
-        )] == ["New"]
-
+        assert (
+            get_subscription(
+                conn,
+                profile_id=profile,
+                source_id=source,
+            )["revision"]
+            == 2
+        )
+        assert [
+            entry.name
+            for entry in get_entries(
+                conn,
+                profile_id=profile,
+                source_id=source,
+            )
+        ] == ["New"]
 
 
 def test_stored_snapshot_confirmed_without_browser_bytes(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     user, profile, source = _fixture(tmp_path, monkeypatch)
     preview = preview_refresh(
@@ -156,9 +184,7 @@ def test_stored_snapshot_confirmed_without_browser_bytes(
     )
 
     with pytest.raises(ValueError):
-        confirm_stored_refresh(
-            **(args | {"session_token": "other-session"})
-        )
+        confirm_stored_refresh(**(args | {"session_token": "other-session"}))
 
     result = confirm_stored_refresh(**args)
     assert result["revision"] == 2
@@ -168,14 +194,18 @@ def test_stored_snapshot_confirmed_without_browser_bytes(
 
     with db.connect() as conn:
         assert [
-            e.name for e in get_entries(
-                conn, profile_id=profile, source_id=source,
+            e.name
+            for e in get_entries(
+                conn,
+                profile_id=profile,
+                source_id=source,
             )
         ] == ["New"]
 
 
 def test_stored_snapshot_rejects_tampered_database_content(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     user, profile, source = _fixture(tmp_path, monkeypatch)
     preview = preview_refresh(
@@ -208,14 +238,19 @@ def test_stored_snapshot_rejects_tampered_database_content(
         )
 
     with db.connect() as conn:
-        assert get_subscription(
-            conn, profile_id=profile, source_id=source,
-        )["revision"] == 1
-
+        assert (
+            get_subscription(
+                conn,
+                profile_id=profile,
+                source_id=source,
+            )["revision"]
+            == 1
+        )
 
 
 def test_create_from_snapshot_is_profile_owned(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     path = tmp_path / "create-subscription.db"
     monkeypatch.setattr(db, "DB_FILE", path)
@@ -243,9 +278,16 @@ def test_create_from_snapshot_is_profile_owned(
             source_id=result["source_id"],
         )
         assert subscription["catalog_url"] == "https://catalog.example/list.m3u"
-        assert len(get_entries(
-            conn, profile_id=profile, source_id=result["source_id"],
-        )) == 1
+        assert (
+            len(
+                get_entries(
+                    conn,
+                    profile_id=profile,
+                    source_id=result["source_id"],
+                )
+            )
+            == 1
+        )
 
     with pytest.raises(LookupError):
         create_from_snapshot(
@@ -257,7 +299,8 @@ def test_create_from_snapshot_is_profile_owned(
 
 
 def test_create_from_snapshot_invalid_input_is_atomic(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     path = tmp_path / "invalid-subscription.db"
     monkeypatch.setattr(db, "DB_FILE", path)
@@ -284,24 +327,25 @@ def test_create_from_snapshot_invalid_input_is_atomic(
         )
 
     with db.connect() as conn:
-        assert conn.execute(
-            "SELECT COUNT(*) FROM remote_catalog_subscriptions"
-        ).fetchone()[0] == 0
-        assert conn.execute(
-            "SELECT COUNT(*) FROM station_sources"
-        ).fetchone()[0] == 0
-
+        assert conn.execute("SELECT COUNT(*) FROM remote_catalog_subscriptions").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM station_sources").fetchone()[0] == 0
 
 
 def test_preview_validators_are_committed_only_with_snapshot(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     user, profile, source = _fixture(tmp_path, monkeypatch)
 
     with db.connect() as conn:
-        assert get_subscription(
-            conn, profile_id=profile, source_id=source,
-        )["etag"] is None
+        assert (
+            get_subscription(
+                conn,
+                profile_id=profile,
+                source_id=source,
+            )["etag"]
+            is None
+        )
 
     preview = preview_refresh(
         _payload(),
@@ -315,7 +359,9 @@ def test_preview_validators_are_committed_only_with_snapshot(
 
     with db.connect() as conn:
         current = get_subscription(
-            conn, profile_id=profile, source_id=source,
+            conn,
+            profile_id=profile,
+            source_id=source,
         )
         assert current["revision"] == 1
         assert current["etag"] is None
@@ -333,7 +379,9 @@ def test_preview_validators_are_committed_only_with_snapshot(
 
     with db.connect() as conn:
         current = get_subscription(
-            conn, profile_id=profile, source_id=source,
+            conn,
+            profile_id=profile,
+            source_id=source,
         )
         assert current["revision"] == 2
         assert current["etag"] == '"candidate-2"'

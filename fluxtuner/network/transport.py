@@ -235,9 +235,8 @@ class ProtectedHTTPTransport:
         if_none_match: str | None = None,
         if_modified_since: str | None = None,
     ) -> ProtectedHTTPResponse:
-        conditional = (
-            _conditional_header("If-None-Match", if_none_match)
-            + _conditional_header("If-Modified-Since", if_modified_since)
+        conditional = _conditional_header("If-None-Match", if_none_match) + _conditional_header(
+            "If-Modified-Since", if_modified_since
         )
         if timeout <= 0:
             raise MetadataTransportError("Metadata request budget is exhausted.")

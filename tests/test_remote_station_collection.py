@@ -194,19 +194,22 @@ def test_complete_http_body_preserved(headers):
     assert len(transport.calls) == 1
 
 
-
 class ConditionalTransport:
     def __init__(self, *responses):
         self.responses = list(responses)
         self.calls = []
 
     def request(
-        self, target, address, policy, timeout, *,
-        if_none_match=None, if_modified_since=None,
+        self,
+        target,
+        address,
+        policy,
+        timeout,
+        *,
+        if_none_match=None,
+        if_modified_since=None,
     ):
-        self.calls.append(
-            (target.hostname, address.address, if_none_match, if_modified_since)
-        )
+        self.calls.append((target.hostname, address.address, if_none_match, if_modified_since))
         return self.responses.pop(0)
 
 
@@ -221,7 +224,9 @@ def test_conditional_collection_success_saves_validators():
         )
     )
     result = remote.fetch_conditional_remote_station_collection(
-        "https://radio.example/list", Resolver(), transport=transport,
+        "https://radio.example/list",
+        Resolver(),
+        transport=transport,
     )
     assert result.status == 200
     assert result.data == M3U

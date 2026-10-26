@@ -32,12 +32,7 @@ def issue(
     last_modified: str | None = None,
 ) -> str:
     """Issue a scoped receipt; caller controls the transaction."""
-    if (
-        not session_token
-        or not isinstance(data, bytes)
-        or not data
-        or len(data) > 1024 * 1024
-    ):
+    if not session_token or not isinstance(data, bytes) or not data or len(data) > 1024 * 1024:
         raise ValueError("Session and bounded snapshot are required.")
     if type(user_id) is not int or user_id <= 0:
         raise ValueError("Invalid user.")
@@ -52,7 +47,9 @@ def issue(
         raise ValueError("Profile does not belong to the user.")
 
     subscription = get_subscription(
-        conn, profile_id=profile_id, source_id=source_id,
+        conn,
+        profile_id=profile_id,
+        source_id=source_id,
     )
     if subscription["revision"] != revision:
         raise ValueError("Subscription revision has changed.")
@@ -72,9 +69,17 @@ def issue(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            _digest(token), user_id, profile_id, source_id, revision,
-            _digest(session_token), _digest(data), data,
-            etag, last_modified, (now + LIFETIME).isoformat(),
+            _digest(token),
+            user_id,
+            profile_id,
+            source_id,
+            revision,
+            _digest(session_token),
+            _digest(data),
+            data,
+            etag,
+            last_modified,
+            (now + LIFETIME).isoformat(),
         ),
     )
     return token
@@ -117,13 +122,19 @@ def consume(
           AND expires_at > ?
         """,
         (
-            now, _digest(token), user_id, profile_id, source_id,
-            revision, _digest(session_token), _digest(data), now,
+            now,
+            _digest(token),
+            user_id,
+            profile_id,
+            source_id,
+            revision,
+            _digest(session_token),
+            _digest(data),
+            now,
         ),
     )
     if cursor.rowcount != 1:
         raise ValueError("Invalid or expired refresh receipt.")
-
 
 
 def snapshot_and_validators_for_confirmation(
@@ -160,8 +171,12 @@ def snapshot_and_validators_for_confirmation(
           AND expires_at > ?
         """,
         (
-            _digest(token), user_id, profile_id, source_id,
-            revision, _digest(session_token),
+            _digest(token),
+            user_id,
+            profile_id,
+            source_id,
+            revision,
+            _digest(session_token),
             datetime.now(UTC).isoformat(),
         ),
     ).fetchone()
@@ -173,7 +188,6 @@ def snapshot_and_validators_for_confirmation(
     if not data or len(data) > 1024 * 1024:
         raise ValueError("Invalid stored refresh snapshot.")
     return data, row["pending_etag"], row["pending_last_modified"]
-
 
 
 def snapshot_for_confirmation(

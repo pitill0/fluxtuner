@@ -81,6 +81,7 @@ export function createMetadataController({
   let requestGeneration = 0;
   let requestInFlight = false;
   let currentTrackText = "";
+  let lastRenderedMetadata = null;
   let feedbackTimeoutId = 0;
   let overflowFrameId = 0;
   let documentVisible = documentRef.visibilityState !== "hidden";
@@ -191,6 +192,7 @@ export function createMetadataController({
   }
 
   function renderFallback({ notify = false } = {}) {
+    lastRenderedMetadata = null;
     if (notify) {
       onMetadataChange(null, fallbackTitle, streamUrl);
     }
@@ -207,6 +209,15 @@ export function createMetadataController({
 
   function renderMetadata(metadata) {
     const displayTitle = metadataDisplayTitle(metadata, fallbackTitle);
+    const snapshot = JSON.stringify([
+      metadata?.artist ?? null,
+      metadata?.title ?? null,
+      metadata?.raw ?? null,
+      fallbackTitle,
+      streamUrl,
+    ]);
+    if (snapshot === lastRenderedMetadata) return;
+    lastRenderedMetadata = snapshot;
     onMetadataChange(metadata, fallbackTitle, streamUrl);
 
     if (stationNode) {

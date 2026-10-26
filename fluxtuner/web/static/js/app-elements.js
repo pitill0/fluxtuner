@@ -4,6 +4,17 @@
 
 export function createAppElements(root = document) {
   return {
+    subscriptionElements: {
+      openButton: root.querySelector("[data-nav-subscriptions]"),
+      dialog: root.querySelector("[data-subscriptions-dialog]"),
+      form: root.querySelector("[data-subscriptions-form]"),
+      urlInput: root.querySelector("[data-subscriptions-url]"),
+      listNode: root.querySelector("[data-subscriptions-list]"),
+      previewNode: root.querySelector("[data-subscriptions-preview]"),
+      messageNode: root.querySelector("[data-subscriptions-message]"),
+      confirmButton: root.querySelector("[data-subscriptions-confirm]"),
+      closeButton: root.querySelector("[data-subscriptions-close]"),
+    },
     stationImportElements: {
       openButton: root.querySelector("[data-nav-station-import]"),
       dialog: root.querySelector("[data-station-import-dialog]"),

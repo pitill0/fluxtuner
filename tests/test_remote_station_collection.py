@@ -192,3 +192,135 @@ def test_complete_http_body_preserved(headers):
     )
     assert result == M3U
     assert len(transport.calls) == 1
+
+
+class ConditionalTransport:
+    def __init__(self, *responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def request(
+        self,
+        target,
+        address,
+        policy,
+        timeout,
+        *,
+        if_none_match=None,
+        if_modified_since=None,
+    ):
+        self.calls.append((target.hostname, address.address, if_none_match, if_modified_since))
+        return self.responses.pop(0)
+
+
+def test_conditional_collection_success_saves_validators():
+    transport = ConditionalTransport(
+        Response(
+            200,
+            {
+                "etag": '"rev-2"',
+                "last-modified": "Wed, 21 Oct 2015 07:28:00 GMT",
+            },
+        )
+    )
+    result = remote.fetch_conditional_remote_station_collection(
+        "https://radio.example/list",
+        Resolver(),
+        transport=transport,
+    )
+    assert result.status == 200
+    assert result.data == M3U
+    assert result.etag == '"rev-2"'
+    assert result.last_modified == "Wed, 21 Oct 2015 07:28:00 GMT"
+    assert transport.calls[0][2:] == (None, None)
+
+
+def test_conditional_collection_304_has_no_snapshot():
+    transport = ConditionalTransport(Response(304, data=b""))
+    result = remote.fetch_conditional_remote_station_collection(
+        "https://radio.example/list",
+        Resolver(),
+        etag='"rev-2"',
+        transport=transport,
+    )
+    assert result.status == 304
+    assert result.data is None
+    assert transport.calls[0][2:] == ('"rev-2"', None)
+
+
+def test_conditional_collection_rejects_unsolicited_304():
+    transport = ConditionalTransport(Response(304, data=b""))
+    with pytest.raises(remote.RemoteCollectionError, match="Unexpected HTTP 304"):
+        remote.fetch_conditional_remote_station_collection(
+            "https://radio.example/list",
+            Resolver(),
+            transport=transport,
+        )
+
+
+def test_conditional_collection_redirect_never_forwards_validators():
+    resolver = Resolver()
+    transport = ConditionalTransport(
+        Response(302, {"location": "https://cdn.example/list"}),
+        Response(200, {"etag": '"cdn-rev"'}),
+    )
+    result = remote.fetch_conditional_remote_station_collection(
+        "https://radio.example/list",
+        resolver,
+        etag='"origin-rev"',
+        transport=transport,
+    )
+    assert result.status == 200
+    assert result.data == M3U
+    assert result.etag is None
+    assert resolver.calls == [
+        ("radio.example", 443),
+        ("cdn.example", 443),
+    ]
+    assert transport.calls[0][2:] == ('"origin-rev"', None)
+    assert transport.calls[1][2:] == (None, None)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "bad\r\nInjected: yes",
+        "",
+        "x" * 513,
+        "café",
+    ],
+)
+def test_conditional_collection_rejects_bad_stored_validator(value):
+    transport = ConditionalTransport()
+    with pytest.raises(remote.RemoteCollectionError, match="Invalid stored ETag"):
+        remote.fetch_conditional_remote_station_collection(
+            "https://radio.example/list",
+            Resolver(),
+            etag=value,
+            transport=transport,
+        )
+    assert transport.calls == []
+
+
+def test_conditional_collection_drops_bad_response_validator():
+    transport = ConditionalTransport(
+        Response(200, {"etag": "bad\r\nInjected: yes"}),
+    )
+    result = remote.fetch_conditional_remote_station_collection(
+        "https://radio.example/list",
+        Resolver(),
+        transport=transport,
+    )
+    assert result.status == 200
+    assert result.etag is None
+
+
+def test_conditional_collection_error_does_not_yield_snapshot():
+    transport = ConditionalTransport(Response(503))
+    with pytest.raises(remote.RemoteCollectionError, match="HTTP 503"):
+        remote.fetch_conditional_remote_station_collection(
+            "https://radio.example/list",
+            Resolver(),
+            etag='"rev-2"',
+            transport=transport,
+        )

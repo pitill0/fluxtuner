@@ -3,6 +3,7 @@
  */
 
 export function createSessionUiController({
+  subscriptionController,
   stationImportController,
   customStationController,
   accountRequestsController,
@@ -34,6 +35,7 @@ export function createSessionUiController({
 }) {
   function updateAuthUi() {
     stationImportController?.syncSession();
+    subscriptionController?.syncSession();
     customStationController?.syncSession();
     const currentUser = appState.getCurrentUser();
     const authenticated = appState.isAuthenticated();

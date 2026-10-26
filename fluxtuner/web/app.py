@@ -85,6 +85,7 @@ def create_app(
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
+        from fluxtuner.web.routes import subscriptions as subscription_routes
         from fluxtuner.web.static_compression import StaticCompression
 
         globals()["Request"] = Request
@@ -223,6 +224,7 @@ def create_app(
     app.include_router(auth_routes.router)
     app.include_router(library_routes.router)
     app.include_router(import_routes.router)
+    app.include_router(subscription_routes.router)
     app.include_router(metadata_routes.router)
     app.include_router(admin_routes.router)
 

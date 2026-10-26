@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from urllib.parse import urljoin
 
 from fluxtuner.core.m3u_import import MAX_FILE_BYTES, M3UPreview, parse_station_collection
@@ -142,6 +143,127 @@ def fetch_remote_station_collection(
             return data
         finally:
             response.close()
+    raise RemoteCollectionError("Remote redirect limit exceeded.")
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionalCollectionResult:
+    """A complete HTTP 200 snapshot, or a validated HTTP 304 result."""
+
+    status: int
+    data: bytes | None
+    etag: str | None = None
+    last_modified: str | None = None
+
+
+def _safe_cache_validator(value: str | None) -> str | None:
+    """Never persist unbounded or unsafe remote cache metadata."""
+    if not isinstance(value, str):
+        return None
+    if not 1 <= len(value) <= 512:
+        return None
+    if any(ord(char) < 32 or ord(char) > 126 for char in value):
+        return None
+    return value
+
+
+def fetch_conditional_remote_station_collection(
+    url: str,
+    resolver: StreamTargetResolver,
+    *,
+    etag: str | None = None,
+    last_modified: str | None = None,
+    policy: MetadataFetchPolicy | None = None,
+    transport: ProtectedHTTPTransport | None = None,
+) -> ConditionalCollectionResult:
+    """Fetch or revalidate a catalog over the existing protected transport.
+
+    Validators apply only to the original resource. Redirects are revalidated
+    as usual, but receive neither the origin validators nor their cache state.
+    """
+    active_policy = policy or MetadataFetchPolicy()
+    active_transport = transport or ProtectedHTTPTransport()
+    start = time.monotonic()
+    target = normalize_stream_target(url, active_policy)
+
+    conditional_etag = _safe_cache_validator(etag)
+    conditional_date = _safe_cache_validator(last_modified)
+    if etag is not None and conditional_etag is None:
+        raise RemoteCollectionError("Invalid stored ETag.")
+    if last_modified is not None and conditional_date is None:
+        raise RemoteCollectionError("Invalid stored Last-Modified.")
+
+    redirected = False
+    for redirect_index in range(active_policy.max_redirects + 1):
+        addresses = validate_resolved_target(target, resolver, active_policy)
+        remaining = active_policy.total_timeout_seconds - (time.monotonic() - start)
+        if remaining <= 0:
+            raise RemoteCollectionError("Remote download timed out.")
+
+        # Do not leak validators to a redirect destination.
+        response = active_transport.request(
+            target,
+            addresses[0],
+            active_policy,
+            remaining,
+            if_none_match=None if redirected else conditional_etag,
+            if_modified_since=None if redirected else conditional_date,
+        )
+        try:
+            if response.status == 304:
+                if redirected or not (conditional_etag or conditional_date):
+                    raise RemoteCollectionError(
+                        "Unexpected HTTP 304 without a matching cache request."
+                    )
+                return ConditionalCollectionResult(
+                    status=304,
+                    data=None,
+                )
+
+            if 300 <= response.status < 400:
+                location = response.headers.get("location")
+                if not location or redirect_index >= active_policy.max_redirects:
+                    raise RemoteCollectionError("Remote redirect missing or limit exceeded.")
+                redirect = normalize_stream_target(
+                    urljoin(target.url, location),
+                    active_policy,
+                )
+                if (
+                    target.scheme == "https"
+                    and redirect.scheme == "http"
+                    and not active_policy.allow_https_to_http_redirect
+                ):
+                    raise RemoteCollectionError("HTTPS-to-HTTP redirect is not allowed.")
+                target = redirect
+                redirected = True
+                continue
+
+            if not 200 <= response.status < 300:
+                raise RemoteCollectionError(f"Remote collection returned HTTP {response.status}.")
+
+            data = _read_body(response.body, response.headers)
+            if not data:
+                raise RemoteCollectionError("Remote collection is empty.")
+
+            preview = parse_station_collection(data)
+            if not preview.entries or preview.issues:
+                raise RemoteCollectionError("Remote collection has no complete valid snapshot.")
+
+            # A redirected response's validators belong to its target,
+            # not necessarily to the original subscribed URL.
+            return ConditionalCollectionResult(
+                status=200,
+                data=data,
+                etag=(None if redirected else _safe_cache_validator(response.headers.get("etag"))),
+                last_modified=(
+                    None
+                    if redirected
+                    else _safe_cache_validator(response.headers.get("last-modified"))
+                ),
+            )
+        finally:
+            response.close()
+
     raise RemoteCollectionError("Remote redirect limit exceeded.")
 
 

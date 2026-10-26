@@ -4,6 +4,7 @@
 
 export function createNavigationController({
   accountPanel,
+  subscriptionController,
   stationImportController,
   accountRequestsController,
   adminPanel,
@@ -29,6 +30,7 @@ export function createNavigationController({
   showRadioBrowserView,
 }) {
   function closeOpenDialog() {
+    if (subscriptionController?.closeIfOpen()) return true;
     if (stationImportController?.closeIfOpen()) return true;
     if (customStationController?.closeIfOpen()) return true;
 

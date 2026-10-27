@@ -112,6 +112,7 @@ fluxtuner = [
     "web/static/js/*.js",
     "web/static/*.svg",
     "web/static/*.png",
+    "web/static/*.webp",
     "web/static/*.webmanifest",
     "web/static/icons/*.png",
 ]

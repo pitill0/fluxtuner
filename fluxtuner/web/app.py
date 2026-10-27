@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import gzip
+import hashlib
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib import resources
@@ -76,7 +78,7 @@ def create_app(
     """Create the experimental FluxTuner Web application."""
     try:
         from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
-        from fastapi.responses import FileResponse, HTMLResponse
+        from fastapi.responses import FileResponse
         from fastapi.staticfiles import StaticFiles
 
         from fluxtuner.web.routes import admin as admin_routes
@@ -86,7 +88,7 @@ def create_app(
         from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
         from fluxtuner.web.routes import subscriptions as subscription_routes
-        from fluxtuner.web.static_compression import StaticCompression
+        from fluxtuner.web.static_compression import StaticCompression, _accepts_gzip
 
         globals()["Request"] = Request
         globals()["Response"] = Response
@@ -212,9 +214,38 @@ def create_app(
     def apple_touch_icon_precomposed() -> FileResponse:
         return FileResponse(str(static_dir.joinpath("icons").joinpath("apple-touch-icon.png")))
 
-    @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return _read_template("index.html").replace("__FLUXTUNER_VERSION__", __version__)
+    index_html = (
+        _read_template("index.html").replace("__FLUXTUNER_VERSION__", __version__).encode("utf-8")
+    )
+    index_gzip = gzip.compress(index_html, compresslevel=9, mtime=0)
+    index_hash = hashlib.sha256(index_html).hexdigest()[:16]
+    index_identity_etag = f'"{index_hash}"'
+    index_gzip_etag = f'W/"gzip-{index_hash}"'
+
+    @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+    def index(request: Request) -> Response:
+        compressed = _accepts_gzip(request.scope)
+        etag = index_gzip_etag if compressed else index_identity_etag
+        headers = {
+            "ETag": etag,
+            "Cache-Control": "no-cache",
+            "Vary": "Accept-Encoding",
+        }
+        requested = request.headers.get("if-none-match")
+        # HTTP weak comparison is sufficient for If-None-Match on GET/HEAD.
+        if requested is not None and any(
+            value.strip() == "*" or value.strip().removeprefix("W/") == etag.removeprefix("W/")
+            for value in requested.split(",")
+        ):
+            return Response(status_code=304, headers=headers)
+        if compressed:
+            headers["Content-Encoding"] = "gzip"
+        body = index_gzip if compressed else index_html
+        return Response(
+            b"" if request.method == "HEAD" else body,
+            media_type="text/html",
+            headers=headers,
+        )
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

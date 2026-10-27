@@ -100,7 +100,8 @@ def test_web_index_has_minimal_hamburger_header() -> None:
     assert 'aria-expanded="false"' in response.text
     assert 'id="app-menu"' in response.text
     assert "FluxTuner Web" in response.text
-    assert "/static/app-icon.png" in response.text
+    assert 'src="/static/brand-icon.webp"' in response.text
+    assert 'width="38" height="38"' in response.text
     assert response.text.count("data-auth-user ") == 1
     assert response.text.count("data-logout") == 1
     assert response.text.count("data-nav-search") == 1
@@ -141,8 +142,8 @@ def test_web_index_uses_real_icon_for_favicon() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert 'href="/static/app-icon.png"' in response.text
-    assert 'href="/static/favicon.svg"' not in response.text
+    assert 'href="/static/favicon.svg"' in response.text
+    assert 'href="/static/icons/icon-192.png"' in response.text
 
 
 def test_web_static_js_controls_mobile_menu() -> None:

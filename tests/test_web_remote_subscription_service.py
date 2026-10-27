@@ -121,26 +121,29 @@ def test_stale_preview_preserves_committed_catalog(tmp_path, monkeypatch):
         session_token="session-a",
     )
 
-    confirm_refresh(
-        data,
-        user_id=user,
-        profile_name=None,
-        source_id=source,
-        revision=first["revision"],
-        receipt=first["receipt"],
-        session_token="session-a",
-    )
-
-    with pytest.raises(ValueError, match="Stale"):
+    with pytest.raises(ValueError, match="Invalid or expired refresh receipt"):
         confirm_refresh(
             data,
             user_id=user,
             profile_name=None,
             source_id=source,
-            revision=second["revision"],
-            receipt=second["receipt"],
+            revision=first["revision"],
+            receipt=first["receipt"],
             session_token="session-a",
         )
+
+    with db.connect() as conn:
+        assert get_subscription(conn, profile_id=profile, source_id=source)["revision"] == 1
+
+    confirm_refresh(
+        data,
+        user_id=user,
+        profile_name=None,
+        source_id=source,
+        revision=second["revision"],
+        receipt=second["receipt"],
+        session_token="session-a",
+    )
 
     with db.connect() as conn:
         assert (

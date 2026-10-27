@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from threading import Lock
 from time import monotonic
 
@@ -23,6 +23,7 @@ class AuthMaintenanceResult:
     old_login_attempts: int
     old_recovery_attempts: int
     old_reauth_attempts: int = 0
+    expired_refresh_receipts: int = 0
 
 
 def run_auth_maintenance(
@@ -49,6 +50,10 @@ def run_auth_maintenance(
             now=now,
             window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
         )
+        expired_refresh_receipts = conn.execute(
+            "DELETE FROM remote_catalog_refresh_receipts WHERE expires_at < ?",
+            ((now or datetime.now(UTC)).isoformat(),),
+        ).rowcount
         conn.commit()
 
     return AuthMaintenanceResult(
@@ -56,6 +61,7 @@ def run_auth_maintenance(
         old_login_attempts=old_login_attempts,
         old_recovery_attempts=old_recovery_attempts,
         old_reauth_attempts=old_reauth_attempts,
+        expired_refresh_receipts=expired_refresh_receipts,
     )
 
 

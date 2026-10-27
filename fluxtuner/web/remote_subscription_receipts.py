@@ -62,6 +62,13 @@ def issue(
     )
     conn.execute(
         """
+        DELETE FROM remote_catalog_refresh_receipts
+        WHERE user_id = ? AND profile_id = ? AND source_id = ?
+        """,
+        (user_id, profile_id, source_id),
+    )
+    conn.execute(
+        """
         INSERT INTO remote_catalog_refresh_receipts (
             token_hash, user_id, profile_id, source_id, revision,
             session_hash, payload_hash, snapshot_bytes,
@@ -109,8 +116,7 @@ def consume(
     now = datetime.now(UTC).isoformat()
     cursor = conn.execute(
         """
-        UPDATE remote_catalog_refresh_receipts
-        SET consumed_at = ?
+        DELETE FROM remote_catalog_refresh_receipts
         WHERE token_hash = ?
           AND user_id = ?
           AND profile_id = ?
@@ -122,7 +128,6 @@ def consume(
           AND expires_at > ?
         """,
         (
-            now,
             _digest(token),
             user_id,
             profile_id,

@@ -10,6 +10,20 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+## [1.4.0] - 2026-10-27
+
+### Added
+
 - Added bounded PLS station-collection import through the existing GTK, TUI
   and Web preview/confirmation workflow (#253).
 
@@ -32,17 +46,35 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Added station context-menu actions to add to a saved playlist and remove
   from the currently displayed playlist.
 
+- Added profile-scoped local station search, combined Radio Browser discovery
+  and source-aware discovery across GTK, TUI and Web (#273, #274, #281).
+- Added persistent profile-scoped multi-source station provenance (#276).
+- Added remote M3U/PLS station collection imports by URL with controlled
+  network access and preview/confirmation workflows (#254).
+- Added profile-owned remote catalog subscriptions and refresh workflows (#255).
+- Added responsive Web navigation with a desktop sidebar, accessible mobile
+  drawer, browser history, deep links and authenticated destination restoration
+  (#300).
+
 ### Changed
 
-- Updated the optional Brynse pin to revision `23971964c7d53da520351a4bbd322b078fdae07d` for automatic filename ordering on verified stream profiles (#246). FluxTuner preserves Brynse's original track metadata and finalized file paths.
+- Updated the optional Brynse integration for automatic filename ordering (#246), then repinned to Brynse v0.1.1 at revision `e8418776e54ba7df4f3c5abeca5dc1033c7322c6` after the recovery compatibility fix (#290). FluxTuner preserves original track metadata and finalized paths.
 - Added a dedicated CI job that installs pinned Brynse and FFmpeg,
   executes real radio integration contracts, and rejects skipped or
   missing contract coverage (#266), including verification of the
   installed pinned revision.
 
-
 - GTK places saved playlists prominently in the sidebar and folds favorite
   tag filters into a secondary "Filter favorites" section.
+
+- Improved Web static delivery with selective gzip compression, conditional
+  revalidation and documented production caching checks (#285, #286).
+- Reduced redundant Web metadata UI updates (#263).
+- Added a dedicated Web Account section and reorganized navigation (#293).
+- Reduced initial Web HTML transfer with precomputed gzip, representation-
+  specific ETags and conditional responses (#301).
+- Optimized Web branding using a smaller WebP header icon and SVG favicon
+  while preserving the original icon for Media Session (#301).
 
 ### Fixed
 
@@ -54,7 +86,21 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 - Web library operations use the authenticated user's default profile when
   no profile is requested, independently of the desktop's active profile.
 
+- Improved recovery-code regeneration reauthentication and corrected recovery
+  dialogs appearing behind mobile navigation (#264, #284).
+- Hardened remote import errors, bidirectional metadata handling and literal
+  display of untrusted TUI station metadata (#288, #289).
+- Fixed Web remote subscription dialog state restoration (#297).
+- Limited remote subscription refresh receipts to one current receipt per
+  user/profile/source, removed consumed receipts and added expired receipt
+  maintenance (#301).
+- Improved GTK recording shutdown supervision with confirmation and bounded
+  worker deadlines (#268).
 
+### Security
+
+- Strengthened type-checking and pinned Brynse integration contract coverage
+  in CI (#266, #279).
 
 ## [1.3.0] - 2026-10-18
 

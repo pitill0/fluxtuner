@@ -12,12 +12,19 @@ export function createRemoteSubscriptionController({
   let identity = "";
   let pending = null;
   let busy = false;
+  const actionButtons = new Set();
 
   const e = elements;
   const identityNow = () =>
     `${getCurrentUser()?.id ?? ""}:${getSessionKey() ?? ""}`;
   const current = (mark) =>
     mark === epoch && identity === identityNow() && Boolean(getCurrentUser());
+
+  function setBusy(value) {
+    busy = value;
+    for (const node of actionButtons) node.disabled = value;
+    e.confirmButton.disabled = value;
+  }
 
   function message(value) {
     e.messageNode.textContent = value;
@@ -32,7 +39,7 @@ export function createRemoteSubscriptionController({
 
   function invalidate() {
     epoch += 1;
-    busy = false;
+    setBusy(false);
     clearPreview();
   }
 
@@ -42,6 +49,7 @@ export function createRemoteSubscriptionController({
     identity = next;
     invalidate();
     e.listNode.replaceChildren();
+    actionButtons.clear();
     message("");
     if (e.dialog.open) e.dialog.close();
   }
@@ -65,6 +73,7 @@ export function createRemoteSubscriptionController({
     node.type = "button";
     node.textContent = label;
     node.disabled = busy;
+    actionButtons.add(node);
     node.addEventListener("click", action);
     return node;
   }
@@ -74,6 +83,7 @@ export function createRemoteSubscriptionController({
     const payload = await request(BASE, { method: "GET" });
     if (!current(mark)) return;
     e.listNode.replaceChildren();
+    actionButtons.clear();
 
     const items = payload.subscriptions || [];
     if (!items.length) {
@@ -100,7 +110,7 @@ export function createRemoteSubscriptionController({
 
   async function operate(callback) {
     if (busy || !getCurrentUser()) return;
-    busy = true;
+    setBusy(true);
     const mark = epoch;
     message("Working…");
     try {
@@ -108,7 +118,10 @@ export function createRemoteSubscriptionController({
     } catch (error) {
       if (current(mark)) message(error.message || "Operation failed.");
     } finally {
-      if (current(mark)) busy = false;
+      if (current(mark)) {
+        setBusy(false);
+        if (e.messageNode.textContent === "Working…") message("");
+      }
     }
   }
 

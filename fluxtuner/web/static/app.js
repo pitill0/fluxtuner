@@ -1,3 +1,4 @@
+import { createBrowserNavigationController } from "/static/js/browser-navigation.js";
 /*
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
@@ -9,6 +10,9 @@ import { createAppElements } from "/static/js/app-elements.js";
 import { bindApplicationEvents } from "/static/js/app-events.js";
 import { bootstrapApplication } from "/static/js/app-bootstrap.js";
 import { createAppState } from "/static/js/app-state.js";
+import { createNavigationAccordion } from "/static/js/navigation-accordion.js";
+import { createSidebarToggle } from "/static/js/sidebar-toggle.js";
+import { createMobileDrawer } from "/static/js/mobile-drawer.js";
 import { createAuthController } from "/static/js/auth.js";
 import { createCustomStationController } from "/static/js/custom-stations.js";
 import { createStationImportController } from "/static/js/station-imports.js";
@@ -20,6 +24,7 @@ import { createLibraryViewsController } from "/static/js/library-views.js";
 import { createMediaSessionController } from "/static/js/media-session.js";
 import { createMetadataController } from "/static/js/metadata.js";
 import { createNavigationController } from "/static/js/navigation.js";
+import { createNavigationPresentation } from "/static/js/navigation-presentation.js";
 import { createPlayerDebugController } from "/static/js/player-debug.js";
 import { createPlayerController } from "/static/js/player.js";
 import { createPlayerRuntime } from "/static/js/player-runtime.js";
@@ -55,6 +60,8 @@ const {
   appContent,
   appContentNodes,
   appHeader,
+  appShell,
+  sidebarToggleButton,
   audioNode,
   authMessageNode,
   authPanel,
@@ -150,6 +157,34 @@ const {
 } = createAppElements();
 
 const appState = createAppState();
+let browserNavigation = null;
+
+createMobileDrawer({
+  root: appShell,
+  header: appHeader,
+  toggleButton: navToggleButton,
+  windowNode: window,
+}).bind();
+
+createNavigationAccordion({
+  root: appShell,
+}).bind();
+
+createSidebarToggle({
+  shell: appShell,
+  button: sidebarToggleButton,
+  windowNode: window,
+}).bind();
+
+const navigationPresentation = createNavigationPresentation({
+  appState,
+  root: document,
+  accountPanel,
+  adminPanel,
+  dashboardPanel,
+  searchPanel,
+});
+navigationPresentation.bind();
 const playerRuntime = createPlayerRuntime();
 
 const uiShellController = createUiShellController({
@@ -167,6 +202,7 @@ const uiShellController = createUiShellController({
   searchPanel,
   setCurrentPlaylistName: appState.setCurrentPlaylistName,
   setCurrentView: appState.setCurrentView,
+  setCurrentSection: appState.setCurrentSection,
 });
 
 const {
@@ -246,6 +282,8 @@ const apiFetch = createApiFetch({
 
 const dashboardController = createDashboardController({
   apiFetch,
+  getCurrentUser: appState.getCurrentUser,
+  isDashboardVisible: () => dashboardPanel?.hidden === false,
   panelNode: dashboardPanel,
   messageNode: dashboardMessageNode,
   userMetricsNode: dashboardUserMetricsNode,
@@ -410,6 +448,8 @@ const sessionUiController = createSessionUiController({
 const { renderAuthRequired, updateAuthUi } = sessionUiController;
 
 const authController = createAuthController({
+  onAuthReady: () => browserNavigation?.onAuthReady(),
+  onLogout: () => browserNavigation?.onLogout(),
   apiFetch,
   authMessageNode,
   loginForm,
@@ -490,6 +530,10 @@ const { bindResultActions, renderStation } = stationRenderer;
 
 const searchController = createSearchController({
   searchForm,
+  getCurrentView: appState.getCurrentView,
+  getCurrentUser: appState.getCurrentUser,
+  isSearchVisible: () => searchPanel?.hidden === false,
+  subscribeViewChange: appState.subscribeViewChange,
   resultsNode,
   resultCountNode,
   setResultsHeader,
@@ -517,6 +561,9 @@ const { bindPlaylistActions, renderPlaylists } = playlistRenderer;
 
 const libraryViewsController = createLibraryViewsController({
   apiFetch,
+  getCurrentView: appState.getCurrentView,
+  getCurrentUser: appState.getCurrentUser,
+  isLibraryVisible: () => searchPanel?.hidden === false,
   resultsNode,
   resultCountNode,
   setResultsHeader,
@@ -524,9 +571,9 @@ const libraryViewsController = createLibraryViewsController({
   renderPlaylists,
   renderSearchError,
   setLibraryView: (view, playlistName = "") => {
+    appState.setCurrentPlaylistName(playlistName);
     appState.setCurrentView(view);
     customStationController.updateVisibility(view);
-    appState.setCurrentPlaylistName(playlistName);
   },
 });
 
@@ -593,6 +640,22 @@ const {
   navigateToPrivateView,
   navigateToSearch,
 } = navigationController;
+
+browserNavigation = createBrowserNavigationController({
+  appState,
+  browser: window,
+  navigation: {
+    dashboard: navigateToDashboard,
+    explore: navigateToSearch,
+    favorites: () => navigateToPrivateView(loadFavorites),
+    playlists: () => navigateToPrivateView(loadPlaylists),
+    history: () => navigateToPrivateView(loadHistory),
+    playlist: (name) => navigateToPrivateView(() => loadPlaylistStations(name)),
+    account: navigateToAccount,
+    admin: navigateToAdmin,
+  },
+});
+browserNavigation.bind();
 
 
 customStationController.bind();

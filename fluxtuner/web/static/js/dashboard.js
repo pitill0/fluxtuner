@@ -29,7 +29,10 @@ export function createDashboardController({
   isAuthenticated,
   setCurrentView,
   setCurrentPlaylistName,
+  getCurrentUser,
+  isDashboardVisible,
 }) {
+  let generation = 0;
   function setDashboardMessage(message) {
     if (messageNode) {
       messageNode.textContent = message || "";
@@ -100,6 +103,13 @@ export function createDashboardController({
 
     const preserveView = Boolean(options.preserveView);
     const silent = Boolean(options.silent);
+    const requestGeneration = ++generation;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () =>
+      requestGeneration === generation &&
+      isAuthenticated() &&
+      getCurrentUser() === requestUser &&
+      (preserveView || isDashboardVisible());
 
     if (!preserveView) {
       setCurrentView("dashboard");
@@ -118,18 +128,22 @@ export function createDashboardController({
         },
       });
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
+        if (!stillCurrent()) return;
         throw new Error(payload.detail || "Could not load dashboard.");
       }
 
       const payload = await response.json();
+      if (!stillCurrent()) return;
       renderDashboard(payload);
       if (!silent) {
         setDashboardMessage("Dashboard updated.");
       }
     } catch (error) {
-      setDashboardMessage(String(error));
+      if (stillCurrent()) setDashboardMessage(String(error));
     }
   }
 

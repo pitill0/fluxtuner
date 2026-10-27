@@ -17,6 +17,7 @@ export function createUiShellController({
   searchPanel,
   setCurrentPlaylistName,
   setCurrentView,
+  setCurrentSection = () => {},
 }) {
   function setResultsHeader(kicker, title) {
     if (resultsKickerNode) {
@@ -93,6 +94,7 @@ export function createUiShellController({
     if (adminPanel) {
       adminPanel.hidden = true;
     }
+    setCurrentSection("explore");
   }
 
   function showDashboardView() {
@@ -111,6 +113,7 @@ export function createUiShellController({
     if (adminPanel) {
       adminPanel.hidden = true;
     }
+    setCurrentSection("dashboard");
   }
 
   function showAdminView() {
@@ -129,6 +132,7 @@ export function createUiShellController({
     if (adminPanel) {
       adminPanel.hidden = false;
     }
+    setCurrentSection("admin");
   }
 
   function showAccountView() {
@@ -136,6 +140,7 @@ export function createUiShellController({
     if (dashboardPanel) dashboardPanel.hidden = true;
     if (adminPanel) adminPanel.hidden = true;
     if (accountPanel) accountPanel.hidden = false;
+    setCurrentSection("account");
   }
 
   function resetRadioBrowserView() {

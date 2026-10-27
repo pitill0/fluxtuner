@@ -453,7 +453,15 @@ def test_web_static_js_closes_mobile_menu_from_outside_click() -> None:
     assert app_response.status_code == 200
     assert events_response.status_code == 200
     assert 'documentNode.addEventListener("click"' in events_response.text
-    assert "appHeader.contains(event.target)" in events_response.text
+    assert "mobileMenuClickDisposition({" in events_response.text
+    assert 'disposition === "header" || disposition === "inside"' in events_response.text
+    assert "closeMobileMenu();" in events_response.text
+
+    helper_response = client.get("/static/js/mobile-menu-events.js")
+    assert helper_response.status_code == 200
+    assert "export function mobileMenuClickDisposition" in helper_response.text
+    assert "header.contains(target)" in helper_response.text
+    assert "region.contains(target)" in helper_response.text
     assert 'documentNode.addEventListener("keydown"' in events_response.text
 
 

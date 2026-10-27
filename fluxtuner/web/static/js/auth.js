@@ -7,6 +7,8 @@ export function createAuthController({
   authMessageNode,
   loginForm,
   loadDashboard,
+  onAuthReady = () => {},
+  onLogout = () => {},
   publicStatsController,
   renderAuthRequired,
   resetRadioBrowserView,
@@ -28,6 +30,7 @@ export function createAuthController({
         setCurrentUser(null);
         setCsrfToken("");
         updateAuthUi();
+        await onAuthReady();
         return;
       }
 
@@ -37,9 +40,11 @@ export function createAuthController({
       resetRadioBrowserView();
       updateAuthUi();
       await loadDashboard();
+      await onAuthReady();
     } catch (_error) {
       setCurrentUser(null);
       updateAuthUi();
+      await onAuthReady();
     }
   }
 
@@ -84,6 +89,7 @@ export function createAuthController({
       resetRadioBrowserView();
       updateAuthUi();
       await loadDashboard();
+      await onAuthReady();
     } catch (error) {
       setCurrentUser(null);
       setCsrfToken("");
@@ -108,6 +114,7 @@ export function createAuthController({
       resetRadioBrowserView();
       updateAuthUi();
       renderAuthRequired();
+      onLogout();
     }
   }
 

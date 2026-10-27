@@ -70,9 +70,30 @@ export function createSearchController({
   renderStation,
   bindResultActions,
   setSearchView,
+  getCurrentView,
+  getCurrentUser,
+  isSearchVisible,
+  subscribeViewChange,
 }) {
   let activeSearchController = null;
   let searchRequestId = 0;
+
+  function invalidateSearch() {
+    activeSearchController?.abort();
+    activeSearchController = null;
+    ++searchRequestId;
+  }
+
+  subscribeViewChange((view) => {
+    if (view !== "search") invalidateSearch();
+  });
+
+  function isCurrentSearch(requestId, user) {
+    return requestId === searchRequestId &&
+      getCurrentView() === "search" &&
+      getCurrentUser() === user &&
+      isSearchVisible();
+  }
 
   const sourceSelector = searchForm?.querySelector('[name="source"]');
   const sourceLabels = {
@@ -154,6 +175,8 @@ export function createSearchController({
     const requestId = ++searchRequestId;
     const controller = new AbortController();
     activeSearchController = controller;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () => isCurrentSearch(requestId, requestUser);
 
     const formData = new FormData(searchForm);
     const params = new URLSearchParams();
@@ -188,15 +211,17 @@ export function createSearchController({
         signal: controller.signal,
       });
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const payload = await response.json();
-      if (requestId !== searchRequestId) return;
+      if (!stillCurrent()) return;
       renderResults(payload);
     } catch (error) {
-      if (error?.name === "AbortError" || requestId !== searchRequestId) return;
+      if (error?.name === "AbortError" || !stillCurrent()) return;
       renderSearchError(error);
     } finally {
       if (requestId === searchRequestId) {

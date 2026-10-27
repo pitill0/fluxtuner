@@ -64,7 +64,13 @@ def test_web_search_module_handles_status_and_concurrency() -> None:
     assert "activeSearchController?.abort();" in response.text
     assert "const controller = new AbortController();" in response.text
     assert "signal: controller.signal" in response.text
-    assert "requestId !== searchRequestId" in response.text
+    assert "function isCurrentSearch(requestId, user)" in response.text
+    assert "requestId === searchRequestId" in response.text
+    assert 'getCurrentView() === "search"' in response.text
+    assert "getCurrentUser() === user" in response.text
+    assert "isSearchVisible()" in response.text
+    assert 'if (view !== "search") invalidateSearch();' in response.text
+    assert "if (!stillCurrent()) return;" in response.text
     assert 'error?.name === "AbortError"' in response.text
 
 

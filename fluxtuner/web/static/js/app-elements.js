@@ -51,6 +51,8 @@ export function createAppElements(root = document) {
     searchPanel: root.querySelector("[data-search-panel]"),
     appContentNodes: root.querySelectorAll("[data-app-content]"),
     appHeader: root.querySelector("[data-app-header]"),
+    appShell: root.querySelector(".shell"),
+    sidebarToggleButton: root.querySelector("[data-sidebar-toggle]"),
     navToggleButton: root.querySelector("[data-nav-toggle]"),
     themeToggleButton: root.querySelector("[data-theme-toggle]"),
     themeLabelNode: root.querySelector("[data-theme-label]"),

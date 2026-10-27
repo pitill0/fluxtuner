@@ -21,13 +21,30 @@ export function createLibraryViewsController({
   renderPlaylists,
   renderSearchError,
   setLibraryView,
+  getCurrentView,
+  getCurrentUser,
+  isLibraryVisible,
 }) {
+  let generation = 0;
+
+  function currentRequest(request, view, user) {
+    return request === generation &&
+      getCurrentView() === view &&
+      getCurrentUser() === user &&
+      isLibraryVisible();
+  }
+
   function ensureResultsContainer() {
     return Boolean(resultsNode && resultCountNode);
   }
 
   async function loadHistory() {
     if (!ensureResultsContainer()) return;
+    const requestGeneration = ++generation;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () => currentRequest(
+      requestGeneration, "history", requestUser,
+    );
 
     setLibraryView("history", "");
     setResultsHeader("Playback", "History");
@@ -45,19 +62,27 @@ export function createLibraryViewsController({
         },
       });
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const payload = await response.json();
+      if (!stillCurrent()) return;
       renderResults(payload);
     } catch (error) {
-      renderSearchError(error);
+      if (stillCurrent()) renderSearchError(error);
     }
   }
 
   async function loadFavorites() {
     if (!ensureResultsContainer()) return;
+    const requestGeneration = ++generation;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () => currentRequest(
+      requestGeneration, "favorites", requestUser,
+    );
 
     setLibraryView("favorites", "");
     setResultsHeader("Library", "Favorites");
@@ -75,19 +100,27 @@ export function createLibraryViewsController({
         },
       });
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const payload = await response.json();
+      if (!stillCurrent()) return;
       renderResults(payload);
     } catch (error) {
-      renderSearchError(error);
+      if (stillCurrent()) renderSearchError(error);
     }
   }
 
   async function loadPlaylists() {
     if (!ensureResultsContainer()) return;
+    const requestGeneration = ++generation;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () => currentRequest(
+      requestGeneration, "playlists", requestUser,
+    );
 
     setLibraryView("playlists", "");
     setResultsHeader("Library", "Playlists");
@@ -105,19 +138,27 @@ export function createLibraryViewsController({
         },
       });
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const payload = await response.json();
+      if (!stillCurrent()) return;
       renderPlaylists(payload);
     } catch (error) {
-      renderSearchError(error);
+      if (stillCurrent()) renderSearchError(error);
     }
   }
 
   async function loadPlaylistStations(name) {
     if (!ensureResultsContainer()) return;
+    const requestGeneration = ++generation;
+    const requestUser = getCurrentUser();
+    const stillCurrent = () => currentRequest(
+      requestGeneration, "playlist", requestUser,
+    );
 
     setLibraryView("playlist", name);
     setResultsHeader("Playlist", name);
@@ -138,14 +179,17 @@ export function createLibraryViewsController({
         },
       );
 
+      if (!stillCurrent()) return;
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const payload = await response.json();
+      if (!stillCurrent()) return;
       renderResults(payload);
     } catch (error) {
-      renderSearchError(error);
+      if (stillCurrent()) renderSearchError(error);
     }
   }
 

@@ -343,3 +343,403 @@ html[data-theme="light"] .theme-toggle span::before {
     width: 100%;
   }
 }
+
+
+
+/* UX-02: authenticated desktop application shell */
+
+/*
+ * Desktop layout owns two explicit columns.
+ * Navigation is no longer positioned against the viewport.
+ * The mobile menu retains its existing controls.
+ */
+
+.app-sidebar-region {
+  display: none;
+}
+
+.app-nav-group {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.app-nav-group + .app-nav-group {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.app-nav-group-title {
+  margin: 0;
+  padding: 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.app-nav button[aria-current="page"] {
+  border-color: var(--accent);
+  background: var(--panel-strong);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.app-nav button:focus-visible,
+.desktop-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.desktop-sidebar-toggle {
+  display: none;
+}
+
+.desktop-sidebar-toggle [data-sidebar-toggle-label] {
+  display: none;
+}
+
+@media (min-width: 58.01rem) {
+  .shell:has(> .app-content:not([hidden])) {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    width: min(92rem, calc(100% - 2rem));
+    padding-inline-start: 0;
+    align-items: start;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    > .app-header {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    > .app-sidebar-region {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    position: relative;
+    min-width: 0;
+    align-self: stretch;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    > .app-content {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    .app-menu {
+    position: sticky;
+    top: 5.5rem;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    display: block;
+    width: 100%;
+    max-height: calc(100vh - 6.5rem);
+    margin: 0;
+    padding: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    .app-menu-toggle {
+    display: none;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    .app-nav {
+    align-content: start;
+    gap: 0.75rem;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    .app-nav button {
+    min-height: 2.55rem;
+    justify-content: flex-start;
+    padding-inline: 1rem;
+    text-align: left;
+  }
+
+  .shell:has(> .app-content:not([hidden]))
+    .desktop-sidebar-toggle {
+    position: absolute;
+    top: 0.75rem;
+    right: -0.85rem;
+    left: auto;
+    z-index: 95;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    min-width: 2rem;
+    height: 2.6rem;
+    min-height: 2.6rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 0.8rem;
+    background: var(--panel-solid);
+    box-shadow: 0 0.5rem 1.25rem var(--shadow);
+  }
+
+  .desktop-sidebar-toggle [data-sidebar-toggle-icon] {
+    font-size: 1.65rem;
+    line-height: 1;
+  }
+
+  .desktop-sidebar-toggle:hover {
+    color: var(--accent);
+  }
+
+  .shell[data-sidebar-collapsed="true"]:has(
+    > .app-content:not([hidden])
+  ) {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+
+  .shell[data-sidebar-collapsed="true"]:has(
+    > .app-content:not([hidden])
+  ) .app-menu {
+    display: none;
+  }
+
+  .shell[data-sidebar-collapsed="true"]:has(
+    > .app-content:not([hidden])
+  ) .desktop-sidebar-toggle {
+    top: 0.75rem;
+    left: 0.35rem;
+    right: auto;
+    width: 2.3rem;
+    min-width: 2.3rem;
+    border-radius: 0.65rem;
+  }
+}
+
+/*
+ * Mobile navigation remains attached to the same shell
+ * state even though the DOM menu is no longer inside header.
+ */
+@media (max-width: 58rem) {
+  .shell {
+    position: relative;
+  }
+
+  .shell > .app-sidebar-region {
+    display: block;
+    position: absolute;
+    top: 4.75rem;
+    right: 0;
+    left: auto;
+    width: min(22rem, 100%);
+    z-index: 90;
+    pointer-events: none;
+  }
+
+  .shell > .app-sidebar-region .app-menu {
+    display: none;
+  }
+
+  .shell:has(> .app-header[data-mobile-menu-open="true"])
+    > .app-sidebar-region {
+    pointer-events: auto;
+  }
+
+  .shell:has(> .app-header[data-mobile-menu-open="true"])
+    > .app-sidebar-region .app-menu {
+    display: block;
+  }
+
+  .shell > .app-sidebar-region
+    .desktop-sidebar-toggle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu {
+    scroll-behavior: auto;
+  }
+}
+
+
+/* UX-02: navigation accordion */
+
+.app-nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.app-nav-group-toggle:hover {
+  color: var(--accent);
+}
+
+.app-nav-group-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.app-nav-group-chevron {
+  display: inline-block;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform 150ms ease;
+}
+
+.app-nav-group-toggle[aria-expanded="true"]
+  .app-nav-group-chevron {
+  transform: rotate(90deg);
+}
+
+.app-nav-group-content {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.app-nav-group-content[hidden] {
+  display: none;
+}
+
+.app-nav-group:has(
+  .app-nav-group-toggle[aria-expanded="false"]
+) {
+  gap: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-group-chevron {
+    transition: none;
+  }
+}
+
+
+/* UX-02: mobile hierarchical drawer */
+
+.mobile-drawer-heading {
+  display: none;
+}
+
+@media (max-width: 58rem) {
+  .shell > .app-sidebar-region {
+    width: min(23rem, 100%);
+  }
+
+  .shell > .app-sidebar-region .app-menu {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    width: 100%;
+    max-height: min(75vh, 38rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-drawer-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.35rem 0.4rem 0.85rem;
+    margin-bottom: 0.7rem;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .mobile-drawer-heading strong {
+    font-size: 0.95rem;
+  }
+
+  .mobile-drawer-heading button {
+    min-height: 2.4rem;
+    padding: 0.35rem 0.7rem;
+  }
+
+  .mobile-drawer-heading button[hidden] {
+    display: none;
+  }
+
+  .app-menu[data-mobile-level="root"]
+    .app-nav-group-content {
+    display: none;
+  }
+
+  .app-menu[data-mobile-level="group"]
+    .app-nav-group {
+    display: none;
+  }
+
+  .app-menu[data-mobile-level="group"]
+    .app-nav-group[data-mobile-selected="true"] {
+    display: grid;
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-menu[data-mobile-level="group"]
+    .app-nav-group[data-mobile-selected="true"]
+    > .app-nav-group-toggle {
+    display: none;
+  }
+
+  .app-menu[data-mobile-level="group"]
+    .app-nav-group-content:not([hidden]) {
+    display: grid;
+  }
+
+  .app-menu[data-mobile-level="root"]
+    .app-nav-group-toggle {
+    min-height: 2.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer-heading,
+  .app-nav-group-content {
+    scroll-behavior: auto;
+  }
+}
+
+
+/* UX-02: mobile drawer accessibility polish */
+
+@media (max-width: 58rem) {
+  .shell > .app-sidebar-region .app-menu {
+    background: #0d1f32;
+    border-color: rgba(110, 231, 216, 0.42);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.35);
+  }
+
+  html[data-theme="light"]
+    .shell > .app-sidebar-region .app-menu {
+    background: #f8fbfd;
+    border-color: rgba(30, 91, 115, 0.26);
+    box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+  }
+
+  .mobile-drawer-heading button:focus-visible,
+  .app-nav-group-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}

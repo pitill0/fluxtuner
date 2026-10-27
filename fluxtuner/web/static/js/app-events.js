@@ -1,3 +1,5 @@
+import { mobileMenuClickDisposition } from "./mobile-menu-events.js";
+
 /*
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
@@ -175,7 +177,17 @@ export function bindApplicationEvents({
 
   documentNode.addEventListener("click", (event) => {
     if (!appHeader || appHeader.dataset.mobileMenuOpen !== "true") return;
-    if (event.target instanceof nodeConstructor && appHeader.contains(event.target)) return;
+
+    const disposition = mobileMenuClickDisposition({
+      target: event.target,
+      header: appHeader,
+      nodeConstructor,
+    });
+
+    if (disposition === "header" || disposition === "inside") return;
+
+    // Navigation handlers run on their existing controls before
+    // this document-level listener receives the bubbling click.
     closeMobileMenu();
   });
 

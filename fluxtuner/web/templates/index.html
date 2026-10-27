@@ -64,6 +64,8 @@
             <span data-theme-label>Theme</span>
           </button>
 
+
+
           <button
             class="app-menu-toggle"
             type="button"
@@ -78,21 +80,61 @@
           </button>
         </div>
 
-        <div class="app-menu" id="app-menu" data-app-menu>
-          <nav class="app-nav" aria-label="Primary navigation">
-            <button type="button" data-nav-dashboard data-private-action disabled>Dashboard</button>
-            <button type="button" data-nav-search data-private-action disabled>Search</button>
-            <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
-            <button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
-            <button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
-            <button type="button" data-nav-subscriptions data-private-action disabled>Remote catalogs…</button>
-            <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
-            <button type="button" data-nav-history data-private-action disabled>History</button>
-            <button type="button" data-nav-account data-private-action disabled>Account</button>
-            <button type="button" data-nav-admin hidden>Admin</button>
-          </nav>
-        </div>
+
       </header>
+      <div class="app-sidebar-region" data-app-sidebar-region>
+<div class="app-menu" id="app-menu" data-app-menu>
+          <div class="mobile-drawer-heading">
+            <button
+              type="button"
+              data-mobile-drawer-back
+              aria-label="Back to navigation"
+              hidden
+            >‹ Back</button>
+            <strong data-mobile-drawer-title>Navigation</strong>
+          </div>
+          <nav class="app-nav" aria-label="Primary navigation">
+<div class="app-nav-group" role="group" aria-label="Discover" data-nav-group="discover">
+  <p class="app-nav-group-title" aria-hidden="true">Discover</p>
+    <button type="button" data-nav-dashboard data-private-action disabled>Dashboard</button>
+    <button type="button" data-nav-search data-private-action disabled>Search</button>
+</div>
+<div class="app-nav-group" role="group" aria-label="My library" data-nav-group="library">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="library" aria-controls="app-nav-group-library" aria-expanded="false"><span>My library</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+  <div class="app-nav-group-content" id="app-nav-group-library" data-nav-group-content="library" hidden>
+<button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
+<button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
+<button type="button" data-nav-subscriptions data-private-action disabled>Remote catalogs…</button>
+<button type="button" data-nav-history data-private-action disabled>History</button>
+</div>
+</div>
+<div class="app-nav-group" role="group" aria-label="Library actions" data-nav-group="actions">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="actions" aria-controls="app-nav-group-actions" aria-expanded="false"><span>Library actions</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+  <div class="app-nav-group-content" id="app-nav-group-actions" data-nav-group-content="actions" hidden>
+<button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
+<button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
+</div>
+</div>
+<div class="app-nav-group" role="group" aria-label="Account & system" data-nav-group="system">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="system" aria-controls="app-nav-group-system" aria-expanded="false"><span>Account & system</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+  <div class="app-nav-group-content" id="app-nav-group-system" data-nav-group-content="system" hidden>
+<button type="button" data-nav-account data-private-action disabled>Account</button>
+<button type="button" data-nav-admin hidden>Admin</button>
+</div>
+</div>
+</nav>
+        </div>
+<button
+            class="desktop-sidebar-toggle"
+            type="button"
+            data-sidebar-toggle
+            aria-label="Collapse sidebar"
+            aria-controls="app-menu"
+            aria-expanded="true"
+            title="Collapse sidebar"
+          ><span data-sidebar-toggle-icon aria-hidden="true">‹</span><span data-sidebar-toggle-label>Menu</span></button>
+      </div>
+
 
       <section class="panel setup-panel" data-setup-panel hidden aria-labelledby="setup-title">
         <div class="panel-heading">

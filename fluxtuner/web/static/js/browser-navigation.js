@@ -5,12 +5,28 @@
 const ROUTES = new Set([
   "dashboard", "explore", "favorites", "playlists",
   "history", "account", "admin", "playlist",
+  "stations", "catalogs", "catalog",
 ]);
 
 export function readNavigationUrl(href) {
   const url = new URL(href);
   const view = url.searchParams.get("view") || "dashboard";
   if (!ROUTES.has(view)) return { view: "dashboard", invalid: true };
+  if (view === "catalog") {
+    const id = url.searchParams.get("catalog") || "";
+    if (!/^[1-9][0-9]*$/.test(id) ||
+        !Number.isSafeInteger(Number(id))) {
+      return { view: "catalogs", invalid: true };
+    }
+    return {
+      view,
+      name: id,
+      invalid: url.searchParams.has("playlist"),
+    };
+  }
+  if (url.searchParams.has("catalog")) {
+    return { view: "catalogs", invalid: true };
+  }
   if (view === "playlist") {
     const name = url.searchParams.get("playlist") || "";
     if (!name || name.length > 200) {
@@ -25,9 +41,11 @@ export function navigationUrl(href, view, name = "") {
   const url = new URL(href);
   url.searchParams.delete("view");
   url.searchParams.delete("playlist");
+  url.searchParams.delete("catalog");
   if (view && view !== "dashboard") {
     url.searchParams.set("view", view);
     if (view === "playlist") url.searchParams.set("playlist", name);
+    if (view === "catalog") url.searchParams.set("catalog", String(name));
   }
   return `${url.pathname}${url.search}${url.hash}`;
 }
@@ -37,6 +55,12 @@ function activeRoute(appState) {
     return { view: appState.getCurrentSection() };
   }
   const view = appState.getCurrentView();
+  if (view === "catalog") {
+    return {
+      view,
+      name: String(appState.getCurrentCatalogId()),
+    };
+  }
   if (view === "playlist") {
     return { view, name: appState.getCurrentPlaylistName() };
   }
@@ -67,7 +91,7 @@ export function createBrowserNavigationController({ appState, browser, navigatio
       if (!ready || replaying || !appState.isAuthenticated()) return;
       const route = activeRoute(appState);
       if (!ROUTES.has(route.view) ||
-          (route.view === "playlist" && !route.name)) return;
+          ((route.view === "playlist" || route.view === "catalog") && !route.name)) return;
       const next = navigationUrl(locationHref(), route.view, route.name);
       const here = new URL(locationHref());
       if (next === `${here.pathname}${here.search}${here.hash}`) return;

@@ -7,6 +7,7 @@ const BASE = "/api/stations/subscriptions";
 export function createRemoteSubscriptionController({
   elements, apiFetch, getCurrentUser, getSessionKey, beforeOpen,
   confirmDelete = (message) => window.confirm(message),
+  onChanged = () => {},
 }) {
   let epoch = 0;
   let identity = "";
@@ -138,6 +139,9 @@ export function createRemoteSubscriptionController({
       if (!current(mark)) return;
       e.urlInput.value = "";
       clearPreview();
+      if (current(mark)) {
+        onChanged({ type: "added" });
+      }
       await load();
       if (current(mark)) message("Subscription added.");
     });
@@ -190,6 +194,9 @@ export function createRemoteSubscriptionController({
       );
       if (!current(mark)) return;
       clearPreview();
+      if (current(mark)) {
+        onChanged({ type: "updated", sourceId: chosen.sourceId });
+      }
       await load();
       if (current(mark)) message("Catalog updated.");
     });
@@ -203,6 +210,9 @@ export function createRemoteSubscriptionController({
       await request(`${BASE}/${sourceId}`, { method: "DELETE" });
       if (!current(mark)) return;
       clearPreview();
+      if (current(mark)) {
+        onChanged({ type: "removed", sourceId });
+      }
       await load();
       if (current(mark)) message("Subscription removed.");
     });

@@ -12,7 +12,8 @@ const BUTTONS = Object.freeze({
   explore: "search",
   favorites: "favorites",
   playlists: "playlists",
-  catalogs: "subscriptions",
+  catalogs: "catalogs",
+  stations: "stations",
   history: "history",
   account: "account",
   admin: "admin",
@@ -23,6 +24,9 @@ const LIBRARY_VIEWS = Object.freeze({
   favorites: "favorites",
   playlists: "playlists",
   playlist: "playlists",
+  stations: "stations",
+  catalogs: "catalogs",
+  catalog: "catalogs",
   history: "history",
 });
 

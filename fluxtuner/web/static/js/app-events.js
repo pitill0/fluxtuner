@@ -29,6 +29,8 @@ export function bindApplicationEvents({
   loadHistory,
   loadHistoryButton,
   loadPlaylists,
+  loadMyStations,
+  loadCatalogs,
   loadPlaylistsButton,
   login,
   loginForm,
@@ -46,6 +48,8 @@ export function bindApplicationEvents({
   navFavoritesButton,
   navHistoryButton,
   navPlaylistsButton,
+  navStationsButton,
+  navCatalogsButton,
   navSearchButton,
   navToggleButton,
   nodeConstructor,
@@ -224,6 +228,16 @@ export function bindApplicationEvents({
   }
   if (navPlaylistsButton) {
     navPlaylistsButton.addEventListener("click", () => navigateToPrivateView(loadPlaylists));
+  }
+  if (navStationsButton) {
+    navStationsButton.addEventListener(
+      "click", () => navigateToPrivateView(loadMyStations),
+    );
+  }
+  if (navCatalogsButton) {
+    navCatalogsButton.addEventListener(
+      "click", () => navigateToPrivateView(loadCatalogs),
+    );
   }
   if (navHistoryButton) {
     navHistoryButton.addEventListener("click", () => navigateToPrivateView(loadHistory));

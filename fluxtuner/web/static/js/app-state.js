@@ -10,6 +10,9 @@ export function createAppState() {
     search: "explore",
     favorites: "favorites",
     playlists: "playlists",
+    stations: "stations",
+    catalogs: "catalogs",
+    catalog: "catalogs",
     playlist: "playlists",
     history: "history",
   });
@@ -25,12 +28,15 @@ export function createAppState() {
     for (const listener of navigationListeners) listener();
   }
   let currentPlaylistName = "";
+  let currentCatalogId = 0;
   let currentUser = null;
   let csrfToken = "";
 
   return {
     getCsrfToken: () => csrfToken,
     getCurrentPlaylistName: () => currentPlaylistName,
+    getCurrentCatalogId: () => currentCatalogId,
+    setCurrentCatalogId: (id) => { currentCatalogId = id; },
     getCurrentUser: () => currentUser,
     getCurrentView: () => currentView,
     getCurrentSection: () => currentSection,

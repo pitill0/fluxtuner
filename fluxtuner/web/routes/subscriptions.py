@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fluxtuner.core import db
 from fluxtuner.core.remote_subscription_store import (
     delete_subscription,
+    get_entries,
     get_subscription,
     list_subscriptions,
     mark_not_modified,
@@ -25,6 +26,7 @@ from fluxtuner.network.remote_station_collection import (
 from fluxtuner.web import guards
 from fluxtuner.web import remote_subscription_service as service
 from fluxtuner.web.m3u_import import _profile_id
+from fluxtuner.web.payloads import station_payload
 from fluxtuner.web.routes.imports import _read_remote_url
 from fluxtuner.web.security import SESSION_COOKIE_NAME
 
@@ -226,6 +228,36 @@ async def subscriptions_create(
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+def _catalog_stations(
+    user_id: int,
+    profile: str | None,
+    source_id: int,
+) -> dict[str, Any]:
+    """Read the committed catalog snapshot for one owned profile."""
+    with closing(db.connect()) as conn:
+        profile_id = _profile_id(conn, user_id=user_id, profile_name=profile)
+        entries = get_entries(conn, profile_id=profile_id, source_id=source_id)
+        stations = [station_payload({"name": entry.name, "url": entry.url}) for entry in entries]
+        return {
+            "source_id": source_id,
+            "count": len(stations),
+            "stations": stations,
+        }
+
+
+@router.get("/{source_id}/stations")
+async def subscriptions_stations(
+    source_id: int,
+    request: Request,
+    profile: str | None = Query(default=None, max_length=80),
+) -> dict[str, Any]:
+    user_id = _authorize(request, mutation=False)
+    try:
+        return await asyncio.to_thread(_catalog_stations, user_id, profile, source_id)
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
 
 
 @router.post("/{source_id}/preview")

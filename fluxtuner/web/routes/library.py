@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from typing import Any, Literal
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
 
+from fluxtuner.core import db
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import library
+from fluxtuner.web.m3u_import import _profile_id
 from fluxtuner.web.payloads import station_payload
 from fluxtuner.web.validation import (
     is_supported_web_url,
@@ -260,6 +263,50 @@ def remove_web_station_from_playlist(
         user_id=int(user["id"]),
         profile_name=web_context.effective_profile_name(profile),
     )
+
+
+def _manual_stations(
+    user_id: int,
+    profile: str | None,
+) -> dict[str, Any]:
+    """Read manual entries belonging to one authenticated profile."""
+    with closing(db.connect()) as conn:
+        profile_id = _profile_id(conn, user_id=user_id, profile_name=profile)
+        rows = conn.execute(
+            """
+            SELECT DISTINCT s.name, s.url, s.url_resolved,
+                   f.custom_name
+            FROM station_sources AS src
+            JOIN station_source_memberships AS member
+              ON member.source_id = src.id
+            JOIN stations AS s ON s.id = member.station_id
+            JOIN favorites AS f
+              ON f.station_id = s.id
+             AND f.profile_id = src.profile_id
+            WHERE src.profile_id = ?
+              AND src.kind = 'manual_entry'
+            ORDER BY COALESCE(f.custom_name, s.name), s.url
+            """,
+            (profile_id,),
+        ).fetchall()
+
+        stations = [station_payload(dict(row)) for row in rows]
+        return {"count": len(stations), "stations": stations}
+
+
+@router.get("/api/stations/custom")
+def list_custom_stations(
+    request: Request,
+    profile: str | None = Query(default=None, max_length=80),
+) -> dict[str, Any]:
+    user = _require_authenticated_user(request)
+    try:
+        return _manual_stations(
+            int(user["id"]),
+            web_context.effective_profile_name(profile),
+        )
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
 
 
 @router.post("/api/stations/custom")

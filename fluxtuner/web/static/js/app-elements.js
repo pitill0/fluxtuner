@@ -5,7 +5,7 @@
 export function createAppElements(root = document) {
   return {
     subscriptionElements: {
-      openButton: root.querySelector("[data-nav-subscriptions]"),
+      openButton: root.querySelector("[data-nav-manage-subscriptions]"),
       dialog: root.querySelector("[data-subscriptions-dialog]"),
       form: root.querySelector("[data-subscriptions-form]"),
       urlInput: root.querySelector("[data-subscriptions-url]"),
@@ -60,6 +60,8 @@ export function createAppElements(root = document) {
     navSearchButton: root.querySelector("[data-nav-search]"),
     navFavoritesButton: root.querySelector("[data-nav-favorites]"),
     navPlaylistsButton: root.querySelector("[data-nav-playlists]"),
+    navStationsButton: root.querySelector("[data-nav-stations]"),
+    navCatalogsButton: root.querySelector("[data-nav-catalogs]"),
     navHistoryButton: root.querySelector("[data-nav-history]"),
     navAdminButton: root.querySelector("[data-nav-admin]"),
     navAccountButton: root.querySelector("[data-nav-account]"),

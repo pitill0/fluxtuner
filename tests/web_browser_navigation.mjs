@@ -104,4 +104,92 @@ function setup(href, user = { is_admin: false }) {
   assert.equal(h.browser.entries.length, 2);
   console.log("PASS: playlist identity and duplicate entry suppression");
 }
+// UX-03: catalog destinations, IDs and browser history.
+assert.deepEqual(
+  readNavigationUrl("http://host/?view=catalog&catalog=17"),
+  { view: "catalog", name: "17", invalid: false },
+);
+assert.deepEqual(
+  readNavigationUrl("http://host/?view=catalog"),
+  { view: "catalogs", invalid: true },
+);
+assert.deepEqual(
+  readNavigationUrl("http://host/?view=catalog&catalog=abc"),
+  { view: "catalogs", invalid: true },
+);
+assert.deepEqual(
+  readNavigationUrl("http://host/?view=catalog&catalog=0"),
+  { view: "catalogs", invalid: true },
+);
+assert.deepEqual(
+  readNavigationUrl("http://host/?view=stations"),
+  { view: "stations", invalid: false },
+);
+assert.equal(
+  navigationUrl("http://host/?debug=1#player", "catalog", "17"),
+  "/?debug=1&view=catalog&catalog=17#player",
+);
+
+{
+  const state = createAppState();
+  state.setCurrentUser({ is_admin: false });
+  const browser = fakeBrowser(
+    "http://host/?debug=1&view=catalog&catalog=17",
+  );
+  const visited = [];
+
+  function show(view, id = 0) {
+    visited.push([view, id]);
+    state.setCurrentSection("explore");
+    state.setCurrentCatalogId(0);
+    state.setCurrentView(view);
+    if (view === "catalog") state.setCurrentCatalogId(Number(id));
+  }
+
+  const controller = createBrowserNavigationController({
+    appState: state,
+    browser,
+    navigation: {
+      dashboard: async () => show("search"),
+      catalogs: async () => show("catalogs"),
+      stations: async () => show("stations"),
+      catalog: async (id) => show("catalog", id),
+    },
+  });
+
+  controller.bind();
+  await controller.onAuthReady();
+  assert.equal(state.getCurrentView(), "catalog");
+  assert.equal(state.getCurrentCatalogId(), 17);
+  assert.equal(browser.entries.length, 1);
+
+  show("catalogs");
+  await tick();
+  assert.match(browser.location.href, /view=catalogs/);
+
+  show("stations");
+  await tick();
+  assert.match(browser.location.href, /view=stations/);
+
+  browser.history.back();
+  await tick();
+  assert.equal(state.getCurrentView(), "catalogs");
+
+  browser.history.back();
+  await tick();
+  assert.equal(state.getCurrentView(), "catalog");
+  assert.equal(state.getCurrentCatalogId(), 17);
+  assert.equal(browser.entries.length, 3);
+
+  browser.history.forward();
+  await tick();
+  assert.equal(state.getCurrentView(), "catalogs");
+  assert.equal(browser.entries.length, 3);
+
+  assert.deepEqual(visited[0], ["catalog", "17"]);
+  controller.onLogout();
+  state.setCurrentUser(null);
+}
+
+console.log("PASS: UX-03 catalog deep links and Back/Forward");
 console.log("BEHAVIOR_GATE=PASS");

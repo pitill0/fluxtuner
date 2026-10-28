@@ -104,7 +104,8 @@
   <div class="app-nav-group-content" id="app-nav-group-library" data-nav-group-content="library" hidden>
 <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
 <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
-<button type="button" data-nav-subscriptions data-private-action disabled>Remote catalogs…</button>
+<button type="button" data-nav-stations data-private-action disabled>My stations</button>
+<button type="button" data-nav-catalogs data-private-action disabled>Remote catalogs</button>
 <button type="button" data-nav-history data-private-action disabled>History</button>
 </div>
 </div>
@@ -113,6 +114,7 @@
   <div class="app-nav-group-content" id="app-nav-group-actions" data-nav-group-content="actions" hidden>
 <button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
 <button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
+<button type="button" data-nav-manage-subscriptions data-private-action disabled>Manage subscriptions…</button>
 </div>
 </div>
 <div class="app-nav-group" role="group" aria-label="Account & system" data-nav-group="system">
@@ -511,7 +513,7 @@
                   </div>
 
                   <div class="panel-tools">
-                    <p data-result-count>No search yet.</p>
+                    <p data-result-count role="status" aria-live="polite">No search yet.</p>
                     <details data-custom-station-tools hidden>
                       <summary>Library actions</summary>
                       <button type="button" data-custom-station-open data-private-action disabled>Add station…</button>

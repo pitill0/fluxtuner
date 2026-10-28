@@ -21,6 +21,7 @@ import { createDashboardController } from "/static/js/dashboard.js";
 import { createFavoriteController } from "/static/js/favorites.js";
 import { createHealthController } from "/static/js/health.js";
 import { createLibraryViewsController } from "/static/js/library-views.js";
+import { createUnifiedLibraryController } from "/static/js/unified-library.js";
 import { createMediaSessionController } from "/static/js/media-session.js";
 import { createMetadataController } from "/static/js/metadata.js";
 import { createNavigationController } from "/static/js/navigation.js";
@@ -91,6 +92,8 @@ const {
   navFavoritesButton,
   navHistoryButton,
   navPlaylistsButton,
+  navStationsButton,
+  navCatalogsButton,
   navSearchButton,
   navToggleButton,
   passwordChangeCancelButtons,
@@ -405,6 +408,23 @@ const stationImportController = createStationImportController({
 
 const subscriptionController = createRemoteSubscriptionController({
   apiFetch,
+  onChanged: ({ type, sourceId }) => {
+    if (!appState.isAuthenticated()) return;
+    const view = appState.getCurrentView();
+    if (searchPanel?.hidden !== false) return;
+
+    if (view === "catalogs") {
+      void loadCatalogs();
+    } else if (view === "catalog") {
+      const selected = appState.getCurrentCatalogId();
+      if (type === "removed" && Number(sourceId) === selected) {
+        void loadCatalogs();
+      } else if (type === "updated" &&
+                 Number(sourceId) === selected) {
+        void loadCatalogStations(selected);
+      }
+    }
+  },
   elements: subscriptionElements,
   getCurrentUser: appState.getCurrentUser,
   getSessionKey: appState.getCsrfToken,
@@ -580,6 +600,40 @@ const libraryViewsController = createLibraryViewsController({
 const { loadFavorites, loadHistory, loadPlaylists, loadPlaylistStations } = libraryViewsController;
 
 
+const unifiedLibraryController = createUnifiedLibraryController({
+  apiFetch,
+  getCurrentUser: appState.getCurrentUser,
+  getCurrentView: appState.getCurrentView,
+  isLibraryVisible: () => searchPanel?.hidden === false,
+  resultsNode,
+  resultCountNode,
+  setResultsHeader,
+  renderResults,
+  renderSearchError,
+  setLibraryView: (view) => {
+    appState.setCurrentPlaylistName("");
+    appState.setCurrentCatalogId(0);
+    appState.setCurrentView(view);
+    customStationController.updateVisibility(view);
+  },
+  onOpenCatalog: (id) => navigateToPrivateView(
+    () => loadCatalogStations(id),
+  ),
+  onManageCatalogs: () => subscriptionController.openDialog(),
+});
+
+const {
+  loadMyStations,
+  loadCatalogs,
+  loadCatalogStations: loadCatalogStationsRaw,
+} = unifiedLibraryController;
+
+function loadCatalogStations(id) {
+  const pending = loadCatalogStationsRaw(id);
+  appState.setCurrentCatalogId(Number(id));
+  return pending;
+}
+
 const favoriteController = createFavoriteController({
   apiFetch,
   stationUrl,
@@ -650,6 +704,9 @@ browserNavigation = createBrowserNavigationController({
     favorites: () => navigateToPrivateView(loadFavorites),
     playlists: () => navigateToPrivateView(loadPlaylists),
     history: () => navigateToPrivateView(loadHistory),
+    stations: () => navigateToPrivateView(loadMyStations),
+    catalogs: () => navigateToPrivateView(loadCatalogs),
+    catalog: (id) => navigateToPrivateView(() => loadCatalogStations(id)),
     playlist: (name) => navigateToPrivateView(() => loadPlaylistStations(name)),
     account: navigateToAccount,
     admin: navigateToAdmin,
@@ -689,6 +746,8 @@ bindApplicationEvents({
   loadHistoryButton,
   loadPlaylists,
   loadPlaylistsButton,
+  loadMyStations,
+  loadCatalogs,
   login,
   loginForm,
   logout,
@@ -705,6 +764,8 @@ bindApplicationEvents({
   navFavoritesButton,
   navHistoryButton,
   navPlaylistsButton,
+  navStationsButton,
+  navCatalogsButton,
   navSearchButton,
   navToggleButton,
   nodeConstructor: Node,

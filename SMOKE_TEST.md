@@ -454,6 +454,36 @@ Recommended manual checks:
 
 ---
 
+## FluxTuner Web v1.4.1 — library acceptance
+
+Run the following checks in a real desktop browser and at a narrow
+mobile viewport after installing or deploying the release:
+
+- Verify that My library contains Favorites, Playlists, My stations,
+  Remote catalogs and History.
+- Verify Import stations accepts a valid local M3U/PLS file and an
+  HTTP/HTTPS collection URL with preview before saving.
+- Confirm imported stations appear in Favorites and their selected
+  destination playlist.
+- Add a manual station and verify it appears in My stations.
+- Subscribe to a remote catalog, open Remote catalogs and select
+  Browse stations.
+- Verify subscribed stations are visible and can be played without
+  requiring a bulk import into Favorites.
+- Check updates, review changes and confirm or cancel; verify the
+  committed snapshot is retained on failure or cancellation.
+- Unsubscribe and verify independently saved favorites and
+  playlists remain intact.
+- Exercise Back, Forward, reload and authorized deep-link restoration
+  without interrupting normal browser playback.
+- Confirm that logout prevents access to protected library views.
+- Verify mobile drawer, keyboard focus, light/dark themes and
+  recovery-code dialogs.
+- Check that the favicon uses the official application artwork.
+- After a container replacement, check health, persistence,
+  HTTPS session behavior and freshly loaded JavaScript assets.
+
+
 # 14. Suggested release smoke test
 
 Before a release candidate, run the canonical gate and smoke-test the

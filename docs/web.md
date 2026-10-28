@@ -142,6 +142,54 @@ Icons continue to support HTTP validator-based revalidation.
 For deployment validation steps, see
 [`secure-web-deployment.md`](secure-web-deployment.md).
 
+## Unified library and station collection workflows
+
+After signing in, open **My library** to access Favorites, Playlists,
+My stations, Remote catalogs and History. The desktop sidebar and mobile
+navigation drawer provide the same authenticated destinations.
+
+### Import a station collection
+
+1. Open **Import stations…** from the library actions.
+2. Select a local M3U/M3U8/PLS file or supply an HTTP/HTTPS collection URL.
+3. Preview the collection and review duplicate and invalid entries.
+4. Choose an existing destination playlist or create a new one.
+5. Confirm **Import stations**.
+
+Imported entries are saved to Favorites and the selected playlist.
+A preview alone does not save any stations.
+
+### Subscribe to a remote catalog
+
+1. Open **Manage subscriptions…** from the library actions.
+2. Subscribe to a supported remote collection.
+3. Navigate to **My library → Remote catalogs**.
+4. Select **Browse stations** on the subscribed catalog.
+5. Select a station to play it in the browser.
+
+A subscription stores a committed remote catalog snapshot; it does
+not bulk-import entries into Favorites or personal playlists.
+
+Use **Manage subscriptions** to check for updates, review the
+candidate changes before confirmation, or unsubscribe. Refresh
+failures preserve the committed snapshot. Unsubscribing preserves
+independently saved favorites and playlist memberships.
+
+**My stations** shows manually added stations, not the entire content
+of imported playlists or subscribed catalogs.
+
+### Navigation and privacy
+
+Browser Back/Forward and supported deep links restore authorized views.
+Normal library navigation preserves playback state. Protected views
+remain scoped to the authenticated user and selected owned profile.
+Reload the page after deploying a new version to obtain its current
+JavaScript module graph.
+
+See [navigation architecture](web-navigation-architecture.md) and
+[remote subscription contracts](remote-subscriptions.md).
+
+
 ## Web playback
 
 FluxTuner Web plays streams directly in the browser using the browser audio

@@ -326,6 +326,24 @@ belonging to that user. Saving requires authentication and CSRF protection and
 does not contact the stream. Browser playback and server metadata requests
 retain their existing network restrictions.
 
+### Station collection destinations in Web
+
+The Web interface distinguishes imported playlists from remote
+subscriptions. **Import stations…** accepts M3U/M3U8/PLS collections
+from local files or remote HTTP/HTTPS URLs, then saves valid stations
+to Favorites and a chosen playlist after confirmation.
+
+**Manage subscriptions…** registers a remote catalog without adding
+all of its entries to Favorites. Navigate through **My library →
+Remote catalogs → Browse stations** to explore and play the subscribed
+snapshot. Refresh is manual and uses preview/confirmation.
+
+**My stations** shows manually added stations. The same library
+destinations are available through desktop and mobile navigation.
+
+See [Web usage](web.md) for the complete workflows.
+
+
 ### Import station collections in GTK
 
 Open the application menu and choose **Import stations…**. Select a local

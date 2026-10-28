@@ -1,5 +1,34 @@
 # Architecture
 
+## Web unified library (v1.4.1)
+
+FluxTuner Web uses a shared results surface for authenticated library
+destinations, including My stations and Remote catalogs. The
+`unified-library.js` controller loads profile-scoped manual stations,
+subscription cards and committed catalog station snapshots.
+
+Relevant API routes include:
+
+- `GET /api/stations/custom`
+- `GET /api/stations/subscriptions`
+- `GET /api/stations/subscriptions/{source_id}/stations`
+
+The API enforces authenticated user/profile ownership. Remote catalog
+membership and manually saved favorites or playlists remain distinct.
+An imported M3U/PLS collection follows the separate preview and
+confirmation workflow and persists into Favorites and a destination
+playlist. A remote subscription exposes committed catalog membership
+without automatically saving all entries as favorites.
+
+Browser navigation, rendering and playback remain separate concerns.
+View transitions must guard against stale asynchronous results, while
+normal navigation does not interrupt the active browser audio session.
+
+See [Web navigation architecture](web-navigation-architecture.md),
+[station provenance](station-discovery-provenance.md) and
+[remote subscriptions](remote-subscriptions.md).
+
+
 ## SQLite library database
 
 The primary local library store is SQLite:

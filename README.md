@@ -69,6 +69,37 @@ Run FluxTuner on your own server and access your radio library from any modern b
 
 ---
 
+## Station collections and unified Web library
+
+FluxTuner supports local M3U/M3U8/PLS imports and remote station
+collections. The Web interface also supports persistent remote catalog
+subscriptions.
+
+The authenticated **My library** navigation provides:
+
+- **Favorites:** saved stations belonging to the user's library.
+- **Playlists:** manually organized station collections.
+- **My stations:** stations added manually through **Add station…**.
+- **Remote catalogs:** subscribed catalogs, each with a **Browse stations**
+  action for exploring and playing its committed station snapshot.
+- **History:** previously played stations.
+
+**Import stations…** accepts a local playlist file or an HTTP/HTTPS
+collection URL. After preview and confirmation, valid stations are saved
+to Favorites and the selected new or existing playlist.
+
+**Manage subscriptions…** subscribes to a remote catalog without
+automatically copying its stations to Favorites or Playlists. Open
+**My library → Remote catalogs → Browse stations** to explore it.
+Updates are initiated manually and require review and confirmation.
+
+See [Web usage](docs/web.md),
+[playlist imports](docs/playlist-imports.md) and
+[remote subscriptions](docs/remote-subscriptions.md).
+
+---
+
+
 ## Screenshots
 
 ### Web mode

@@ -20,6 +20,27 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.4.1] - 2026-10-28
+
+### Added
+
+- Added a unified Web library with My stations and Remote catalogs
+  navigation, including browsing and playback of subscribed catalog
+  snapshots (#303).
+- Added browser history and deep links for catalog navigation (#303).
+
+### Changed
+
+- Moved remote subscription management into contextual library actions
+  and synchronized catalog views after subscription changes (#303).
+- Improved Web navigation state, accessibility and regression coverage
+  across desktop and mobile workflows (#303).
+
+### Fixed
+
+- Replaced the unrelated Web SVG favicon with the official FluxTuner
+  application icon used by Flatpak (#304).
+
 ## [1.4.0] - 2026-10-27
 
 ### Added

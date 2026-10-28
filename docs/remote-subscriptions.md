@@ -6,6 +6,22 @@ Manual refresh of profile-owned remote M3U/PLS catalogs.
 
 Scheduled synchronization and authenticated remote catalogs are excluded.
 
+## Web navigation (v1.4.1)
+
+Sign in, open **My library → Remote catalogs**, and select
+**Browse stations** on a subscribed catalog. This displays stations
+from the last committed snapshot and allows browser playback.
+
+Use **Manage subscriptions…** to subscribe, check updates or
+unsubscribe. A subscription is not a bulk favorite/playlist import.
+For that separate workflow, use **Import stations…**.
+
+The current catalog cards identify catalogs by source ID and revision.
+They do not yet provide a user-defined catalog name or a station-count
+summary on the card. Those are possible future UX improvements, not
+release 1.4.1 guarantees.
+
+
 ## Identity
 
 Stream URL is the identity available from conventional M3U/PLS entries.

@@ -1,6 +1,6 @@
 # FluxTuner Web — Navigation Architecture
 
-Status: UX-01 proposal
+Status: UX-01 through UX-04 implemented for v1.4.1
 Scope: Responsive application shell and unified library
 Implementation: Incremental, without a frontend framework migration
 
@@ -15,8 +15,7 @@ Evolve FluxTuner Web into a coherent application with:
 - Accessible navigation and predictable focus behavior.
 - Strict preservation of authorization boundaries.
 
-This document defines the target contract, not functionality
-already implemented.
+This document records the implemented navigation architecture and the original UX contract. Some aspirational catalog-card details remain outside the delivered scope.
 
 ## 2. Information architecture
 
@@ -40,8 +39,7 @@ already implemented.
 | Remote Catalogs | Subscribed remote collections |
 | History | Listening history |
 
-The exact scope of My Stations must be reconciled with
-existing station ownership and storage behavior during UX-03.
+My Stations lists manually added stations in the authenticated user's selected profile.
 
 ### Contextual actions
 
@@ -110,16 +108,14 @@ Target behavior:
 - Logout clears access to protected destinations.
 - Stale asynchronous results must not overwrite a newer view.
 
-URL design and migration compatibility are implementation
-decisions for UX-02, after testing the existing view loaders.
+Supported destinations use browser-history state and deep-link restoration, subject to authentication and session checks.
 
 ## 6. Remote catalog navigation
 
-UX-03 must allow users to:
+The delivered UX-03 allows users to:
 
 - List their subscribed catalogs.
-- Identify each catalog by a meaningful label.
-- See its station count and refresh status.
+- Identify catalog cards by their source ID and revision.
 - Open a catalog and browse its stations.
 - Refresh and review changes before confirmation.
 - Unsubscribe without deleting independent user data.
@@ -197,7 +193,4 @@ UX-04:
 
 ## 11. Release gate
 
-The next release remains on hold until the agreed UX scope
-has passed automated checks, remote CI and real-world
-validation. Unrelated UX improvements may be tracked
-separately rather than silently expanding this project.
+UX-01 through UX-04 were integrated before v1.4.1 release preparation. Release validation continues to require automated tests, installed-package checks, CI and manual desktop/mobile verification.

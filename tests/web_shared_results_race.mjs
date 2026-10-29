@@ -1,30 +1,20 @@
 /* SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC */
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const directory = join(
-  process.env.WORK, "fluxtuner/web/static/js",
+  process.env.WORK,
+  "fluxtuner/web/static/js",
 );
 
-async function load(name, replacements = []) {
-  let source = await readFile(join(directory, name), "utf8");
-  for (const [oldText, newText] of replacements) {
-    assert.equal(source.includes(oldText), true);
-    source = source.replace(oldText, newText);
-  }
-  const encoded = Buffer.from(source).toString("base64");
-  return import(`data:text/javascript;base64,${encoded}`);
+async function load(name) {
+  return import(pathToFileURL(join(directory, name)).href);
 }
 
 const { createAppState } = await load("app-state.js");
-const { createSearchController } = await load("search.js", [
-  [
-    'import { escapeHtml } from "/static/js/stations.js";',
-    "const escapeHtml = (value) => String(value);",
-  ],
-]);
+const { createSearchController } = await load("search.js");
 const { createLibraryViewsController } = await load("library-views.js");
 
 function deferred() {

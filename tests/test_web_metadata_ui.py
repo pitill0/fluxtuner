@@ -25,7 +25,7 @@ def test_web_player_loads_metadata_controller() -> None:
     assert "data-player-station" in page.text
     assert 'root.querySelector("[data-player-station]")' in elements.text
     assert 'root.querySelector("[data-player-copy]")' in elements.text
-    assert 'import { createMetadataController } from "/static/js/metadata.js";' in app.text
+    assert 'import { createMetadataController } from "./js/metadata.js";' in app.text
     assert "const metadataController = createMetadataController({" in app.text
     assert "metadataController," in app.text
     assert "export function createMetadataController" in module.text

@@ -49,7 +49,7 @@ def test_web_static_js_submits_pending_registration() -> None:
     assert elements_response.status_code == 200
     assert 'root.querySelector("[data-register-form]")' in elements_response.text
     assert (
-        'import { createAccountRequestsController } from "/static/js/account-requests.js";'
+        'import { createAccountRequestsController } from "./js/account-requests.js";'
         in app_response.text
     )
     assert "export function createAccountRequestsController" in module_response.text

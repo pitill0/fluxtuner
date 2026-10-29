@@ -1,44 +1,44 @@
-import { createBrowserNavigationController } from "/static/js/browser-navigation.js";
+import { createBrowserNavigationController } from "./js/browser-navigation.js";
 /*
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-import { createAccountRequestsController } from "/static/js/account-requests.js";
-import { createAdminController } from "/static/js/admin.js";
-import { createApiFetch } from "/static/js/api.js";
-import { createAppElements } from "/static/js/app-elements.js";
-import { bindApplicationEvents } from "/static/js/app-events.js";
-import { bootstrapApplication } from "/static/js/app-bootstrap.js";
-import { createAppState } from "/static/js/app-state.js";
-import { createNavigationAccordion } from "/static/js/navigation-accordion.js";
-import { createSidebarToggle } from "/static/js/sidebar-toggle.js";
-import { createMobileDrawer } from "/static/js/mobile-drawer.js";
-import { createAuthController } from "/static/js/auth.js";
-import { createCustomStationController } from "/static/js/custom-stations.js";
-import { createStationImportController } from "/static/js/station-imports.js";
-import { createRemoteSubscriptionController } from "/static/js/remote-subscriptions.js";
-import { createDashboardController } from "/static/js/dashboard.js";
-import { createFavoriteController } from "/static/js/favorites.js";
-import { createHealthController } from "/static/js/health.js";
-import { createLibraryViewsController } from "/static/js/library-views.js";
-import { createUnifiedLibraryController } from "/static/js/unified-library.js";
-import { createMediaSessionController } from "/static/js/media-session.js";
-import { createMetadataController } from "/static/js/metadata.js";
-import { createNavigationController } from "/static/js/navigation.js";
-import { createNavigationPresentation } from "/static/js/navigation-presentation.js";
-import { createPlayerDebugController } from "/static/js/player-debug.js";
-import { createPlayerController } from "/static/js/player.js";
-import { createPlayerRuntime } from "/static/js/player-runtime.js";
-import { createPlaylistController } from "/static/js/playlists.js";
-import { createPlaylistRenderer } from "/static/js/playlist-renderer.js";
-import { createPublicStatsController } from "/static/js/public-stats.js";
-import { createSearchController } from "/static/js/search.js";
-import { createSessionUiController } from "/static/js/session-ui.js";
-import { createSetupController } from "/static/js/setup.js";
-import { createThemeController } from "/static/js/theme.js";
-import { createUiShellController } from "/static/js/ui-shell.js";
-import { createStationRenderer } from "/static/js/station-renderer.js";
-import { stationUrl } from "/static/js/stations.js";
+import { createAccountRequestsController } from "./js/account-requests.js";
+import { createAdminController } from "./js/admin.js";
+import { createApiFetch } from "./js/api.js";
+import { createAppElements } from "./js/app-elements.js";
+import { bindApplicationEvents } from "./js/app-events.js";
+import { bootstrapApplication } from "./js/app-bootstrap.js";
+import { createAppState } from "./js/app-state.js";
+import { createNavigationAccordion } from "./js/navigation-accordion.js";
+import { createSidebarToggle } from "./js/sidebar-toggle.js";
+import { createMobileDrawer } from "./js/mobile-drawer.js";
+import { createAuthController } from "./js/auth.js";
+import { createCustomStationController } from "./js/custom-stations.js";
+import { createStationImportController } from "./js/station-imports.js";
+import { createRemoteSubscriptionController } from "./js/remote-subscriptions.js";
+import { createDashboardController } from "./js/dashboard.js";
+import { createFavoriteController } from "./js/favorites.js";
+import { createHealthController } from "./js/health.js";
+import { createLibraryViewsController } from "./js/library-views.js";
+import { createUnifiedLibraryController } from "./js/unified-library.js";
+import { createMediaSessionController } from "./js/media-session.js";
+import { createMetadataController } from "./js/metadata.js";
+import { createNavigationController } from "./js/navigation.js";
+import { createNavigationPresentation } from "./js/navigation-presentation.js";
+import { createPlayerDebugController } from "./js/player-debug.js";
+import { createPlayerController } from "./js/player.js";
+import { createPlayerRuntime } from "./js/player-runtime.js";
+import { createPlaylistController } from "./js/playlists.js";
+import { createPlaylistRenderer } from "./js/playlist-renderer.js";
+import { createPublicStatsController } from "./js/public-stats.js";
+import { createSearchController } from "./js/search.js";
+import { createSessionUiController } from "./js/session-ui.js";
+import { createSetupController } from "./js/setup.js";
+import { createThemeController } from "./js/theme.js";
+import { createUiShellController } from "./js/ui-shell.js";
+import { createStationRenderer } from "./js/station-renderer.js";
+import { stationUrl } from "./js/stations.js";
 
 const {
   stationImportElements,

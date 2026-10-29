@@ -29,7 +29,7 @@ def test_web_static_js_loads_public_stats() -> None:
 
     assert app_response.status_code == 200
     assert public_stats_response.status_code == 200
-    assert 'from "/static/js/public-stats.js"' in app_response.text
+    assert 'from "./js/public-stats.js"' in app_response.text
     assert '"/api/public/stats"' in public_stats_response.text
     assert "loadPublicStats" in public_stats_response.text
     assert "renderPublicStats" in public_stats_response.text

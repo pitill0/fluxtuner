@@ -16,7 +16,7 @@ def test_web_static_js_uses_module_entrypoint() -> None:
     assert app_response.status_code == 200
     assert api_response.status_code == 200
     assert '<script type="module" src="/static/app.js"></script>' in html_response.text
-    assert 'import { createApiFetch } from "/static/js/api.js";' in app_response.text
+    assert 'import { createApiFetch } from "./js/api.js";' in app_response.text
     assert "export function createApiFetch" in api_response.text
     assert "X-FluxTuner-CSRF" in api_response.text
     assert "response.status === 401" in api_response.text
@@ -32,7 +32,7 @@ def test_web_static_js_uses_application_dom_registry() -> None:
 
     assert app_response.status_code == 200
     assert elements_response.status_code == 200
-    assert 'import { createAppElements } from "/static/js/app-elements.js";' in app_response.text
+    assert 'import { createAppElements } from "./js/app-elements.js";' in app_response.text
     assert "export function createAppElements(root = document)" in elements_response.text
     assert "} = createAppElements();" in app_response.text
     assert 'root.querySelector("[data-app-header]")' in elements_response.text
@@ -103,7 +103,7 @@ def test_web_static_js_uses_theme_module() -> None:
     assert app_response.status_code == 200
     assert events_response.status_code == 200
     assert theme_response.status_code == 200
-    assert 'import { createThemeController } from "/static/js/theme.js";' in app_response.text
+    assert 'import { createThemeController } from "./js/theme.js";' in app_response.text
     assert "export function createThemeController" in theme_response.text
     assert 'const THEME_STORAGE_KEY = "fluxtuner.theme";' in theme_response.text
     assert "themeController.initializeTheme();" in app_response.text
@@ -118,7 +118,7 @@ def test_web_static_js_uses_ui_shell_module() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert 'import { createUiShellController } from "/static/js/ui-shell.js";' in app_response.text
+    assert 'import { createUiShellController } from "./js/ui-shell.js";' in app_response.text
     assert "export function createUiShellController" in module_response.text
     assert "function setResultsHeader" in module_response.text
     assert "function resetRadioBrowserView" in module_response.text
@@ -138,8 +138,7 @@ def test_web_static_js_uses_public_stats_module() -> None:
     assert app_response.status_code == 200
     assert public_stats_response.status_code == 200
     assert (
-        'import { createPublicStatsController } from "/static/js/public-stats.js";'
-        in app_response.text
+        'import { createPublicStatsController } from "./js/public-stats.js";' in app_response.text
     )
     session_ui_response = client.get("/static/js/session-ui.js")
 
@@ -159,7 +158,7 @@ def test_web_static_js_uses_account_requests_module() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert (
-        'import { createAccountRequestsController } from "/static/js/account-requests.js";'
+        'import { createAccountRequestsController } from "./js/account-requests.js";'
         in app_response.text
     )
     assert "export function createAccountRequestsController" in module_response.text
@@ -225,7 +224,7 @@ def test_web_static_js_uses_admin_module() -> None:
 
     assert app_response.status_code == 200
     assert admin_response.status_code == 200
-    assert 'import { createAdminController } from "/static/js/admin.js";' in app_response.text
+    assert 'import { createAdminController } from "./js/admin.js";' in app_response.text
     assert "export function createAdminController" in admin_response.text
     assert 'apiFetch("/api/admin/users"' in admin_response.text
     assert 'apiFetch("/api/admin/password-change-requests"' not in admin_response.text
@@ -267,8 +266,8 @@ def test_web_static_js_sanitizes_external_station_urls() -> None:
     assert app_response.status_code == 200
     assert stations_response.status_code == 200
     assert renderer_response.status_code == 200
-    assert 'from "/static/js/stations.js"' in app_response.text
-    assert 'from "/static/js/station-renderer.js"' in app_response.text
+    assert 'from "./js/stations.js"' in app_response.text
+    assert 'from "./js/station-renderer.js"' in app_response.text
     assert "export function safeExternalUrl(value)" in stations_response.text
     assert "/^https?:\\/\\//i.test(rawUrl)" in stations_response.text
     assert '["http:", "https:"].includes(parsed.protocol)' in stations_response.text
@@ -295,10 +294,7 @@ def test_web_static_js_uses_station_renderer_module() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert (
-        'import { createStationRenderer } from "/static/js/station-renderer.js";'
-        in app_response.text
-    )
+    assert 'import { createStationRenderer } from "./js/station-renderer.js";' in app_response.text
     assert "export function createStationRenderer" in module_response.text
     assert "function renderStation(station)" in module_response.text
     assert "function bindResultActions()" in module_response.text
@@ -365,9 +361,7 @@ def test_web_static_js_uses_playlists_module() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert (
-        'import { createPlaylistController } from "/static/js/playlists.js";' in app_response.text
-    )
+    assert 'import { createPlaylistController } from "./js/playlists.js";' in app_response.text
     assert "export function createPlaylistController" in module_response.text
     assert "const MAX_PLAYLIST_NAME_LENGTH = 120;" in module_response.text
     assert "playlistName.length > MAX_PLAYLIST_NAME_LENGTH" in module_response.text
@@ -385,8 +379,7 @@ def test_web_static_js_uses_playlist_renderer_module() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert (
-        'import { createPlaylistRenderer } from "/static/js/playlist-renderer.js";'
-        in app_response.text
+        'import { createPlaylistRenderer } from "./js/playlist-renderer.js";' in app_response.text
     )
     assert "export function createPlaylistRenderer" in module_response.text
     assert "function renderPlaylists(payload)" in module_response.text
@@ -410,9 +403,7 @@ def test_web_static_js_uses_favorites_module() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert player_response.status_code == 200
-    assert (
-        'import { createFavoriteController } from "/static/js/favorites.js";' in app_response.text
-    )
+    assert 'import { createFavoriteController } from "./js/favorites.js";' in app_response.text
     assert "export function createFavoriteController" in module_response.text
     assert 'apiFetch("/api/history"' in module_response.text
     assert 'apiFetch("/api/favorites"' in module_response.text
@@ -432,7 +423,7 @@ def test_web_static_js_uses_search_limit_from_form() -> None:
 
     assert app_response.status_code == 200
     assert search_response.status_code == 200
-    assert 'from "/static/js/search.js"' in app_response.text
+    assert 'from "./js/search.js"' in app_response.text
     assert "const searchController = createSearchController({" in app_response.text
     assert "const { renderResults, renderSearchError } = searchController;" in app_response.text
     assert 'params.set("limit", String(formData.get("limit") || "25"));' in search_response.text
@@ -448,8 +439,7 @@ def test_web_static_js_uses_library_views_module() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert (
-        'import { createLibraryViewsController } from "/static/js/library-views.js";'
-        in app_response.text
+        'import { createLibraryViewsController } from "./js/library-views.js";' in app_response.text
     )
     assert "export function createLibraryViewsController" in module_response.text
     assert 'apiFetch("/api/history?limit=25"' in module_response.text
@@ -478,7 +468,7 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert html_response.status_code == 200
     assert search_css_response.status_code == 200
 
-    assert 'from "/static/js/search.js"' in app_response.text
+    assert 'from "./js/search.js"' in app_response.text
     assert 'name="debug" type="checkbox" value="1"' in html_response.text
     assert "Search debug" in search_response.text
     assert 'params.set("debug", "1");' in search_response.text
@@ -515,7 +505,7 @@ def test_web_static_js_keeps_station_available_after_media_pause() -> None:
 
     assert app_response.status_code == 200
     assert player_response.status_code == 200
-    assert 'import { createPlayerController } from "/static/js/player.js";' in app_response.text
+    assert 'import { createPlayerController } from "./js/player.js";' in app_response.text
     assert (
         "const hasStream = Boolean(currentStation && stationUrl(currentStation));"
         in player_response.text
@@ -544,8 +534,7 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert (
-        'import { createMediaSessionController } from "/static/js/media-session.js";'
-        in app_response.text
+        'import { createMediaSessionController } from "./js/media-session.js";' in app_response.text
     )
     assert "export function createMediaSessionController" in module_response.text
     assert "navigator.mediaSession.metadata" in module_response.text
@@ -607,8 +596,7 @@ def test_web_static_js_has_opt_in_player_debug_logging() -> None:
     assert app_response.status_code == 200
     assert module_response.status_code == 200
     assert (
-        'import { createPlayerDebugController } from "/static/js/player-debug.js";'
-        in app_response.text
+        'import { createPlayerDebugController } from "./js/player-debug.js";' in app_response.text
     )
     assert 'const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";' in module_response.text
     assert 'const PLAYER_DEBUG_QUERY_KEY = "player_debug";' in module_response.text
@@ -932,7 +920,7 @@ def test_web_static_js_uses_application_state_module() -> None:
     assert app_response.status_code == 200
     assert state_response.status_code == 200
     assert dashboard_response.status_code == 200
-    assert 'import { createAppState } from "/static/js/app-state.js";' in app_response.text
+    assert 'import { createAppState } from "./js/app-state.js";' in app_response.text
     assert "export function createAppState()" in state_response.text
     assert "const appState = createAppState();" in app_response.text
     assert 'let currentView = "search";' in state_response.text
@@ -957,9 +945,7 @@ def test_web_static_js_uses_session_ui_module() -> None:
 
     assert app_response.status_code == 200
     assert module_response.status_code == 200
-    assert (
-        'import { createSessionUiController } from "/static/js/session-ui.js";' in app_response.text
-    )
+    assert 'import { createSessionUiController } from "./js/session-ui.js";' in app_response.text
     assert "export function createSessionUiController" in module_response.text
     assert "const sessionUiController = createSessionUiController({" in app_response.text
     assert "const { renderAuthRequired, updateAuthUi } = sessionUiController;" in app_response.text
@@ -982,10 +968,7 @@ def test_web_static_js_uses_navigation_module() -> None:
     assert app_response.status_code == 200
     assert events_response.status_code == 200
     assert navigation_response.status_code == 200
-    assert (
-        'import { createNavigationController } from "/static/js/navigation.js";'
-        in app_response.text
-    )
+    assert 'import { createNavigationController } from "./js/navigation.js";' in app_response.text
     assert "export function createNavigationController" in navigation_response.text
     assert "const navigationController = createNavigationController({" in app_response.text
     assert "function closeOpenDialog()" in navigation_response.text
@@ -1010,7 +993,7 @@ def test_web_static_js_uses_app_events_module() -> None:
 
     assert app_response.status_code == 200
     assert events_response.status_code == 200
-    assert 'import { bindApplicationEvents } from "/static/js/app-events.js";' in app_response.text
+    assert 'import { bindApplicationEvents } from "./js/app-events.js";' in app_response.text
     assert "export function bindApplicationEvents" in events_response.text
     assert "bindApplicationEvents({" in app_response.text
     assert 'documentNode.addEventListener("click"' in events_response.text
@@ -1036,9 +1019,7 @@ def test_web_static_js_initializes_player_runtime() -> None:
 
     assert app_response.status_code == 200
     assert bootstrap_response.status_code == 200
-    assert (
-        'import { bootstrapApplication } from "/static/js/app-bootstrap.js";' in app_response.text
-    )
+    assert 'import { bootstrapApplication } from "./js/app-bootstrap.js";' in app_response.text
     assert "export async function bootstrapApplication" in bootstrap_response.text
     assert "bootstrapApplication({" in app_response.text
     assert "setupMediaSessionHandlers();" in bootstrap_response.text
@@ -1065,9 +1046,7 @@ def test_web_static_js_uses_player_runtime_bridge() -> None:
 
     assert app_response.status_code == 200
     assert runtime_response.status_code == 200
-    assert (
-        'import { createPlayerRuntime } from "/static/js/player-runtime.js";' in app_response.text
-    )
+    assert 'import { createPlayerRuntime } from "./js/player-runtime.js";' in app_response.text
     assert "export function createPlayerRuntime()" in runtime_response.text
     assert "const playerRuntime = createPlayerRuntime();" in app_response.text
     assert "playerRuntime.attach(playerController);" in app_response.text

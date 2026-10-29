@@ -33,7 +33,7 @@ def test_web_static_js_does_not_store_auth_tokens() -> None:
     assert "/api/auth/login" in auth_response.text
     assert "/api/auth/logout" in auth_response.text
     assert "/api/auth/me" in auth_response.text
-    assert 'import { createAuthController } from "/static/js/auth.js";' in app_response.text
+    assert 'import { createAuthController } from "./js/auth.js";' in app_response.text
     assert "X-FluxTuner-CSRF" in api_response.text
     assert "localStorage" not in api_response.text
     assert "localStorage" not in auth_response.text
@@ -289,7 +289,7 @@ def test_web_static_js_formats_admin_health_summary() -> None:
     assert elements_response.status_code == 200
     assert 'root.querySelector("[data-health-state]")' in elements_response.text
     assert 'root.querySelector("[data-health-summary]")' in elements_response.text
-    assert 'from "/static/js/health.js"' in app_response.text
+    assert 'from "./js/health.js"' in app_response.text
     assert "formatHealthSummary(payload)" in module_response.text
     assert "await checkHealth();" in navigation_response.text
 

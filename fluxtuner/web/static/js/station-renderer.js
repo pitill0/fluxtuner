@@ -9,7 +9,7 @@ import {
   stationHomepage,
   stationTags,
   stationUrl,
-} from "/static/js/stations.js";
+} from "./stations.js";
 
 export function createStationRenderer({
   renderState,

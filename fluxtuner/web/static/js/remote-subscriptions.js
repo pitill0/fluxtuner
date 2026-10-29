@@ -96,15 +96,22 @@ export function createRemoteSubscriptionController({
 
     for (const item of items) {
       const container = e.listNode.ownerDocument.createElement("div");
-      container.className = "station-actions";
-      const name = e.listNode.ownerDocument.createElement("span");
-      // Never render an untrusted remote URL as HTML.
-      name.textContent = `Catalog #${item.source_id} · revision ${item.revision}`;
-      container.append(
-        name,
+      container.className = "subscription-row";
+      const info = e.listNode.ownerDocument.createElement("div");
+      info.className = "subscription-info";
+      const name = e.listNode.ownerDocument.createElement("strong");
+      // Never render catalog names or untrusted remote strings as HTML.
+      name.textContent = item.label || `Catalog #${item.source_id}`;
+      const meta = e.listNode.ownerDocument.createElement("small");
+      meta.textContent = `Catalog #${item.source_id} · revision ${item.revision}`;
+      info.append(name, meta);
+      const actions = e.listNode.ownerDocument.createElement("div");
+      actions.className = "subscription-actions";
+      actions.append(
         button("Check updates", () => preview(item.source_id)),
         button("Unsubscribe", () => remove(item.source_id)),
       );
+      container.append(info, actions);
       e.listNode.append(container);
     }
   }
@@ -130,14 +137,17 @@ export function createRemoteSubscriptionController({
     event.preventDefault();
     await operate(async (mark) => {
       const url = e.urlInput.value.trim();
+      const displayName = e.nameInput?.value?.trim() || "";
       if (!url) throw new Error("Collection URL required.");
+      if (displayName.length > 120) throw new Error("Catalog name is too long.");
       await request(BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, display_name: displayName || null }),
       });
       if (!current(mark)) return;
       e.urlInput.value = "";
+      if (e.nameInput) e.nameInput.value = "";
       clearPreview();
       if (current(mark)) {
         onChanged({ type: "added" });

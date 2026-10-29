@@ -743,3 +743,31 @@ html[data-theme="light"] .theme-toggle span::before {
     outline-offset: 2px;
   }
 }
+
+/* N3: viewport-anchored mobile controls, independent of page scroll. */
+@media (max-width: 58rem) {
+  .shell { padding-top: 5.5rem; }
+  .shell > .app-header {
+    position: fixed;
+    top: 0.5rem;
+    left: var(--page-inline);
+    right: var(--page-inline);
+    z-index: 70;
+  }
+  .shell > .app-sidebar-region {
+    position: fixed;
+    top: 5.5rem;
+    right: var(--page-inline);
+    left: auto;
+    z-index: 75;
+    max-height: calc(100dvh - 6rem);
+  }
+  .shell > .app-sidebar-region .app-menu {
+    max-height: calc(100dvh - 6rem);
+  }
+}
+@media (max-width: 30rem) {
+  .shell { padding-top: 8.5rem; }
+  .shell > .app-sidebar-region { top: 8.5rem; max-height: calc(100dvh - 9rem); }
+  .shell > .app-sidebar-region .app-menu { max-height: calc(100dvh - 9rem); }
+}

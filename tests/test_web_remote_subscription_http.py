@@ -43,11 +43,19 @@ def test_http_subscription_full_lifecycle(web_library, monkeypatch):
     listed = client.get(ENDPOINT)
     assert listed.status_code == 200, listed.text
     assert len(listed.json()["subscriptions"]) == 1
-    assert set(listed.json()["subscriptions"][0]) == {
+    item = listed.json()["subscriptions"][0]
+    assert set(item) == {
         "source_id",
+        "display_name",
+        "label",
         "revision",
         "refreshed_at",
     }
+    assert item["source_id"] == source
+    assert item["display_name"] is None
+    assert item["label"] == URL.split("/")[2]
+    assert item["revision"] == 1
+    assert "catalog_url" not in item
     assert URL not in listed.text
     assert "catalog_url" not in listed.text
 
@@ -445,3 +453,28 @@ def test_http_conditional_candidate_commits_validators_only_on_confirm(
             (source,),
         ).fetchone()
         assert tuple(stored) == (2, '"new"')
+
+
+def test_http_subscription_optional_display_name(web_library, monkeypatch):
+    client, _users = web_library
+    headers = login(client)
+
+    async def download(_url, **_kwargs):
+        return ConditionalCollectionResult(200, catalog("Named", "named"))
+
+    monkeypatch.setattr(routes, "_download_catalog", download)
+    created = client.post(
+        ENDPOINT,
+        json={"url": URL, "display_name": "  My radio collection  "},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    listed = client.get(ENDPOINT)
+    assert listed.status_code == 200, listed.text
+    item = listed.json()["subscriptions"][0]
+    assert item["display_name"] == "My radio collection"
+    assert item["label"] == "My radio collection"
+    assert "catalog_url" not in item
+    detail = client.get(f"{ENDPOINT}/{item['source_id']}/stations")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["label"] == "My radio collection"

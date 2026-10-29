@@ -9,6 +9,7 @@ export function createAppElements(root = document) {
       dialog: root.querySelector("[data-subscriptions-dialog]"),
       form: root.querySelector("[data-subscriptions-form]"),
       urlInput: root.querySelector("[data-subscriptions-url]"),
+      nameInput: root.querySelector("[data-subscriptions-name]"),
       listNode: root.querySelector("[data-subscriptions-list]"),
       previewNode: root.querySelector("[data-subscriptions-preview]"),
       messageNode: root.querySelector("[data-subscriptions-message]"),

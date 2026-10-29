@@ -66,6 +66,7 @@ function setup() {
     closeButton: node(),
     form: node(),
     urlInput: node(),
+    nameInput: node(),
     listNode: node(),
     messageNode: node(),
     previewNode: node(),
@@ -152,11 +153,13 @@ function setup() {
 
 function actionButtons(elements) {
   return elements.listNode.children.flatMap(
-    (container) => container.children.filter(
-      (child) =>
+    (container) => container.children
+      .filter((child) => child.className === "subscription-actions")
+      .flatMap((actions) => actions.children)
+      .filter((child) =>
         child.textContent === "Check updates" ||
         child.textContent === "Unsubscribe"
-    ),
+      ),
   );
 }
 
@@ -172,11 +175,12 @@ function actionButtons(elements) {
 
 // A successful create must restore both action buttons.
 {
-  const { controller, elements } = setup();
+  const { controller, elements, calls } = setup();
 
   await controller.openDialog();
 
   elements.urlInput.value = "https://example.org/test.m3u";
+  elements.nameInput.value = "My radio collection";
 
   await elements.form.listeners.submit({
     preventDefault() {},
@@ -188,6 +192,17 @@ function actionButtons(elements) {
   );
 
   assert.equal(elements.urlInput.value, "");
+  assert.equal(elements.nameInput.value, "");
+
+  const creation = calls.find(({ path, options }) =>
+    path === "/api/stations/subscriptions" &&
+    options.method === "POST"
+  );
+  assert.ok(creation, "Subscription creation request missing");
+  assert.deepEqual(JSON.parse(creation.options.body), {
+    url: "https://example.org/test.m3u",
+    display_name: "My radio collection",
+  });
 
   const buttons = actionButtons(elements);
   assert.equal(buttons.length, 2);

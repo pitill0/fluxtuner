@@ -93,7 +93,7 @@ def list_subscriptions(
         dict(row)
         for row in conn.execute(
             """
-            SELECT sub.*
+            SELECT sub.*, src.display_name
             FROM remote_catalog_subscriptions AS sub
             JOIN station_sources AS src ON src.id = sub.source_id
             WHERE sub.profile_id = ? AND src.profile_id = ?

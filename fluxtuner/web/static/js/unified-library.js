@@ -83,12 +83,15 @@ export function createUnifiedLibraryController({
       const id = Number(catalog.source_id);
       if (!Number.isSafeInteger(id) || id <= 0) return "";
 
+      const name = String(catalog.label || `Catalog #${id}`);
+      const escapedName = name.replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
       return `
         <article class="station-card">
           <header>
-            <h3>Catalog #${id}</h3>
+            <h3>${escapedName}</h3>
             <div class="station-meta">
-              <span>Revision ${Number(catalog.revision) || 1}</span>
+              <span>Catalog #${id} · Revision ${Number(catalog.revision) || 1}</span>
             </div>
           </header>
           <div class="station-actions">
@@ -153,7 +156,13 @@ export function createUnifiedLibraryController({
       const payload = await fetchJson(
         `/api/stations/subscriptions/${id}/stations`,
       );
-      if (current()) renderResults(payload);
+      if (current()) {
+        setResultsHeader(
+          "Remote catalog",
+          `${String(payload.label || `Catalog #${id}`)} · Catalog #${id}`,
+        );
+        renderResults(payload);
+      }
     } catch (error) {
       if (current()) renderSearchError(error);
     }

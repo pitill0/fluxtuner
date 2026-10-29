@@ -456,3 +456,21 @@ dialog.station-import-dialog {
 [data-recovery-codes-regenerate-dialog] {
   z-index: 100;
 }
+
+/* N3: keep catalog identity separate from its controls. */
+[data-subscriptions-list] .subscription-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+[data-subscriptions-list] .subscription-info { min-width: 0; display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
+[data-subscriptions-list] .subscription-info small { color: var(--muted); }
+[data-subscriptions-list] .subscription-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+@media (max-width: 42rem) {
+  [data-subscriptions-list] .subscription-row { grid-template-columns: minmax(0, 1fr); }
+  [data-subscriptions-list] .subscription-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-subscriptions-list] .subscription-actions button { min-width: 0; padding-inline: 0.5rem; }
+}

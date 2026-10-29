@@ -85,3 +85,22 @@ def test_existing_corrupt_destination_is_preserved(
 
     assert original.read_text(encoding="utf-8") == "corrupted\n"
     assert not list(root.glob(".tmp-*"))
+
+
+def test_published_directories_are_owner_only(tmp_path: Path) -> None:
+    source = tmp_path / "permission-source"
+    nested = source / "nested"
+    nested.mkdir(parents=True)
+    (nested / "app.js").write_text(
+        "export const ready = true;\n",
+        encoding="utf-8",
+    )
+
+    build = create_static_snapshot(
+        source,
+        tmp_path / "permission-builds",
+    )
+
+    assert build.directory.stat().st_mode & 0o777 == 0o700
+    assert (build.directory / "nested").stat().st_mode & 0o777 == 0o700
+    assert (build.directory / "nested" / "app.js").is_file()

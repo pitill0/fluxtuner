@@ -242,7 +242,7 @@ def create_static_snapshot(source: Path, root: Path) -> StaticBuild:
             temporary = Path(tempfile.mkdtemp(prefix=".tmp-", dir=root))
 
             try:
-                os.chmod(temporary, 0o750)
+                os.chmod(temporary, 0o700)
 
                 for relative, expected_hash in before.items():
                     origin = source / relative
@@ -274,7 +274,7 @@ def create_static_snapshot(source: Path, root: Path) -> StaticBuild:
                     os.chmod(manifest_path, 0o640)
 
                     for directory, _subdirs, _names in os.walk(temporary, topdown=False):
-                        os.chmod(directory, 0o750)
+                        os.chmod(directory, 0o700)
                         _sync_directory(Path(directory))
 
                     if not verify_static_snapshot(temporary, build_id):

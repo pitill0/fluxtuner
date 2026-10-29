@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from importlib import resources
 from typing import Any
 
-from fluxtuner import __app_name__, __version__
+from fluxtuner import __app_name__, __version__, paths
 from fluxtuner.core import db, recovery_codes
 from fluxtuner.web import auth, maintenance, registration_actions
 from fluxtuner.web import context as web_context
@@ -29,6 +29,7 @@ from fluxtuner.web.security import (
     session_renewal_interval,
     set_session_cookie,
 )
+from fluxtuner.web.static_build_http import StaticBuildHTTP
 
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
@@ -191,11 +192,23 @@ def create_app(
     async def add_static_cache_headers(request: Request, call_next: Any) -> Response:
         response = await call_next(request)
         path = request.url.path
-        if path.startswith("/static/") and path.endswith((".js", ".webmanifest")):
+        if (
+            path.startswith("/static/")
+            and not path.startswith("/static/build/")
+            and path.endswith((".js", ".webmanifest"))
+        ):
             response.headers["Cache-Control"] = "no-cache"
         return response
 
     static_dir = resources.files("fluxtuner.web").joinpath("static")
+    static_build_root = paths.DATA_DIR / "web" / "static-builds"
+
+    # Versioned assets must be mounted before the legacy /static route.
+    app.mount(
+        "/static/build",
+        StaticBuildHTTP(static_build_root),
+        name="static-build",
+    )
     app.mount(
         "/static",
         StaticCompression(StaticFiles(directory=str(static_dir))),

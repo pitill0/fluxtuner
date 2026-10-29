@@ -1,21 +1,15 @@
 /* SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC */
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-let source = await readFile(
-  join(process.env.WORK, "fluxtuner/web/static/js/search.js"),
-  "utf8",
+const modulePath = join(
+  process.env.WORK,
+  "fluxtuner/web/static/js/search.js",
 );
-
-source = source.replace(
-  'import { escapeHtml } from "/static/js/stations.js";',
-  'const escapeHtml = (value) => String(value);',
-);
-
 const { createSearchController } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`,
+  pathToFileURL(modulePath).href,
 );
 
 function deferred() {

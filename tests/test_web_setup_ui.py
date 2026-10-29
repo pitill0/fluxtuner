@@ -25,7 +25,7 @@ def test_web_static_js_wires_first_run_setup_api() -> None:
 
     assert app_response.status_code == 200
     assert setup_response.status_code == 200
-    assert "/static/js/setup.js" in app_response.text
+    assert 'from "./js/setup.js"' in app_response.text
     assert "/api/setup/status" in setup_response.text
     assert "/api/setup/create-admin" in setup_response.text
     assert "setup_token" in setup_response.text

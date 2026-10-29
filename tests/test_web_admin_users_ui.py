@@ -25,7 +25,7 @@ def test_web_static_js_wires_admin_user_api() -> None:
 
     assert app_response.status_code == 200
     assert admin_response.status_code == 200
-    assert 'import { createAdminController } from "/static/js/admin.js";' in app_response.text
+    assert 'import { createAdminController } from "./js/admin.js";' in app_response.text
     assert "/api/admin/users" in admin_response.text
     assert "data-admin-user-action" in admin_response.text
     assert 'data-admin-user-action="delete"' in admin_response.text

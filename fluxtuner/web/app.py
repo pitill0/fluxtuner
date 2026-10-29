@@ -6,12 +6,15 @@ import argparse
 import asyncio
 import gzip
 import hashlib
+import logging
+import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
-from fluxtuner import __app_name__, __version__
+from fluxtuner import __app_name__, __version__, paths
 from fluxtuner.core import db, recovery_codes
 from fluxtuner.web import auth, maintenance, registration_actions
 from fluxtuner.web import context as web_context
@@ -29,6 +32,8 @@ from fluxtuner.web.security import (
     session_renewal_interval,
     set_session_cookie,
 )
+from fluxtuner.web.static_build_http import StaticBuildHTTP
+from fluxtuner.web.static_builds import StaticBuildError, create_static_snapshot
 
 AUTH_ERROR_DETAIL = "Invalid username or password."
 RATE_LIMIT_DETAIL = "Too many login attempts. Try again later."
@@ -191,11 +196,36 @@ def create_app(
     async def add_static_cache_headers(request: Request, call_next: Any) -> Response:
         response = await call_next(request)
         path = request.url.path
-        if path.startswith("/static/") and path.endswith((".js", ".webmanifest")):
+        if (
+            path.startswith("/static/")
+            and not path.startswith("/static/build/")
+            and path.endswith((".js", ".webmanifest"))
+        ):
             response.headers["Cache-Control"] = "no-cache"
         return response
 
     static_dir = resources.files("fluxtuner.web").joinpath("static")
+    static_build_root = paths.DATA_DIR / "web" / "static-builds"
+
+    static_build_prefix = ""
+    if os.environ.get("FLUXTUNER_WEB_VERSIONED_STATIC") == "1":
+        try:
+            snapshot = create_static_snapshot(
+                Path(str(static_dir)),
+                static_build_root,
+            )
+            static_build_prefix = f"/static/build/{snapshot.build_id}"
+        except (OSError, StaticBuildError):
+            logging.getLogger(__name__).exception(
+                "Static snapshot publication failed; using legacy static URLs"
+            )
+
+    # Versioned assets must be mounted before the legacy /static route.
+    app.mount(
+        "/static/build",
+        StaticBuildHTTP(static_build_root),
+        name="static-build",
+    )
     app.mount(
         "/static",
         StaticCompression(StaticFiles(directory=str(static_dir))),
@@ -214,9 +244,10 @@ def create_app(
     def apple_touch_icon_precomposed() -> FileResponse:
         return FileResponse(str(static_dir.joinpath("icons").joinpath("apple-touch-icon.png")))
 
-    index_html = (
-        _read_template("index.html").replace("__FLUXTUNER_VERSION__", __version__).encode("utf-8")
-    )
+    index_template = _read_template("index.html").replace("__FLUXTUNER_VERSION__", __version__)
+    if static_build_prefix:
+        index_template = index_template.replace('="/static/', f'="{static_build_prefix}/')
+    index_html = index_template.encode("utf-8")
     index_gzip = gzip.compress(index_html, compresslevel=9, mtime=0)
     index_hash = hashlib.sha256(index_html).hexdigest()[:16]
     index_identity_etag = f'"{index_hash}"'

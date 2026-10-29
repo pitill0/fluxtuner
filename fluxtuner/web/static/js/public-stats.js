@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-import { escapeHtml } from "/static/js/stations.js";
+import { escapeHtml } from "./stations.js";
 
 function formatPublicStatCount(value, singular, plural) {
   const count = Number(value || 0);

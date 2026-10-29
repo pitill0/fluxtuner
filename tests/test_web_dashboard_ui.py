@@ -164,9 +164,7 @@ def test_web_static_js_loads_and_renders_dashboard() -> None:
     elements_response = client.get("/static/js/app-elements.js")
     assert elements_response.status_code == 200
     assert 'root.querySelector("[data-nav-dashboard]")' in elements_response.text
-    assert (
-        'import { createDashboardController } from "/static/js/dashboard.js";' in app_response.text
-    )
+    assert 'import { createDashboardController } from "./js/dashboard.js";' in app_response.text
     assert "const { loadDashboard } = dashboardController;" in app_response.text
     assert "export function createDashboardController" in dashboard_response.text
     assert "async function loadDashboard(options = {})" in dashboard_response.text
@@ -187,7 +185,7 @@ def test_web_search_controller_is_loaded_as_a_module() -> None:
 
     assert app_response.status_code == 200
     assert search_response.status_code == 200
-    assert 'import { createSearchController } from "/static/js/search.js";' in app_response.text
+    assert 'import { createSearchController } from "./js/search.js";' in app_response.text
     assert "export function createSearchController" in search_response.text
     assert "const searchController = createSearchController({" in app_response.text
     assert "function renderSearchError(" not in app_response.text

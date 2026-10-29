@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-import { escapeHtml, stationUrl } from "/static/js/stations.js";
+import { escapeHtml, stationUrl } from "./stations.js";
 
 const MAX_PLAYLIST_NAME_LENGTH = 120;
 

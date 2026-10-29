@@ -272,6 +272,8 @@ def create_app(
         if compressed:
             headers["Content-Encoding"] = "gzip"
         body = index_gzip if compressed else index_html
+        if request.method == "HEAD":
+            headers["Content-Length"] = str(len(body))
         return Response(
             b"" if request.method == "HEAD" else body,
             media_type="text/html",

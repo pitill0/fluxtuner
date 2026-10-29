@@ -210,3 +210,34 @@ def test_versioned_unknown_asset_not_cached_as_success(build_client) -> None:
     response = client.get(f"/static/build/{build.build_id}/missing.js")
     assert response.status_code == 404
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_multiple_ranges_fall_back_to_full_response(build_client) -> None:
+    client, build, source = build_client
+    response = client.get(
+        f"/static/build/{build.build_id}/app.js",
+        headers={
+            "Accept-Encoding": "identity",
+            "Range": "bytes=0-3,8-11",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.content == (source / "app.js").read_bytes()
+    assert "content-range" not in response.headers
+    assert response.headers["cache-control"] == IMMUTABLE
+
+
+def test_unsatisfiable_range_is_not_immutably_cached(build_client) -> None:
+    client, build, _source = build_client
+    response = client.get(
+        f"/static/build/{build.build_id}/app.js",
+        headers={
+            "Accept-Encoding": "identity",
+            "Range": "bytes=999999999-",
+        },
+    )
+
+    assert response.status_code == 416
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["content-range"].startswith("bytes */")

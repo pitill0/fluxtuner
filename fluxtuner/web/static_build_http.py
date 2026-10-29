@@ -168,7 +168,12 @@ class StaticBuildHTTP:
         request_headers = {k.lower(): v.decode("latin1") for k, v in scope.get("headers", [])}
         range_header = request_headers.get(b"range")
         if_range = request_headers.get(b"if-range")
-        use_range = bool(range_header) and (if_range is None or if_range == identity_etag)
+        use_range = (
+            range_header is not None
+            and bool(range_header)
+            and "," not in range_header
+            and (if_range is None or if_range == identity_etag)
+        )
         gzip_ok = (
             method == "GET"
             and not use_range
@@ -188,6 +193,7 @@ class StaticBuildHTTP:
             segment = _range_bytes(range_header, len(data))
             if segment is None:
                 headers["Content-Range"] = f"bytes */{len(data)}"
+                headers["Cache-Control"] = NO_STORE
                 await Response(status_code=416, headers=headers)(scope, receive, send)
                 return
             first, last = segment

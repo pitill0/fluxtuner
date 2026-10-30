@@ -175,8 +175,7 @@ class StaticBuildHTTP:
             and (if_range is None or if_range == identity_etag)
         )
         gzip_ok = (
-            method == "GET"
-            and not use_range
+            not use_range
             and not range_header
             and len(data) >= 1000
             and asset.endswith((".js", ".css", ".svg", ".webmanifest"))

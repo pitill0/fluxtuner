@@ -10,15 +10,23 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Added
 
-- Nothing yet.
+- Added persistent, content-addressed Web static snapshots with
+  immutable caching and verified publication (#307).
+- Added explicit versioned-static activation to the example Compose
+  deployment and documented persistent storage requirements (#312).
 
 ### Changed
 
-- Nothing yet.
+- Improved remote catalog identification and mobile navigation (#310).
+- Added safe stale-temporary cleanup and clearer diagnostics for
+  damaged static snapshots (#312).
 
 ### Fixed
 
-- Nothing yet.
+- Preserved HTML representation length on HEAD requests (#308).
+- Aligned versioned static HEAD/GET representation headers (#312).
+- Made legacy CSS explicitly revalidatable and removed an obsolete
+  favicon declaration (#312).
 
 ## [1.4.1] - 2026-10-28
 

@@ -142,7 +142,7 @@ def test_web_index_uses_real_icon_for_favicon() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert 'href="/static/app-icon.png"' in response.text
+    assert 'href="/static/app-icon.png"' not in response.text
     assert 'href="/static/favicon.svg"' not in response.text
     assert 'href="/static/icons/icon-192.png"' in response.text
 

@@ -78,13 +78,38 @@ byte-range requests and small uncompressed resources.
 
 ### Cache invalidation and deployments
 
-JavaScript and Webmanifest responses use `Cache-Control: no-cache`,
-which permits storage but requires revalidation before reuse.
+By default, FluxTuner serves stable `/static/` URLs. JavaScript,
+CSS and Webmanifest responses use `Cache-Control: no-cache`, allowing
+storage while requiring revalidation before reuse.
 
-FluxTuner currently uses stable ES-module URLs rather than
-content-hashed filenames. Do not configure long-lived `immutable`
-caching for the JavaScript module graph without first introducing
-a strategy that invalidates every dependent module.
+Set `FLUXTUNER_WEB_VERSIONED_STATIC=1` to enable persistent,
+content-addressed snapshots of the complete Web static tree.
+The HTML references `/static/build/<build-id>/` assets, which use
+`Cache-Control: public, max-age=31536000, immutable`.
+
+The build identifier is derived from the snapshot manifest, including
+the hashes of all files. Every version has its own URLs, so a new
+deployment does not reuse stale module paths.
+
+The snapshot directory is
+`FLUXTUNER_DATA_DIR/web/static-builds/`. Its storage must be writable
+by the service user, persistent across container replacements and free
+of symbolic links in the storage path. Published snapshots are verified
+before reuse; failed publication falls back to legacy URLs and logs
+an error. Preserve historical builds while older browser pages may
+still reference them.
+
+The publisher removes temporary `.tmp-*` directories older than one
+hour under its publication lock. Valid published builds are not
+automatically pruned; plan disk capacity and retention separately.
+
+If a published snapshot fails verification, inspect the service logs,
+stop all publishers sharing the data directory, preserve the damaged
+directory for diagnosis, and recover through a controlled operator
+procedure. Do not manually delete or rename live builds.
+
+Never apply long-lived `immutable` caching to unversioned `/static/`
+URLs.
 
 A successful HTTP revalidation protects new resource loads from stale
 content. It does not make a multi-file deployment atomic or guarantee

@@ -17,6 +17,12 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Changed
 
+- Deferred Web administration, station imports, remote subscriptions,
+  and custom station controls until first use, reducing the initial
+  JavaScript module graph while preserving session safety (#314).
+- Improved visible recovery feedback for failed track metadata requests
+  while retaining bounded polling and existing track titles (#314).
+
 - Improved remote catalog identification and mobile navigation (#310).
 - Added safe stale-temporary cleanup and clearer diagnostics for
   damaged static snapshots (#312).

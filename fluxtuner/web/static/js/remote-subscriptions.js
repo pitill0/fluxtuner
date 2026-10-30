@@ -229,7 +229,7 @@ export function createRemoteSubscriptionController({
   }
 
   async function openDialog() {
-    if (!getCurrentUser()) return;
+    if (!getCurrentUser() || e.dialog.open) return;
     beforeOpen?.();
     identity = identityNow();
     invalidate();
@@ -237,9 +237,9 @@ export function createRemoteSubscriptionController({
     await operate(async () => load());
   }
 
-  function bind() {
+  function bind({ skipOpenButton = false } = {}) {
     identity = identityNow();
-    e.openButton.addEventListener("click", openDialog);
+    if (!skipOpenButton) e.openButton.addEventListener("click", openDialog);
     e.form.addEventListener("submit", add);
     e.confirmButton.addEventListener("click", confirm);
     e.closeButton.addEventListener("click", closeIfOpen);

@@ -230,6 +230,12 @@ export function createMetadataController({
     setCopyTrack(displayTitle);
   }
 
+  function showRetryingTrackInfo() {
+    if (!lastRenderedMetadata && titleNode && playbackActive && documentVisible) {
+      titleNode.textContent = "Retrying track info…";
+    }
+  }
+
   function scheduleNext(generation) {
     if (
       !playbackActive ||
@@ -277,6 +283,7 @@ export function createMetadataController({
       }
 
       if (!response.ok) {
+        showRetryingTrackInfo();
         logPlayerEvent("metadata-response-error", {
           status: response.status,
         });
@@ -304,7 +311,13 @@ export function createMetadataController({
         });
       }
     } catch (error) {
-      if (generation === requestGeneration && playbackActive) {
+      if (
+        generation === requestGeneration &&
+        playbackActive &&
+        documentVisible &&
+        requestedUrl === streamUrl
+      ) {
+        showRetryingTrackInfo();
         logPlayerEvent("metadata-request-failed", {
           error: String(error),
         });

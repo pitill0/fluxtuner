@@ -118,10 +118,10 @@ export function createCustomStationController({
     }
   }
 
-  function bind() {
+  function bind({ skipOpenButton = false } = {}) {
     if (bound) return;
     bound = true;
-    openButton?.addEventListener("click", openDialog);
+    if (!skipOpenButton) openButton?.addEventListener("click", openDialog);
     form?.addEventListener("submit", submit);
     cancelButtons.forEach((button) => button.addEventListener("click", closeDialog));
     dialog?.addEventListener("cancel", (event) => {

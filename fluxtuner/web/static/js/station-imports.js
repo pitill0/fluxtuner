@@ -291,10 +291,10 @@ export function createStationImportController({
     }
   }
 
-  function bind() {
+  function bind({ skipOpenButton = false } = {}) {
     if (bound) return;
     bound = true;
-    openButton?.addEventListener("click", openDialog);
+    if (!skipOpenButton) openButton?.addEventListener("click", openDialog);
     fileInput.addEventListener("change", fileChanged);
     urlInput?.addEventListener("input", fileChanged);
     previewButton.addEventListener("click", preview);

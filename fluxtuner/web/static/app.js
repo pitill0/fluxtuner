@@ -4,7 +4,7 @@ import { createBrowserNavigationController } from "./js/browser-navigation.js";
  */
 
 import { createAccountRequestsController } from "./js/account-requests.js";
-import { createAdminController } from "./js/admin.js";
+import { createLazyAdminController } from "./js/admin-lazy.js";
 import { createApiFetch } from "./js/api.js";
 import { createAppElements } from "./js/app-elements.js";
 import { bindApplicationEvents } from "./js/app-events.js";
@@ -14,9 +14,9 @@ import { createNavigationAccordion } from "./js/navigation-accordion.js";
 import { createSidebarToggle } from "./js/sidebar-toggle.js";
 import { createMobileDrawer } from "./js/mobile-drawer.js";
 import { createAuthController } from "./js/auth.js";
-import { createCustomStationController } from "./js/custom-stations.js";
-import { createStationImportController } from "./js/station-imports.js";
-import { createRemoteSubscriptionController } from "./js/remote-subscriptions.js";
+import { createLazyCustomStationController } from "./js/custom-stations-lazy.js";
+import { createLazyStationImportController } from "./js/station-imports-lazy.js";
+import { createLazyRemoteSubscriptionController } from "./js/remote-subscriptions-lazy.js";
 import { createDashboardController } from "./js/dashboard.js";
 import { createFavoriteController } from "./js/favorites.js";
 import { createHealthController } from "./js/health.js";
@@ -345,7 +345,7 @@ const setupController = createSetupController({
 
 const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 
-const adminController = createAdminController({
+const adminController = createLazyAdminController({
   apiFetch,
   usersNode: adminUsersNode,
   messageNode: adminMessageNode,
@@ -362,7 +362,7 @@ const {
   setUserPassword: setAdminUserPassword,
 } = adminController;
 
-const customStationController = createCustomStationController({
+const customStationController = createLazyCustomStationController({
   apiFetch,
   dialog: customStationDialog,
   form: customStationForm,
@@ -385,7 +385,7 @@ const customStationController = createCustomStationController({
   },
 });
 
-const stationImportController = createStationImportController({
+const stationImportController = createLazyStationImportController({
   apiFetch,
   elements: stationImportElements,
   getCurrentUser: appState.getCurrentUser,
@@ -406,7 +406,7 @@ const stationImportController = createStationImportController({
   },
 });
 
-const subscriptionController = createRemoteSubscriptionController({
+const subscriptionController = createLazyRemoteSubscriptionController({
   apiFetch,
   onChanged: ({ type, sourceId }) => {
     if (!appState.isAuthenticated()) return;

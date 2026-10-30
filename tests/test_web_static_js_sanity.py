@@ -224,7 +224,7 @@ def test_web_static_js_uses_admin_module() -> None:
 
     assert app_response.status_code == 200
     assert admin_response.status_code == 200
-    assert 'import { createAdminController } from "./js/admin.js";' in app_response.text
+    assert 'import { createLazyAdminController } from "./js/admin-lazy.js";' in app_response.text
     assert "export function createAdminController" in admin_response.text
     assert 'apiFetch("/api/admin/users"' in admin_response.text
     assert 'apiFetch("/api/admin/password-change-requests"' not in admin_response.text

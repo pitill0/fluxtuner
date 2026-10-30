@@ -14,6 +14,7 @@ from fluxtuner.web import guards
 from fluxtuner.web import m3u_import as service
 from fluxtuner.web import remote_import_receipts as receipts
 from fluxtuner.web.security import SESSION_COOKIE_NAME
+from fluxtuner.web.validation import is_supported_web_url
 
 router = APIRouter()
 
@@ -66,6 +67,8 @@ async def _read_remote_url(request: Request) -> str:
     url = payload["url"]
     if not url or len(url) > 2048:
         raise HTTPException(status_code=400, detail="Invalid collection URL length.")
+    if not is_supported_web_url(url):
+        raise HTTPException(status_code=400, detail="A valid HTTP or HTTPS URL is required.")
     return url
 
 

@@ -23,6 +23,9 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
+- Reject unsupported remote collection URL schemes with HTTP 400 before
+  network access and prevent storage of private API responses (#313).
+
 - Preserved HTML representation length on HEAD requests (#308).
 - Aligned versioned static HEAD/GET representation headers (#312).
 - Made legacy CSS explicitly revalidatable and removed an obsolete

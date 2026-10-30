@@ -196,6 +196,10 @@ def create_app(
     async def add_static_cache_headers(request: Request, call_next: Any) -> Response:
         response = await call_next(request)
         path = request.url.path
+        if path.startswith("/api/") and not (
+            path == "/api/health" or path.startswith("/api/public/")
+        ):
+            response.headers["Cache-Control"] = "no-store"
         if (
             path.startswith("/static/")
             and not path.startswith("/static/build/")

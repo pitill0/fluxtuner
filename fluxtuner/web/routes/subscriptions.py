@@ -30,6 +30,7 @@ from fluxtuner.web import remote_subscription_service as service
 from fluxtuner.web.m3u_import import _profile_id
 from fluxtuner.web.payloads import station_payload
 from fluxtuner.web.security import SESSION_COOKIE_NAME
+from fluxtuner.web.validation import is_supported_web_url
 
 router = APIRouter(prefix="/api/stations/subscriptions")
 
@@ -225,6 +226,8 @@ async def _read_subscription_input(request: Request) -> tuple[str, str | None]:
     url = payload["url"]
     if not url or len(url) > 2048:
         raise HTTPException(status_code=400, detail="Invalid collection URL length.")
+    if not is_supported_web_url(url):
+        raise HTTPException(status_code=400, detail="A valid HTTP or HTTPS URL is required.")
     name = payload.get("display_name")
     if name is not None:
         if not isinstance(name, str) or len(name) > 120:

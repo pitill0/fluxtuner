@@ -199,7 +199,7 @@ def create_app(
         if (
             path.startswith("/static/")
             and not path.startswith("/static/build/")
-            and path.endswith((".js", ".webmanifest"))
+            and path.endswith((".js", ".css", ".webmanifest"))
         ):
             response.headers["Cache-Control"] = "no-cache"
         return response

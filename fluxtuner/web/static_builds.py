@@ -11,6 +11,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from pathlib import Path
 
 MANIFEST_NAME = ".fluxtuner-manifest.json"
 BUILD_ID_LENGTH = 16
+STALE_TEMP_SECONDS = 3600
 
 
 class StaticBuildError(RuntimeError):
@@ -216,6 +218,27 @@ def _sync_directory(directory: Path) -> None:
         os.close(descriptor)
 
 
+def _clean_stale_temporaries(root: Path) -> None:
+    """Remove old, real temporary directories under the publication lock."""
+    cutoff = time.time() - STALE_TEMP_SECONDS
+
+    with os.scandir(root) as entries:
+        for entry in entries:
+            if not entry.name.startswith(".tmp-"):
+                continue
+
+            try:
+                info = entry.stat(follow_symlinks=False)
+                if not stat.S_ISDIR(info.st_mode) or info.st_mtime >= cutoff:
+                    continue
+
+                # shutil.rmtree rejects symlink roots and uses fd-based
+                # traversal on supported platforms.
+                shutil.rmtree(root / entry.name)
+            except FileNotFoundError:
+                continue
+
+
 def create_static_snapshot(source: Path, root: Path) -> StaticBuild:
     """Publish a verified static tree without overwriting existing builds."""
     source = source.absolute()
@@ -228,6 +251,7 @@ def create_static_snapshot(source: Path, root: Path) -> StaticBuild:
     _reject_symlink_components(root)
 
     with _publication_lock(root):
+        _clean_stale_temporaries(root)
         for _attempt in range(3):
             before = _inventory(source)
             manifest = _manifest_bytes(before)
@@ -237,7 +261,10 @@ def create_static_snapshot(source: Path, root: Path) -> StaticBuild:
             if destination.exists() or destination.is_symlink():
                 if verify_static_snapshot(destination, build_id):
                     return StaticBuild(build_id, destination)
-                raise StaticBuildError("Existing snapshot failed integrity verification")
+                raise StaticBuildError(
+                    f"Existing static snapshot {build_id} failed integrity verification "
+                    f"at {destination}; manual recovery required"
+                )
 
             temporary = Path(tempfile.mkdtemp(prefix=".tmp-", dir=root))
 

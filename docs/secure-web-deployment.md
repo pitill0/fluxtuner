@@ -43,6 +43,27 @@ library data.
 
 For containers, `/data` is the recommended mounted volume.
 
+### `FLUXTUNER_WEB_VERSIONED_STATIC`
+
+Set to `1` to activate persistent, content-addressed Web static assets.
+The default remains the legacy revalidatable `/static/` delivery mode.
+
+The application publishes verified snapshots under
+`FLUXTUNER_DATA_DIR/web/static-builds/`. Use a writable persistent
+volume owned by the service user, with no symbolic links in the
+storage path. Published builds are retained; no automatic historical
+build retention limit is currently implemented.
+
+The repository's local `compose.yaml` explicitly enables this option
+and mounts the persistent `/data` volume. For independent deployments,
+configure the variable explicitly after verifying those requirements.
+
+If publication or verification fails, inspect logs for the build ID
+and path. The application falls back to legacy assets rather than
+serving unverified data. For a corrupt published build, stop all
+publishers using the volume and preserve the directory for diagnosis
+before any operator-led repair. Never remove live builds blindly.
+
 ### `FLUXTUNER_WEB_SETUP_TOKEN`
 
 Requires a setup verification token when creating the first administrator through
@@ -244,9 +265,19 @@ Vary and Cache-Control for cold and conditional requests. A `304`
 documents zero response-body bytes, not necessarily zero network
 transfer once HTTP headers and protocol overhead are included.
 
-Keep the JavaScript module graph revalidatable until there is a
-complete content-versioned invalidation strategy. Do not apply
-`immutable` caching to stable module URLs independently.
+With `FLUXTUNER_WEB_VERSIONED_STATIC=1`, inspect the generated HTML
+for `/static/build/<build-id>/` URLs and verify that versioned JS/CSS
+responses advertise `Cache-Control: public, max-age=31536000, immutable`.
+Confirm that HEAD and GET describe the same representation under
+identical `Accept-Encoding` headers.
+
+Verify that legacy `/static/` JS, CSS and Webmanifest responses remain
+revalidatable with `Cache-Control: no-cache`. Never enable immutable
+caching globally for the unversioned path.
+
+After an approved deployment, verify repeat-visit network behavior
+and browser console errors. Ensure the persistent storage contains
+verified snapshots before treating versioned delivery as active.
 
 ## Post-deploy verification
 

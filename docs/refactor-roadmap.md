@@ -608,3 +608,35 @@ The ten retained GTK test exceptions contain inline widget doubles whose nested
 callables contribute to C901. Their bodies and assertions are preserved. The
 same named-function budgets apply to these tests; the policy does not disable
 C901 across the test suite or across the context-menu test module.
+
+
+## Issue #316: GTK controller workstream
+
+Status: recording-action extraction in progress; remaining stages pending.
+
+The first GTK playback/metadata/search/view-state workstream remains complete.
+Issue #316 is a second bounded sequence for retained recording, ripping,
+shutdown and library orchestration; it does not reopen the completed work solely
+to reduce line count. The historical next-audit recommendations above describe
+the original sequence. The current responsibility map and new sequence live in
+`docs/gtk-orchestration-audit.md`.
+
+The baseline at `054156b` is 2,760 lines and 155 direct `MainWindow` methods.
+Nukleuz real-binding validation runs 332 GTK contracts without skips using
+compatible system PyGObject/GTK bindings alongside the isolated project `.venv`.
+`scripts/run_gtk_tests.py` provides a repeatable entrypoint. Native-binding tests,
+manual desktop checks and the complete quality/security gate remain distinct.
+
+Proceed through recording actions, ripping/monitoring, quit/shutdown lifecycle,
+then library boundaries and a measured reassessment. Each extraction must
+preserve behavior, define its state/runtime owner and lower the measured window
+budget when responsibilities move. Keep #316 open across these bounded PRs;
+Flatpak permissions, Brynse version changes and Web work stay independent.
+
+
+The first extraction introduces `RecordingController` for recording request/start
+and explicit stop/finalization coordination without GTK imports or duplicated
+session state. Selection, widgets, projection and the shutdown guard remain in
+`MainWindow`; asynchronous shutdown continues through its existing worker.
+See the GTK audit document for ownership and validation details. This stage does
+not complete #316.

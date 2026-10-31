@@ -15,7 +15,8 @@ environments.
 
 ## Completion status
 
-The GTK orchestration workstream is complete.
+The first GTK orchestration workstream is complete. Issue #316 defines a
+second incremental workstream for responsibilities added or retained since it.
 
 The work was delivered as a sequence of focused contract, hardening and
 extraction changes:
@@ -406,3 +407,118 @@ manual desktop smoke checks.
 
 The later Flatpak permission branch additionally requires the environment matrix
 defined above.
+
+
+## Issue #316: second GTK controller workstream
+
+### Measured baseline and validation environment
+
+At `054156b` (after PR #321), `window.py` contains 2,760 lines and 155 direct
+`MainWindow` methods. Earlier estimates counted 166 methods; direct class-body
+AST counting is the reproducible baseline used here. At C901 threshold 10,
+only `_show_station_context_menu` exceeds the threshold, at 12. The remaining
+problem is breadth of responsibility, not excessive branching in every method.
+
+On Nukleuz, the isolated `.venv` initially ran 323 GTK contracts with one
+module skipped because `gi` was unavailable. The system interpreter and `.venv`
+share CPython 3.12.15 and the same ABI. System PyGObject 3.58.1 and GTK 4.24.1
+initialize successfully under Wayland. A temporary directory exposing only the
+system `gi` and Cairo packages enabled the same `.venv` to run 332 GTK contracts
+with no skips. A native GTK button signal was also checked. This validates the
+binding environment and contracts, not every interactive desktop workflow.
+
+`scripts/run_gtk_tests.py` makes real-binding validation explicit. It requires
+GTK4 and a working display before collecting tests and checks that the real
+bindings remain loaded after the run. Ordinary headless tests remain available;
+the real-GTK runner supplements them rather than treating skips as validation.
+It neither installs packages nor changes virtual-environment configuration.
+
+From the checkout, in a graphical session:
+
+```bash
+.venv/bin/python scripts/run_gtk_tests.py
+```
+
+For Nukleuz's isolated environment, supply an explicitly prepared temporary
+binding directory containing `gi` and, where needed, `cairo` from the compatible
+system Python. Check Python version and SOABI before preparing these links;
+do not link packages built for another interpreter.
+
+```bash
+.venv/bin/python scripts/run_gtk_tests.py --bindings-dir /path/to/gtk-bindings
+```
+
+Additional arguments are forwarded to pytest. Pass explicit test paths when
+adding pytest options, for example `-- -q tests/test_gtk_recording.py`.
+The runner is not the full quality/security gate.
+
+### Extraction sequence and ownership
+
+1. Recording actions: isolate FFmpeg recording request/start/finalization
+   coordination. Preserve selected versus explicitly targeted station behavior,
+   status messages, recording independence from playback and button projection.
+2. Ripping actions and monitoring: isolate Brynse availability, explicit station
+   actions, status deduplication and worker monitoring. Preserve profile scope,
+   existing service contracts and one-owner GLib timer cancellation.
+3. Quit/shutdown lifecycle: isolate pending work, confirmation, deadlines and
+   completion decisions. Preserve asynchronous FFmpeg/Brynse finalization,
+   idempotent callbacks, tray behavior and explicit force-quit consent.
+4. Library actions: reassess favorites, persistent playlists and selection/cache
+   refresh ownership after the recording lifecycle boundaries are stable.
+5. Reassess remaining projection/layout/context-menu responsibilities based on
+   measured coupling. Preserve the existing playback, metadata, search and
+   logical-view boundaries unless a specific contract demonstrates a need.
+
+Controllers must not import `MainWindow` or retain the whole window as an
+untyped dependency. Pass narrow services, state or projection callbacks. Keep
+GTK widget mutation on the main loop, and make ownership of threads, GLib
+sources and deferred completions explicit. Do not duplicate state between a
+controller and the window merely to keep old attribute names working.
+
+### Per-extraction acceptance and budgets
+
+Each extraction requires focused controller contracts, existing GTK contracts,
+real-binding validation and manual desktop smoke checks for affected behavior,
+followed by the full project quality and security gate before its PR. Compare
+observable side effects and ordering, including failure and stale completion
+paths; do not replace behavior tests with source-length assertions.
+
+The baseline is 2,760 lines/155 direct methods. Record both metrics after each
+extraction and reduce the measured budget when responsibilities move. Do not
+impose an arbitrary 800/1,200-line ceiling before identifying coherent owners,
+and do not move code solely to satisfy a count. The C901 policy from #315
+continues to apply to production code and tests.
+
+A PR delivering one stage must refer to #316 without closing the umbrella issue.
+Close #316 only after the agreed controller workstream and its validation are
+complete. Web #311, metadata/background recovery, the initial login HTTP 422,
+Brynse version updates and Flatpak permission changes remain separate work.
+
+
+### First extraction: recording actions
+
+`fluxtuner/gui/gtk_recording.py:RecordingController` now coordinates explicit
+station recording and synchronous user-requested finalization. It receives the
+existing `RecordingManager` and narrow status/control projection callbacks; it
+does not import GTK, hold the window, own a second session or create workers.
+A short-lived action controller is bound by `MainWindow._recording_actions` for
+each action. All recording state remains authoritative in the existing manager.
+
+`MainWindow` retains selection handling, the shutdown guard, signal handlers,
+button widgets and button projection. Existing URL/name/output-path helpers are
+passed into the start action. Their exceptions remain outside the manager error
+boundary, matching previous behavior. Successful starts/stops refresh controls
+before displaying status; validation/backend errors display status before the
+control refresh, also matching previous behavior.
+
+The asynchronous `AsyncRecordingStop` shutdown path continues to call the same
+manager directly. This extraction does not route shutdown through a synchronous
+UI stop action or change pending-recording confirmation and finalization.
+
+Controller contracts cover explicit target identity, unavailable backends,
+missing URLs, request construction, preparation/backend/projection failures,
+status/control ordering, completed recording identity and live manager state.
+Existing GTK recording and context-menu contracts remain unchanged. Structural
+checks preserve every other `MainWindow` method, including shutdown and ripping.
+Record post-format window metrics in the extraction report; the workstream
+remains open pending later controller extractions and manual/full-gate validation.

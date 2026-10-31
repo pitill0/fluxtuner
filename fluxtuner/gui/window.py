@@ -45,7 +45,7 @@ from fluxtuner.core.profiles import (  # noqa: E402
     get_profile_by_name,
     resolve_effective_profile_name,
 )
-from fluxtuner.core.recording import RecordingManager, RecordingRequest  # noqa: E402
+from fluxtuner.core.recording import RecordingManager  # noqa: E402
 from fluxtuner.core.recordings import (  # noqa: E402
     SqliteRecordingStore,
     recording_output_path,
@@ -79,6 +79,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_stop,
 )
 from fluxtuner.gui.gtk_playlists import create_playlist_picker  # noqa: E402
+from fluxtuner.gui.gtk_recording import RecordingController  # noqa: E402
 from fluxtuner.gui.gtk_recording_shutdown import AsyncRecordingStop  # noqa: E402
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     RippingShutdown,
@@ -1669,6 +1670,14 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self.start_selected_recording()
 
+    def _recording_actions(self) -> RecordingController:
+        """Bind narrow projection callbacks to the existing recording manager."""
+        return RecordingController(
+            manager=self.recording_manager,
+            show_status=self.status_label.set_text,
+            refresh_controls=self._update_record_button,
+        )
+
     def start_station_recording(
         self,
         station: dict[str, Any],
@@ -1676,36 +1685,13 @@ class MainWindow(Gtk.ApplicationWindow):
         """Start recording one explicit station without changing selection."""
         if getattr(self, "_ripping_shutting_down", False):
             return
-
-        if not self.recording_available:
-            self.status_label.set_text("Recording unavailable: ffmpeg was not found in PATH.")
-            self._update_record_button()
-            return
-
-        source_url = self._station_url(station)
-        if not source_url:
-            self.status_label.set_text("Selected station has no stream URL.")
-            self._update_record_button()
-            return
-
-        station_display_name = self._station_display_name(station)
-        output_path = recording_output_path(station_display_name)
-
-        try:
-            self.recording_manager.start(
-                RecordingRequest(
-                    station_name=station_display_name,
-                    source_url=source_url,
-                    output_path=output_path,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
-            self.status_label.set_text(f"Could not start recording: {exc}")
-            self._update_record_button()
-            return
-
-        self._update_record_button()
-        self.status_label.set_text(f"Recording: {station_display_name} → {output_path.name}")
+        MainWindow._recording_actions(self).start(
+            station,
+            available=self.recording_available,
+            station_url=self._station_url,
+            station_name=self._station_display_name,
+            output_path=recording_output_path,
+        )
 
     def start_selected_recording(self) -> None:
         if not self.recording_available:
@@ -1749,27 +1735,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stop_recording()
 
     def stop_recording(self) -> None:
-        if self.recording_manager.active_session is None:
-            self.status_label.set_text("No recording is active.")
-            self._update_record_button()
-            return
-
-        try:
-            completed = self.recording_manager.stop()
-        except Exception as exc:  # noqa: BLE001 - user-facing status in GTK GUI.
-            self.status_label.set_text(f"Could not finalize recording: {exc}")
-            self._update_record_button()
-            return
-
-        self._update_record_button()
-        if completed is None:
-            self.status_label.set_text("Recording stopped.")
-            return
-
-        self.status_label.set_text(
-            f"Saved recording #{completed.recording_id}: "
-            f"{completed.station_name} → {completed.output_path.name}"
-        )
+        MainWindow._recording_actions(self).stop()
 
     def _update_record_button(self) -> None:
         if not hasattr(self, "record_button"):

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-pytest.importorskip("gi", reason="PyGObject is required for GTK tests")
+pytest.importorskip("gi", reason="PyGObject is required for GTK tests", exc_type=ImportError)
 
 from fluxtuner.core.search_service import SearchResult
 from fluxtuner.gui import window

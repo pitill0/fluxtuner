@@ -317,7 +317,7 @@ def _empty_search_debug(
     }
 
 
-def _filtered_search_result(
+def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/complexity-baseline.json
     *,
     query: str,
     country: str | None = None,

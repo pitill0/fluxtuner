@@ -8,7 +8,7 @@ import sys
 os.environ.setdefault("GSK_RENDERER", "cairo")
 
 
-def run_gui(player_name: str = "mpv") -> None:
+def run_gui(player_name: str = "mpv") -> None:  # noqa: C901 - reviewed ceiling 21; see docs/complexity-baseline.json
     try:
         import gi
 

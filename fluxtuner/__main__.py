@@ -441,7 +441,7 @@ def run_cli(
             player.stop()
 
 
-def main() -> None:
+def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="FluxTuner internet radio player")
     parser.add_argument(
         "--version",
@@ -560,19 +560,10 @@ def main() -> None:
         nargs="*",
         help=argparse.SUPPRESS,
     )
+    return parser
 
-    args = parser.parse_args()
-    configure_logging(verbose=args.verbose)
 
-    if args.command:
-        from fluxtuner.web.admin_cli import handle_web_user_command
-
-        if handle_web_user_command(args.command, console=console):
-            return
-        parser.error("unknown command: " + " ".join(args.command))
-
-    effective_profile_name = resolve_effective_profile_name(args.profile)
-
+def _handle_profile_command(args: argparse.Namespace) -> bool:
     if args.set_active_profile:
         if not args.profile:
             console.print("[red]--set-active-profile requires --profile NAME.[/red]")
@@ -580,7 +571,7 @@ def main() -> None:
 
         persisted_profile_name = set_active_profile_name(args.profile)
         console.print(f"[green]Active profile set to {persisted_profile_name!r}.[/green]")
-        return
+        return True
 
     if args.show_active_profile:
         current_profile_name = get_active_profile_name()
@@ -588,44 +579,50 @@ def main() -> None:
             console.print("[yellow]No active profile configured.[/yellow]")
         else:
             console.print(f"Active profile: {current_profile_name}")
-        return
+        return True
 
     if args.clear_active_profile:
         clear_active_profile_name()
         console.print("[green]Active profile cleared.[/green]")
-        return
+        return True
+    return False
 
+
+def _handle_diagnostic_command(args: argparse.Namespace) -> bool:
     if args.list_players:
         console.print("[bold]Supported player backends:[/bold]")
         print_player_backend_status()
-        return
+        return True
 
     if args.list_profiles:
         print_profiles()
-        return
+        return True
 
     if args.doctor:
         run_doctor()
-        return
+        return True
 
     if args.list_themes:
         console.print("Available themes:")
         for theme_name in list_themes():
             console.print(f"- {theme_name}")
-        return
+        return True
 
     if args.clear_cache:
         clear_search_cache()
         console.print("[green]Search cache cleared.[/green]")
-        return
+        return True
+    return False
 
+
+def _handle_library_command(args: argparse.Namespace, effective_profile_name: str | None) -> bool:
     if args.export_favs:
         export_json_list(
             args.export_favs,
             load_favorites(profile_name=effective_profile_name),
             "Favorites",
         )
-        return
+        return True
 
     if args.import_favs:
         data = import_json_list(args.import_favs, "favorites")
@@ -646,7 +643,7 @@ def main() -> None:
         if result.skipped:
             message += f" [yellow]Skipped {result.skipped} invalid item(s).[/yellow]"
         console.print(message)
-        return
+        return True
 
     if args.export_playlists:
         export_json_list(
@@ -654,7 +651,7 @@ def main() -> None:
             load_playlists(profile_name=effective_profile_name),
             "Persistent playlists",
         )
-        return
+        return True
 
     if args.import_playlists:
         data = import_json_list(args.import_playlists, "playlists")
@@ -675,8 +672,11 @@ def main() -> None:
         if result.skipped:
             message += f" [yellow]Skipped {result.skipped} invalid item(s).[/yellow]"
         console.print(message)
-        return
+        return True
+    return False
 
+
+def _resolve_theme_options(args: argparse.Namespace) -> str:
     configured_theme = str(get_config_value("theme", DEFAULT_THEME))
     selected_theme = args.theme or configured_theme
 
@@ -697,14 +697,15 @@ def main() -> None:
         set_config_value("theme", theme_to_save)
         selected_theme = theme_to_save
         console.print(f"[green]Saved default theme:[/green] {theme_to_save}")
+    return selected_theme
 
-    try:
-        selected_player = selected_player_name(args.player)
-    except Exception as exc:  # noqa: BLE001
-        console.print(f"[red]Player error:[/red] {exc}")
-        console.print(f"[yellow]{player_install_help()}[/yellow]")
-        raise SystemExit(2) from exc
 
+def _launch_interface(
+    args: argparse.Namespace,
+    selected_player: str,
+    selected_theme: str,
+    effective_profile_name: str | None,
+) -> None:
     if args.cli:
         run_cli(selected_player, profile_name=effective_profile_name)
         return
@@ -733,6 +734,39 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     run_tui(theme=selected_theme, player_name=selected_player)
+
+
+def main() -> None:
+    parser = _build_argument_parser()
+    args = parser.parse_args()
+    configure_logging(verbose=args.verbose)
+
+    if args.command:
+        from fluxtuner.web.admin_cli import handle_web_user_command
+
+        if handle_web_user_command(args.command, console=console):
+            return
+        parser.error("unknown command: " + " ".join(args.command))
+
+    effective_profile_name = resolve_effective_profile_name(args.profile)
+
+    if _handle_profile_command(args):
+        return
+    if _handle_diagnostic_command(args):
+        return
+    if _handle_library_command(args, effective_profile_name):
+        return
+
+    selected_theme = _resolve_theme_options(args)
+
+    try:
+        selected_player = selected_player_name(args.player)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Player error:[/red] {exc}")
+        console.print(f"[yellow]{player_install_help()}[/yellow]")
+        raise SystemExit(2) from exc
+
+    _launch_interface(args, selected_player, selected_theme, effective_profile_name)
 
 
 if __name__ == "__main__":

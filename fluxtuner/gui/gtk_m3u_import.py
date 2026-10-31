@@ -266,7 +266,7 @@ def _show_preview(
     name_entry.grab_focus()
 
 
-def open_remote_m3u_import(
+def open_remote_m3u_import(  # noqa: C901 - reviewed ceiling 21; see docs/complexity-baseline.json
     parent: Any,
     *,
     profile_id: int,

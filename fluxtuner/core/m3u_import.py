@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -74,7 +75,7 @@ def _extinf_name(line: str) -> str:
     raise ValueError("Malformed EXTINF entry: station name separator is missing.")
 
 
-def parse_m3u(data: bytes) -> M3UPreview:
+def parse_m3u(data: bytes) -> M3UPreview:  # noqa: C901 - reviewed ceiling 19; see docs/complexity-baseline.json
     """Parse UTF-8 station collections without database or network access."""
     if not isinstance(data, bytes):
         raise ValueError("Playlist content must be bytes.")
@@ -153,10 +154,11 @@ def parse_m3u(data: bytes) -> M3UPreview:
     return M3UPreview(tuple(entries), tuple(issues), duplicates)
 
 
-def parse_pls(data: bytes) -> M3UPreview:
-    """Parse bounded PLS v2 station collections without any I/O."""
-    import re
+_PLSAttributes = dict[int, dict[str, tuple[str, int]]]
 
+
+def _pls_lines(data: bytes) -> list[str]:
+    """Validate byte, encoding and line bounds before interpreting PLS fields."""
     if not isinstance(data, bytes):
         raise ValueError("Playlist content must be bytes.")
     if len(data) > MAX_FILE_BYTES:
@@ -170,11 +172,12 @@ def parse_pls(data: bytes) -> M3UPreview:
     lines = text.splitlines()
     if len(lines) > MAX_LINES:
         raise ValueError(f"Playlist exceeds the {MAX_LINES} line limit.")
+    return lines
 
+
+def _pls_records(lines: list[str], issues: list[M3UIssue]) -> Iterator[tuple[int, str, str]]:
+    """Yield first occurrences of keys, preserving syntax issues and line numbers."""
     header = False
-    attributes: dict[int, dict[str, tuple[str, int]]] = {}
-    issues: list[M3UIssue] = []
-    declared: int | None = None
     seen_keys: set[str] = set()
     for number, raw in enumerate(lines, start=1):
         line = raw.strip()
@@ -198,6 +201,16 @@ def parse_pls(data: bytes) -> M3UPreview:
             issues.append(M3UIssue(number, f"Duplicate PLS key: {key}."))
             continue
         seen_keys.add(key)
+        yield number, key, value
+    if not header:
+        raise ValueError("PLS playlist must begin with [playlist].")
+
+
+def _pls_fields(lines: list[str], issues: list[M3UIssue]) -> tuple[_PLSAttributes, int | None]:
+    """Interpret bounded PLS v2 metadata and indexed station attributes."""
+    attributes: _PLSAttributes = {}
+    declared: int | None = None
+    for number, key, value in _pls_records(lines, issues):
         if key == "numberofentries":
             if not value.isascii() or not value.isdecimal() or len(value) > 6:
                 issues.append(M3UIssue(number, "Invalid NumberOfEntries."))
@@ -221,11 +234,36 @@ def parse_pls(data: bytes) -> M3UPreview:
         if index > MAX_STATIONS:
             raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
         attributes.setdefault(index, {})[kind] = (value, number)
-    if not header:
-        raise ValueError("PLS playlist must begin with [playlist].")
-    if len(attributes) > MAX_STATIONS:
-        raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
 
+    return attributes, declared
+
+
+def _pls_entry(
+    fields: dict[str, tuple[str, int]], index: int, issues: list[M3UIssue]
+) -> M3UEntry | None:
+    """Validate one station using the existing URL and display-name policy."""
+    file_record = fields.get("file")
+    if file_record is None:
+        number = next(iter(fields.values()))[1]
+        issues.append(M3UIssue(number, f"PLS entry {index} has no File field."))
+        return None
+    raw_url, number = file_record
+    try:
+        url = _validate_url(raw_url)
+        title = fields.get("title", ("", number))[0]
+        if not title.strip():
+            title = (urlsplit(url).hostname or "Unknown station")[:MAX_NAME_LENGTH]
+        name = _validate_name(title)
+    except ValueError as exc:
+        issues.append(M3UIssue(number, str(exc)))
+        return None
+    return M3UEntry(name, url, number)
+
+
+def _pls_preview(
+    attributes: _PLSAttributes, issues: list[M3UIssue], declared: int | None
+) -> M3UPreview:
+    """Build the ordered preview, preserving diagnostics and URL deduplication."""
     file_count = sum("file" in fields for fields in attributes.values())
     if declared is not None and declared != file_count:
         issues.append(M3UIssue(1, "NumberOfEntries does not match File entries."))
@@ -234,28 +272,25 @@ def parse_pls(data: bytes) -> M3UPreview:
     urls: set[str] = set()
     duplicates = 0
     for index in sorted(attributes):
-        fields = attributes[index]
-        file_record = fields.get("file")
-        if file_record is None:
-            number = next(iter(fields.values()))[1]
-            issues.append(M3UIssue(number, f"PLS entry {index} has no File field."))
+        entry = _pls_entry(attributes[index], index, issues)
+        if entry is None:
             continue
-        raw_url, number = file_record
-        try:
-            url = _validate_url(raw_url)
-            title = fields.get("title", ("", number))[0]
-            if not title.strip():
-                title = (urlsplit(url).hostname or "Unknown station")[:MAX_NAME_LENGTH]
-            name = _validate_name(title)
-        except ValueError as exc:
-            issues.append(M3UIssue(number, str(exc)))
-            continue
-        if url in urls:
+        if entry.url in urls:
             duplicates += 1
             continue
-        urls.add(url)
-        entries.append(M3UEntry(name, url, number))
+        urls.add(entry.url)
+        entries.append(entry)
     return M3UPreview(tuple(entries), tuple(issues), duplicates)
+
+
+def parse_pls(data: bytes) -> M3UPreview:
+    """Parse bounded PLS v2 station collections without any I/O."""
+    lines = _pls_lines(data)
+    issues: list[M3UIssue] = []
+    attributes, declared = _pls_fields(lines, issues)
+    if len(attributes) > MAX_STATIONS:
+        raise ValueError(f"Playlist exceeds the {MAX_STATIONS} station limit.")
+    return _pls_preview(attributes, issues, declared)
 
 
 def parse_station_collection(data: bytes) -> M3UPreview:

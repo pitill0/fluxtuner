@@ -403,7 +403,7 @@ def test_gtk_station_context_gesture_is_independent_from_selection(monkeypatch) 
     assert harness.selected_station is selected_station
 
 
-def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -> None:
+def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -> None:  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     class FakePopover:
         instances = []
 
@@ -553,7 +553,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     assert harness.selected_station is selected_station
 
 
-def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(
+def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(  # noqa: C901 - reviewed ceiling 17; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakePopover:
@@ -655,7 +655,7 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(
         callback(button, *callback_args)
 
 
-def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:
+def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:  # noqa: C901 - reviewed ceiling 17; see docs/complexity-baseline.json
     class FakePopover:
         instances = []
 
@@ -1074,7 +1074,7 @@ def test_gtk_remove_context_favorite_clears_selection_when_selected_station_is_r
     assert harness.selected_station is None
 
 
-def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
+def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -1195,7 +1195,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(
     ]
 
 
-def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(
+def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -1462,7 +1462,7 @@ def test_gtk_open_station_homepage_contains_launcher_failure() -> None:
     )
 
 
-def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
+def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -1582,7 +1582,7 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(
     ]
 
 
-def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(
+def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -1876,7 +1876,7 @@ def test_gtk_context_stop_recording_callback_does_not_change_selection() -> None
     assert harness.selected_station is selected_station
 
 
-def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(
+def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -1999,7 +1999,7 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(
     ]
 
 
-def test_gtk_context_menu_shows_stop_recording_for_active_station(
+def test_gtk_context_menu_shows_stop_recording_for_active_station(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:
@@ -2127,7 +2127,7 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(
     ]
 
 
-def test_gtk_context_menu_hides_recording_action_for_different_active_station(
+def test_gtk_context_menu_hides_recording_action_for_different_active_station(  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     monkeypatch,
 ) -> None:
     class FakeRectangle:

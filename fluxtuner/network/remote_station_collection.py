@@ -48,7 +48,7 @@ def _read_exact(body: object, size: int, remaining: list[int]) -> bytes:
     return bytes(out)
 
 
-def _read_body(body: object, headers: dict[str, str]) -> bytes:
+def _read_body(body: object, headers: dict[str, str]) -> bytes:  # noqa: C901 - reviewed ceiling 17; see docs/complexity-baseline.json
     if headers.get("content-encoding", "identity").strip().lower() not in ("", "identity"):
         raise RemoteCollectionError("Compressed remote collections are not supported.")
 

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from fluxtuner import paths
 from fluxtuner.web import app as app_module
+from fluxtuner.web import static_routes
 from fluxtuner.web.static_builds import (
     StaticBuildError,
     create_static_snapshot,
@@ -112,7 +113,7 @@ def test_publication_failure_uses_legacy_urls(
         raise StaticBuildError("Simulated publication failure")
 
     monkeypatch.setattr(
-        app_module,
+        static_routes,
         "create_static_snapshot",
         fail_publication,
     )

@@ -6,6 +6,7 @@
 
 .results {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
   margin-top: 1rem;
 }
@@ -65,4 +66,38 @@ html[data-theme="light"] .station-meta span {
   color: #334155 !important;
   border-color: rgba(51, 65, 85, 0.18) !important;
   background: rgba(226, 232, 240, 0.72) !important;
+}
+
+/* Defer off-screen station rendering without changing card order or controls.
+ * Intrinsic block sizes are estimates; auto remembers each rendered height.
+ * Keep playlists, catalog cards and printed output outside this optimization.
+ */
+@supports (content-visibility: auto) and (contain-intrinsic-block-size: auto 1rem) {
+  @media screen {
+    .results > .station-card[data-station-card] {
+      min-inline-size: 0;
+      inline-size: 100%;
+      grid-template-columns: minmax(0, 1fr);
+      overflow-wrap: anywhere;
+      content-visibility: auto;
+      contain-intrinsic-block-size: auto 10.5rem;
+    }
+  }
+
+  @media screen and (max-width: 42rem) {
+    .results > .station-card[data-station-card] {
+      contain-intrinsic-block-size: auto 28rem;
+    }
+  }
+}
+
+/* Resolve estimated heights throughout a focused list before focus scrolling.
+ * Initial rendering stays deferred until a control in the list receives focus.
+ */
+@supports (content-visibility: auto) {
+  @media screen {
+    .results:focus-within > .station-card[data-station-card] {
+      content-visibility: visible;
+    }
+  }
 }

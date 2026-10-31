@@ -34,7 +34,7 @@ export function createStationRenderer({
     const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
 
     return `
-      <article class="station-card">
+      <article class="station-card" data-station-card>
         <header>
           <div>
             <h3>${escapeHtml(station.custom_name || station.name || "Unknown station")}</h3>

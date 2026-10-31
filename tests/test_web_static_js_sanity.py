@@ -480,7 +480,6 @@ def test_web_search_form_has_optional_debug_panel() -> None:
     assert ".search-debug-panel" in search_css_response.text
     assert ".search-debug-label" in search_css_response.text
     assert "min-width: 0;" in search_css_response.text
-    assert "minmax(9rem, 0.85fr)" in search_css_response.text
 
 
 def test_web_static_js_allows_min_bitrate_only_search() -> None:

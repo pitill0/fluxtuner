@@ -6,10 +6,7 @@
 
 .search-form {
   display: grid;
-  grid-template-columns:
-    minmax(9rem, 0.8fr) minmax(13rem, 1.25fr)
-    minmax(9rem, 0.85fr) minmax(6.5rem, 0.4fr)
-    minmax(6.5rem, 0.35fr) auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: 0.75rem;
   align-items: end;
 }
@@ -85,4 +82,12 @@ html[data-theme="light"] .search-debug-panel {
 html[data-theme="light"] .search-debug-panel div {
   border-color: rgba(100, 116, 139, 0.16);
   background: rgba(241, 245, 249, 0.82);
+}
+
+/* Search fields must fit their panel, including the desktop sidebar layout. */
+.search-form input:not([type="checkbox"]),
+.search-form select {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }

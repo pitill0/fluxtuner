@@ -106,7 +106,7 @@ def _set_if_supported(styles: Any, attr: str, value: Any) -> None:
         logger.debug("Ignoring unsupported runtime theme style property: %s", attr, exc_info=True)
 
 
-def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
+def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
     styles = widget.styles
     for prop, value in declarations.items():
         if prop in COLOR_PROPS:

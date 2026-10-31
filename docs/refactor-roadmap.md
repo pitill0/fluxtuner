@@ -519,3 +519,92 @@ work should continue with another documentation-only audit before moving code:
 3. Introduce cross-interface application services only after equivalent behavior
    and duplicated orchestration have been demonstrated in at least two
    interfaces.
+
+## Issue #315: Web HTTP composition boundaries
+
+The first extraction moves HTTP plumbing out of `create_app`:
+
+- `fluxtuner/web/middleware.py` resolves and renews sessions off the event loop
+  and applies private API and legacy static cache headers. Registration keeps
+  cache policy outside session resolution, preserving response ordering.
+- `fluxtuner/web/static_routes.py` publishes optional static snapshots, mounts
+  versioned assets before legacy assets, resolves icon aliases and prepares
+  identity/gzip HTML responses with conditional GET/HEAD handling.
+
+`create_app` retains optional Web dependency handling, application lifespan,
+metadata coordinator ownership, setup/dashboard endpoints and router wiring.
+The extracted modules are imported within its existing optional-dependency
+boundary. Static publication fallback and the public HTTP routes are preserved.
+
+Executable HTTP tests cover GET/HEAD parity and revalidation with legacy and
+versioned assets, session renewal ordering and cache policy on error responses.
+Existing auth, setup, session and static publication contracts remain applicable.
+
+The Web extraction and CLI dispatch decomposition are incremental steps of #315.
+PLS parsing is also decomposed. The C901 policy below records the remaining
+reviewed debt without expanding these extractions into unrelated interfaces.
+The pre-extraction C901 baseline at threshold 10 reports `create_app` at 41,
+CLI `main` at 31 and `parse_pls` at 29, with 26 functions above 10 overall.
+
+
+### CLI command dispatch
+
+`fluxtuner/__main__.py` separates parser construction, profile commands,
+diagnostic commands, library transfer commands, theme resolution and interface
+launching into focused private helpers. Existing public helpers and the command
+entrypoint remain in their original module.
+
+The dispatcher preserves command precedence: positional Web administration,
+profile changes, diagnostics, library import/export, theme/player selection,
+then CLI, GTK or default TUI. Profile resolution still occurs before terminal
+profile/diagnostic/library options, and theme persistence still precedes player
+validation. Existing messages and exit statuses remain unchanged.
+
+Regression coverage exercises competing terminal options, early exit without
+player probing, CLI-over-GTK precedence, GUI backend forwarding and optional
+dependency/unknown-command errors through `main`.
+
+
+### PLS import parsing
+
+`parse_pls` composes focused helpers for bounded UTF-8 decoding, header/key
+records, PLS v2 fields, station validation and preview construction. Parsing
+remains free of database and network I/O.
+
+Byte/line/station bounds, first-key-wins handling, indexed station ordering,
+URL deduplication, validation messages and diagnostic line numbers/order are
+preserved. M3U parsing, format dispatch and persistence behavior are unchanged.
+Contracts include malformed fields mixed with valid stations, source-line
+diagnostics, invalid input types/encoding and declared/indexed station limits.
+
+
+### Complexity policy
+
+Ruff C901 is enabled with a general maximum of 15. Prefer functions at or below
+10 when adding or extracting behavior; the new CLI and PLS helpers meet that
+target. Existing behavior is not rewritten solely to satisfy a numerical limit.
+
+Seven reviewed production functions and ten existing GTK contract tests exceed
+15. Each has a function-level C901 annotation and a named entry with its measured
+ceiling and justification in `docs/complexity-baseline.json`. File-wide C901
+exemptions are not used.
+
+`tests/test_complexity_policy.py` runs an isolated C901 scan over the whole Python
+lint scope, including tests, with noqa disabled.
+It rejects new exempt functions, growth beyond an existing function's ceiling,
+duplicate/ambiguous identities and obsolete exception entries. This makes the
+baseline a ratchet rather than a blanket allowance: reduce ceilings after
+improvement and remove both annotation and entry once a function reaches 15.
+Any additional exception or ceiling increase requires explicit review and a
+documented reason; do not regenerate the baseline to make a failure disappear.
+
+The retained exceptions cover search orchestration, M3U stateful parsing, two
+GTK lifecycle entrypoints, bounded HTTP body framing, theme property dispatch
+and the remaining Web setup/dashboard/lifespan composition. Their executable
+contracts remain in place. GTK decomposition continues separately under #316.
+
+
+The ten retained GTK test exceptions contain inline widget doubles whose nested
+callables contribute to C901. Their bodies and assertions are preserved. The
+same named-function budgets apply to these tests; the policy does not disable
+C901 across the test suite or across the context-menu test module.

@@ -1,0 +1,107 @@
+{
+  "max_complexity": 15,
+  "exceptions": [
+    {
+      "path": "fluxtuner/core/api.py",
+      "function": "_filtered_search_result",
+      "max_complexity": 20,
+      "reason": "Provider fallback, stable ranking and per-source diagnostics retain their existing search contract; isolate this orchestration in a dedicated follow-up."
+    },
+    {
+      "path": "fluxtuner/core/m3u_import.py",
+      "function": "parse_m3u",
+      "max_complexity": 19,
+      "reason": "Stateful EXTINF association, candidate bounds and diagnostic ordering are preserved while the PLS parser is extracted independently."
+    },
+    {
+      "path": "fluxtuner/gui/app.py",
+      "function": "run_gui",
+      "max_complexity": 21,
+      "reason": "GTK startup, tray ownership and quit callbacks remain together pending reproducible GTK lifecycle validation in #316."
+    },
+    {
+      "path": "fluxtuner/gui/gtk_m3u_import.py",
+      "function": "open_remote_m3u_import",
+      "max_complexity": 21,
+      "reason": "GTK dialog ownership, worker results and dismissal handling remain coupled pending the GTK orchestration audit in #316."
+    },
+    {
+      "path": "fluxtuner/network/remote_station_collection.py",
+      "function": "_read_body",
+      "max_complexity": 17,
+      "reason": "Security-sensitive HTTP framing and byte bounds remain unchanged; further decomposition requires a dedicated adversarial transport review."
+    },
+    {
+      "path": "fluxtuner/theme_runtime.py",
+      "function": "_apply_declarations",
+      "max_complexity": 16,
+      "reason": "Property-specific theme parsing and compatibility fallbacks remain unchanged pending a focused theme-runtime refactor."
+    },
+    {
+      "path": "fluxtuner/web/app.py",
+      "function": "create_app",
+      "max_complexity": 23,
+      "reason": "The factory retains lifespan ownership and setup/dashboard closures after extracting HTTP middleware and static publication; cap the remaining composition explicitly."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_builds_copy_actions_for_clicked_station",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting copy-action construction and clicked-station ownership; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature",
+      "max_complexity": 17,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting GTK clicked callback signatures; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_unparents_popover_when_closed",
+      "max_complexity": 17,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting popover dismissal and unparenting; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting add-favorite menu projection; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting remove-favorite menu projection; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_shows_open_homepage_for_safe_homepage",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting safe-homepage menu projection; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_hides_open_homepage_without_safe_homepage",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting unsafe or missing homepage exclusion; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_shows_record_session_when_no_recording_is_active",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting idle recording action projection; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_shows_stop_recording_for_active_station",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting active recording stop-action projection; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    },
+    {
+      "path": "tests/test_gtk_station_context_menu.py",
+      "function": "test_gtk_context_menu_hides_recording_action_for_different_active_station",
+      "max_complexity": 16,
+      "reason": "Inline GTK doubles contribute nested callable complexity while protecting recording ownership across different stations; retain the contract until shared fixture extraction is reviewed with the GTK audit in #316."
+    }
+  ]
+}

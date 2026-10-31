@@ -422,9 +422,11 @@ html[data-theme="light"] .theme-toggle span::before {
     display: block;
     grid-column: 1;
     grid-row: 2;
-    position: relative;
+    position: sticky;
+    top: 5.5rem;
+    z-index: 60;
     min-width: 0;
-    align-self: stretch;
+    align-self: start;
   }
 
   .shell:has(> .app-content:not([hidden]))
@@ -437,14 +439,15 @@ html[data-theme="light"] .theme-toggle span::before {
 
   .shell:has(> .app-content:not([hidden]))
     .app-menu {
-    position: sticky;
-    top: 5.5rem;
+    position: relative;
+    top: auto;
     right: auto;
     bottom: auto;
     left: auto;
     display: block;
     width: 100%;
-    max-height: calc(100vh - 6.5rem);
+    /* Reserve the header and bottom player clearance, even at document end. */
+    max-height: max(3.5rem, calc(100dvh - 14rem - env(safe-area-inset-bottom)));
     margin: 0;
     padding: 1rem;
     overflow-x: hidden;
@@ -770,4 +773,9 @@ html[data-theme="light"] .theme-toggle span::before {
   .shell { padding-top: 8.5rem; }
   .shell > .app-sidebar-region { top: 8.5rem; max-height: calc(100dvh - 9rem); }
   .shell > .app-sidebar-region .app-menu { max-height: calc(100dvh - 9rem); }
+}
+
+/* Keep the version footer centered across the authenticated shell columns. */
+.shell > footer {
+  grid-column: 1 / -1;
 }

@@ -2327,7 +2327,7 @@ def _ripping_menu_harness(
         selected_station={"name": "Other station"},
         ripping_service=service,
         _ripping_controller=SimpleNamespace(availability=RippingAvailability(available)),
-        _ripping_shutting_down=False,
+        _shutdown_controller=SimpleNamespace(shutting_down=False),
         _ripping_profile_context=Mock(return_value=(7, "Focus")),
         status_label=Mock(),
         on_context_play_clicked=Mock(),
@@ -2407,7 +2407,7 @@ def test_gtk_ripping_menu_wiring_hides_other_operation(monkeypatch, tmp_path, mi
 
 def test_gtk_ripping_menu_wiring_skips_shutdown(monkeypatch, tmp_path) -> None:
     harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
-    harness._ripping_shutting_down = True
+    harness._shutdown_controller.shutting_down = True
 
     window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
 

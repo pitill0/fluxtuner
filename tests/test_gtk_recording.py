@@ -150,8 +150,7 @@ def test_gtk_recording_reports_missing_ffmpeg() -> None:
 
 
 def test_gtk_shutdown_finalizes_active_recording() -> None:
-    from fluxtuner.gui.gtk_recording_shutdown import AsyncRecordingStop
-    from fluxtuner.gui.gtk_ripping import RippingShutdown
+    from fluxtuner.gui.gtk_shutdown import ShutdownController
 
     manager = FakeRecordingManager()
     manager.active_session = SimpleNamespace(
@@ -161,15 +160,7 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
     service = Mock()
     service.wait.return_value = True
     harness = SimpleNamespace(
-        _ripping_shutdown=RippingShutdown(service=service),
-        _recording_shutdown=AsyncRecordingStop(stop=manager.stop),
-        _shutdown_deadline=None,
-        _shutdown_warning_open=False,
-        _shutdown_close_authorized=False,
-        _ripping_shutting_down=False,
         _ripping_controller=Mock(),
-        _shutdown_timer_id=None,
-        _shutdown_on_complete=None,
         status_label=Mock(),
         recording_manager=manager,
         player=Mock(),
@@ -179,10 +170,23 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
         _stop_metadata_polling=Mock(),
     )
 
+    harness._shutdown_controller = ShutdownController(
+        recording_manager=manager,
+        ripping_service=service,
+        stop_activity=lambda: window.MainWindow._stop_background_activity(harness),
+        stop_playback=harness.player.stop,
+        prepare_quit=Mock(),
+        show_status=harness.status_label.set_text,
+        show_confirmation=Mock(),
+        show_warning=Mock(),
+        schedule=Mock(),
+        remove_source=Mock(),
+    )
+
     # The first request schedules FFmpeg stop without blocking GTK.
     window.MainWindow.shutdown(harness)
-    assert harness._recording_shutdown.wait(timeout=2) is True
-    assert harness._recording_shutdown.error is None
+    assert harness._shutdown_controller._recording_stop.wait(timeout=2) is True
+    assert harness._shutdown_controller._recording_stop.error is None
     assert window.MainWindow.shutdown(harness) is True
 
     assert manager.stop_calls == 1

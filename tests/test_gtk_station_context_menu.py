@@ -2326,7 +2326,7 @@ def _ripping_menu_harness(
     harness = SimpleNamespace(
         selected_station={"name": "Other station"},
         ripping_service=service,
-        ripping_availability=RippingAvailability(available),
+        _ripping_controller=SimpleNamespace(availability=RippingAvailability(available)),
         _ripping_shutting_down=False,
         _ripping_profile_context=Mock(return_value=(7, "Focus")),
         status_label=Mock(),

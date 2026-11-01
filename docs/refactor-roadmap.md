@@ -612,7 +612,7 @@ C901 across the test suite or across the context-menu test module.
 
 ## Issue #316: GTK controller workstream
 
-Status: recording, ripping and shutdown integrated; complete library extraction in progress.
+Status: recording, ripping, shutdown and complete library integrated; station-list/context-menu extraction awaiting final validation and merge.
 
 The first GTK playback/metadata/search/view-state workstream remains complete.
 Issue #316 is a second bounded sequence for retained recording, ripping,
@@ -731,3 +731,31 @@ tags were saved correctly but absent from station rows and Now Playing details.
 The library stage includes a scoped GTK projection fix combining stream and
 personal tags without changing storage or other interfaces. Its manual recheck
 was confirmed by the user after block 283; the full final gate follows this update.
+
+
+### Issue #316: station list and context menu after PR #325
+
+Extract the remaining station-list and contextual-action boundary together.
+`StationList` owns table/row widgets, markers, selection projection and gestures
+through explicit live-state ports. `StationContextMenu` owns contextual GTK
+composition, explicit action targets, safe homepage handling and clipboard
+actions, delegating library and backend work to their existing owners.
+
+The real-GTK pre-extraction baseline passed 453 contracts without skips.
+MainWindow decreases from 1,690 lines/107 direct methods to 1,306/87, with
+21 methods removed and a read-only results-list projection added. Retained
+playback, metadata, search, recording and shutdown methods preserve their AST.
+
+Extraction validation passed 1,973 general tests (14 expected native/optional
+skips), plus 453 tests with real GTK and no skips. The user confirmed the
+manual list/menu checklist after block 292; the GTK instance exited normally.
+The full final quality/security gate follows this update. Review its results
+and CI before merge and before closing #316.
+
+
+Post-extraction ownership reassessment recommends retaining top-level GTK
+composition, search thread/main-loop handoff, dialogs, tray adapters and direct
+widget projections in MainWindow. Existing lifecycle and functional owners
+remain separate. No further extraction is proposed solely for line count.
+The planned #316 scope can be considered complete after final gate/CI review
+and merge; the issue is kept open until those steps are verified.

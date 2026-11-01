@@ -40,6 +40,8 @@ window = _import_window_module()
 
 from fluxtuner.gui import gtk_library as library_controller  # noqa: E402
 from fluxtuner.gui import gtk_library_panel as library_panel  # noqa: E402
+from fluxtuner.gui import gtk_station_context_menu as station_context  # noqa: E402
+from fluxtuner.gui import gtk_station_list as station_list  # noqa: E402
 
 
 def _context_harness() -> SimpleNamespace:
@@ -68,7 +70,7 @@ def test_gtk_station_context_targets_clicked_row() -> None:
     harness = SimpleNamespace(selected_station=selected_station)
     row = SimpleNamespace(station=clicked_station)
 
-    resolved = window.MainWindow._station_from_context_row(harness, row)
+    resolved = station_context.StationContextMenu._station_from_context_row(harness, row)
 
     assert resolved is clicked_station
     assert harness.selected_station is selected_station
@@ -82,7 +84,7 @@ def test_gtk_context_copy_url_uses_clicked_station() -> None:
         "url_resolved": "https://radio.example/clicked",
     }
 
-    window.MainWindow.copy_station_url(harness, Mock(), clicked_station)
+    station_context.StationContextMenu.copy_station_url(harness, Mock(), clicked_station)
 
     harness._clipboard_set_text.assert_called_once_with("https://radio.example/clicked")
     assert harness.selected_station is selected_station
@@ -96,7 +98,7 @@ def test_gtk_context_copy_name_uses_clicked_station() -> None:
         "url_resolved": "https://radio.example/clicked",
     }
 
-    window.MainWindow.copy_station_name(harness, Mock(), clicked_station)
+    station_context.StationContextMenu.copy_station_name(harness, Mock(), clicked_station)
 
     harness._clipboard_set_text.assert_called_once_with("Clicked FM")
     assert harness.selected_station is selected_station
@@ -106,7 +108,7 @@ def test_gtk_context_copy_url_rejects_missing_url() -> None:
     harness = _context_harness()
     clicked_station = {"name": "Missing URL FM"}
 
-    window.MainWindow.copy_station_url(harness, Mock(), clicked_station)
+    station_context.StationContextMenu.copy_station_url(harness, Mock(), clicked_station)
 
     harness._clipboard_set_text.assert_not_called()
     harness.status_label.set_text.assert_called_once_with("Station has no stream URL to copy.")
@@ -120,8 +122,8 @@ def test_gtk_context_actions_do_not_replace_selected_station() -> None:
         "url_resolved": "https://radio.example/clicked",
     }
 
-    window.MainWindow.copy_station_url(harness, Mock(), clicked_station)
-    window.MainWindow.copy_station_name(harness, Mock(), clicked_station)
+    station_context.StationContextMenu.copy_station_url(harness, Mock(), clicked_station)
+    station_context.StationContextMenu.copy_station_name(harness, Mock(), clicked_station)
 
     assert harness.selected_station is selected_station
 
@@ -143,7 +145,7 @@ def test_gtk_secondary_click_opens_context_for_clicked_row() -> None:
         _show_station_context_menu=Mock(),
     )
 
-    window.MainWindow.on_row_context_click(
+    station_context.StationContextMenu.on_row_context_click(
         harness,
         Mock(),
         1,
@@ -174,7 +176,7 @@ def test_gtk_non_secondary_context_callback_does_nothing() -> None:
         _show_station_context_menu=Mock(),
     )
 
-    window.MainWindow.on_row_context_click(
+    station_context.StationContextMenu.on_row_context_click(
         harness,
         Mock(),
         0,
@@ -194,7 +196,7 @@ def test_gtk_context_click_ignores_row_without_station() -> None:
         _show_station_context_menu=Mock(),
     )
 
-    window.MainWindow.on_row_context_click(
+    station_context.StationContextMenu.on_row_context_click(
         harness,
         Mock(),
         1,
@@ -257,25 +259,25 @@ def test_gtk_station_row_adds_secondary_click_context_gesture(monkeypatch) -> No
             self.children.append(child)
 
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "GestureClick",
         FakeGestureClick,
         raising=False,
     )
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "ListBoxRow",
         FakeRow,
         raising=False,
     )
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Box",
         FakeBox,
         raising=False,
     )
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Orientation",
         SimpleNamespace(HORIZONTAL=object()),
         raising=False,
@@ -297,12 +299,12 @@ def test_gtk_station_row_adds_secondary_click_context_gesture(monkeypatch) -> No
         _station_display_name=Mock(return_value="Clicked FM"),
     )
 
-    monkeypatch.setattr(window, "station_country", Mock(return_value="Spain"))
-    monkeypatch.setattr(window, "library_tags_text", Mock(return_value="rock"))
-    monkeypatch.setattr(window, "station_codec", Mock(return_value="MP3"))
-    monkeypatch.setattr(window, "station_bitrate", Mock(return_value=128))
+    monkeypatch.setattr(station_list, "station_country", Mock(return_value="Spain"))
+    monkeypatch.setattr(station_list, "library_tags_text", Mock(return_value="rock"))
+    monkeypatch.setattr(station_list, "station_codec", Mock(return_value="MP3"))
+    monkeypatch.setattr(station_list, "station_bitrate", Mock(return_value=128))
 
-    row = window.MainWindow._build_station_row(harness, station)
+    row = station_list.StationList._build_station_row(harness, station)
 
     assert row.station is station
     assert len(FakeGestureClick.instances) == 2
@@ -366,11 +368,11 @@ def test_gtk_station_context_gesture_is_independent_from_selection(monkeypatch) 
         def append(self, _child) -> None:
             pass
 
-    monkeypatch.setattr(window.Gtk, "GestureClick", FakeGestureClick, raising=False)
-    monkeypatch.setattr(window.Gtk, "ListBoxRow", FakeRow, raising=False)
-    monkeypatch.setattr(window.Gtk, "Box", FakeBox, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "GestureClick", FakeGestureClick, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "ListBoxRow", FakeRow, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Box", FakeBox, raising=False)
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Orientation",
         SimpleNamespace(HORIZONTAL=object()),
         raising=False,
@@ -397,12 +399,12 @@ def test_gtk_station_context_gesture_is_independent_from_selection(monkeypatch) 
         _station_display_name=Mock(return_value="Clicked FM"),
     )
 
-    monkeypatch.setattr(window, "station_country", Mock(return_value="Spain"))
-    monkeypatch.setattr(window, "library_tags_text", Mock(return_value="rock"))
-    monkeypatch.setattr(window, "station_codec", Mock(return_value="MP3"))
-    monkeypatch.setattr(window, "station_bitrate", Mock(return_value=128))
+    monkeypatch.setattr(station_list, "station_country", Mock(return_value="Spain"))
+    monkeypatch.setattr(station_list, "library_tags_text", Mock(return_value="rock"))
+    monkeypatch.setattr(station_list, "station_codec", Mock(return_value="MP3"))
+    monkeypatch.setattr(station_list, "station_bitrate", Mock(return_value=128))
 
-    window.MainWindow._build_station_row(harness, clicked_station)
+    station_list.StationList._build_station_row(harness, clicked_station)
 
     assert harness.selected_station is selected_station
 
@@ -468,11 +470,11 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
             self.width = width
             self.height = height
 
-    monkeypatch.setattr(window.Gtk, "Popover", FakePopover, raising=False)
-    monkeypatch.setattr(window.Gtk, "Box", FakeBox, raising=False)
-    monkeypatch.setattr(window.Gtk, "Button", FakeButton, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Popover", FakePopover, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Box", FakeBox, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Button", FakeButton, raising=False)
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Orientation",
         SimpleNamespace(VERTICAL=object()),
         raising=False,
@@ -507,7 +509,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     )
     selected_station = harness.selected_station
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         row,
         station,
@@ -614,11 +616,11 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(  # noqa: C
         def __init__(self, *_args) -> None:
             pass
 
-    monkeypatch.setattr(window.Gtk, "Popover", FakePopover, raising=False)
-    monkeypatch.setattr(window.Gtk, "Box", FakeBox, raising=False)
-    monkeypatch.setattr(window.Gtk, "Button", FakeButton, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Popover", FakePopover, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Box", FakeBox, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Button", FakeButton, raising=False)
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Orientation",
         SimpleNamespace(VERTICAL=object()),
         raising=False,
@@ -646,7 +648,7 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(  # noqa: C
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -716,11 +718,11 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:  #
         def __init__(self, *_args) -> None:
             pass
 
-    monkeypatch.setattr(window.Gtk, "Popover", FakePopover, raising=False)
-    monkeypatch.setattr(window.Gtk, "Box", FakeBox, raising=False)
-    monkeypatch.setattr(window.Gtk, "Button", FakeButton, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Popover", FakePopover, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Box", FakeBox, raising=False)
+    monkeypatch.setattr(station_context.Gtk, "Button", FakeButton, raising=False)
     monkeypatch.setattr(
-        window.Gtk,
+        station_context.Gtk,
         "Orientation",
         SimpleNamespace(VERTICAL=object()),
         raising=False,
@@ -749,7 +751,7 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:  #
         _on_station_context_menu_closed=lambda popover: popover.unparent(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -777,7 +779,7 @@ def test_gtk_clipboard_set_text_uses_gtk4_clipboard_api() -> None:
         get_display=Mock(return_value=display),
     )
 
-    window.MainWindow._clipboard_set_text(harness, "Clicked FM")
+    station_context.StationContextMenu._clipboard_set_text(harness, "Clicked FM")
 
     display.get_clipboard.assert_called_once_with()
     clipboard.set.assert_called_once_with("Clicked FM")
@@ -1138,7 +1140,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(  # no
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -1171,7 +1173,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(  # no
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -1259,7 +1261,7 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(  # n
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -1292,7 +1294,7 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(  # n
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -1336,7 +1338,7 @@ def test_gtk_open_station_homepage_targets_explicit_station_without_changing_sel
         _open_external_uri=Mock(),
     )
 
-    window.MainWindow.open_station_homepage(
+    station_context.StationContextMenu.open_station_homepage(
         harness,
         clicked_station,
     )
@@ -1357,7 +1359,7 @@ def test_gtk_open_station_homepage_rejects_missing_homepage() -> None:
         _open_external_uri=Mock(),
     )
 
-    window.MainWindow.open_station_homepage(
+    station_context.StationContextMenu.open_station_homepage(
         harness,
         station,
     )
@@ -1377,7 +1379,7 @@ def test_gtk_open_station_homepage_rejects_non_http_uri() -> None:
         _open_external_uri=Mock(),
     )
 
-    window.MainWindow.open_station_homepage(
+    station_context.StationContextMenu.open_station_homepage(
         harness,
         station,
     )
@@ -1403,7 +1405,7 @@ def test_gtk_context_open_homepage_callback_targets_clicked_station() -> None:
         open_station_homepage=Mock(),
     )
 
-    window.MainWindow.on_context_open_homepage_clicked(
+    station_context.StationContextMenu.on_context_open_homepage_clicked(
         harness,
         Mock(),
         clicked_station,
@@ -1431,7 +1433,7 @@ def test_gtk_open_external_uri_uses_gio_default_launcher(
         raising=False,
     )
 
-    window.MainWindow._open_external_uri(
+    station_context.StationContextMenu._open_external_uri(
         SimpleNamespace(),
         "https://clicked.example/",
     )
@@ -1455,7 +1457,7 @@ def test_gtk_open_station_homepage_contains_launcher_failure() -> None:
         ),
     )
 
-    window.MainWindow.open_station_homepage(
+    station_context.StationContextMenu.open_station_homepage(
         harness,
         station,
     )
@@ -1523,7 +1525,7 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(  # noqa: C901 -
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -1557,7 +1559,7 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(  # noqa: C901 -
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -1642,7 +1644,7 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(  # noqa: C9
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -1676,7 +1678,7 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(  # noqa: C9
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -1803,7 +1805,7 @@ def test_gtk_station_recording_state_matches_active_session_source_url() -> None
     )
 
     assert (
-        window.MainWindow._is_station_recording(
+        station_context.StationContextMenu._is_station_recording(
             harness,
             station,
         )
@@ -1827,7 +1829,7 @@ def test_gtk_station_recording_state_rejects_different_active_session() -> None:
     )
 
     assert (
-        window.MainWindow._is_station_recording(
+        station_context.StationContextMenu._is_station_recording(
             harness,
             station,
         )
@@ -1847,7 +1849,7 @@ def test_gtk_station_recording_state_is_false_without_active_session() -> None:
     )
 
     assert (
-        window.MainWindow._is_station_recording(
+        station_context.StationContextMenu._is_station_recording(
             harness,
             station,
         )
@@ -1937,7 +1939,7 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(  # n
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -1977,7 +1979,7 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(  # n
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -2060,7 +2062,7 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(  # noqa: C901
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -2104,7 +2106,7 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(  # noqa: C901
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -2187,7 +2189,7 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(  
             pass
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=FakePopover,
@@ -2231,7 +2233,7 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(  
         _on_station_context_menu_closed=Mock(),
     )
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness),
         object(),
         station,
@@ -2295,7 +2297,7 @@ def _ripping_menu_harness(
         return result
 
     monkeypatch.setattr(
-        window,
+        station_context,
         "Gtk",
         SimpleNamespace(
             Popover=Mock(),
@@ -2375,7 +2377,7 @@ def test_gtk_ripping_menu_wiring_projects_policy(
     )
     selection = harness.selected_station
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 
@@ -2405,7 +2407,7 @@ def test_gtk_ripping_menu_wiring_hides_other_operation(monkeypatch, tmp_path, mi
     else:
         station["url_resolved"] = "https://example.com/other"
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 
@@ -2417,7 +2419,7 @@ def test_gtk_ripping_menu_wiring_skips_shutdown(monkeypatch, tmp_path) -> None:
     harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
     harness._shutdown_controller.shutting_down = True
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 
@@ -2430,7 +2432,7 @@ def test_gtk_ripping_menu_wiring_contains_profile_failure(monkeypatch, tmp_path)
     harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
     harness._ripping_profile_context.side_effect = RuntimeError("Profile unavailable")
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 
@@ -2454,7 +2456,7 @@ def test_gtk_ripping_menu_wiring_reads_snapshot_after_wait(monkeypatch, tmp_path
 
     harness.ripping_service.wait.side_effect = finish
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 
@@ -2496,7 +2498,7 @@ def test_playlist_context_menu_binds_active_playlist(monkeypatch, tmp_path) -> N
     harness._view_state = ViewState()
     harness._view_state.show_playlist("Morning")
 
-    window.MainWindow._show_station_context_menu(
+    station_context.StationContextMenu._show_station_context_menu(
         bind_library_menu(harness), object(), station, 1.0, 2.0
     )
 

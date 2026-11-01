@@ -726,3 +726,75 @@ be reviewed before staging. MainWindow is 1,690 lines/107 direct methods versus
 This is a reduction of window responsibilities, not a claim of fewer total
 production lines or improved runtime performance. Keep #316 open for the
 remaining station-list/layout and context-menu reassessment.
+
+
+## Stage 5: station list and contextual actions
+
+After PR #325, the real-GTK selection baseline passed 453 GTK/core-library
+contracts without skips. Five new native signal contracts cover selection
+restoration by URL, current-station fallback, removal of the selected station,
+an empty list and double-click targeting. A fixture application-ID collision
+was corrected before extraction; production behavior was unchanged.
+
+`StationList` owns the results table, row widgets, markers, row gestures and
+selection projection. Explicit live-state ports read the authoritative station
+collection, selected station, current playback and player capabilities from
+MainWindow. The component writes selection through its named setter; it does
+not duplicate any collection, favorite cache or playback state.
+
+`StationContextMenu` owns popover construction and cleanup, safe homepage and
+clipboard actions, and menu action projection. It receives explicit library,
+recording, ripping and shutdown collaborators and station-targeted callbacks.
+The shared ViewState preserves active-playlist targeting. RecordingManager,
+RippingService and their controllers retain backend lifecycle ownership.
+Neither component imports MainWindow or stores the composition root.
+
+MainWindow keeps three small table/render/name adapters and a read-only
+results-list widget projection for existing consumers. Its direct method count
+falls from 107 to 87: 21 methods leave and one read-only property is added.
+The formatted window decreases from 1,690 to 1,306 lines. Only construction
+and those three adapters change among retained methods; playback, metadata,
+search, recording commands and shutdown retain their AST.
+
+Existing context-menu assertions remain with the relocated methods. Native
+selection contracts additionally verify actual component composition and the
+shared results widget/ViewState. Extraction checks, native validation, manual
+list/menu checks and the final full quality/security gate are separate steps.
+The user confirmed the manual checklist after block 292; GTK exited normally.
+The full final gate follows this documentation update. Keep #316 open until
+its results, CI and the ownership reassessment below have been reviewed.
+
+
+### Stage-5 manual evidence and ownership reassessment
+
+The user confirmed the manual station-list/context-menu checklist after block
+292. GTK exited normally, with seven source files, branches, index and virtualenv
+preserved. The final database snapshot contains Alpha, Beta and Gamma favorites,
+Alpha/Beta membership in Context pair, and Alpha/Beta history entries. This
+snapshot records final state; it does not independently prove every intermediate
+menu action. Visual/action checks are the user's confirmation. No newly inspected
+recording output or segmented Brynse track output is claimed for this run.
+
+The second GTK workstream has now extracted recording actions, ripping/monitoring,
+shutdown coordination, the complete library boundary, station-row projection and
+contextual actions. The window composes those owners and retains GTK search
+handoff, Now Playing/player-preference projection, dialogs, top-level layout,
+tray adapters and small interface callbacks. Existing playback, metadata and
+search lifecycle owners remain authoritative. Moving these remaining UI adapters
+solely to lower line count is not recommended by this reassessment.
+
+The stage baseline is 1,690 lines/107 direct methods; the extracted window is
+1,306/87. Twenty-one methods leave and one read-only widget property is added.
+Compared with the second-workstream baseline of 2,760/155 measured by direct AST
+inspection, the window is 1,454 lines and 68 direct methods smaller. These are
+window-ownership metrics, not a claim of less total production code or improved
+runtime performance. The source issue's historical method estimate used a
+different measurement; direct AST counts are used consistently in these stages.
+
+The planned extraction scope is complete subject to the final quality/security
+gate, CI and review before merge. Those results must be reviewed separately;
+this document does not mark #316 closed. The GTK fixture application-ID collision
+was fixed before extraction. The focused and real-GTK contracts, preserved method
+ASTs and manual checks cover the migrated boundaries; optional backend contracts
+must run without skips in the final native gate. Web work, Flatpak permissions
+and Brynse dependency/version changes remain outside this workstream.

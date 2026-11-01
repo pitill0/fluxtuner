@@ -522,3 +522,53 @@ Existing GTK recording and context-menu contracts remain unchanged. Structural
 checks preserve every other `MainWindow` method, including shutdown and ripping.
 Record post-format window metrics in the extraction report; the workstream
 remains open pending later controller extractions and manual/full-gate validation.
+
+
+### Second extraction: ripping actions and monitoring
+
+PR #322 completed the first recording-action stage. Its full gate passed
+(1,948 tests, eight optional/environment skips), with 346 additional real-GTK
+contracts. Manual session recording, explicit stop, canceling close during an
+active recording and confirmed close/finalization were checked on Nukleuz.
+
+The next baseline at `9b3ad9c` ran 114 focused ripping/lifecycle contracts with
+real GTK. Seven optional Brynse backend contracts were skipped because Brynse
+was not installed. The installed `fluxtuner-ripper` development distribution is
+not evidence that those Brynse contracts ran. The pinned Brynse revision remains unchanged. Subsequent validation installed
+that exact revision only in a temporary dependency directory, preserving
+the project virtualenv. GTK and ripping contracts then ran together: 406
+passed with no skips, including all seven real-Brynse contracts.
+
+The user also confirmed the manual GTK sequence with the isolated backend:
+an explicitly targeted station, responsive ripping, explicit stop, canceling
+quit while active, then confirming quit and waiting for finalization. The
+application exited normally; two MP3 outputs (264.528 and 209.160 seconds)
+were recognized by ffprobe. The final full gate follows these checks.
+
+`gtk_ripping_controller.py:RippingController` now owns cached capability and
+its probe handle, status deduplication and the single UI monitoring timer. It
+receives the existing `RippingService`, profile resolver and narrow status,
+shutdown-state and scheduling callbacks. It imports no GTK widgets or window,
+retains no window dependency, and does not duplicate service snapshots/jobs.
+The existing availability worker dispatches results to the main loop. Late
+results and future actions are ignored once the shared shutdown guard is set.
+
+`MainWindow` retains profile resolution, GTK signal adapters and context-menu
+construction. The menu reads the controller's authoritative cached capability.
+The window's shutdown lifecycle still sets the existing shared guard and asks
+`RippingShutdown` to finalize backend workers. It delegates only UI source
+cancellation to `stop_monitoring`, preserving the former ordering. The
+controller neither waits for workers synchronously nor owns another shutdown
+flag; the later quit/shutdown extraction remains separate.
+
+Start/stop keep their existing error boundaries, targeted station/profile and
+status-before-timer order. Monitoring calls `wait(timeout=0)` before taking a
+snapshot, continues through terminal states while workers are pending, and
+updates messages when late finalized outputs appear. Deduplication includes
+the job identity. Existing orchestration contracts move to this owner, while
+window signal, profile and shutdown integration contracts remain in place.
+
+Record post-format size/direct-method metrics in the extraction report. Four
+monitor/probe methods leave `MainWindow`; recording, playback, metadata, search,
+profile resolution and quit decisions retain their existing contracts. Manual
+GTK checks and the full gate remain required before the second-stage PR.

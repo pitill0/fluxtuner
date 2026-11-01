@@ -831,76 +831,6 @@ def test_gtk_appearance_mode_mapping_is_stable() -> None:
     assert [mode.value for mode in modes] == ["system", "dark", "light"]
 
 
-def _ripping_probe_harness() -> SimpleNamespace:
-    from fluxtuner.core.ripping import RippingAvailability
-
-    return SimpleNamespace(
-        ripping_backend=Mock(),
-        ripping_availability=RippingAvailability(False, "Checking availability."),
-        _ripping_probe_worker=None,
-        _ripping_shutting_down=False,
-        _ripping_availability_finished=Mock(),
-        selected_station={"name": "Selected station"},
-        status_label=Mock(),
-    )
-
-
-def test_gtk_ripping_window_schedules_availability_probe(monkeypatch) -> None:
-    harness = _ripping_probe_harness()
-    worker = object()
-    probe = Mock(return_value=worker)
-    dispatcher = Mock()
-    monkeypatch.setattr(window, "start_ripping_availability_probe", probe, raising=False)
-    monkeypatch.setattr(window.GLib, "idle_add", dispatcher, raising=False)
-
-    window.MainWindow._start_ripping_availability_probe(harness)
-
-    probe.assert_called_once_with(
-        check_availability=harness.ripping_backend.availability,
-        dispatch=dispatcher,
-        on_result=harness._ripping_availability_finished,
-    )
-    harness.ripping_backend.availability.assert_not_called()
-    assert harness._ripping_probe_worker is worker
-    harness.status_label.set_text.assert_not_called()
-
-
-@pytest.mark.parametrize("available", [True, False])
-@pytest.mark.parametrize("closing", [True, False])
-def test_gtk_ripping_window_accepts_availability_only_while_open(
-    available: bool, closing: bool
-) -> None:
-    from fluxtuner.core.ripping import RippingAvailability
-
-    harness = _ripping_probe_harness()
-    harness._ripping_shutting_down = closing
-    previous = harness.ripping_availability
-    selection = harness.selected_station
-    result = RippingAvailability(available, "" if available else "Missing Brynse.")
-
-    window.MainWindow._ripping_availability_finished(harness, result)
-
-    assert harness.ripping_availability is (previous if closing else result)
-    assert harness.selected_station is selection
-    harness.status_label.set_text.assert_not_called()
-
-
-def test_gtk_ripping_window_contains_probe_scheduling_failure(monkeypatch) -> None:
-    harness = _ripping_probe_harness()
-    probe = Mock(side_effect=RuntimeError("worker unavailable"))
-    monkeypatch.setattr(window, "start_ripping_availability_probe", probe, raising=False)
-    monkeypatch.setattr(window.GLib, "idle_add", Mock(), raising=False)
-
-    window.MainWindow._start_ripping_availability_probe(harness)
-
-    assert harness._ripping_probe_worker is None
-    assert harness.ripping_availability.available is False
-    assert harness.ripping_availability.reason == (
-        "Could not schedule ripping availability check: worker unavailable"
-    )
-    harness.status_label.set_text.assert_not_called()
-
-
 def test_gtk_ripping_shutdown_rejects_future_probe_results() -> None:
     harness = _ripping_shutdown_harness()
 
@@ -953,429 +883,6 @@ def test_gtk_ripping_rejects_missing_persistent_profile(tmp_path, monkeypatch) -
         assert get_profile_by_name(conn, "Gone") is None
 
 
-def _ripping_start_harness() -> SimpleNamespace:
-    from fluxtuner.core.ripping import RippingAvailability
-    from fluxtuner.core.ripping_service import RippingService
-
-    service = Mock(spec=RippingService)
-    service.start.return_value = 42
-    return SimpleNamespace(
-        ripping_service=service,
-        ripping_availability=RippingAvailability(True),
-        _ripping_shutting_down=False,
-        _ripping_profile_context=Mock(return_value=(7, "Focus")),
-        _ensure_ripping_state_timer=Mock(),
-        selected_station={"name": "Other station", "url": "https://example.com/other"},
-        status_label=Mock(),
-    )
-
-
-def test_gtk_ripping_window_starts_clicked_station(tmp_path, monkeypatch) -> None:
-    from uuid import UUID
-
-    harness = _ripping_start_harness()
-    selection = harness.selected_station
-    clicked = {
-        "name": "Clicked station",
-        "url": "https://example.com/original",
-        "url_resolved": "https://example.com/clicked",
-    }
-    run_id = UUID("12345678-1234-5678-1234-567812345678")
-    new_uuid = Mock(return_value=run_id)
-    monkeypatch.setattr(window, "DATA_DIR", tmp_path, raising=False)
-    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
-
-    job_id = window.MainWindow.start_station_ripping(harness, clicked)
-
-    assert job_id == 42
-    harness._ripping_profile_context.assert_called_once_with()
-    new_uuid.assert_called_once_with()
-    harness.ripping_service.start.assert_called_once()
-    request = harness.ripping_service.start.call_args.args[0]
-    assert request.source_url == "https://example.com/clicked"
-    assert request.profile_id == 7
-    assert request.profile_name == "Focus"
-    assert request.output_directory == tmp_path / "rips" / "profile-7" / run_id.hex
-    assert harness.selected_station is selection
-    harness.status_label.set_text.assert_called_once_with("Starting ripping: Clicked station")
-    harness._ensure_ripping_state_timer.assert_called_once_with()
-
-
-@pytest.mark.parametrize("closing", [False, True])
-def test_gtk_ripping_window_start_rejects_before_profile_lookup(monkeypatch, closing: bool) -> None:
-    from fluxtuner.core.ripping import RippingAvailability
-
-    harness = _ripping_start_harness()
-    harness._ripping_shutting_down = closing
-    harness.ripping_availability = RippingAvailability(False, "Missing Brynse.")
-    new_uuid = Mock()
-    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
-
-    job_id = window.MainWindow.start_station_ripping(
-        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
-    )
-
-    assert job_id is None
-    harness._ripping_profile_context.assert_not_called()
-    harness.ripping_service.start.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_not_called()
-    new_uuid.assert_not_called()
-    if closing:
-        harness.status_label.set_text.assert_not_called()
-    else:
-        harness.status_label.set_text.assert_called_once_with(
-            "Ripping unavailable: Missing Brynse."
-        )
-
-
-def test_gtk_ripping_window_start_contains_profile_failure(monkeypatch) -> None:
-    from fluxtuner.core.ripping import RippingError
-
-    harness = _ripping_start_harness()
-    harness._ripping_profile_context.side_effect = RippingError("Ripping profile is unavailable.")
-    new_uuid = Mock()
-    monkeypatch.setattr(window, "uuid4", new_uuid, raising=False)
-
-    job_id = window.MainWindow.start_station_ripping(
-        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
-    )
-
-    assert job_id is None
-    harness.ripping_service.start.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_not_called()
-    new_uuid.assert_not_called()
-    harness.status_label.set_text.assert_called_once_with(
-        "Could not start ripping: Ripping profile is unavailable."
-    )
-
-
-def _ripping_state_harness(tmp_path, *, state="running") -> SimpleNamespace:
-    from fluxtuner.core.ripping import RippingRequest
-    from fluxtuner.core.ripping_service import RippingService, RippingSnapshot
-
-    request = RippingRequest(
-        station_name="Clicked station",
-        source_url="https://example.com/clicked",
-        output_directory=tmp_path / "tracks",
-    )
-    service = Mock(spec=RippingService)
-    service.wait.return_value = False
-    service.snapshot.return_value = RippingSnapshot(job_id=1, request=request, state=state)
-    return SimpleNamespace(
-        ripping_service=service,
-        _ripping_shutting_down=False,
-        _ripping_state_timer_id=17,
-        _ripping_last_status=None,
-        selected_station={"name": "Other station"},
-        status_label=Mock(),
-    )
-
-
-@pytest.mark.parametrize(
-    ("state", "expected"),
-    [
-        ("starting", "Starting ripping: Clicked station"),
-        ("running", "Ripping tracks: Clicked station"),
-        ("stopping", "Stopping ripping: Clicked station"),
-    ],
-)
-def test_gtk_ripping_state_refresh_projects_active_states(tmp_path, state, expected) -> None:
-    harness = _ripping_state_harness(tmp_path, state=state)
-    selection = harness.selected_station
-
-    keep_polling = window.MainWindow._refresh_ripping_state(harness)
-
-    assert keep_polling is True
-    assert harness._ripping_state_timer_id == 17
-    harness.ripping_service.wait.assert_called_once_with(timeout=0)
-    harness.status_label.set_text.assert_called_once_with(expected)
-    assert harness.selected_station is selection
-
-
-def test_gtk_ripping_state_refresh_waits_for_workers_after_terminal_state(tmp_path) -> None:
-    harness = _ripping_state_harness(tmp_path, state="completed")
-    harness.ripping_service.wait.side_effect = [False, True]
-
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    assert harness._ripping_state_timer_id == 17
-    assert window.MainWindow._refresh_ripping_state(harness) is False
-    assert harness._ripping_state_timer_id is None
-    harness.status_label.set_text.assert_called_once_with(
-        "Ripping completed: Clicked station (0 tracks saved)"
-    )
-    assert harness.ripping_service.wait.call_args_list == [call(timeout=0), call(timeout=0)]
-
-
-def test_gtk_ripping_state_refresh_deduplicates_within_each_job(tmp_path) -> None:
-    from dataclasses import replace
-
-    harness = _ripping_state_harness(tmp_path)
-
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    harness.status_label.set_text.reset_mock()
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    harness.status_label.set_text.assert_not_called()
-
-    previous = harness.ripping_service.snapshot.return_value
-    harness.ripping_service.snapshot.return_value = replace(previous, job_id=2)
-
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    harness.status_label.set_text.assert_called_once_with("Ripping tracks: Clicked station")
-
-
-def test_gtk_ripping_state_refresh_reports_late_outputs_after_failure(tmp_path) -> None:
-    from dataclasses import replace
-
-    from fluxtuner.core.ripping import RippedTrack, RippingResult
-
-    harness = _ripping_state_harness(tmp_path, state="failed")
-    snapshot = harness.ripping_service.snapshot.return_value
-    snapshot = replace(snapshot, error=RuntimeError("stop failed"))
-    harness.ripping_service.snapshot.return_value = snapshot
-
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    harness.status_label.set_text.assert_called_once_with(
-        "Ripping failed: Clicked station: stop failed"
-    )
-    harness.status_label.set_text.reset_mock()
-
-    result = RippingResult(
-        request=snapshot.request,
-        codec="mp3",
-        metaint=16000,
-        stopped=True,
-        tracks=(RippedTrack("Saved", snapshot.request.output_directory / "saved.mp3"),),
-    )
-    harness.ripping_service.snapshot.return_value = replace(snapshot, result=result)
-
-    assert window.MainWindow._refresh_ripping_state(harness) is True
-    harness.status_label.set_text.assert_called_once_with(
-        "Ripping failed: Clicked station: stop failed (1 track saved)"
-        f" → {snapshot.request.output_directory}"
-    )
-
-
-def test_gtk_ripping_state_refresh_reads_snapshot_after_readiness_check(tmp_path) -> None:
-    from dataclasses import replace
-
-    harness = _ripping_state_harness(tmp_path, state="starting")
-    initial = harness.ripping_service.snapshot.return_value
-
-    def finish_during_check(*, timeout):
-        assert timeout == 0
-        harness.ripping_service.snapshot.return_value = replace(initial, state="stopped")
-        return True
-
-    harness.ripping_service.wait.side_effect = finish_during_check
-
-    assert window.MainWindow._refresh_ripping_state(harness) is False
-    assert harness._ripping_state_timer_id is None
-    harness.status_label.set_text.assert_called_once_with(
-        "Ripping stopped: Clicked station (0 tracks saved)"
-    )
-
-
-def test_gtk_ripping_state_refresh_discards_updates_during_shutdown(tmp_path) -> None:
-    harness = _ripping_state_harness(tmp_path)
-    harness._ripping_shutting_down = True
-
-    assert window.MainWindow._refresh_ripping_state(harness) is False
-    assert harness._ripping_state_timer_id is None
-    harness.ripping_service.wait.assert_not_called()
-    harness.ripping_service.snapshot.assert_not_called()
-    harness.status_label.set_text.assert_not_called()
-
-
-def test_gtk_ripping_state_refresh_without_job_finishes_silently(tmp_path) -> None:
-    harness = _ripping_state_harness(tmp_path)
-    harness.ripping_service.wait.return_value = True
-    harness.ripping_service.snapshot.return_value = None
-
-    assert window.MainWindow._refresh_ripping_state(harness) is False
-    assert harness._ripping_state_timer_id is None
-    harness.status_label.set_text.assert_not_called()
-
-
-def test_gtk_ripping_state_timer_schedules_once(monkeypatch) -> None:
-    harness = SimpleNamespace(
-        _ripping_shutting_down=False,
-        _ripping_state_timer_id=None,
-        _refresh_ripping_state=Mock(),
-    )
-    schedule = Mock(return_value=23)
-    monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
-
-    window.MainWindow._ensure_ripping_state_timer(harness)
-    window.MainWindow._ensure_ripping_state_timer(harness)
-
-    assert harness._ripping_state_timer_id == 23
-    schedule.assert_called_once()
-    interval, callback = schedule.call_args.args
-    assert 0 < interval <= 1000
-    assert callback is harness._refresh_ripping_state
-    harness._refresh_ripping_state.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("closing", "timer_id"),
-    [(True, None), (False, 17)],
-)
-def test_gtk_ripping_state_timer_rejects_shutdown_or_duplicate(
-    monkeypatch, closing, timer_id
-) -> None:
-    harness = SimpleNamespace(
-        _ripping_shutting_down=closing,
-        _ripping_state_timer_id=timer_id,
-        _refresh_ripping_state=Mock(),
-    )
-    schedule = Mock()
-    monkeypatch.setattr(window.GLib, "timeout_add", schedule, raising=False)
-
-    window.MainWindow._ensure_ripping_state_timer(harness)
-
-    assert harness._ripping_state_timer_id == timer_id
-    schedule.assert_not_called()
-    harness._refresh_ripping_state.assert_not_called()
-
-
-def test_gtk_ripping_window_start_failure_does_not_schedule_timer(tmp_path, monkeypatch) -> None:
-    harness = _ripping_start_harness()
-    harness.ripping_service.start.side_effect = RuntimeError("Another job is active.")
-    selection = harness.selected_station
-    monkeypatch.setattr(window, "DATA_DIR", tmp_path)
-
-    job_id = window.MainWindow.start_station_ripping(
-        harness,
-        {"name": "Clicked station", "url": "https://example.com/clicked"},
-    )
-
-    assert job_id is None
-    harness._ensure_ripping_state_timer.assert_not_called()
-    assert harness.selected_station is selection
-    harness.status_label.set_text.assert_called_once_with(
-        "Could not start ripping: Another job is active."
-    )
-
-
-def _ripping_stop_harness(tmp_path) -> SimpleNamespace:
-    from fluxtuner.core.ripping import RippingRequest
-    from fluxtuner.core.ripping_service import RippingSnapshot
-
-    harness = _ripping_start_harness()
-    harness.ripping_service.snapshot.return_value = RippingSnapshot(
-        job_id=42,
-        request=RippingRequest(
-            station_name="Running station",
-            source_url="https://example.com/clicked",
-            output_directory=tmp_path / "tracks",
-            profile_id=7,
-            profile_name="Focus",
-        ),
-        state="running",
-    )
-    return harness
-
-
-@pytest.mark.parametrize("available", [True, False])
-def test_gtk_ripping_window_stop_uses_clicked_station(tmp_path, available) -> None:
-    from fluxtuner.core.ripping import RippingAvailability
-
-    harness = _ripping_stop_harness(tmp_path)
-    harness.ripping_availability = RippingAvailability(available)
-    selection = harness.selected_station
-
-    window.MainWindow.stop_station_ripping(
-        harness,
-        {
-            "name": "Clicked station",
-            "url": "https://example.com/original",
-            "url_resolved": "https://example.com/clicked",
-        },
-    )
-
-    harness._ripping_profile_context.assert_called_once_with()
-    harness.ripping_service.stop.assert_called_once_with()
-    harness.ripping_service.wait.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_called_once_with()
-    harness.status_label.set_text.assert_called_once_with("Stopping ripping: Running station")
-    assert harness.selected_station is selection
-
-
-@pytest.mark.parametrize("case", ["other_station", "other_profile", "completed", "no_job"])
-def test_gtk_ripping_window_stop_rejects_unrelated_job(tmp_path, case) -> None:
-    from dataclasses import replace
-
-    harness = _ripping_stop_harness(tmp_path)
-    station = {"name": "Clicked station", "url": "https://example.com/clicked"}
-    if case == "other_station":
-        station["url"] = "https://example.com/other"
-    elif case == "other_profile":
-        harness._ripping_profile_context.return_value = (8, "Other profile")
-    elif case == "completed":
-        snapshot = harness.ripping_service.snapshot.return_value
-        harness.ripping_service.snapshot.return_value = replace(snapshot, state="completed")
-    else:
-        harness.ripping_service.snapshot.return_value = None
-    selection = harness.selected_station
-
-    window.MainWindow.stop_station_ripping(harness, station)
-
-    harness.ripping_service.stop.assert_not_called()
-    harness.ripping_service.wait.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_not_called()
-    harness.status_label.set_text.assert_not_called()
-    assert harness.selected_station is selection
-
-
-def test_gtk_ripping_window_stop_contains_profile_failure(tmp_path) -> None:
-    from fluxtuner.core.ripping import RippingError
-
-    harness = _ripping_stop_harness(tmp_path)
-    harness._ripping_profile_context.side_effect = RippingError("Ripping profile is unavailable.")
-
-    window.MainWindow.stop_station_ripping(
-        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
-    )
-
-    harness.ripping_service.stop.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_not_called()
-    harness.status_label.set_text.assert_called_once_with(
-        "Could not stop ripping: Ripping profile is unavailable."
-    )
-
-
-def test_gtk_ripping_window_stop_during_shutdown_is_ignored(tmp_path) -> None:
-    harness = _ripping_stop_harness(tmp_path)
-    harness._ripping_shutting_down = True
-
-    window.MainWindow.stop_station_ripping(
-        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
-    )
-
-    harness._ripping_profile_context.assert_not_called()
-    harness.ripping_service.stop.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_not_called()
-    harness.status_label.set_text.assert_not_called()
-
-
-def test_gtk_ripping_window_stop_reports_failure_and_keeps_tracking(tmp_path) -> None:
-    from fluxtuner.core.ripping import RippingError
-
-    harness = _ripping_stop_harness(tmp_path)
-    harness.ripping_service.stop.side_effect = RippingError("Stop worker unavailable.")
-
-    window.MainWindow.stop_station_ripping(
-        harness, {"name": "Clicked station", "url": "https://example.com/clicked"}
-    )
-
-    harness.ripping_service.stop.assert_called_once_with()
-    harness.ripping_service.wait.assert_not_called()
-    harness._ensure_ripping_state_timer.assert_called_once_with()
-    harness.status_label.set_text.assert_called_once_with(
-        "Could not stop ripping: Stop worker unavailable."
-    )
-
-
 def _ripping_shutdown_harness() -> SimpleNamespace:
     from fluxtuner.core.ripping_service import RippingService
     from fluxtuner.gui.gtk_ripping import RippingShutdown
@@ -1396,7 +903,7 @@ def _ripping_shutdown_harness() -> SimpleNamespace:
         ripping_service=service,
         _ripping_shutdown=RippingShutdown(service=service),
         _ripping_shutting_down=False,
-        _ripping_state_timer_id=None,
+        _ripping_controller=Mock(),
         _shutdown_timer_id=None,
         _shutdown_on_complete=None,
         close=Mock(),
@@ -1444,18 +951,14 @@ def test_gtk_ripping_window_shutdown_repeats_only_completion_check() -> None:
     harness.player.stop.assert_called_once_with()
 
 
-def test_gtk_ripping_window_shutdown_removes_state_timer(monkeypatch) -> None:
+def test_gtk_ripping_window_shutdown_cancels_controller_monitoring_once() -> None:
     harness = _ripping_shutdown_harness()
-    harness._ripping_state_timer_id = 17
     harness.ripping_service.wait.return_value = False
-    remove = Mock()
-    monkeypatch.setattr(window.GLib, "source_remove", remove, raising=False)
 
     assert window.MainWindow.shutdown(harness) is False
     assert window.MainWindow.shutdown(harness) is False
 
-    remove.assert_called_once_with(17)
-    assert harness._ripping_state_timer_id is None
+    harness._ripping_controller.stop_monitoring.assert_called_once_with()
 
 
 def test_gtk_ripping_window_shutdown_contains_and_reports_stop_failure() -> None:
@@ -2411,3 +1914,20 @@ def test_gtk_shutdown_failure_requires_explicit_decision(monkeypatch) -> None:
     finish.assert_not_called()
     harness._show_shutdown_warning.call_args.kwargs["on_force"]()
     finish.assert_called_once_with()
+
+
+@pytest.mark.parametrize("action", ["start", "stop"])
+def test_gtk_ripping_actions_delegate_explicit_target_to_controller(action):
+    selected = {"name": "Selected"}
+    station = {"name": "Clicked", "url": "https://example.com/clicked"}
+    controller = Mock()
+    controller.start.return_value = 42
+    harness = SimpleNamespace(_ripping_controller=controller, selected_station=selected)
+
+    if action == "start":
+        assert window.MainWindow.start_station_ripping(harness, station) == 42
+    else:
+        window.MainWindow.stop_station_ripping(harness, station)
+
+    getattr(controller, action).assert_called_once_with(station)
+    assert harness.selected_station is selected

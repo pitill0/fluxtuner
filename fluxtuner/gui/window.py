@@ -8,7 +8,6 @@ from contextlib import suppress
 from pathlib import Path
 from time import monotonic
 from typing import Any, Literal
-from uuid import uuid4
 
 import gi
 
@@ -50,7 +49,7 @@ from fluxtuner.core.recordings import (  # noqa: E402
     SqliteRecordingStore,
     recording_output_path,
 )
-from fluxtuner.core.ripping import RippingAvailability, RippingError  # noqa: E402
+from fluxtuner.core.ripping import RippingError  # noqa: E402
 from fluxtuner.core.ripping_service import RippingService  # noqa: E402
 from fluxtuner.core.search_service import SearchRequest, SearchService  # noqa: E402
 from fluxtuner.core.stations import (  # noqa: E402
@@ -83,13 +82,10 @@ from fluxtuner.gui.gtk_recording import RecordingController  # noqa: E402
 from fluxtuner.gui.gtk_recording_shutdown import AsyncRecordingStop  # noqa: E402
 from fluxtuner.gui.gtk_ripping import (  # noqa: E402
     RippingShutdown,
-    coordinate_ripping_start,
-    coordinate_ripping_stop,
     ripping_menu_action,
-    ripping_status,
     shutdown_has_pending_recordings,
-    start_ripping_availability_probe,
 )
+from fluxtuner.gui.gtk_ripping_controller import RippingController  # noqa: E402
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
 from fluxtuner.gui.gtk_view_state import ViewState  # noqa: E402
 from fluxtuner.paths import DATA_DIR  # noqa: E402
@@ -127,7 +123,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.recording_backend,
             store=SqliteRecordingStore(profile_name=self.profile_name),
         )
-        self.ripping_backend = BrynseRipper()
+        ripping_backend = BrynseRipper()
         self.ripping_service = RippingService(backend_factory=BrynseRipper)
         self._ripping_shutdown = RippingShutdown(service=self.ripping_service)
         self._shutdown_timer_id: int | None = None
@@ -137,14 +133,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._shutdown_deadline: float | None = None
         self._shutdown_warning_open = False
         self._shutdown_close_authorized = False
-        self.ripping_availability = RippingAvailability(
-            False,
-            "Checking Brynse availability.",
-        )
-        self._ripping_probe_worker: threading.Thread | None = None
         self._ripping_shutting_down = False
-        self._ripping_state_timer_id: int | None = None
-        self._ripping_last_status: tuple[int, str] | None = None
         self.search_service = SearchService(capabilities=self.player_capabilities)
         self.usage_tracker = DataUsageTracker()
         self._usage_timer_id: int | None = None
@@ -173,55 +162,26 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_bottom_playback_bar(root)
         self._build_status_bar(root)
         self._refresh_saved_playlists()
-        self._start_ripping_availability_probe()
+        self._ripping_controller = RippingController(
+            service=self.ripping_service,
+            check_availability=ripping_backend.availability,
+            profile_context=self._ripping_profile_context,
+            data_directory=DATA_DIR,
+            show_status=self.status_label.set_text,
+            is_shutting_down=lambda: self._ripping_shutting_down,
+            schedule=GLib.timeout_add,
+            remove_source=GLib.source_remove,
+            dispatch=GLib.idle_add,
+        )
+        self._ripping_controller.probe_availability()
 
     def start_station_ripping(self, station: dict[str, Any]) -> int | None:
         """Submit one explicit station without changing the current selection."""
-        if self._ripping_shutting_down:
-            return None
-        if not self.ripping_availability.available:
-            self.status_label.set_text(f"Ripping unavailable: {self.ripping_availability.reason}")
-            return None
-
-        try:
-            profile_id, profile_name = self._ripping_profile_context()
-            result = coordinate_ripping_start(
-                station,
-                availability=self.ripping_availability,
-                service=self.ripping_service,
-                data_directory=DATA_DIR,
-                profile_id=profile_id,
-                profile_name=profile_name,
-                run_id=uuid4(),
-            )
-        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
-            self.status_label.set_text(f"Could not start ripping: {exc}")
-            return None
-
-        self.status_label.set_text(result.status)
-        if result.job_id is not None:
-            self._ensure_ripping_state_timer()
-        return result.job_id
+        return self._ripping_controller.start(station)
 
     def stop_station_ripping(self, station: dict[str, Any]) -> None:
         """Request stopping for an explicit station in the window's profile."""
-        if self._ripping_shutting_down:
-            return
-
-        try:
-            profile_id, _profile_name = self._ripping_profile_context()
-            message = coordinate_ripping_stop(
-                station,
-                service=self.ripping_service,
-                profile_id=profile_id,
-            )
-        except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
-            self.status_label.set_text(f"Could not stop ripping: {exc}")
-            return
-
-        if message is not None:
-            self.status_label.set_text(message)
-            self._ensure_ripping_state_timer()
+        self._ripping_controller.stop(station)
 
     def on_context_rip_clicked(
         self,
@@ -239,31 +199,6 @@ class MainWindow(Gtk.ApplicationWindow):
         """Stop ripping for the station targeted by a context-menu action."""
         self.stop_station_ripping(station)
 
-    def _ensure_ripping_state_timer(self) -> None:
-        """Schedule one GTK state timer after a ripping job is accepted."""
-        if self._ripping_shutting_down or self._ripping_state_timer_id is not None:
-            return
-        self._ripping_state_timer_id = GLib.timeout_add(200, self._refresh_ripping_state)
-
-    def _refresh_ripping_state(self) -> bool:
-        """Project current state until all ripping workers have finished."""
-        if self._ripping_shutting_down:
-            self._ripping_state_timer_id = None
-            return False
-
-        finished = self.ripping_service.wait(timeout=0)
-        snapshot = self.ripping_service.snapshot()
-        if snapshot is not None:
-            message = ripping_status(snapshot)
-            status_key = (snapshot.job_id, message)
-            if status_key != self._ripping_last_status:
-                self.status_label.set_text(message)
-                self._ripping_last_status = status_key
-
-        if finished:
-            self._ripping_state_timer_id = None
-        return not finished
-
     def _ripping_profile_context(self) -> tuple[int, str]:
         """Resolve the window's persistent profile and its canonical name."""
         name = self.profile_name
@@ -277,32 +212,6 @@ class MainWindow(Gtk.ApplicationWindow):
             raise RippingError("Ripping profile is unavailable.")
 
         return int(profile["id"]), str(profile["name"])
-
-    def _start_ripping_availability_probe(self) -> None:
-        """Check optional ripping support outside the GTK thread."""
-        if self._ripping_shutting_down:
-            return
-
-        try:
-            self._ripping_probe_worker = start_ripping_availability_probe(
-                check_availability=self.ripping_backend.availability,
-                dispatch=GLib.idle_add,
-                on_result=self._ripping_availability_finished,
-            )
-        except Exception as exc:  # noqa: BLE001 - optional capability failure.
-            self.ripping_availability = RippingAvailability(
-                False,
-                f"Could not schedule ripping availability check: {exc}",
-            )
-
-    def _ripping_availability_finished(
-        self,
-        availability: RippingAvailability,
-    ) -> None:
-        """Accept a dispatched capability result while the window is open."""
-        if self._ripping_shutting_down:
-            return
-        self.ripping_availability = availability
 
     def _build_root(self) -> Gtk.Box:
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -1531,7 +1440,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 snapshot = ripping_service.snapshot()
                 ripping_action = ripping_menu_action(
                     station,
-                    availability=self.ripping_availability,
+                    availability=self._ripping_controller.availability,
                     snapshot=snapshot,
                     workers_finished=workers_finished,
                     profile_id=profile_id,
@@ -2574,9 +2483,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.status_label.set_text(
                     f"Could not stop ripping: {self._ripping_shutdown.error}"
                 )
-            if self._ripping_state_timer_id is not None:
-                GLib.source_remove(self._ripping_state_timer_id)
-                self._ripping_state_timer_id = None
+            self._ripping_controller.stop_monitoring()
             self._stop_usage_timer()
             self._stop_player_state_timer()
             self._stop_metadata_polling()

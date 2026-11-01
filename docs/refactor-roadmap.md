@@ -640,3 +640,22 @@ session state. Selection, widgets, projection and the shutdown guard remain in
 `MainWindow`; asynchronous shutdown continues through its existing worker.
 See the GTK audit document for ownership and validation details. This stage does
 not complete #316.
+
+
+### Issue #316 progress after PR #322
+
+The recording-action controller and real-GTK runner are integrated. The next
+bounded extraction moves ripping actions, cached availability and UI monitoring
+to `RippingController`, sharing the authoritative `RippingService`. Its source
+is canceled by its owner during the existing asynchronous shutdown sequence.
+Profile resolution, menu widgets and quit decisions remain in the window.
+
+The ripping baseline passed 114 contracts with real GTK; its seven optional
+Brynse contracts were initially skipped. The unchanged pinned Brynse revision
+was then prepared in a temporary dependency directory: all 406 GTK/ripping
+contracts passed without skips. Manual targeted ripping, stop and quit
+cancellation/finalization were confirmed, with two MP3 outputs inspected.
+Dependency/version updates stay outside this refactor. After the full gate
+and second-stage PR, continue with the quit/shutdown controller, then
+reassess library actions.
+Keep #316 open across the bounded PRs.

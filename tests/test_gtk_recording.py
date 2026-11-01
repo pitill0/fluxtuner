@@ -167,7 +167,7 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
         _shutdown_warning_open=False,
         _shutdown_close_authorized=False,
         _ripping_shutting_down=False,
-        _ripping_state_timer_id=None,
+        _ripping_controller=Mock(),
         _shutdown_timer_id=None,
         _shutdown_on_complete=None,
         status_label=Mock(),
@@ -186,6 +186,7 @@ def test_gtk_shutdown_finalizes_active_recording() -> None:
     assert window.MainWindow.shutdown(harness) is True
 
     assert manager.stop_calls == 1
+    harness._ripping_controller.stop_monitoring.assert_called_once_with()
     harness.player.stop.assert_called_once_with()
 
 

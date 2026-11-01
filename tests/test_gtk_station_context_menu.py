@@ -5,6 +5,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from gtk_library_helpers import bind_library_harness, bind_library_menu
 
 
 def _import_window_module():
@@ -36,6 +37,9 @@ def _import_window_module():
 
 
 window = _import_window_module()
+
+from fluxtuner.gui import gtk_library as library_controller  # noqa: E402
+from fluxtuner.gui import gtk_library_panel as library_panel  # noqa: E402
 
 
 def _context_harness() -> SimpleNamespace:
@@ -294,7 +298,7 @@ def test_gtk_station_row_adds_secondary_click_context_gesture(monkeypatch) -> No
     )
 
     monkeypatch.setattr(window, "station_country", Mock(return_value="Spain"))
-    monkeypatch.setattr(window, "station_tags_text", Mock(return_value="rock"))
+    monkeypatch.setattr(window, "library_tags_text", Mock(return_value="rock"))
     monkeypatch.setattr(window, "station_codec", Mock(return_value="MP3"))
     monkeypatch.setattr(window, "station_bitrate", Mock(return_value=128))
 
@@ -394,7 +398,7 @@ def test_gtk_station_context_gesture_is_independent_from_selection(monkeypatch) 
     )
 
     monkeypatch.setattr(window, "station_country", Mock(return_value="Spain"))
-    monkeypatch.setattr(window, "station_tags_text", Mock(return_value="rock"))
+    monkeypatch.setattr(window, "library_tags_text", Mock(return_value="rock"))
     monkeypatch.setattr(window, "station_codec", Mock(return_value="MP3"))
     monkeypatch.setattr(window, "station_bitrate", Mock(return_value=128))
 
@@ -504,7 +508,7 @@ def test_gtk_context_menu_builds_copy_actions_for_clicked_station(monkeypatch) -
     selected_station = harness.selected_station
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         row,
         station,
         12.4,
@@ -643,7 +647,7 @@ def test_gtk_context_menu_button_callbacks_use_gtk_clicked_signature(  # noqa: C
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -746,7 +750,7 @@ def test_gtk_context_menu_unparents_popover_when_closed(monkeypatch) -> None:  #
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -869,7 +873,7 @@ def test_gtk_add_explicit_station_to_favorites_without_changing_selection(
     }
 
     add = Mock(return_value=True)
-    monkeypatch.setattr(window, "add_favorite", add)
+    monkeypatch.setattr(library_controller, "add_favorite", add)
 
     harness = SimpleNamespace(
         selected_station=selected_station,
@@ -880,8 +884,8 @@ def test_gtk_add_explicit_station_to_favorites_without_changing_selection(
         _update_favorite_buttons=Mock(),
     )
 
-    window.MainWindow.add_station_to_favorites(
-        harness,
+    library_panel.LibraryPanel.add_station_to_favorites(
+        bind_library_harness(harness),
         clicked_station,
     )
 
@@ -908,9 +912,9 @@ def test_gtk_remove_explicit_station_from_favorites_without_changing_selection(
     }
 
     remove = Mock(return_value=True)
-    monkeypatch.setattr(window, "remove_favorite", remove)
+    monkeypatch.setattr(library_controller, "remove_favorite", remove)
     monkeypatch.setattr(
-        window,
+        library_panel,
         "station_key",
         Mock(return_value="https://radio.example/clicked"),
     )
@@ -925,8 +929,8 @@ def test_gtk_remove_explicit_station_from_favorites_without_changing_selection(
         _view_state=SimpleNamespace(current_view="search"),
     )
 
-    window.MainWindow.remove_station_from_favorites(
-        harness,
+    library_panel.LibraryPanel.remove_station_from_favorites(
+        bind_library_harness(harness),
         clicked_station,
     )
 
@@ -957,13 +961,13 @@ def test_gtk_context_favorite_callback_targets_clicked_station() -> None:
         remove_station_from_favorites=Mock(),
     )
 
-    window.MainWindow.on_context_add_favorite_clicked(
-        harness,
+    library_panel.LibraryPanel.on_context_add_favorite_clicked(
+        bind_library_harness(harness),
         Mock(),
         clicked_station,
     )
-    window.MainWindow.on_context_remove_favorite_clicked(
-        harness,
+    library_panel.LibraryPanel.on_context_remove_favorite_clicked(
+        bind_library_harness(harness),
         Mock(),
         clicked_station,
     )
@@ -985,8 +989,8 @@ def test_gtk_selected_favorite_handlers_delegate_to_explicit_station_seams() -> 
         remove_station_from_favorites=Mock(),
     )
 
-    window.MainWindow.on_add_favorite_clicked(harness, Mock())
-    window.MainWindow.on_remove_favorite_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_favorite_clicked(bind_library_harness(harness), Mock())
+    library_panel.LibraryPanel.on_remove_favorite_clicked(bind_library_harness(harness), Mock())
 
     harness.add_station_to_favorites.assert_called_once_with(station)
     harness.remove_station_from_favorites.assert_called_once_with(station)
@@ -1008,9 +1012,9 @@ def test_gtk_remove_context_favorite_preserves_other_selection_in_favorites_view
         "url_resolved": "https://radio.example/selected",
     }
 
-    monkeypatch.setattr(window, "remove_favorite", Mock(return_value=True))
+    monkeypatch.setattr(library_controller, "remove_favorite", Mock(return_value=True))
     monkeypatch.setattr(
-        window,
+        library_controller,
         "load_favorites",
         Mock(return_value=[reloaded_selected_station]),
     )
@@ -1026,8 +1030,8 @@ def test_gtk_remove_context_favorite_preserves_other_selection_in_favorites_view
         _view_state=SimpleNamespace(current_view="favorites"),
     )
 
-    window.MainWindow.remove_station_from_favorites(
-        harness,
+    library_panel.LibraryPanel.remove_station_from_favorites(
+        bind_library_harness(harness),
         clicked_station,
     )
 
@@ -1047,9 +1051,9 @@ def test_gtk_remove_context_favorite_clears_selection_when_selected_station_is_r
         "url_resolved": "https://radio.example/remaining",
     }
 
-    monkeypatch.setattr(window, "remove_favorite", Mock(return_value=True))
+    monkeypatch.setattr(library_controller, "remove_favorite", Mock(return_value=True))
     monkeypatch.setattr(
-        window,
+        library_controller,
         "load_favorites",
         Mock(return_value=[remaining_station]),
     )
@@ -1065,8 +1069,8 @@ def test_gtk_remove_context_favorite_clears_selection_when_selected_station_is_r
         _view_state=SimpleNamespace(current_view="favorites"),
     )
 
-    window.MainWindow.remove_station_from_favorites(
-        harness,
+    library_panel.LibraryPanel.remove_station_from_favorites(
+        bind_library_harness(harness),
         clicked_station,
     )
 
@@ -1168,7 +1172,7 @@ def test_gtk_context_menu_shows_add_to_favorites_for_non_favorite_station(  # no
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -1289,7 +1293,7 @@ def test_gtk_context_menu_shows_remove_from_favorites_for_favorite_station(  # n
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -1554,7 +1558,7 @@ def test_gtk_context_menu_shows_open_homepage_for_safe_homepage(  # noqa: C901 -
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -1673,7 +1677,7 @@ def test_gtk_context_menu_hides_open_homepage_without_safe_homepage(  # noqa: C9
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -1974,7 +1978,7 @@ def test_gtk_context_menu_shows_record_session_when_no_recording_is_active(  # n
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -2101,7 +2105,7 @@ def test_gtk_context_menu_shows_stop_recording_for_active_station(  # noqa: C901
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -2228,7 +2232,7 @@ def test_gtk_context_menu_hides_recording_action_for_different_active_station(  
     )
 
     window.MainWindow._show_station_context_menu(
-        harness,
+        bind_library_menu(harness),
         object(),
         station,
         1.0,
@@ -2371,7 +2375,9 @@ def test_gtk_ripping_menu_wiring_projects_policy(
     )
     selection = harness.selected_station
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     actions = [button for button in menu.children if button.label in ("Rip tracks", "Stop ripping")]
     assert [button.label for button in actions] == ([] if expected is None else [expected])
@@ -2399,7 +2405,9 @@ def test_gtk_ripping_menu_wiring_hides_other_operation(monkeypatch, tmp_path, mi
     else:
         station["url_resolved"] = "https://example.com/other"
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
     harness.ripping_service.wait.assert_called_once_with(timeout=0)
@@ -2409,7 +2417,9 @@ def test_gtk_ripping_menu_wiring_skips_shutdown(monkeypatch, tmp_path) -> None:
     harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
     harness._shutdown_controller.shutting_down = True
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
     harness._ripping_profile_context.assert_not_called()
@@ -2420,7 +2430,9 @@ def test_gtk_ripping_menu_wiring_contains_profile_failure(monkeypatch, tmp_path)
     harness, station, menu = _ripping_menu_harness(monkeypatch, tmp_path)
     harness._ripping_profile_context.side_effect = RuntimeError("Profile unavailable")
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     assert not {"Rip tracks", "Stop ripping"} & {button.label for button in menu.children}
     assert "Copy station name" in {button.label for button in menu.children}
@@ -2442,7 +2454,9 @@ def test_gtk_ripping_menu_wiring_reads_snapshot_after_wait(monkeypatch, tmp_path
 
     harness.ripping_service.wait.side_effect = finish
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     labels = {button.label for button in menu.children}
     assert "Rip tracks" in labels
@@ -2454,7 +2468,9 @@ def test_playlist_context_callback_targets_clicked_station() -> None:
     clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
     harness = SimpleNamespace(selected_station=selected, open_playlist_picker=Mock())
 
-    window.MainWindow.on_context_add_playlist_clicked(harness, Mock(), clicked)
+    library_panel.LibraryPanel.on_context_add_playlist_clicked(
+        bind_library_harness(harness), Mock(), clicked
+    )
 
     harness.open_playlist_picker.assert_called_once_with(clicked)
     assert harness.selected_station is selected
@@ -2465,7 +2481,9 @@ def test_playlist_remove_callback_targets_clicked_station_and_playlist() -> None
     clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
     harness = SimpleNamespace(selected_station=selected, remove_station_from_saved_playlist=Mock())
 
-    window.MainWindow.on_context_remove_playlist_clicked(harness, Mock(), clicked, "Morning")
+    library_panel.LibraryPanel.on_context_remove_playlist_clicked(
+        bind_library_harness(harness), Mock(), clicked, "Morning"
+    )
 
     harness.remove_station_from_saved_playlist.assert_called_once_with(clicked, "Morning")
     assert harness.selected_station is selected
@@ -2478,7 +2496,9 @@ def test_playlist_context_menu_binds_active_playlist(monkeypatch, tmp_path) -> N
     harness._view_state = ViewState()
     harness._view_state.show_playlist("Morning")
 
-    window.MainWindow._show_station_context_menu(harness, object(), station, 1.0, 2.0)
+    window.MainWindow._show_station_context_menu(
+        bind_library_menu(harness), object(), station, 1.0, 2.0
+    )
 
     add = next(button for button in menu.children if button.label == "Add to playlist…")
     remove = next(button for button in menu.children if button.label == "Remove from playlist")
@@ -2493,11 +2513,11 @@ def _playlist_dialog_harness(monkeypatch):
 
     picker = SimpleNamespace(names=("Morning",), add=Mock(return_value=True))
     capture = Mock(return_value=picker)
-    monkeypatch.setattr(window, "create_playlist_picker", capture)
+    monkeypatch.setattr(library_controller, "create_playlist_picker", capture)
     dropdown = Mock()
     dropdown.get_selected.return_value = 0
     monkeypatch.setattr(
-        window,
+        library_panel,
         "Gtk",
         SimpleNamespace(
             ResponseType=SimpleNamespace(ACCEPT=1, CANCEL=0),
@@ -2520,7 +2540,7 @@ def _playlist_dialog_harness(monkeypatch):
         status_label=Mock(),
     )
     clicked = {"name": "Clicked", "url": "https://example.com/clicked"}
-    window.MainWindow.open_playlist_picker(harness, clicked)
+    library_panel.LibraryPanel.open_playlist_picker(bind_library_harness(harness), clicked)
     callback = dialog.connect.call_args.args[1]
     capture.assert_called_once_with(clicked, profile_id=7)
     return harness, picker, dialog, label, callback

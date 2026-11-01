@@ -5,6 +5,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, call
 
 import pytest
+from gtk_library_helpers import bind_library_harness, bind_library_menu
 
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle
 from fluxtuner.gui.gtk_playback import (
@@ -47,6 +48,9 @@ def _import_window_module():
 
 
 window = _import_window_module()
+
+from fluxtuner.gui import gtk_library as library_controller  # noqa: E402
+from fluxtuner.gui import gtk_library_panel as library_panel  # noqa: E402
 
 
 def _playback_harness(*, station: dict[str, object] | None = None) -> SimpleNamespace:
@@ -657,7 +661,7 @@ def test_gtk_show_favorites_invalidates_pending_search(monkeypatch) -> None:
     lifecycle = SearchLifecycle()
     pending_generation = lifecycle.begin()
     favorites = [{"name": "Favorite"}]
-    monkeypatch.setattr(window, "load_favorites", Mock(return_value=favorites))
+    monkeypatch.setattr(library_controller, "load_favorites", Mock(return_value=favorites))
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
@@ -673,7 +677,7 @@ def test_gtk_show_favorites_invalidates_pending_search(monkeypatch) -> None:
         _update_playlist_status=Mock(),
     )
 
-    count = window.MainWindow._show_all_favorites(harness)
+    count = library_panel.LibraryPanel._show_all_favorites(bind_library_harness(harness))
 
     assert count == 1
     assert lifecycle.is_current(pending_generation) is False
@@ -687,7 +691,7 @@ def test_gtk_show_history_invalidates_pending_search(monkeypatch) -> None:
     lifecycle = SearchLifecycle()
     pending_generation = lifecycle.begin()
     history = [{"name": "Recent"}]
-    monkeypatch.setattr(window, "load_history", Mock(return_value=history))
+    monkeypatch.setattr(library_controller, "load_history", Mock(return_value=history))
 
     harness = SimpleNamespace(
         _search_lifecycle=lifecycle,
@@ -703,7 +707,7 @@ def test_gtk_show_history_invalidates_pending_search(monkeypatch) -> None:
         _update_playlist_status=Mock(),
     )
 
-    count = window.MainWindow._show_history(harness)
+    count = library_panel.LibraryPanel._show_history(bind_library_harness(harness))
 
     assert count == 1
     assert lifecycle.is_current(pending_generation) is False
@@ -735,7 +739,7 @@ def test_gtk_tag_playlist_invalidates_pending_search() -> None:
         status_label=Mock(),
     )
 
-    window.MainWindow.on_show_tag_playlist_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_show_tag_playlist_clicked(bind_library_harness(harness), Mock())
 
     assert lifecycle.is_current(pending_generation) is False
     assert harness._view_state.current_view == "tag_playlist"
@@ -756,7 +760,7 @@ def test_gtk_random_tag_invalidates_pending_search(monkeypatch) -> None:
     selected = stations[0]
 
     monkeypatch.setattr(
-        window,
+        library_panel,
         "filter_supported_stations",
         Mock(return_value=stations),
     )
@@ -785,7 +789,7 @@ def test_gtk_random_tag_invalidates_pending_search(monkeypatch) -> None:
         Mock(return_value=selected),
     )
 
-    window.MainWindow.on_random_tag_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_random_tag_clicked(bind_library_harness(harness), Mock())
 
     assert lifecycle.is_current(pending_generation) is False
     assert harness._view_state.current_view == "tag_playlist"
@@ -1106,10 +1110,10 @@ def test_saved_playlist_open_invalidates_search_and_resets_selection(monkeypatch
     )
     lookup = Mock(return_value={"name": "Morning"})
     contents = Mock(return_value=stations)
-    monkeypatch.setattr(window.manual_playlists, "get_playlist", lookup)
-    monkeypatch.setattr(window.manual_playlists, "get_playlist_stations", contents)
+    monkeypatch.setattr(library_controller.manual_playlists, "get_playlist", lookup)
+    monkeypatch.setattr(library_controller.manual_playlists, "get_playlist_stations", contents)
 
-    window.MainWindow._show_saved_playlist(harness, "Morning")
+    library_panel.LibraryPanel._show_saved_playlist(bind_library_harness(harness), "Morning")
 
     lookup.assert_called_once_with("Morning", profile_id=7)
     contents.assert_called_once_with("Morning", profile_id=7)
@@ -1134,9 +1138,11 @@ def test_missing_saved_playlist_keeps_current_view_and_selection(monkeypatch) ->
         _render_results=Mock(),
         status_label=Mock(),
     )
-    monkeypatch.setattr(window.manual_playlists, "get_playlist", Mock(return_value=None))
+    monkeypatch.setattr(
+        library_controller.manual_playlists, "get_playlist", Mock(return_value=None)
+    )
 
-    window.MainWindow._show_saved_playlist(harness, "Deleted")
+    library_panel.LibraryPanel._show_saved_playlist(bind_library_harness(harness), "Deleted")
 
     assert state.current_view == "search"
     assert harness.selected_station is selection
@@ -1152,7 +1158,7 @@ def _playlist_management_dialog(monkeypatch):
     entry.get_text.return_value = " Morning "
     dialog, content, error = Mock(), Mock(), Mock()
     monkeypatch.setattr(
-        window,
+        library_panel,
         "Gtk",
         SimpleNamespace(
             Entry=Mock(return_value=entry),
@@ -1178,9 +1184,9 @@ def _playlist_management_dialog(monkeypatch):
 def test_playlist_management_cancel_does_not_write(monkeypatch, operation) -> None:
     harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
     storage = Mock()
-    monkeypatch.setattr(window.manual_playlists, f"{operation}_playlist", storage)
-    handler = getattr(window.MainWindow, f"on_{operation}_playlist_clicked")
-    handler(harness, Mock())
+    monkeypatch.setattr(library_controller.manual_playlists, f"{operation}_playlist", storage)
+    handler = getattr(library_panel.LibraryPanel, f"on_{operation}_playlist_clicked")
+    handler(bind_library_harness(harness), Mock())
     respond = dialog.connect.call_args.args[1]
 
     respond(dialog, 0)
@@ -1195,9 +1201,9 @@ def test_playlist_management_cancel_does_not_write(monkeypatch, operation) -> No
 def test_playlist_management_rejects_profile_change(monkeypatch, operation) -> None:
     harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
     storage = Mock()
-    monkeypatch.setattr(window.manual_playlists, f"{operation}_playlist", storage)
-    handler = getattr(window.MainWindow, f"on_{operation}_playlist_clicked")
-    handler(harness, Mock())
+    monkeypatch.setattr(library_controller.manual_playlists, f"{operation}_playlist", storage)
+    handler = getattr(library_panel.LibraryPanel, f"on_{operation}_playlist_clicked")
+    handler(bind_library_harness(harness), Mock())
     respond = dialog.connect.call_args.args[1]
     harness._playlist_profile_id.return_value = 8
 
@@ -1211,8 +1217,8 @@ def test_playlist_management_rejects_profile_change(monkeypatch, operation) -> N
 def test_create_playlist_trims_name_and_opens_new_list(monkeypatch) -> None:
     harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
     storage = Mock(return_value=True)
-    monkeypatch.setattr(window.manual_playlists, "create_playlist", storage)
-    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+    monkeypatch.setattr(library_controller.manual_playlists, "create_playlist", storage)
+    library_panel.LibraryPanel.on_create_playlist_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 
@@ -1226,8 +1232,8 @@ def test_create_playlist_rejects_blank_name(monkeypatch, name) -> None:
     harness, dialog, entry, error = _playlist_management_dialog(monkeypatch)
     entry.get_text.return_value = name
     storage = Mock()
-    monkeypatch.setattr(window.manual_playlists, "create_playlist", storage)
-    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+    monkeypatch.setattr(library_controller.manual_playlists, "create_playlist", storage)
+    library_panel.LibraryPanel.on_create_playlist_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 
@@ -1238,8 +1244,10 @@ def test_create_playlist_rejects_blank_name(monkeypatch, name) -> None:
 
 def test_duplicate_playlist_keeps_dialog_open(monkeypatch) -> None:
     harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
-    monkeypatch.setattr(window.manual_playlists, "create_playlist", Mock(return_value=False))
-    window.MainWindow.on_create_playlist_clicked(harness, Mock())
+    monkeypatch.setattr(
+        library_controller.manual_playlists, "create_playlist", Mock(return_value=False)
+    )
+    library_panel.LibraryPanel.on_create_playlist_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 
@@ -1251,8 +1259,8 @@ def test_duplicate_playlist_keeps_dialog_open(monkeypatch) -> None:
 def test_delete_playlist_uses_captured_name_and_profile(monkeypatch) -> None:
     harness, dialog, _entry, _error = _playlist_management_dialog(monkeypatch)
     storage = Mock(return_value=True)
-    monkeypatch.setattr(window.manual_playlists, "delete_playlist", storage)
-    window.MainWindow.on_delete_playlist_clicked(harness, Mock())
+    monkeypatch.setattr(library_controller.manual_playlists, "delete_playlist", storage)
+    library_panel.LibraryPanel.on_delete_playlist_clicked(bind_library_harness(harness), Mock())
     respond = dialog.connect.call_args.args[1]
 
     respond(dialog, 1)
@@ -1266,11 +1274,11 @@ def test_delete_playlist_uses_captured_name_and_profile(monkeypatch) -> None:
 def test_delete_playlist_storage_error_preserves_view(monkeypatch) -> None:
     harness, dialog, _entry, error = _playlist_management_dialog(monkeypatch)
     monkeypatch.setattr(
-        window.manual_playlists,
+        library_controller.manual_playlists,
         "delete_playlist",
         Mock(side_effect=OSError("Storage unavailable")),
     )
-    window.MainWindow.on_delete_playlist_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_delete_playlist_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 
@@ -1310,7 +1318,7 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     )
 
     harness.on_import_stations_url_clicked = Mock()
-    window.MainWindow._build_application_menu(harness, container)
+    window.MainWindow._build_application_menu(bind_library_menu(harness), container)
 
     window.Gtk.MenuButton.assert_called_once_with(icon_name="open-menu-symbolic")
     container.append.assert_called_once_with(menu_button)
@@ -1369,7 +1377,7 @@ def _custom_station_dialog(monkeypatch):
     url_entry.get_text.return_value = "https://radio.example/live"
     dialog, content, error, conn = Mock(), Mock(), Mock(), Mock()
     monkeypatch.setattr(
-        window,
+        library_panel,
         "Gtk",
         SimpleNamespace(
             Entry=Mock(side_effect=[name_entry, url_entry]),
@@ -1377,9 +1385,9 @@ def _custom_station_dialog(monkeypatch):
         ),
     )
     connect = Mock(side_effect=lambda: nullcontext(conn))
-    monkeypatch.setattr(window.db, "connect", connect)
+    monkeypatch.setattr(library_controller.db, "connect", connect)
     save = Mock(return_value=True)
-    monkeypatch.setattr(window, "add_custom_station", save, raising=False)
+    monkeypatch.setattr(library_controller, "add_custom_station", save, raising=False)
     harness = SimpleNamespace(
         _playlist_profile_id=Mock(return_value=7),
         _make_playlist_dialog=Mock(return_value=(dialog, content)),
@@ -1395,7 +1403,7 @@ def _custom_station_dialog(monkeypatch):
 def test_custom_station_dialog_opens_without_writing(monkeypatch):
     harness, dialog, _error, conn, connect, save = _custom_station_dialog(monkeypatch)
 
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
 
     harness.application_menu_popover.popdown.assert_called_once_with()
     harness._make_playlist_dialog.assert_called_once_with("Add station", "Add")
@@ -1407,7 +1415,7 @@ def test_custom_station_dialog_opens_without_writing(monkeypatch):
 
 def test_custom_station_dialog_cancel_does_not_write(monkeypatch):
     harness, dialog, _error, _conn, connect, save = _custom_station_dialog(monkeypatch)
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 0)
 
@@ -1419,7 +1427,7 @@ def test_custom_station_dialog_cancel_does_not_write(monkeypatch):
 
 def test_custom_station_dialog_rejects_profile_change(monkeypatch):
     harness, dialog, error, _conn, connect, save = _custom_station_dialog(monkeypatch)
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
     harness._playlist_profile_id.return_value = 8
 
     dialog.connect.call_args.args[1](dialog, 1)
@@ -1434,7 +1442,7 @@ def test_custom_station_dialog_rejects_missing_profile_on_open(monkeypatch):
     harness, dialog, _error, _conn, connect, save = _custom_station_dialog(monkeypatch)
     harness._playlist_profile_id.side_effect = ValueError("Profile unavailable")
 
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
 
     harness._make_playlist_dialog.assert_not_called()
     dialog.present.assert_not_called()
@@ -1455,7 +1463,7 @@ def test_custom_station_dialog_rejects_missing_profile_on_open(monkeypatch):
 def test_custom_station_dialog_keeps_inputs_on_error(monkeypatch, failure):
     harness, dialog, error, conn, _connect, save = _custom_station_dialog(monkeypatch)
     save.side_effect = failure
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 
@@ -1469,7 +1477,7 @@ def test_custom_station_dialog_keeps_inputs_on_error(monkeypatch, failure):
 def test_custom_station_dialog_saves_captured_profile_and_refreshes(monkeypatch, added):
     harness, dialog, _error, conn, _connect, save = _custom_station_dialog(monkeypatch)
     save.return_value = added
-    window.MainWindow.on_add_custom_station_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_add_custom_station_clicked(bind_library_harness(harness), Mock())
 
     dialog.connect.call_args.args[1](dialog, 1)
 

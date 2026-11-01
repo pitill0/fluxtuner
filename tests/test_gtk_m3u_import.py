@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from gtk_library_helpers import bind_library_harness
 
 from fluxtuner.core import db
 from fluxtuner.core.custom_stations import add_custom_station
@@ -168,10 +169,14 @@ def test_empty_collection_cannot_open_import_session(library):
 
 
 def test_window_menu_action_captures_profile_and_closes_popover(monkeypatch):
-    from test_gtk_orchestration import window
+    import test_gtk_orchestration
+
+    from fluxtuner.gui import gtk_library_panel as library_panel
+
+    assert test_gtk_orchestration.window.MainWindow is not None
 
     opener = Mock()
-    monkeypatch.setattr(window, "open_m3u_import", opener, raising=False)
+    monkeypatch.setattr(library_panel, "open_m3u_import", opener, raising=False)
     harness = SimpleNamespace(
         application_menu_popover=Mock(),
         _playlist_profile_id=Mock(return_value=7),
@@ -179,7 +184,7 @@ def test_window_menu_action_captures_profile_and_closes_popover(monkeypatch):
         status_label=Mock(),
     )
 
-    window.MainWindow.on_import_stations_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_import_stations_clicked(bind_library_harness(harness), Mock())
 
     harness.application_menu_popover.popdown.assert_called_once_with()
     assert opener.call_count == 1
@@ -192,7 +197,11 @@ def test_window_menu_action_captures_profile_and_closes_popover(monkeypatch):
 
 
 def test_window_refreshes_destination_only_after_successful_import():
-    from test_gtk_orchestration import window
+    import test_gtk_orchestration
+
+    from fluxtuner.gui import gtk_library_panel as library_panel
+
+    assert test_gtk_orchestration.window.MainWindow is not None
 
     harness = SimpleNamespace(
         _refresh_saved_playlists=Mock(),
@@ -206,7 +215,7 @@ def test_window_refreshes_destination_only_after_successful_import():
         already_in_playlist=0,
     )
 
-    window.MainWindow._on_m3u_import_saved(harness, "Jazz", result)
+    library_panel.LibraryPanel._on_m3u_import_saved(bind_library_harness(harness), "Jazz", result)
 
     harness._refresh_saved_playlists.assert_called_once_with()
     harness._show_saved_playlist.assert_called_once_with("Jazz")
@@ -277,17 +286,21 @@ def test_remote_preview_rejects_changed_profile_after_download(library, monkeypa
 
 
 def test_window_remote_menu_captures_profile(monkeypatch):
-    from test_gtk_orchestration import window
+    import test_gtk_orchestration
+
+    from fluxtuner.gui import gtk_library_panel as library_panel
+
+    assert test_gtk_orchestration.window.MainWindow is not None
 
     opener = Mock()
-    monkeypatch.setattr(window, "open_remote_m3u_import", opener, raising=False)
+    monkeypatch.setattr(library_panel, "open_remote_m3u_import", opener, raising=False)
     harness = SimpleNamespace(
         application_menu_popover=Mock(),
         _playlist_profile_id=Mock(return_value=7),
         _on_m3u_import_saved=Mock(),
         status_label=Mock(),
     )
-    window.MainWindow.on_import_stations_url_clicked(harness, Mock())
+    library_panel.LibraryPanel.on_import_stations_url_clicked(bind_library_harness(harness), Mock())
     harness.application_menu_popover.popdown.assert_called_once_with()
     assert opener.call_count == 1
     assert opener.call_args.kwargs["profile_id"] == 7

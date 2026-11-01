@@ -612,7 +612,7 @@ C901 across the test suite or across the context-menu test module.
 
 ## Issue #316: GTK controller workstream
 
-Status: recording-action extraction in progress; remaining stages pending.
+Status: recording and ripping actions integrated; shutdown extraction in progress.
 
 The first GTK playback/metadata/search/view-state workstream remains complete.
 Issue #316 is a second bounded sequence for retained recording, ripping,
@@ -659,3 +659,28 @@ Dependency/version updates stay outside this refactor. After the full gate
 and second-stage PR, continue with the quit/shutdown controller, then
 reassess library actions.
 Keep #316 open across the bounded PRs.
+
+
+### Issue #316 progress after PR #323
+
+Recording and ripping controller stages are merged. The real-GTK shutdown
+baseline on Nukleuz passed all 157 focused lifecycle contracts without skips.
+The next bounded change introduces `ShutdownController` as the single owner
+of confirmation/shutdown state, worker coordination, the completion callback,
+the 200 ms polling source and the monotonic 12 second warning deadline.
+
+`MainWindow` keeps GTK dialogs, close-to-tray policy, the window close adapter
+and cancellation of its own UI activity. RecordingManager and RippingService
+remain authoritative for sessions/jobs. The existing asynchronous FFmpeg stop
+and nonblocking ripping-finalization helpers are reused without modification.
+The ripping controller and playback/recording adapters consult this same
+shutdown owner; no parallel shutdown flag or worker state is added.
+
+Controller lifecycle contracts run without GTK; native dialog, close-to-tray,
+window delegation and real FFmpeg-stop integration remain separately covered.
+The extraction report records post-format size and direct-method metrics.
+Manual shutdown checks were confirmed with FFmpeg alone and with FFmpeg plus
+Brynse active. Both GTK instances exited normally; four session files passed
+ffprobe. This short run produced no Brynse track outputs; track-output validation
+from the previous stage remains separate. The full final gate follows this update. Continue to library actions after this bounded PR; keep #316
+open. Web recovery, dependency/version changes and Flatpak policy remain separate.

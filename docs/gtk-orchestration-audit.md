@@ -572,3 +572,65 @@ Record post-format size/direct-method metrics in the extraction report. Four
 monitor/probe methods leave `MainWindow`; recording, playback, metadata, search,
 profile resolution and quit decisions retain their existing contracts. Manual
 GTK checks and the full gate remain required before the second-stage PR.
+
+
+## Stage 3: quit and shutdown ownership
+
+The ripping-controller stage was integrated in PR #323. Its final gate passed
+1,954 tests with eight optional skips; the separate real-GTK/ripping run passed
+406 tests without skips, including the pinned Brynse contracts. The new focused
+shutdown baseline passed 157 real-GTK contracts without skips on Nukleuz.
+
+`gtk_shutdown.py:ShutdownController` receives RecordingManager, RippingService
+and narrow callbacks for status, dialogs, playback/activity cancellation,
+accepted-quit preparation, scheduling and monotonic time. It imports neither
+GTK nor MainWindow. It owns pending confirmation, the shutdown guard and close
+authorization, both existing stop helpers, the first completion callback, one
+polling source, its deadline and whether the warning dialog is open. Manager
+and service still own their runtime sessions/jobs; helper implementations and
+backend stop semantics are unchanged.
+
+The window builds this owner once and delegates request_quit/shutdown. Its
+ripping controller, playback and recording actions read the same guard.
+MainWindow retains GTK dialog construction, close-to-tray/hide behavior and
+its close-request adapter. A small activity adapter preserves monitor, usage
+timer, player-state timer, metadata and usage-tracker cancellation order.
+The accepted-quit adapter disables hiding to the tray. No proxy state aliases
+or duplicated shutdown flags remain in the window.
+
+The extraction preserves confirmation cancellation, protection against repeated
+responses, first-completion priority, nonblocking FFmpeg and ripping checks,
+one 200 ms polling source, the monotonic 12 second warning and explicit
+Keep waiting/Quit anyway choices. A timeout or backend failure never grants
+automatic exit. Dialog implementations and unrelated MainWindow methods retain
+their AST. Sixteen lifecycle contracts move to the GTK-independent controller
+suite; GTK window/dialog and actual asynchronous recording-stop integration
+contracts remain at the window boundary. New contracts cover stop ordering,
+duplicate requests, canceled confirmation callbacks and window delegation.
+
+This is an ownership change rather than a method-count target: the timer
+callback leaves the window, while two narrow UI adapters are added. Record
+post-format line/direct-method metrics in the extraction report. Incremental
+checks, native GTK checks, manual recording/ripping closure and the full final
+quality/security gate must be reported distinctly. Manual checks are confirmed below; the full final gate follows this update. Library actions and the later measured
+reassessment remain under the open #316 umbrella.
+
+
+Stage-3 manual validation on Nukleuz was confirmed by the user after block 275.
+The FFmpeg-only and combined FFmpeg/Brynse GTK instances both exited normally.
+The user confirmed active ripping and session recording during the combined
+phase, cancellation of quit, and accepted quit with work still active. Four
+session files were recognized by ffprobe (29.074, 10.188, 19.879 and 37.224
+seconds). No Brynse track files were produced in this short live run; this is
+not claimed as new manual validation of segmented track output. The previous
+ripping stage's two validated MP3 outputs remain separate evidence. One GDK
+frame-timing warning appeared in the first instance without preventing normal
+exit. All eight source files, index, branches and virtualenv were preserved.
+
+After formatting, MainWindow measures 2,525 lines and 153 direct methods,
+compared with 2,633 lines and 152 methods before this stage. The additional
+method reflects replacing the polling callback with two narrow UI adapters;
+shutdown state, timer and worker coordination now have a single owner. All
+357 GTK contracts passed with real bindings during incremental validation.
+The complete final quality/security gate is run after this documentation update;
+its result must be reviewed separately before staging or preparing the PR.

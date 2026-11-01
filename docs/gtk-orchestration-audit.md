@@ -634,3 +634,95 @@ shutdown state, timer and worker coordination now have a single owner. All
 357 GTK contracts passed with real bindings during incremental validation.
 The complete final quality/security gate is run after this documentation update;
 its result must be reviewed separately before staging or preparing the PR.
+
+
+## Stage 4: complete GTK library boundary
+
+After PR #324, the baseline is MainWindow at 2,525 lines/153 direct methods.
+Nukleuz validated 433 GTK/core-library contracts with real bindings and no
+skips. The user requested a complete library stage in one PR after the first
+three narrow controller extractions. This stage covers the full 49-method
+surface rather than delivering separate partial favorites/history/playlist PRs.
+
+Ownership is divided by responsibility:
+
+- `gtk_library.py:LibraryController` owns profile-sensitive storage access,
+  persistent-playlist operations, picker creation, custom-station transactions
+  and the single favorite URL cache. It imports no GTK or MainWindow.
+- `gtk_library_panel.py:LibraryPanel` owns library controls, favorite editing,
+  saved-playlist dialogs, tag filters, custom-station/import entrypoints and
+  library view transitions. It receives named projection callbacks, a shared
+  ViewState and explicit live station/selection accessors. It does not keep a
+  second station collection, selection, playback state or favorite cache.
+- MainWindow composes the panel, remains the station-view state owner, and
+  retains three short row/selection projection adapters. Menu callbacks point
+  to the library component. The panel's typed GTK parent is used only for modal
+  transience and existing import dialogs; no controller retains an opaque window.
+
+Forty-six methods leave MainWindow. After the GTK tag projection fix, the
+formatted result is 1,690 lines and 107 direct methods, an 835-line reduction
+in the window. The panel is a
+coherent library component, not a new generic GUI service. The complete
+production code is slightly larger because typed boundaries and explicit
+wiring replace implicit access; this work does not claim fewer total lines or
+new runtime-performance gains.
+
+The change preserves explicitly targeted versus selected stations, profile
+capture and stale-dialog rejection, storage exception boundaries, successful
+transaction commit order, missing/deleted playlist handling, favorite retention
+after playlist membership/deletion, selection restoration, current-station
+metadata edits, row cache refresh, search invalidation and view/status ordering.
+Existing tag-query profile resolution is retained rather than changing core
+storage semantics as part of extraction. Local/remote import implementations
+and their lifecycle/validation rules remain unchanged; their GTK entrypoints
+and successful-save refresh now belong to the panel.
+
+Existing contract functions retain their assertions and doubles, redirected to
+the new owners. A small test binding helper preserves the same collaborators
+without restoring old production attributes. Six new storage/live-state
+contracts exercise controller/panel composition; a seventh requires real GTK
+and builds MainWindow, emits library button signals and edits a stored favorite.
+The native contract must not be counted as validated by a headless skip.
+
+Methods unrelated to this boundary retained their AST during extraction,
+including playback, metadata/search processing, recording/ripping and shutdown.
+The later GTK tag projection fix changes only station-row and Now Playing
+tag rendering. Only initialization,
+side-panel/menu wiring, context-menu callback ownership and the three retained
+adapters change in the remaining MainWindow methods. Core persistence modules
+and the existing ViewState are unchanged. Manual desktop library checks were confirmed by the user after block 282,
+with the tag-display exception corrected and confirmed after block 283. The
+full final quality/security gate follows this documentation update.
+
+
+Manual library validation found an existing display gap: the editable
+`favorite_tags` field was persisted and used by filters, but both station rows
+and Now Playing details rendered only the stream's `tags`. A GTK-only
+`library_tags_text` projection now combines both sources, retaining stream order
+and spelling and removing case-insensitive duplicates. The stored fields,
+core/TUI/Web display helpers and filtering semantics remain unchanged.
+Regression contracts cover both tag sources, empty fallbacks, no storage mutation
+and the two GTK projection sites; the native composition contract checks the
+actual row label and Now Playing details after editing. The user confirmed the visual correction after block 283; its GTK instance
+exited normally. The full final gate follows this documentation update.
+
+
+Stage-4 validation before the full final gate: all 448 GTK/core-library
+contracts passed with real bindings and no skips in block 283. Headless
+incremental validation passed 439 contracts with two expected GTK skips;
+these are separate from the native result. The user confirmed the library
+manual checks after block 282 except for personal-tag display. Block 283
+corrected that projection and the user then confirmed it visually. Its GTK
+instance exited normally. Persisted examples contain combined stream/personal
+tags (jazz, blues, extra, library-test) and personal-only tags (personal-only).
+The earlier library report also records persisted alias/tag edits, playlist
+contents and history across normal closure/reopen. No new remote-playlist save
+is inferred from those records. Existing import contracts remain automated
+coverage rather than a claim of additional manual remote-save evidence.
+
+The full quality/security gate runs after these documentation changes and must
+be reviewed before staging. MainWindow is 1,690 lines/107 direct methods versus
+2,525/153 at the stage baseline; 46 methods and 835 window lines were removed.
+This is a reduction of window responsibilities, not a claim of fewer total
+production lines or improved runtime performance. Keep #316 open for the
+remaining station-list/layout and context-menu reassessment.

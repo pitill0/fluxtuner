@@ -612,7 +612,7 @@ C901 across the test suite or across the context-menu test module.
 
 ## Issue #316: GTK controller workstream
 
-Status: recording and ripping actions integrated; shutdown extraction in progress.
+Status: recording, ripping and shutdown integrated; complete library extraction in progress.
 
 The first GTK playback/metadata/search/view-state workstream remains complete.
 Issue #316 is a second bounded sequence for retained recording, ripping,
@@ -684,3 +684,50 @@ Brynse active. Both GTK instances exited normally; four session files passed
 ffprobe. This short run produced no Brynse track outputs; track-output validation
 from the previous stage remains separate. The full final gate follows this update. Continue to library actions after this bounded PR; keep #316
 open. Web recovery, dependency/version changes and Flatpak policy remain separate.
+
+
+### Issue #316: complete library boundary after PR #324
+
+The next stage groups favorites, history, persistent playlists, favorite-tag
+filters, custom-station editing/creation and import refresh in one PR. The
+Nukleuz baseline passed all 433 GTK/core-library contracts with real bindings.
+The measured surface covers 49 related MainWindow methods, including widgets,
+dialogs, actions and view projection; it is a responsibility map, not a target
+to remove every interface adapter.
+
+`LibraryController` owns storage access, profile lookup, playlist picker creation,
+custom-station transactions and the single favorite URL cache without importing
+GTK. `LibraryPanel` owns library widgets, dialogs, handlers and library-view
+transitions. Explicit live-state ports connect it to the station list; stations,
+selection, current playback and ViewState remain single authoritative objects.
+The GTK parent is used only for transient dialogs/importers, not as an opaque
+application dependency.
+
+MainWindow retains three small station-view adapters and composes the panel.
+It decreases from 2,525 lines/153 direct methods to 1,690 lines/107 methods
+after extraction and the GTK tag projection fix. This stage removes 46 methods from the
+window together; it does not split the library into separate favorites,
+history and playlist PRs. Total production line count is not used as a claim
+of simplification: explicit boundaries and wiring introduce some additional
+code while removing the library's breadth from MainWindow.
+
+Existing behavior contracts follow their owners with their assertions retained.
+Additional contracts use real SQLite storage for profile isolation, cached
+favorite identity, playlist deletion/membership, custom-station transactions
+and shared live selection. A native-GTK window-composition contract exercises
+library button signals and favorite editing; it is explicitly skipped without
+real GTK and must pass in the native run. Manual library checks were confirmed after block 282, with the GTK tag
+projection correction confirmed after block 283. The full final quality/security
+gate follows this documentation update.
+
+After this complete library PR, reassess the remaining station-list/layout and
+context-menu boundaries. Keep #316 open until that reassessment and the agreed
+workstream are complete. Web work, Brynse dependency changes and Flatpak
+permissions remain separate.
+
+
+Manual checks also exposed a pre-existing GTK tag-display gap. Personal favorite
+tags were saved correctly but absent from station rows and Now Playing details.
+The library stage includes a scoped GTK projection fix combining stream and
+personal tags without changing storage or other interfaces. Its manual recheck
+was confirmed by the user after block 283; the full final gate follows this update.

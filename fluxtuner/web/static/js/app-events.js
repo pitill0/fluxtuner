@@ -103,7 +103,12 @@ export function bindApplicationEvents({
   });
 
   if (setupForm) setupForm.addEventListener("submit", createFirstAdmin);
-  if (loginForm) loginForm.addEventListener("submit", login);
+  if (loginForm) {
+    // Prevent native form submission until the JSON login handler is attached.
+    loginForm.addEventListener("submit", login);
+    loginForm.querySelector("[data-login-submit]")?.removeAttribute("disabled");
+    loginForm.removeAttribute("inert");
+  }
 
   if (registerOpenButton) {
     registerOpenButton.addEventListener("click", accountRequestsController.openRegisterDialog);

@@ -159,8 +159,8 @@ Recommended next branches should stay separate:
 - the first TUI orchestration workstream is complete: playback coordination,
   view-state transitions and stream-metadata lifecycle are isolated behind
   executable contracts;
-- GTK orchestration auditing is next, including a least-privilege review of
-  `flatpak/io.github.pitill0.Fluxtuner.yml` finish arguments;
+- GTK orchestration workstreams (including #316) are complete; the Flatpak
+  permissions were independently reduced and validated (see `flatpak/README.md`);
 - smaller follow-up storage cleanups only where they reduce risk without moving schema.
 
 The numbered roadmap remains the source of truth. The first six phases and the
@@ -494,10 +494,12 @@ Future structural PRs should remain small enough to review manually and should
 not change user-visible behaviour unless explicitly stated. Phase status changes
 must be reflected in this roadmap when the corresponding work is merged.
 
-## Next interface audit sequence
+## Original interface audit sequence (historical)
 
-The first TUI audit and extraction sequence is complete. The next structural
-work should continue with another documentation-only audit before moving code:
+The following plan was written before the completed GTK workstreams.
+Its six-permission inventory is a historical baseline, not the current
+Flatpak manifest. The current four permissions are documented in
+`flatpak/README.md` and the two removals in `flatpak/docs/validation/`.
 
 1. Audit `fluxtuner/gui/window.py` using the same responsibility-map and
    contract-first approach used for the TUI.
@@ -612,7 +614,10 @@ C901 across the test suite or across the context-menu test module.
 
 ## Issue #316: GTK controller workstream
 
-Status: recording, ripping, shutdown and complete library integrated; station-list/context-menu extraction awaiting final validation and merge.
+Status: complete and closed. PRs #322–#326 were integrated, with the final
+station-list/context-menu extraction merged in #326. The measured final
+`MainWindow` is 1,306 lines / 87 direct methods, down from 2,760 / 155
+using the same AST counting method. This measures ownership, not speed.
 
 The first GTK playback/metadata/search/view-state workstream remains complete.
 Issue #316 is a second bounded sequence for retained recording, ripping,
@@ -627,11 +632,12 @@ compatible system PyGObject/GTK bindings alongside the isolated project `.venv`.
 `scripts/run_gtk_tests.py` provides a repeatable entrypoint. Native-binding tests,
 manual desktop checks and the complete quality/security gate remain distinct.
 
-Proceed through recording actions, ripping/monitoring, quit/shutdown lifecycle,
-then library boundaries and a measured reassessment. Each extraction must
-preserve behavior, define its state/runtime owner and lower the measured window
-budget when responsibilities move. Keep #316 open across these bounded PRs;
-Flatpak permissions, Brynse version changes and Web work stay independent.
+The following progress notes preserve the original staged implementation
+history. All five PRs are now merged and #316 is closed. The final gate
+completed 1,973 general tests (14 expected skips) and 507 native
+GTK/Brynse/core tests without skips, alongside Ruff, mypy, Bandit, dependency
+audit and applicable packaging/JS checks. Flatpak permissions, Brynse version
+changes and Web work remain independent.
 
 
 The first extraction introduces `RecordingController` for recording request/start
@@ -658,7 +664,7 @@ cancellation/finalization were confirmed, with two MP3 outputs inspected.
 Dependency/version updates stay outside this refactor. After the full gate
 and second-stage PR, continue with the quit/shutdown controller, then
 reassess library actions.
-Keep #316 open across the bounded PRs.
+At that stage, #316 remained open across the bounded PRs.
 
 
 ### Issue #316 progress after PR #323
@@ -721,7 +727,7 @@ projection correction confirmed after block 283. The full final quality/security
 gate follows this documentation update.
 
 After this complete library PR, reassess the remaining station-list/layout and
-context-menu boundaries. Keep #316 open until that reassessment and the agreed
+context-menu boundaries. At that stage, #316 remained open until that reassessment and the agreed
 workstream are complete. Web work, Brynse dependency changes and Flatpak
 permissions remain separate.
 

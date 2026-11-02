@@ -15,8 +15,10 @@ environments.
 
 ## Completion status
 
-The first GTK orchestration workstream is complete. Issue #316 defines a
-second incremental workstream for responsibilities added or retained since it.
+Both GTK orchestration workstreams are complete. Issue #316 was closed after
+PRs #322–#326. The final measured `MainWindow` is 1,306 lines / 87
+direct methods (baseline 2,760 / 155); this represents ownership extraction,
+not demonstrated performance improvement.
 
 The work was delivered as a sequence of focused contract, hardening and
 extraction changes:
@@ -35,9 +37,12 @@ The resulting ownership is intentionally interface-specific. GTK retains its
 GLib, thread and widget boundary rather than forcing reuse of TUI lifecycle
 objects whose runtime contracts differ.
 
-## Final ownership boundaries
+## First-workstream ownership boundaries (historical)
 
-`MainWindow` remains responsible for the GTK interface boundary:
+The following inventory describes the first GTK workstream before #316.
+The subsequent #316 extraction moved recording, ripping, shutdown, library,
+station-list and context-menu responsibilities to their dedicated owners.
+At the first-workstream boundary, `MainWindow` was responsible for:
 
 - widget construction and direct widget mutation;
 - GTK signals and gestures;
@@ -288,25 +293,23 @@ No further GTK orchestration extraction is recommended solely to reduce
 `MainWindow` line count. Future movement should require a new behavior,
 lifecycle risk or independently testable ownership boundary.
 
-The next independent workstream is the Flatpak permission review:
-
-`security/review-flatpak-permissions`
-
-Permission changes must not be combined with GTK orchestration refactors. The
-review should use the inventory and environment matrix below, removing only one
-candidate permission at a time.
+The Flatpak permission review was completed separately, before #316.
+The removals of `--share=ipc` and `--device=dri` were accepted after
+documented CRUX Xorg, CRUX Wayland and Ubuntu Xorg checks. See
+`flatpak/docs/validation/permission-share-ipc.md` and
+`flatpak/docs/validation/permission-device-dri.md`. The matrix below
+records the historical acceptance procedure, not outstanding work.
 
 ## Flatpak permission inventory
 
-Current `finish-args`:
+Current repository `finish-args` (not a claim about any independently
+published Flathub manifest):
 
 ```yaml
 - --share=network
-- --share=ipc
 - --socket=fallback-x11
 - --socket=wayland
 - --socket=pulseaudio
-- --device=dri
 ```
 
 ### `--share=network`
@@ -338,7 +341,8 @@ whether every supported backend uses the same audio path.
 
 ### `--share=ipc`
 
-Candidate for least-privilege testing.
+Removed after the documented three-environment validation.
+The following is the historical rationale for testing.
 
 Shared IPC is commonly paired with X11 for performance and compatibility, but it
 must not be removed solely from static inspection. Test GTK startup, list
@@ -347,7 +351,8 @@ with this permission removed.
 
 ### `--device=dri`
 
-Candidate for least-privilege testing.
+Removed after the documented three-environment validation.
+The following is the historical rationale for testing.
 
 GTK rendering may use GPU acceleration even though FluxTuner does not implement
 custom graphics. Test with and without DRI under Wayland and Xorg, including
@@ -724,7 +729,7 @@ The full quality/security gate runs after these documentation changes and must
 be reviewed before staging. MainWindow is 1,690 lines/107 direct methods versus
 2,525/153 at the stage baseline; 46 methods and 835 window lines were removed.
 This is a reduction of window responsibilities, not a claim of fewer total
-production lines or improved runtime performance. Keep #316 open for the
+production lines or improved runtime performance. At that stage, #316 remained open for the
 remaining station-list/layout and context-menu reassessment.
 
 
@@ -761,7 +766,7 @@ selection contracts additionally verify actual component composition and the
 shared results widget/ViewState. Extraction checks, native validation, manual
 list/menu checks and the final full quality/security gate are separate steps.
 The user confirmed the manual checklist after block 292; GTK exited normally.
-The full final gate follows this documentation update. Keep #316 open until
+The full final gate follows this documentation update. At that stage, #316 remained open until
 its results, CI and the ownership reassessment below have been reviewed.
 
 

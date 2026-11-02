@@ -13,6 +13,8 @@ def test_web_index_exposes_login_ui() -> None:
     assert response.status_code == 200
     assert "data-login-form" in response.text
     assert 'method="post" action="/api/auth/login" data-login-form' in response.text
+    assert 'method="post" action="/api/auth/login" data-login-form inert' in response.text
+    assert '<button type="submit" data-login-submit disabled>Login</button>' in response.text
     assert "data-auth-panel" in response.text
     assert "data-logout" in response.text
 
@@ -498,3 +500,15 @@ def test_web_static_js_resets_search_view_on_auth_changes() -> None:
     assert 'setCurrentPlaylistName("");' in module_response.text
     assert 'setResultsHeader("Radio Browser", "Search stations");' in module_response.text
     assert "resetRadioBrowserView();" in navigation_response.text
+
+
+def test_login_remains_inert_until_submit_listener_is_registered() -> None:
+    client = TestClient(create_app())
+    events = client.get("/static/js/app-events.js")
+    assert events.status_code == 200
+    source = events.text
+    bind = 'loginForm.addEventListener("submit", login);'
+    enable = 'loginForm.querySelector("[data-login-submit]")?.removeAttribute("disabled");'
+    unlock = 'loginForm.removeAttribute("inert");'
+    assert bind in source and enable in source and unlock in source
+    assert source.index(bind) < source.index(enable) < source.index(unlock)

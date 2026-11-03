@@ -283,6 +283,11 @@ export function createMetadataController({
       }
 
       if (!response.ok) {
+        try {
+          await response.body?.cancel();
+        } catch {
+          // Cleanup is best-effort; preserve metadata retry behavior.
+        }
         showRetryingTrackInfo();
         logPlayerEvent("metadata-response-error", {
           status: response.status,

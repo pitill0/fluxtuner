@@ -582,7 +582,21 @@ export function createPlayerController({
     audioNode.addEventListener("play", () => {
       logPlayerEvent("audio-play");
       reapplyMediaSessionMetadata("audio-play-event");
+      const hasActiveSource = Boolean(
+        audioNode["currentSrc"] || audioNode.getAttribute("src"),
+      );
       if (
+        playbackIntent === "paused" &&
+        currentStation && hasActiveSource && !audioNode.paused &&
+        !startingPlayback && !softPausingPlayback && !stoppingPlayback &&
+        playerState.current !== "error"
+      ) {
+        // The platform resumed an externally paused source. Reconcile the intent
+        // without reconnecting or overriding explicit Pause/Stop teardown.
+        playbackIntent = "playing";
+        setPlayerState("playing", "Playing in browser.", "audio-external-resume");
+        updatePlayerControls();
+      } else if (
         playbackIntent === "playing" &&
         currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback
       ) {

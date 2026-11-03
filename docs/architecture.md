@@ -1,6 +1,17 @@
 # Architecture
 
-## Web unified library (v1.4.1)
+## Web unified library (introduced in v1.4.1)
+
+The unified library contract below remains valid in 1.5.0. Later changes defer
+optional browser controllers and off-screen station-card rendering (#314,
+#320). Persistent, content-addressed static builds may be enabled through
+`FLUXTUNER_WEB_VERSIONED_STATIC=1` (#307, #312); see
+[Web deployment and caching](web.md#cache-invalidation-and-deployments).
+
+The Web player retains its audio session independently of navigation. iOS
+Media Session pause/resume handling was hardened in #329 and #330 without
+changing station ownership or navigation semantics.
+
 
 FluxTuner Web uses a shared results surface for authenticated library
 destinations, including My stations and Remote catalogs. The
@@ -221,13 +232,22 @@ selection and rendered view state. It delegates focused behavior to:
 - `fluxtuner/gui/gtk_metadata.py` for metadata lifecycle and projection;
 - `fluxtuner/gui/gtk_search.py` for stale-search suppression;
 - `fluxtuner/gui/gtk_view_state.py` for logical view transitions;
-- `fluxtuner/gui/gtk_ripping.py` for ripping coordination, menu policy,
-  availability delivery, status projection and shutdown coordination.
+- `fluxtuner/gui/gtk_ripping.py` for ripping coordination contracts;
+- `fluxtuner/gui/gtk_recording.py` for recording actions;
+- `fluxtuner/gui/gtk_ripping_controller.py` for ripping actions and monitoring;
+- `fluxtuner/gui/gtk_shutdown.py` for coordinated shutdown;
+- `fluxtuner/gui/gtk_library.py` and `gtk_library_panel.py` for library
+  ownership and GTK presentation;
+- `fluxtuner/gui/gtk_station_list.py` for station-list ownership;
+- `fluxtuner/gui/gtk_station_context_menu.py` for contextual actions.
 
-The extracted helpers remain independent of GTK widget construction. GTK
-updates and lifecycle decisions stay in `MainWindow`, including applying
-worker results on the GLib main context. Window shutdown stops active timers,
-metadata polling, usage tracking and player playback.
+The second GTK orchestration workstream (#316, PRs #322–#326) completed these
+ownership extractions. `MainWindow` retains GTK widget composition, signals
+and GLib projection; focused controllers handle decisions and lifecycle
+operations. The smaller window module alone is not evidence of a performance
+gain. The dedicated GTK4/Xvfb CI smoke checks actual appearance resources
+and window creation (#336). See [GTK orchestration audit](gtk-orchestration-audit.md)
+for the historical baselines and completed boundaries.
 
 ### Web/server mode
 

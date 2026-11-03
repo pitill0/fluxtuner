@@ -6,9 +6,12 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
-## Unreleased
+## [1.5.0] - 2026-11-03
 
 ### Added
+
+- Added an isolated GTK4/Xvfb CI smoke test exercising FluxTuner's real
+  appearance resources, light/dark themes and window lifecycle (#336).
 
 - Added persistent, content-addressed Web static snapshots with
   immutable caching and verified publication (#307).
@@ -16,6 +19,13 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
   deployment and documented persistent storage requirements (#312).
 
 ### Changed
+
+- Deferred off-screen station-card rendering for improved Web responsiveness (#320).
+- Simplified Web composition, CLI command dispatch and PLS parsing without
+  changing their public behavior (#321).
+- Extracted GTK recording, ripping, shutdown, library, station-list and
+  context-menu responsibilities into focused controllers and services
+  (#322, #323, #324, #325, #326).
 
 - Deferred Web administration, station imports, remote subscriptions,
   and custom station controls until first use, reducing the initial
@@ -28,6 +38,15 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
   damaged static snapshots (#312).
 
 ### Fixed
+
+- Prevented native login form submission before Web JavaScript initialization
+  completes (#328).
+- Preserved iOS lock-screen media controls across pause transitions and
+  reconciled external audio resume intent (#329, #330).
+- Rejected embedded credentials in remote import and subscription URLs before
+  network access (#332).
+- Explicitly released unsuccessful Web metadata HTTP response bodies while
+  preserving playback and polling behavior (#334).
 
 - Reject unsupported remote collection URL schemes with HTTP 400 before
   network access and prevent storage of private API responses (#313).

@@ -7,6 +7,14 @@ incremental refactor path for the post-`v1.0.5` series.
 The goal is not a rewrite. The goal is to make the existing behaviour easier to
 reason about, test and extend while keeping releases small and reversible.
 
+## Current status for v1.5.0
+
+The original roadmap below preserves its historical context. The GTK
+controller extraction workstream (#316, PRs #322–#326), Web/CLI/PLS cleanup
+(#321) and isolated GTK4/Xvfb appearance CI smoke (#336) are complete.
+Remaining proposals are not release blockers unless a concrete defect
+requires action.
+
 ## Current pressure points
 
 ### Large interface modules
@@ -46,13 +54,20 @@ user/profile bootstrap and compatibility wrappers for older call sites.
 Domain-specific persistence now lives in focused modules:
 
 - `fluxtuner/core/users.py` for user-account storage;
-- `fluxtuner/core/password_changes.py` for password-change requests;
+- Web password-change request handling remains a Web/account concern;
+  consult the current account/auth modules rather than assuming that
+  `fluxtuner/core/password_changes.py` exists;
 - `fluxtuner/core/profiles.py` for profiles and profile ownership;
 - `fluxtuner/core/stations.py` for station records;
 - `fluxtuner/core/favorites.py` for favorites;
 - `fluxtuner/core/history.py` for listening history;
 - `fluxtuner/core/playlists.py` for playlists;
 - `fluxtuner/core/public_stats.py` for public statistics.
+
+The earlier roadmap mentioned `fluxtuner/core/password_changes.py`, but
+that file is not part of the current package. Password recovery and account
+operations use the existing core recovery and Web/auth modules; the list
+above intentionally names only the present storage-domain files.
 
 Schema and bootstrap responsibilities intentionally remain together in `db.py`.
 Compatibility wrappers are retained while existing call sites are reviewed
@@ -290,7 +305,6 @@ The storage split introduced focused ownership for:
 
 ```text
 fluxtuner/core/public_stats.py
-fluxtuner/core/password_changes.py
 fluxtuner/core/users.py
 fluxtuner/core/profiles.py
 fluxtuner/core/stations.py

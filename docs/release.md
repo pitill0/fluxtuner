@@ -10,7 +10,9 @@ A release should ensure that:
 
 - The version number is correct.
 - The changelog is updated.
-- User-facing documentation and architecture diagrams match the shipped behavior.
+- User-facing documentation, operational commands and architecture diagrams
+  match the shipped behavior. Historical audit records retain their original
+  baselines and distinguish completed work from future plans.
 - Flatpak/AppStream release metadata is updated when the release affects the local GTK/TUI package.
 - The package builds successfully.
 - CI is green on `main`.
@@ -132,8 +134,15 @@ When the release affects the local GTK/TUI package, also update:
 flatpak/io.github.pitill0.Fluxtuner.metainfo.xml
 ```
 
+Before tagging, reconcile the current architecture, development, Web,
+security and release documentation against the merged changes since the
+previous release. Verify the GTK4/Xvfb smoke and pinned Brynse/FFmpeg job in
+CI as well as the ordinary Python matrix; historical acceptance records
+should not be relabeled as current.
+
 Then run the complete release-quality gate and build from a clean artifact
-directory:
+directory. Ensure the packaging interpreter has the declared backend
+requirements; `--no-isolation` will not supply missing `setuptools` or `wheel`:
 
 ```bash
 make gate
@@ -314,6 +323,13 @@ If a release has a serious problem:
 Avoid force-moving published tags unless the release was never announced and no user could reasonably have consumed it.
 
 ## Release gate
+
+The current `make gate` includes Ruff formatting and lint, Python compilation,
+pytest, mypy type checking, JavaScript syntax, `pip-audit --local` and
+Bandit static-security analysis. A successful local gate does not replace
+the independent CI Brynse/FFmpeg contracts, GTK4/Xvfb appearance smoke,
+package build and Flatpak/AppStream validation. Review documentation
+consistency and artifacts before declaring the release ready.
 
 Before creating a release tag, run the canonical release-quality gate from a
 clean working tree:

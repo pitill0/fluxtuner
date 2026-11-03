@@ -83,6 +83,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.5.0" date="2026-11-03">
+      <description>
+        <ul>
+          <li>Improved GTK application architecture for recording, track ripping, shutdown and library actions.</li>
+          <li>Strengthened GTK desktop appearance validation with real GTK4/Xvfb smoke coverage.</li>
+          <li>Improved reliability and maintainability across desktop and terminal components.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.4.0" date="2026-10-27">
       <description>
         <ul>

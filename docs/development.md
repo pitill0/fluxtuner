@@ -18,7 +18,11 @@ Recommended local tools:
 - Node.js for Web JavaScript syntax checks.
 - Optional: Flatpak tooling if you work on packaging.
 
-The CI currently validates supported Python versions, package builds, dependency audits, static security checks, and tests.
+The CI validates supported Python versions, package builds, dependency
+audits, static security checks and tests. Independent jobs validate the pinned
+Brynse/FFmpeg integration and perform a real GTK4/Xvfb appearance smoke using
+system Python and PyGObject. These optional integrations are not required by
+the general Python test matrix.
 
 ## Clone the repository
 
@@ -209,7 +213,14 @@ fluxtuner/gui/
   gtk_playback.py          Playback coordination
   gtk_search.py            Search lifecycle
   gtk_view_state.py        Logical view state
-  window.py                GTK widget and lifecycle owner
+  gtk_recording.py         Recording actions
+  gtk_ripping_controller.py Ripping actions and monitoring
+  gtk_shutdown.py          Shutdown orchestration
+  gtk_library.py           Library controller
+  gtk_library_panel.py     Library presentation
+  gtk_station_list.py      Station-list ownership
+  gtk_station_context_menu.py Contextual station actions
+  window.py                GTK widget composition owner
 
 tests/
   test_*.py                Unit and regression tests
@@ -257,6 +268,28 @@ python -m pytest tests/test_players_mpv.py tests/test_players_ffplay.py
 ```bash
 python -m build
 ```
+
+The chosen interpreter must have the declared build backend available
+(`setuptools>=83` and `wheel`). A `--no-isolation` build does not install
+those dependencies: a development `.venv` may lack them even when the
+system Python supplies them. For offline validation, use a temporary source
+export and an interpreter with the backend installed, then verify both wheel
+and sdist and inspect the version from an isolated installed wheel. The
+version shown by an older editable installation does not establish the
+release artifact's version.
+
+### GTK4/Xvfb appearance smoke
+
+A dedicated `gtk-smoke` GitHub Actions job uses Ubuntu 24.04 with `xvfb`,
+`python3-gi` and `gir1.2-gtk-4.0`. It uses system Python to load the actual
+FluxTuner CSS and palettes and create a GTK4 window, without audio services:
+
+```bash
+xvfb-run -a /usr/bin/python3 tests/gtk_xvfb_smoke.py
+```
+
+The command requires the listed system packages and is intentionally
+separate from the regular pytest matrix.
 
 
 ### Real Brynse integration contracts

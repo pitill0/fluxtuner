@@ -16,10 +16,12 @@ Use **Manage subscriptions…** to subscribe, check updates or
 unsubscribe. A subscription is not a bulk favorite/playlist import.
 For that separate workflow, use **Import stations…**.
 
-The current catalog cards identify catalogs by source ID and revision.
-They do not yet provide a user-defined catalog name or a station-count
-summary on the card. Those are possible future UX improvements, not
-release 1.4.1 guarantees.
+At the 1.4.1 acceptance baseline, catalog cards identified sources by
+opaque ID and revision; user-defined names and station-count summaries
+were outside that acceptance contract. This paragraph is historical:
+subsequent catalog-identification improvements (#310) must be assessed
+against the live implementation, rather than inferred from the 1.4.1
+baseline.
 
 
 ## Identity

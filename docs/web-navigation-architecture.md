@@ -1,6 +1,8 @@
 # FluxTuner Web — Navigation Architecture
 
-Status: UX-01 through UX-04 implemented for v1.4.1
+Status: UX-01 through UX-04 implemented for v1.4.1; preserved in 1.5.0.
+Later browser performance work defers optional controllers (#314) and
+station-card rendering outside the visible view (#320).
 Scope: Responsive application shell and unified library
 Implementation: Incremental, without a frontend framework migration
 

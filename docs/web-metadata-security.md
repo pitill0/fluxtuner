@@ -176,6 +176,8 @@ Polling:
 - permits only one browser request at a time;
 - invalidates responses from an older station or playback generation;
 - treats endpoint and network failures as metadata-only failures;
+- explicitly cancels available HTTP response bodies for unsuccessful
+  metadata responses before returning to bounded retry handling (#334);
 - never pauses, restarts or changes the audio element.
 
 Fresh metadata is rendered with `textContent`. Artist and title are preferred,

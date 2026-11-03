@@ -404,6 +404,19 @@ sudo dnf install mpv ffmpeg python3-gobject gtk4
 
 ---
 
+## Real GTK4/Xvfb appearance smoke (Linux CI parity)
+
+When GTK appearance resources or orchestration change, run this separate
+smoke in an environment with GTK4, Xvfb and system PyGObject:
+
+```bash
+xvfb-run -a /usr/bin/python3 tests/gtk_xvfb_smoke.py
+```
+
+This loads the shared CSS and both palettes, creates and closes a GTK4
+window, and does not start audio playback or network services. Verify the
+independent `gtk-smoke` CI job is green on the release PR.
+
 # 12. Documentation checks
 
 ```bash

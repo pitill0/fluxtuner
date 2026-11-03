@@ -205,3 +205,24 @@ jobs:
           fluxtuner --help
           fluxtuner --list-players
           fluxtuner --list-themes
+
+  gtk-smoke:
+    name: GTK4/Xvfb appearance smoke / system Python
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install GTK4 and Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb python3-gi gir1.2-gtk-4.0
+
+      - name: Smoke-test real FluxTuner GTK appearance resources
+        env:
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+        run: |
+          xvfb-run -a /usr/bin/python3 tests/gtk_xvfb_smoke.py

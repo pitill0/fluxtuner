@@ -22,6 +22,18 @@ export const PLAYER_STATE_TRANSITIONS = Object.freeze({
   error: Object.freeze(["error", "loading", "playing", "paused", "idle"]),
 });
 
+// iOS WebKit may choose an unsuitable audio category with its default "auto".
+// Best-effort document-level preference; not a Media Session or pause keep-alive.
+export function configureBrowserAudioSession(navigatorRef = globalThis.navigator) {
+  if (!navigatorRef || !("audioSession" in navigatorRef)) return "unsupported";
+  try {
+    navigatorRef.audioSession.type = "playback";
+    return navigatorRef.audioSession.type === "playback" ? "configured" : "ignored";
+  } catch {
+    return "error";
+  }
+}
+
 export function createPlayerStateModel(initialState = "idle") {
   if (!PLAYER_STATES.includes(initialState)) {
     throw new TypeError(`Unknown player state: ${initialState}`);
@@ -72,6 +84,10 @@ export function createPlayerController({
   networkRecoveryDelaysMs = NETWORK_RECOVERY_DELAYS_MS,
 }) {
   let currentStation = null;
+  // User/system intent is independent of transient HTMLAudioElement events.
+  // The existing playbackRunId and networkRecoveryGeneration remain the only
+  // cancellation generations; do not create a third scheduler here.
+  let playbackIntent = "stopped";
   const playerState = createPlayerStateModel();
   let startingPlayback = false;
   let softPausingPlayback = false;
@@ -116,6 +132,7 @@ export function createPlayerController({
   function debugSnapshot(details = {}) {
     return {
       state: playerState.current,
+      playbackIntent,
       station: currentStation
         ? {
             name: currentStation.name || currentStation.custom_name || "",
@@ -387,6 +404,7 @@ export function createPlayerController({
     scheduleBufferingNotice(runId, "Still loading stream...");
 
     const playbackStarted = waitForAudioPlaybackStart(runId);
+    logPlayerEvent("browser-audio-session", { result: configureBrowserAudioSession() });
     await audioNode.play();
     reapplyMediaSessionMetadata("audio-play-promise-resolved");
     await playbackStarted;
@@ -409,6 +427,7 @@ export function createPlayerController({
   ) {
     if (!audioNode || !currentStation) return false;
 
+    playbackIntent = "playing";
     const resumesInterruptedNetworkPlayback =
       networkInterruptedPlayback && !preserveNetworkRecovery;
     if (!preserveNetworkRecovery) {
@@ -472,6 +491,7 @@ export function createPlayerController({
   function pauseCurrentStationPlayback(message = "Paused.") {
     if (!audioNode || !currentStation) return;
 
+    playbackIntent = "paused";
     cancelNetworkRecovery("pause");
     const runId = nextPlaybackRun();
     logPlayerEvent("playback-pause-request", { message, runId });
@@ -513,6 +533,7 @@ export function createPlayerController({
     if (!audioNode || !titleNode || !openLink) return;
 
     logPlayerEvent("playback-stop-request");
+    playbackIntent = "stopped";
     cancelNetworkRecovery("stop");
     const runId = nextPlaybackRun();
     startingPlayback = false;
@@ -546,7 +567,7 @@ export function createPlayerController({
       return;
     }
 
-    if (audioNode.paused || playerState.current === "error") {
+    if (playbackIntent === "paused" || audioNode.paused || playerState.current === "error") {
       await startCurrentStationPlayback(
         playerState.current === "error" ? "Retrying stream..." : "Resuming stream...",
       );
@@ -561,7 +582,10 @@ export function createPlayerController({
     audioNode.addEventListener("play", () => {
       logPlayerEvent("audio-play");
       reapplyMediaSessionMetadata("audio-play-event");
-      if (currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback) {
+      if (
+        playbackIntent === "playing" &&
+        currentStation && !startingPlayback && !softPausingPlayback && !stoppingPlayback
+      ) {
         void startCurrentStationPlayback("Restarting live stream...");
       }
     });
@@ -583,12 +607,17 @@ export function createPlayerController({
     audioNode.addEventListener("pause", () => {
       logPlayerEvent("audio-pause");
       if (
+        playbackIntent === "playing" &&
         currentStation &&
         !startingPlayback &&
         !softPausingPlayback &&
         !stoppingPlayback &&
         playerState.current !== "error"
       ) {
+        // An external audio pause (not initiated by our controls) becomes
+        // an intentional pause, so online/lifecycle callbacks cannot restart it.
+        playbackIntent = "paused";
+        cancelNetworkRecovery("audio-pause");
         clearBufferingNotice();
         mediaSessionController.setMediaSessionMetadata(currentStation, "playback-pause-request");
         setPlayerState("paused", "Paused.", "audio-pause");
@@ -602,6 +631,7 @@ export function createPlayerController({
         audioNode["currentSrc"] || audioNode.getAttribute("src"),
       );
       if (
+        playbackIntent === "playing" &&
         currentStation &&
         hasActiveSource &&
         !stoppingPlayback &&
@@ -620,6 +650,7 @@ export function createPlayerController({
         audioNode["currentSrc"] || audioNode.getAttribute("src"),
       );
       if (
+        playbackIntent === "playing" &&
         currentStation &&
         hasActiveSource &&
         !startingPlayback &&
@@ -671,6 +702,8 @@ export function createPlayerController({
     let state = playerState.current;
     if (!currentStation) {
       state = "idle";
+    } else if (playbackIntent === "paused") {
+      state = "paused";
     } else if (startingPlayback) {
       state = "loading";
     } else if (playerState.current === "error" && !recoverFromError) {
@@ -691,6 +724,7 @@ export function createPlayerController({
   async function recoverPlaybackAfterNetworkReturn() {
     if (
       !networkInterruptedPlayback ||
+      playbackIntent !== "playing" ||
       networkRecoveryActive ||
       !currentStation ||
       !audioNode
@@ -718,6 +752,7 @@ export function createPlayerController({
         const shouldContinue = await waitForNetworkRecoveryDelay(delayMs, generation);
         if (
           !shouldContinue ||
+          playbackIntent !== "playing" ||
           generation !== networkRecoveryGeneration ||
           !networkInterruptedPlayback ||
           currentStation !== recoveryStation
@@ -801,11 +836,13 @@ export function createPlayerController({
       if (!currentStation) return;
 
       const shouldRecover =
-        networkInterruptedPlayback ||
+        playbackIntent === "playing" && (
+          networkInterruptedPlayback ||
         startingPlayback ||
         !audioNode.paused ||
-        playerState.current === "loading" ||
-        playerState.current === "playing";
+          playerState.current === "loading" ||
+          playerState.current === "playing"
+        );
       cancelNetworkRecovery("window-offline", { clearIntent: false });
 
       if (!shouldRecover) {

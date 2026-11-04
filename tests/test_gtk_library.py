@@ -213,6 +213,8 @@ def test_native_window_composes_library_widgets_and_routes_live_actions(library_
     player.supports_volume.return_value = False
     player.supports_pause.return_value = False
     player.is_playing.return_value = False
+    # Real GTK widgets, but no external media-player binary is needed for this contract.
+    monkeypatch.setattr(window, "selected_player_name", lambda _name: "mpv")
     monkeypatch.setattr(window, "create_player", Mock(return_value=player))
     monkeypatch.setattr(window, "resolve_effective_profile_name", lambda: "default")
     monkeypatch.setattr(window.RippingController, "probe_availability", lambda self: None)

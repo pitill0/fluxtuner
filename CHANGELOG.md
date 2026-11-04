@@ -39,6 +39,10 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ### Fixed
 
+- Rejected malformed bracketed Web station and collection URLs instead of
+  returning HTTP 500, including favorites, import and subscriptions.
+- Released unsuccessful authentication-state HTTP response bodies to avoid
+  leaving anonymous initialization requests unread.
 - Prevented native login form submission before Web JavaScript initialization
   completes (#328).
 - Preserved iOS lock-screen media controls across pause transitions and

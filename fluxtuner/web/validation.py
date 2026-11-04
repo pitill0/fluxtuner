@@ -11,13 +11,16 @@ def text_too_long(value: str | None, max_length: int) -> bool:
 
 
 def is_supported_web_url(url: str) -> bool:
-    parsed = urlparse(str(url or "").strip())
-    return (
-        parsed.scheme in {"http", "https"}
-        and bool(parsed.netloc)
-        and parsed.username is None
-        and parsed.password is None
-    )
+    try:
+        parsed = urlparse(str(url or "").strip())
+        return (
+            parsed.scheme in {"http", "https"}
+            and bool(parsed.netloc)
+            and parsed.username is None
+            and parsed.password is None
+        )
+    except ValueError:
+        return False
 
 
 def station_stream_url(station_data: dict[str, Any]) -> str:

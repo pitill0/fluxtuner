@@ -27,6 +27,8 @@ def test_is_supported_web_url_rejects_unsupported_or_incomplete_urls() -> None:
     assert not is_supported_web_url("example.com/stream.mp3")
     assert not is_supported_web_url("ftp://example.com/stream.mp3")
     assert not is_supported_web_url("https:///missing-host")
+    assert not is_supported_web_url("http://[::1")
+    assert not is_supported_web_url("http://[zz]/a.m3u")
 
 
 def test_station_stream_url_prefers_resolved_url() -> None:

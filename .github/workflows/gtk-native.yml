@@ -1,0 +1,52 @@
+name: GTK native contracts
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  gtk-native-contracts:
+    name: GTK4/Xvfb native station and library contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install GTK4, Xvfb and system Python development tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb python3-gi python3-venv python3-cairo gir1.2-gtk-4.0
+
+      - name: Create environment retaining system PyGObject
+        run: |
+          /usr/bin/python3 -m venv --system-site-packages /tmp/fluxtuner-gtk-contracts
+          /tmp/fluxtuner-gtk-contracts/bin/python -m pip install --upgrade pip
+          /tmp/fluxtuner-gtk-contracts/bin/python -m pip install -e '.[dev]' 'pytest-json-report>=1.5,<2'
+
+      - name: Run six native GTK contracts, without skips
+        env:
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+        run: |
+          xvfb-run -a /tmp/fluxtuner-gtk-contracts/bin/python -m pytest -q --strict-markers \
+            --json-report --json-report-file=gtk-native-contracts.json \
+            tests/test_gtk_station_list.py tests/test_gtk_library.py \
+            -k 'native_station_list_restores_selection_across_row_rebuilds or native_row_gesture_plays_the_clicked_station_only_on_double_click or native_window_composes_library_widgets_and_routes_live_actions'
+
+      - name: Reject missing, skipped or failed GTK contracts
+        run: |
+          /tmp/fluxtuner-gtk-contracts/bin/python - <<'PYVERIFY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(Path('gtk-native-contracts.json').read_text())['summary']
+          assert summary.get('passed') == 6, summary
+          assert summary.get('skipped', 0) == 0, summary
+          assert summary.get('failed', 0) == 0, summary
+          assert summary.get('error', 0) == 0, summary
+          assert summary.get('total') == 6, summary
+          print('PASS: all six real GTK station-list/library contracts passed; no skips.')
+          PYVERIFY

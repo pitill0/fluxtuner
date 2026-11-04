@@ -27,6 +27,11 @@ export function createAuthController({
       });
 
       if (!response.ok) {
+        try {
+          await response.body?.cancel();
+        } catch (_error) {
+          // A consumed or closed body must not block anonymous initialization.
+        }
         setCurrentUser(null);
         setCsrfToken("");
         updateAuthUi();

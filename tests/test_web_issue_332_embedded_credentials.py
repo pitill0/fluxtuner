@@ -30,6 +30,8 @@ class FakeRequest:
         "https://testuser:@catalog.example/collection.m3u",
         "https://:testpass@catalog.example/collection.m3u",
         "https://@catalog.example/collection.m3u",
+        "http://[::1",
+        "http://[zz]/a.m3u",
     ],
 )
 def test_credential_url_rejected_before_remote_fetch(monkeypatch, url: str) -> None:
@@ -55,6 +57,8 @@ def test_credential_url_rejected_before_remote_fetch(monkeypatch, url: str) -> N
         "https://testuser:@catalog.example/collection.m3u",
         "https://:testpass@catalog.example/collection.m3u",
         "https://@catalog.example/collection.m3u",
+        "http://[::1",
+        "http://[zz]/a.m3u",
     ],
 )
 def test_subscription_rejects_credential_url_before_download(url: str) -> None:

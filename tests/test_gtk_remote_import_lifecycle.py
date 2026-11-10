@@ -179,3 +179,85 @@ def test_changed_profile_discards_completed_download(gtk_harness, monkeypatch):
     assert parent._m3u_import_remote_dialog is None
     preview.assert_not_called()
     saved.assert_not_called()
+
+
+def test_deferred_destroy_after_successful_remote_import(gtk_harness, monkeypatch):
+    """Late GTK destroy must not access missing closure variables."""
+
+    def append(self, child):
+        self.children = getattr(self, "children", [])
+        self.children.append(child)
+
+    monkeypatch.setattr(FakeWidget, "append", append)
+
+    preview = Mock()
+    monkeypatch.setattr(importer, "_show_preview", preview)
+    monkeypatch.setattr(
+        importer,
+        "prepare_remote_m3u_import",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    parent, dialog, _saved, _errors = _open(gtk_harness)
+
+    # Defer the native destroy signal until after finish returns.
+    destroyed = dialog.handlers.pop("destroy")
+
+    _start(dialog)
+    gtk_harness.workers[0]()
+
+    callback, args = gtk_harness.callbacks.pop()
+    assert callback(*args) is False
+
+    assert dialog.destroyed
+    assert parent._m3u_import_remote_dialog is None
+    preview.assert_called_once()
+
+    # Neither callback should depend on fragile outer closure cells.
+    assert "dispose" not in destroyed.__code__.co_freevars
+
+    defaults = destroyed.__defaults__
+    assert defaults is not None
+
+    dispose = defaults[0]
+    assert callable(dispose)
+
+    assert not {
+        "parent",
+        "dialog",
+        "state",
+    }.intersection(dispose.__code__.co_freevars)
+
+    # GTK may deliver destroy after the calling function returns.
+    destroyed(dialog)
+    destroyed(dialog)
+
+    assert parent._m3u_import_remote_dialog is None
+
+
+def test_deferred_window_close_clears_dialog_reference(gtk_harness):
+    """Closing via the window manager must clean up safely."""
+
+    parent, dialog, _saved, _errors = _open(gtk_harness)
+
+    destroyed = dialog.handlers.pop("destroy")
+
+    dialog.destroy()
+    assert dialog.destroyed
+
+    # Native GTK delivers the signal later.
+    destroyed(dialog)
+
+    assert parent._m3u_import_remote_dialog is None
+
+    # A fresh import dialog must be allowed after cleanup.
+    importer.open_remote_m3u_import(
+        parent,
+        profile_id=1,
+        profile_is_current=lambda: True,
+        on_saved=Mock(),
+        on_error=Mock(),
+    )
+
+    assert len(gtk_harness.dialogs) == 2
+    assert parent._m3u_import_remote_dialog is gtk_harness.dialogs[-1]

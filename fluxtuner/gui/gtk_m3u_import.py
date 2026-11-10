@@ -306,13 +306,20 @@ def open_remote_m3u_import(  # noqa: C901 - reviewed ceiling 21; see docs/comple
     parent._m3u_import_remote_dialog = dialog
     state = {"closed": False, "busy": False}
 
-    def dispose() -> None:
-        state["closed"] = True
-        if getattr(parent, "_m3u_import_remote_dialog", None) is dialog:
-            parent._m3u_import_remote_dialog = None
+    def dispose(
+        owner: Any = parent,
+        current_dialog: Any = dialog,
+        lifecycle: dict[str, bool] = state,
+    ) -> None:
+        lifecycle["closed"] = True
+        if getattr(owner, "_m3u_import_remote_dialog", None) is current_dialog:
+            owner._m3u_import_remote_dialog = None
 
-    def destroyed(_widget: Any) -> None:
-        dispose()
+    def destroyed(
+        _widget: Any,
+        cleanup: Callable[[], None] = dispose,
+    ) -> None:
+        cleanup()
 
     def finish(session: M3UImportSession | None, error: str | None) -> bool:
         if state["closed"] or getattr(parent, "_m3u_import_remote_dialog", None) is not dialog:

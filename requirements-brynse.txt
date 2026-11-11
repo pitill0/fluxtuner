@@ -1,2 +1,2 @@
-# Optional Brynse v0.1.1 revision exercised by the radio contract tests.
-brynse @ git+https://github.com/pitill0/brynse.git@e8418776e54ba7df4f3c5abeca5dc1033c7322c6
+# Optional Brynse revision with MP3/AAC fallback detection.
+brynse @ git+https://github.com/pitill0/brynse.git@f4c964493008db37d867b1d86e0db2fd9b11c769

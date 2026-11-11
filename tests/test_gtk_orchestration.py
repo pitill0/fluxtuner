@@ -32,9 +32,11 @@ def _import_window_module():
             pass
 
         gtk = SimpleNamespace(ApplicationWindow=ApplicationWindow)
+        gio = SimpleNamespace()
         glib = SimpleNamespace()
         pango = SimpleNamespace()
 
+        repository.Gio = gio  # type: ignore[attr-defined]
         repository.GLib = glib  # type: ignore[attr-defined]
         repository.Gtk = gtk  # type: ignore[attr-defined]
         repository.Pango = pango  # type: ignore[attr-defined]
@@ -1288,64 +1290,101 @@ def test_delete_playlist_storage_error_preserves_view(monkeypatch) -> None:
     error.set_text.assert_called_once_with("Storage unavailable")
 
 
-def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeypatch) -> None:
-    menu_button, popover, box = Mock(), Mock(), Mock()
-    buttons = {}
+def test_application_menu_registers_actions_and_preserves_quit(monkeypatch) -> None:
+    menu_button = Mock()
+    popover = Mock()
+    menu_button.get_popover.return_value = popover
 
-    def make_button(*, label):
-        result = Mock()
-        buttons[label] = result
-        return result
+    menus = []
 
-    monkeypatch.setattr(
-        window,
-        "Gtk",
-        SimpleNamespace(
-            MenuButton=Mock(return_value=menu_button),
-            Popover=Mock(return_value=popover),
-            Box=Mock(return_value=box),
-            Button=make_button,
-            Orientation=SimpleNamespace(VERTICAL=object()),
-            Align=SimpleNamespace(END=object(), CENTER=object()),
-        ),
+    class FakeMenu:
+        def __init__(self):
+            self.items = []
+            menus.append(self)
+
+        def append(self, label, action):
+            self.items.append(("action", label, action))
+
+        def append_submenu(self, label, child):
+            self.items.append(("submenu", label, child))
+
+        def append_section(self, label, child):
+            self.items.append(("section", label, child))
+
+    actions = {}
+
+    def new_action(name, _parameter_type):
+        action = Mock()
+        action.get_name.return_value = name
+        actions[name] = action
+        return action
+
+    fake_gtk = SimpleNamespace(
+        MenuButton=Mock(return_value=menu_button),
+        Align=SimpleNamespace(END=object(), CENTER=object()),
     )
+    fake_gio = SimpleNamespace(
+        Menu=FakeMenu,
+        SimpleAction=SimpleNamespace(new=new_action),
+    )
+
+    monkeypatch.setattr(window, "Gtk", fake_gtk)
+    monkeypatch.setattr(window, "Gio", fake_gio)
+
     container = Mock()
     harness = SimpleNamespace(
+        add_action=Mock(),
         on_preferences_clicked=Mock(),
         on_about_clicked=Mock(),
         on_add_custom_station_clicked=Mock(),
         on_import_stations_clicked=Mock(),
+        on_import_stations_url_clicked=Mock(),
     )
 
-    harness.on_import_stations_url_clicked = Mock()
     window.MainWindow._build_application_menu(bind_library_menu(harness), container)
 
-    window.Gtk.MenuButton.assert_called_once_with(icon_name="open-menu-symbolic")
+    fake_gtk.MenuButton.assert_called_once_with(icon_name="open-menu-symbolic")
     container.append.assert_called_once_with(menu_button)
-    menu_button.set_popover.assert_called_once_with(popover)
-    popover.set_child.assert_called_once_with(box)
-    buttons["Preferences…"].connect.assert_called_once_with(
-        "clicked", harness.on_preferences_clicked
-    )
-    assert set(buttons) == {
-        "Preferences…",
-        "Add station…",
-        "Import stations…",
-        "Import stations from URL…",
-        "About FluxTuner",
-        "Quit",
+    menu_button.set_menu_model.assert_called_once()
+    assert harness.application_menu_popover is popover
+
+    assert set(actions) == {
+        "station-add",
+        "station-import",
+        "station-import-url",
+        "preferences",
+        "about",
     }
-    buttons["Quit"].set_action_name.assert_called_once_with("app.quit")
-    buttons["Add station…"].connect.assert_called_once_with(
-        "clicked", harness.on_add_custom_station_clicked
-    )
-    buttons["About FluxTuner"].connect.assert_called_once_with("clicked", harness.on_about_clicked)
-    buttons["Import stations…"].connect.assert_called_once_with(
-        "clicked", harness.on_import_stations_clicked
-    )
-    buttons["Import stations from URL…"].connect.assert_called_once_with(
-        "clicked", harness.on_import_stations_url_clicked
-    )
+    assert harness.add_action.call_count == 5
+
+    root = menu_button.set_menu_model.call_args.args[0]
+    assert root.items[0][0:2] == ("submenu", "Stations")
+
+    submenu = root.items[0][2]
+    assert [item[2] for item in submenu.items] == [
+        "win.station-add",
+        "win.station-import",
+        "win.station-import-url",
+    ]
+
+    assert root.items[-1] == ("action", "Quit", "app.quit")
+    assert "quit" not in actions
+
+    callbacks = {
+        "station-add": harness.on_add_custom_station_clicked,
+        "station-import": harness.on_import_stations_clicked,
+        "station-import-url": harness.on_import_stations_url_clicked,
+        "preferences": harness.on_preferences_clicked,
+        "about": harness.on_about_clicked,
+    }
+
+    for name, callback in callbacks.items():
+        signal, handler = actions[name].connect.call_args.args
+        assert signal == "activate"
+        handler(actions[name], None)
+        callback.assert_called_once_with(menu_button)
+
+    assert popover is harness.application_menu_popover
 
 
 def test_about_dialog_reports_installed_version_and_project(monkeypatch) -> None:

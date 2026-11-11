@@ -10,7 +10,7 @@ from typing import Any, Literal
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Gio, GLib, Gtk, Pango  # noqa: E402
 
 from fluxtuner import __app_name__, __version__  # noqa: E402
 from fluxtuner.config import (  # noqa: E402
@@ -52,6 +52,7 @@ from fluxtuner.gui.appearance import (  # noqa: E402
     GtkAppearanceManager,
     normalize_appearance,
 )
+from fluxtuner.gui.gtk_application_menu import create_application_menu  # noqa: E402
 from fluxtuner.gui.gtk_library import LibraryController, library_tags_text  # noqa: E402
 from fluxtuner.gui.gtk_library_panel import LibraryPanel, LibraryViewPorts  # noqa: E402
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
@@ -421,44 +422,18 @@ class MainWindow(Gtk.ApplicationWindow):
         side_panel.append(hint)
 
     def _build_application_menu(self, container: Gtk.Box) -> None:
-        self.application_menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic")
-        self.application_menu_button.set_tooltip_text("Application menu")
-        self.application_menu_button.set_halign(Gtk.Align.END)
-        self.application_menu_button.set_valign(Gtk.Align.CENTER)
-
-        self.application_menu_popover = Gtk.Popover()
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-
-        preferences_button = Gtk.Button(label="Preferences…")
-        preferences_button.connect("clicked", self.on_preferences_clicked)
-        content.append(preferences_button)
-
-        add_station_button = Gtk.Button(label="Add station…")
-        add_station_button.connect("clicked", self._library.on_add_custom_station_clicked)
-        content.append(add_station_button)
-
-        import_button = Gtk.Button(label="Import stations…")
-        import_button.connect("clicked", self._library.on_import_stations_clicked)
-        content.append(import_button)
-
-        remote_import_button = Gtk.Button(label="Import stations from URL…")
-        remote_import_button.connect("clicked", self._library.on_import_stations_url_clicked)
-        content.append(remote_import_button)
-
-        about_button = Gtk.Button(label="About FluxTuner")
-        about_button.connect("clicked", self.on_about_clicked)
-        content.append(about_button)
-
-        quit_button = Gtk.Button(label="Quit")
-        quit_button.set_action_name("app.quit")
-        content.append(quit_button)
-
-        self.application_menu_popover.set_child(content)
-        self.application_menu_button.set_popover(self.application_menu_popover)
+        self.application_menu_button, self.application_menu_popover = create_application_menu(
+            self,
+            callbacks={
+                "station-add": self._library.on_add_custom_station_clicked,
+                "station-import": self._library.on_import_stations_clicked,
+                "station-import-url": self._library.on_import_stations_url_clicked,
+                "preferences": self.on_preferences_clicked,
+                "about": self.on_about_clicked,
+            },
+            gtk=Gtk,
+            gio=Gio,
+        )
         container.append(self.application_menu_button)
 
     def on_about_clicked(self, _button: Gtk.Button) -> None:

@@ -277,22 +277,30 @@ initially. These filters are separate from persistent playlists.
 
 ## GTK application menu
 
-The hamburger button in the upper-right corner opens the application menu:
+The hamburger button in the upper-right corner opens a native GTK4
+application menu organized into a **Stations** submenu and direct
+application actions.
+
+Under **Stations**:
 
 - **Add station…** saves a personal stream URL to the current profile.
+- **Import stations…** imports a local station playlist.
+- **Import stations from URL…** imports a remote station playlist.
+
+Directly in the application menu:
+
 - **Preferences…** opens the GTK preferences dialog. The Appearance
   section selects System, Dark or Light; changes apply immediately and
   persist across restarts.
 - **About FluxTuner** displays the application icon, installed version and
   a link to the project on GitHub.
-- **Quit** exits through the coordinated shutdown process, including when
-  closing the window would normally hide it to the Linux system tray.
+- **Quit** exits through the existing application shutdown flow.
 
 The Quit shortcut is Ctrl+Q on Linux and Command+Q on macOS.
 
 ## Custom stations in GTK
 
-Open the application menu and choose **Add station…**. Enter a station name
+Open **Stations → Add station…** from the application menu. Enter a station name
 and an HTTP or HTTPS stream URL, then choose **Add**.
 
 The station is saved to the current profile's favorites and displayed in the
@@ -347,7 +355,7 @@ See [Web usage](web.md) for the complete workflows.
 
 ### Import station collections in GTK
 
-Open the application menu and choose **Import stations…**. Select a local
+Open **Stations → Import stations…** from the application menu. Select a local
 M3U/M3U8 file and review the valid stations, repeated URLs and reported issues.
 Choose an existing playlist or create a new one, then select **Import**.
 

@@ -280,8 +280,9 @@ initially. These filters are separate from persistent playlists.
 The hamburger button in the upper-right corner opens the application menu:
 
 - **Add station…** saves a personal stream URL to the current profile.
-- **Appearance** selects System, Dark or Light. Changes apply immediately
-  and the selected mode is saved for the next launch.
+- **Preferences…** opens the GTK preferences dialog. The Appearance
+  section selects System, Dark or Light; changes apply immediately and
+  persist across restarts.
 - **About FluxTuner** displays the application icon, installed version and
   a link to the project on GitHub.
 - **Quit** exits through the coordinated shutdown process, including when
@@ -388,7 +389,16 @@ Use **Tab** to move between controls and **?** for keyboard help.
 
 See [Playlist imports](playlist-imports.md) for format and conflict rules.
 
-## GTK appearance
+## GTK preferences and appearance
+
+Choose **Preferences…** from the application menu to open the
+preferences dialog. The dialog currently provides General, Appearance
+and Storage sections. General and Storage are reserved for future
+settings; they do not modify application behavior yet.
+
+The dialog can be closed and reopened without discarding the selected
+appearance. Use the Appearance section to change the GTK theme.
+
 
 The GTK desktop GUI provides an appearance selector with three modes:
 

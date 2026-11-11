@@ -199,3 +199,83 @@ dropdown popover listview row:selected {
 dropdown popover label {
   color: #1f2937;
 }
+
+/* Preferences dialog: scoped light surfaces and readable tabs. */
+window.fluxtuner-preferences,
+window.fluxtuner-preferences > box {
+  background: #f7f8fb;
+  color: #1f2937;
+}
+
+window.fluxtuner-preferences headerbar,
+window.fluxtuner-preferences .titlebar,
+window.fluxtuner-preferences notebook > header {
+  background: #eef2f7;
+  color: #1f2937;
+  border-color: #d0d5dd;
+}
+
+window.fluxtuner-preferences headerbar label,
+window.fluxtuner-preferences .titlebar label,
+window.fluxtuner-preferences notebook > header label {
+  color: #344054;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab {
+  background: transparent;
+  color: #475467;
+  border-color: transparent;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab:checked {
+  background: #ffffff;
+  color: #101828;
+  border-bottom: 2px solid #6172f3;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab:checked label {
+  color: #101828;
+}
+
+window.fluxtuner-preferences notebook > stack {
+  background: #f7f8fb;
+  color: #1f2937;
+}
+
+window.fluxtuner-preferences headerbar button,
+window.fluxtuner-preferences .titlebar button {
+  background: #f8fafc;
+  color: #344054;
+  border-color: #cfd4dc;
+}
+
+window.fluxtuner-preferences headerbar button:hover,
+window.fluxtuner-preferences .titlebar button:hover {
+  background: #eef2f6;
+  color: #1f2937;
+}
+
+window.fluxtuner-preferences headerbar button:active,
+window.fluxtuner-preferences .titlebar button:active {
+  background: #e4e7ec;
+  color: #101828;
+}
+
+/* Explicit preferences close control: independent of system icon theme. */
+window.fluxtuner-preferences
+headerbar button.fluxtuner-preferences-close {
+  background: #ffffff;
+  color: #344054;
+  border: 1px solid #cfd4dc;
+  border-radius: 8px;
+  box-shadow: none;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+window.fluxtuner-preferences
+headerbar button.fluxtuner-preferences-close:hover {
+  background: #e4e7ec;
+  color: #101828;
+}

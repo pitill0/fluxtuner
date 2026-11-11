@@ -59,6 +59,7 @@ from fluxtuner.gui.gtk_playback import (  # noqa: E402
     coordinate_playback_start,
     coordinate_playback_stop,
 )
+from fluxtuner.gui.gtk_preferences import create_preferences_dialog  # noqa: E402
 from fluxtuner.gui.gtk_recording import RecordingController  # noqa: E402
 from fluxtuner.gui.gtk_ripping_controller import RippingController  # noqa: E402
 from fluxtuner.gui.gtk_search import SearchLifecycle  # noqa: E402
@@ -432,7 +433,9 @@ class MainWindow(Gtk.ApplicationWindow):
         content.set_margin_start(12)
         content.set_margin_end(12)
 
-        self._build_appearance_controls(content)
+        preferences_button = Gtk.Button(label="Preferences…")
+        preferences_button.connect("clicked", self.on_preferences_clicked)
+        content.append(preferences_button)
 
         add_station_button = Gtk.Button(label="Add station…")
         add_station_button.connect("clicked", self._library.on_add_custom_station_clicked)
@@ -477,46 +480,31 @@ class MainWindow(Gtk.ApplicationWindow):
         self._about_dialog = dialog
         dialog.present()
 
-    def _build_appearance_controls(self, container: Gtk.Box) -> None:
-        appearance_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        appearance_box.set_halign(Gtk.Align.END)
-        appearance_box.set_valign(Gtk.Align.CENTER)
-        container.append(appearance_box)
+    def on_preferences_clicked(self, _button: Gtk.Button) -> None:
+        """Present one preferences dialog per application window."""
+        self.application_menu_popover.popdown()
 
-        appearance_label = Gtk.Label(label="Appearance")
-        appearance_label.add_css_class("dim-label")
-        appearance_box.append(appearance_label)
-
-        self.appearance_dropdown = Gtk.DropDown.new_from_strings(["System", "Dark", "Light"])
-        self.appearance_dropdown.set_tooltip_text("Choose the GTK appearance")
-        self.appearance_dropdown.set_selected(
-            {
-                AppearanceMode.SYSTEM: 0,
-                AppearanceMode.DARK: 1,
-                AppearanceMode.LIGHT: 2,
-            }[self.configured_appearance]
-        )
-        self.appearance_dropdown.connect(
-            "notify::selected",
-            self.on_appearance_changed,
-        )
-        appearance_box.append(self.appearance_dropdown)
-
-    def on_appearance_changed(
-        self,
-        dropdown: Gtk.DropDown,
-        _pspec: object,
-    ) -> None:
-        selected = dropdown.get_selected()
-        modes = (
-            AppearanceMode.SYSTEM,
-            AppearanceMode.DARK,
-            AppearanceMode.LIGHT,
-        )
-        if selected >= len(modes):
+        dialog = getattr(self, "_preferences_dialog", None)
+        if dialog is not None:
+            dialog.present()
             return
 
-        mode = modes[selected]
+        dialog = create_preferences_dialog(
+            self,
+            appearance=self.configured_appearance,
+            on_appearance_changed=self._apply_appearance_preference,
+        )
+        self._preferences_dialog = dialog
+        dialog.connect("destroy", self._on_preferences_destroyed)
+        dialog.present()
+
+    def _on_preferences_destroyed(self, dialog: Gtk.Dialog) -> None:
+        """Forget the destroyed dialog without retaining stale widgets."""
+        if getattr(self, "_preferences_dialog", None) is dialog:
+            self._preferences_dialog = None
+
+    def _apply_appearance_preference(self, mode: AppearanceMode) -> None:
+        """Persist and immediately apply the selected appearance."""
         self.configured_appearance = mode
         set_config_value("gtk_appearance", mode.value)
 

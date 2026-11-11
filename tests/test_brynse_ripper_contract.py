@@ -461,7 +461,12 @@ def test_adapter_detects_codec_without_usable_mime(
     """Exercise real Brynse codec probing through FluxTuner's adapter."""
     from io import BytesIO
 
-    radio = importlib.import_module("brynse.integrations.radio")
+    try:
+        radio = importlib.import_module("brynse.integrations.radio")
+    except ModuleNotFoundError as exc:
+        if exc.name == "brynse":
+            pytest.skip("Optional Brynse dependency is not installed")
+        raise
 
     ffmpeg = shutil.which("ffmpeg")
     assert ffmpeg is not None, "Real Brynse contract requires FFmpeg"

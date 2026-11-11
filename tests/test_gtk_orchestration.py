@@ -1311,7 +1311,7 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     )
     container = Mock()
     harness = SimpleNamespace(
-        _build_appearance_controls=Mock(),
+        on_preferences_clicked=Mock(),
         on_about_clicked=Mock(),
         on_add_custom_station_clicked=Mock(),
         on_import_stations_clicked=Mock(),
@@ -1324,7 +1324,17 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     container.append.assert_called_once_with(menu_button)
     menu_button.set_popover.assert_called_once_with(popover)
     popover.set_child.assert_called_once_with(box)
-    harness._build_appearance_controls.assert_called_once_with(box)
+    buttons["Preferences…"].connect.assert_called_once_with(
+        "clicked", harness.on_preferences_clicked
+    )
+    assert set(buttons) == {
+        "Preferences…",
+        "Add station…",
+        "Import stations…",
+        "Import stations from URL…",
+        "About FluxTuner",
+        "Quit",
+    }
     buttons["Quit"].set_action_name.assert_called_once_with("app.quit")
     buttons["Add station…"].connect.assert_called_once_with(
         "clicked", harness.on_add_custom_station_clicked
@@ -1332,6 +1342,9 @@ def test_application_menu_keeps_appearance_and_routes_quit_to_app_action(monkeyp
     buttons["About FluxTuner"].connect.assert_called_once_with("clicked", harness.on_about_clicked)
     buttons["Import stations…"].connect.assert_called_once_with(
         "clicked", harness.on_import_stations_clicked
+    )
+    buttons["Import stations from URL…"].connect.assert_called_once_with(
+        "clicked", harness.on_import_stations_url_clicked
     )
 
 

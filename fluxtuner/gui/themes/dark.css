@@ -199,3 +199,68 @@ dropdown popover listview row:selected {
 dropdown popover label {
   color: #f3f4f6;
 }
+
+/* Preferences dialog: scoped dark surfaces and readable tabs. */
+window.fluxtuner-preferences,
+window.fluxtuner-preferences > box {
+  background: #111318;
+  color: #f3f4f6;
+}
+
+window.fluxtuner-preferences headerbar,
+window.fluxtuner-preferences .titlebar,
+window.fluxtuner-preferences notebook > header {
+  background: #1a1e27;
+  color: #f3f4f6;
+  border-color: #30384b;
+}
+
+window.fluxtuner-preferences headerbar label,
+window.fluxtuner-preferences .titlebar label,
+window.fluxtuner-preferences notebook > header label {
+  color: #eef2ff;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab {
+  background: transparent;
+  color: #a6adbb;
+  border-color: transparent;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab:checked {
+  background: #202634;
+  color: #ffffff;
+  border-bottom: 2px solid #6d8dff;
+}
+
+window.fluxtuner-preferences notebook > header > tabs > tab:checked label {
+  color: #ffffff;
+}
+
+window.fluxtuner-preferences notebook > stack {
+  background: #111318;
+  color: #f3f4f6;
+}
+
+window.fluxtuner-preferences headerbar button,
+window.fluxtuner-preferences .titlebar button {
+  border-color: #3a4254;
+}
+
+window.fluxtuner-preferences
+headerbar button.fluxtuner-preferences-close {
+  background: #202634;
+  color: #f3f4f6;
+  border: 1px solid #465477;
+  border-radius: 8px;
+  box-shadow: none;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+window.fluxtuner-preferences
+headerbar button.fluxtuner-preferences-close:hover {
+  background: #334061;
+  color: #ffffff;
+}

@@ -442,3 +442,104 @@ def test_service_preserves_real_finalized_track_files(
     finally:
         service.stop()
         assert service.wait(timeout=10)
+
+
+@pytest.mark.parametrize(
+    ("codec", "content_type"),
+    [
+        ("mp3", None),
+        ("mp3", "application/octet-stream"),
+        ("aac", None),
+        ("aac", "application/octet-stream"),
+    ],
+)
+def test_adapter_detects_codec_without_usable_mime(
+    tmp_path: Path,
+    codec: str,
+    content_type: str | None,
+) -> None:
+    """Exercise real Brynse codec probing through FluxTuner's adapter."""
+    from io import BytesIO
+
+    try:
+        radio = importlib.import_module("brynse.integrations.radio")
+    except ModuleNotFoundError as exc:
+        if exc.name == "brynse":
+            pytest.skip("Optional Brynse dependency is not installed")
+        raise
+
+    ffmpeg = shutil.which("ffmpeg")
+    assert ffmpeg is not None, "Real Brynse contract requires FFmpeg"
+
+    if codec == "mp3":
+        frame = b"\xff\xfb\x90\x00" + bytes(413)
+    else:
+        frame_length = 64
+        frame = bytes(
+            (
+                0xFF,
+                0xF1,
+                0x50,
+                0x80 | ((frame_length >> 11) & 3),
+                (frame_length >> 3) & 255,
+                ((frame_length & 7) << 5) | 0x1F,
+                0xFC,
+            )
+        ) + bytes(frame_length - 7)
+
+    class SyntheticSource:
+        def __init__(self) -> None:
+            self.metadata = {"icy-metaint": "16000"}
+            if content_type is not None:
+                self.metadata["Content-Type"] = content_type
+
+            self.stream = BytesIO(frame * 4)
+            self.read_calls = 0
+            self.close_calls = 0
+
+        def read(self, max_bytes: int) -> bytes:
+            self.read_calls += 1
+            return self.stream.read(max_bytes)
+
+        def close(self) -> None:
+            self.close_calls += 1
+            self.stream.close()
+
+    source = SyntheticSource()
+
+    api = SimpleNamespace(
+        RippingRunConfig=radio.RippingRunConfig,
+        RippingRunner=lambda config: radio.RippingRunner(
+            config,
+            stream_opener=lambda url: source,
+        ),
+    )
+
+    ripper = BrynseRipper(module_loader=lambda name: api)
+
+    request = RippingRequest(
+        station_name="Codec detection contract",
+        source_url="https://example.invalid/codec-detection",
+        output_directory=tmp_path / "tracks",
+        profile_name="codec-detection-contract",
+    )
+
+    started: list[RippingStarted] = []
+
+    def on_started(event: RippingStarted) -> None:
+        started.append(event)
+        ripper.stop()
+
+    result = ripper.run(request, on_started=on_started)
+
+    assert started == [RippingStarted(codec=codec, metaint=16000)]
+    assert result.request is request
+    assert result.codec == codec
+    assert result.metaint == 16000
+    assert result.stopped is True
+    assert result.tracks == ()
+    assert result.incomplete_track_title is None
+
+    # Missing/generic MIME must actually trigger stream inspection.
+    assert source.read_calls >= 1
+    assert source.close_calls >= 1

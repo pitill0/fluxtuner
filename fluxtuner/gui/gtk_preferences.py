@@ -87,6 +87,34 @@ def _storage_apply(
     error_label.set_text("")
 
 
+def _open_storage_directory(
+    directory: Path,
+    *,
+    error_label: Any,
+    launcher: Callable[[str], None] | None = None,
+) -> None:
+    """Open an existing storage directory using desktop URI handling."""
+    if not directory.is_dir():
+        error_label.set_text(f"Storage directory is not available: {directory}")
+        return
+
+    try:
+        if launcher is None:
+            from gi.repository import Gio
+
+            def launch_default(uri: str) -> None:
+                Gio.AppInfo.launch_default_for_uri(uri, None)
+
+            launcher = launch_default
+
+        launcher(directory.as_uri())
+    except Exception as exc:  # noqa: BLE001 - contain desktop launcher failures.
+        error_label.set_text(f"Could not open storage directory: {exc}")
+        return
+
+    error_label.set_text("")
+
+
 def _storage_browse(
     _button: Any,
     *,
@@ -148,11 +176,12 @@ def _append_storage_row(
     on_change: Callable[[str, Path | None], None],
 ) -> None:
     heading = gtk.Label(label=title)
+    heading.set_markup(f"<b>{title}</b>")
     heading.set_xalign(0)
     page.append(heading)
 
     row = gtk.Box(
-        orientation=gtk.Orientation.HORIZONTAL,
+        orientation=gtk.Orientation.VERTICAL,
         spacing=8,
     )
 
@@ -160,7 +189,14 @@ def _append_storage_row(
     path_label.set_xalign(0)
     path_label.set_hexpand(True)
     path_label.set_wrap(True)
+    path_label.set_selectable(False)
     row.append(path_label)
+
+    buttons = gtk.Box(
+        orientation=gtk.Orientation.HORIZONTAL,
+        spacing=8,
+    )
+    buttons.set_hexpand(True)
 
     error_label = gtk.Label(label="")
     error_label.set_xalign(0)
@@ -192,6 +228,15 @@ def _append_storage_row(
         on_change(field, directory)
         selected = directory
 
+    open_folder = gtk.Button(label="Open folder")
+    open_folder.connect(
+        "clicked",
+        lambda _button: _open_storage_directory(
+            on_current_path() or default,
+            error_label=error_label,
+        ),
+    )
+
     reset = gtk.Button(label="Restore default")
     reset.connect(
         "clicked",
@@ -205,8 +250,10 @@ def _append_storage_row(
         ),
     )
 
-    row.append(browse)
-    row.append(reset)
+    buttons.append(browse)
+    buttons.append(open_folder)
+    buttons.append(reset)
+    row.append(buttons)
     page.append(row)
     page.append(error_label)
 
@@ -252,7 +299,10 @@ def create_preferences_dialog(
     header.pack_end(close_button)
     dialog.set_titlebar(header)
 
-    dialog.add_button("Close", gtk.ResponseType.CLOSE)
+    action_close = dialog.add_button("Close", gtk.ResponseType.CLOSE)
+    action_close.set_margin_end(12)
+    action_close.set_margin_top(12)
+    action_close.set_margin_bottom(12)
     dialog.connect("response", _dialog_response)
     dialog.connect("close-request", _dialog_close_request)
 

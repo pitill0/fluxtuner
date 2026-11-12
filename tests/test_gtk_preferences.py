@@ -10,6 +10,7 @@ from fluxtuner.gui.gtk_preferences import (
     _appearance_selected,
     _dialog_close_request,
     _dialog_response,
+    _open_storage_directory,
     appearance_from_index,
     appearance_index,
     create_preferences_dialog,
@@ -107,10 +108,28 @@ class FakeWidget:
         return self
 
     def add_button(self, label, response):
+        button = FakeWidget(label=label)
         self.children.append((label, response))
+        self.action_button = button
+        return button
+
+    def set_markup(self, markup):
+        self.markup = markup
+
+    def set_margin_end(self, value):
+        self.margin_end = value
+
+    def set_margin_top(self, value):
+        self.margin_top = value
+
+    def set_margin_bottom(self, value):
+        self.margin_bottom = value
 
     def connect(self, signal, callback, *args):
         self.connections.append((signal, callback, args))
+
+    def set_selectable(self, value):
+        self.selectable = value
 
     def set_selected(self, value):
         self.selected = value
@@ -280,11 +299,12 @@ def test_dialog_storage_controls_restore_independent_defaults(tmp_path):
     second_row = storage_page.children[4]
 
     for row in (first_row, second_row):
-        assert row.children[1].kwargs["label"] == "Browse…"
-        assert row.children[2].kwargs["label"] == "Restore default"
+        assert row.children[1].children[0].kwargs["label"] == "Browse…"
+        assert row.children[1].children[1].kwargs["label"] == "Open folder"
+        assert row.children[1].children[2].kwargs["label"] == "Restore default"
 
     for row in (first_row, second_row):
-        reset = row.children[2]
+        reset = row.children[1].children[2]
         signal, callback, args = reset.connections[0]
         assert signal == "clicked"
         callback(reset, *args)
@@ -293,3 +313,238 @@ def test_dialog_storage_controls_restore_independent_defaults(tmp_path):
         (("recordings_directory", None),),
         (("rips_directory", None),),
     ]
+
+
+def test_open_storage_directory_uses_file_uri(tmp_path):
+    error_label = Mock()
+    launcher = Mock()
+
+    _open_storage_directory(
+        tmp_path,
+        error_label=error_label,
+        launcher=launcher,
+    )
+
+    launcher.assert_called_once_with(tmp_path.as_uri())
+    error_label.set_text.assert_called_once_with("")
+
+
+def test_open_storage_directory_rejects_missing_folder(tmp_path):
+    error_label = Mock()
+    launcher = Mock()
+    missing = tmp_path / "missing"
+
+    _open_storage_directory(
+        missing,
+        error_label=error_label,
+        launcher=launcher,
+    )
+
+    launcher.assert_not_called()
+    error_label.set_text.assert_called_once_with(f"Storage directory is not available: {missing}")
+    assert not missing.exists()
+
+
+def test_open_storage_directory_reports_launch_error(tmp_path):
+    error_label = Mock()
+    launcher = Mock(side_effect=OSError("No file manager"))
+
+    _open_storage_directory(
+        tmp_path,
+        error_label=error_label,
+        launcher=launcher,
+    )
+
+    error_label.set_text.assert_called_once_with(
+        "Could not open storage directory: No file manager"
+    )
+
+
+def test_storage_open_button_tracks_reset(tmp_path, monkeypatch):
+    from fluxtuner.gui import gtk_preferences
+
+    custom = tmp_path / "custom"
+    default = tmp_path / "default"
+    custom.mkdir()
+    default.mkdir()
+
+    opened = []
+    monkeypatch.setattr(
+        gtk_preferences,
+        "_open_storage_directory",
+        lambda path, *, error_label: opened.append(path),
+    )
+
+    on_storage = Mock()
+    dialog = create_preferences_dialog(
+        object(),
+        appearance="system",
+        on_appearance_changed=Mock(),
+        storage_directories={"recordings_directory": custom},
+        storage_defaults={"recordings_directory": default},
+        on_storage_changed=on_storage,
+        gtk=FAKE_GTK,
+    )
+
+    notebook = dialog.children[-1]
+    storage_page = notebook.pages[2][0]
+    row = storage_page.children[1]
+
+    open_button = row.children[1].children[1]
+    reset_button = row.children[1].children[2]
+
+    signal, callback, args = open_button.connections[0]
+    assert signal == "clicked"
+    callback(open_button, *args)
+
+    signal, callback, args = reset_button.connections[0]
+    assert signal == "clicked"
+    callback(reset_button, *args)
+
+    signal, callback, args = open_button.connections[0]
+    callback(open_button, *args)
+
+    assert opened == [custom, default]
+    on_storage.assert_called_once_with("recordings_directory", None)
+
+
+def test_open_storage_directory_contains_desktop_error(tmp_path):
+    error_label = Mock()
+
+    class DesktopPortalError(Exception):
+        pass
+
+    launcher = Mock(side_effect=DesktopPortalError("Portal unavailable"))
+
+    _open_storage_directory(
+        tmp_path,
+        error_label=error_label,
+        launcher=launcher,
+    )
+
+    launcher.assert_called_once_with(tmp_path.as_uri())
+    error_label.set_text.assert_called_once_with(
+        "Could not open storage directory: Portal unavailable"
+    )
+
+
+def test_storage_open_button_tracks_browse(tmp_path, monkeypatch):
+    from fluxtuner.gui import gtk_preferences
+
+    original = tmp_path / "original"
+    chosen = tmp_path / "chosen"
+    original.mkdir()
+    chosen.mkdir()
+
+    opened = []
+
+    def capture_open(path, *, error_label):
+        opened.append(path)
+
+    def fake_browse(_button, *, key, on_change, **_kwargs):
+        on_change(key, chosen)
+
+    monkeypatch.setattr(gtk_preferences, "_open_storage_directory", capture_open)
+    monkeypatch.setattr(gtk_preferences, "_storage_browse", fake_browse)
+
+    on_storage = Mock()
+    dialog = create_preferences_dialog(
+        object(),
+        appearance="system",
+        on_appearance_changed=Mock(),
+        storage_directories={"recordings_directory": original},
+        storage_defaults={"recordings_directory": tmp_path / "default"},
+        on_storage_changed=on_storage,
+        gtk=FAKE_GTK,
+    )
+
+    notebook = dialog.children[-1]
+    storage_page = notebook.pages[2][0]
+    row = storage_page.children[1]
+
+    browse_button = row.children[1].children[0]
+    open_button = row.children[1].children[1]
+
+    signal, callback, args = open_button.connections[0]
+    assert signal == "clicked"
+    callback(open_button, *args)
+
+    signal, callback, args = browse_button.connections[0]
+    assert signal == "clicked"
+    callback(browse_button, *args)
+
+    signal, callback, args = open_button.connections[0]
+    callback(open_button, *args)
+
+    assert opened == [original, chosen]
+    on_storage.assert_called_once_with("recordings_directory", chosen)
+
+
+def test_storage_layout_places_path_above_buttons(tmp_path):
+    dialog = create_preferences_dialog(
+        object(),
+        appearance="system",
+        on_appearance_changed=Mock(),
+        storage_directories={
+            "recordings_directory": tmp_path / "recordings",
+            "rips_directory": tmp_path / "rips",
+        },
+        storage_defaults={
+            "recordings_directory": tmp_path / "default-recordings",
+            "rips_directory": tmp_path / "default-rips",
+        },
+        on_storage_changed=Mock(),
+        gtk=FAKE_GTK,
+    )
+
+    notebook = dialog.children[-1]
+    storage_page = notebook.pages[2][0]
+
+    assert len(storage_page.children) == 6
+
+    for index in (1, 4):
+        row = storage_page.children[index]
+
+        assert row.kwargs["orientation"] == FAKE_GTK.Orientation.VERTICAL
+        assert len(row.children) == 2
+
+        path_label, button_row = row.children
+        assert path_label.selectable is False
+
+        assert path_label.kwargs["label"]
+        assert button_row.kwargs["orientation"] == FAKE_GTK.Orientation.HORIZONTAL
+
+        assert [child.kwargs["label"] for child in button_row.children] == [
+            "Browse…",
+            "Open folder",
+            "Restore default",
+        ]
+
+
+def test_storage_polish_bold_headings_and_close_spacing(tmp_path):
+    dialog = create_preferences_dialog(
+        object(),
+        appearance="system",
+        on_appearance_changed=Mock(),
+        storage_directories={
+            "recordings_directory": None,
+            "rips_directory": None,
+        },
+        storage_defaults={
+            "recordings_directory": tmp_path / "recordings",
+            "rips_directory": tmp_path / "rips",
+        },
+        on_storage_changed=Mock(),
+        gtk=FAKE_GTK,
+    )
+
+    notebook = dialog.children[-1]
+    storage_page = notebook.pages[2][0]
+
+    assert storage_page.children[0].markup == ("<b>Continuous recordings</b>")
+    assert storage_page.children[3].markup == ("<b>Ripped tracks</b>")
+
+    assert dialog.action_button.kwargs["label"] == "Close"
+    assert dialog.action_button.margin_end == 12
+    assert dialog.action_button.margin_top == 12
+    assert dialog.action_button.margin_bottom == 12

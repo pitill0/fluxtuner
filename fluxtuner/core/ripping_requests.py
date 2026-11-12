@@ -17,12 +17,14 @@ def build_ripping_request(
     profile_id: int,
     profile_name: str | None,
     run_id: UUID,
+    rips_directory: Path | None = None,
 ) -> RippingRequest:
     """Capture station, profile identity and destination before starting a job."""
     output_directory = ripping_output_directory(
         data_directory=data_directory,
         profile_id=profile_id,
         run_id=run_id,
+        rips_directory=rips_directory,
     )
     return RippingRequest.from_station(
         station,

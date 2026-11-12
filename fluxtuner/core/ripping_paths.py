@@ -13,9 +13,17 @@ def ripping_output_directory(
     data_directory: Path,
     profile_id: int,
     run_id: UUID,
+    rips_directory: Path | None = None,
 ) -> Path:
-    """Return a destination for an explicit persistent profile and run."""
+    """Return an isolated per-profile/run destination without creating files."""
     if isinstance(profile_id, bool) or not isinstance(profile_id, int) or profile_id <= 0:
         raise RippingError("Ripping profile ID must be a positive integer.")
-    root = data_directory.expanduser().absolute()
-    return root / "rips" / f"profile-{profile_id}" / run_id.hex
+
+    if rips_directory is None:
+        root = data_directory.expanduser().absolute() / "rips"
+    else:
+        root = rips_directory.expanduser()
+        if not root.is_absolute():
+            raise RippingError("Custom ripping directory must be absolute.")
+
+    return root / f"profile-{profile_id}" / run_id.hex

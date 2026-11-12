@@ -76,3 +76,48 @@ def test_gtk_ripping_start_contains_service_failure(tmp_path) -> None:
     service.start.assert_called_once()
     assert result.job_id is None
     assert result.status == "Could not start ripping: Another ripping job is active."
+
+
+def test_gtk_ripping_uses_configured_root(tmp_path) -> None:
+    service = Mock(spec=RippingService)
+    service.start.return_value = 73
+    custom = tmp_path / "custom-rips"
+
+    result = coordinate_ripping_start(
+        {"name": "Station", "url": "https://example.com/stream"},
+        availability=RippingAvailability(True),
+        service=service,
+        data_directory=tmp_path / "default-data",
+        rips_directory=custom,
+        profile_id=7,
+        profile_name="Focus",
+        run_id=RUN_ID,
+    )
+
+    request = service.start.call_args.args[0]
+    assert result.job_id == 73
+    assert request.output_directory == custom / "profile-7" / RUN_ID.hex
+    assert not custom.exists()
+
+
+def test_gtk_ripping_rejects_relative_custom_root_without_starting(
+    tmp_path,
+) -> None:
+    from pathlib import Path
+
+    service = Mock(spec=RippingService)
+
+    result = coordinate_ripping_start(
+        {"name": "Station", "url": "https://example.com/stream"},
+        availability=RippingAvailability(True),
+        service=service,
+        data_directory=tmp_path,
+        rips_directory=Path("relative-rips"),
+        profile_id=7,
+        profile_name="Focus",
+        run_id=RUN_ID,
+    )
+
+    service.start.assert_not_called()
+    assert result.job_id is None
+    assert "absolute" in result.status

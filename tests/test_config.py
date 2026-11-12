@@ -198,3 +198,65 @@ def test_save_playback_state_ignores_invalid_volume_without_overwriting_existing
 
     assert state["volume"] == 35
     assert state["muted"] is True
+
+
+def test_storage_directories_roundtrip(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_config_file(tmp_path, monkeypatch)
+
+    recordings = tmp_path / "recordings"
+    rips = tmp_path / "rips"
+
+    assert config.get_storage_directory("recordings_directory") is None
+    assert config.get_storage_directory("rips_directory") is None
+
+    config.set_storage_directory("recordings_directory", recordings)
+    config.set_storage_directory("rips_directory", rips)
+
+    assert config.get_storage_directory("recordings_directory") == recordings
+    assert config.get_storage_directory("rips_directory") == rips
+
+    assert not recordings.exists()
+    assert not rips.exists()
+
+    config.set_storage_directory("recordings_directory", None)
+
+    assert config.get_storage_directory("recordings_directory") is None
+    assert config.get_storage_directory("rips_directory") == rips
+
+
+def test_storage_directory_expands_home(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    patch_config_file(tmp_path, monkeypatch)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    config.set_storage_directory("rips_directory", "~/custom-rips")
+
+    assert config.get_storage_directory("rips_directory") == (tmp_path / "custom-rips")
+
+
+def test_storage_directory_rejects_invalid_values(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import pytest
+
+    patch_config_file(tmp_path, monkeypatch)
+
+    with pytest.raises(ValueError, match="absolute"):
+        config.set_storage_directory("rips_directory", "relative/path")
+
+    with pytest.raises(ValueError, match="empty"):
+        config.set_storage_directory("rips_directory", "")
+
+    with pytest.raises(ValueError, match="Unknown"):
+        config.set_storage_directory("unknown", tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown"):
+        config.get_storage_directory("unknown")
+
+    assert config.get_storage_directory("rips_directory") is None

@@ -16,8 +16,10 @@ from fluxtuner import __app_name__, __version__  # noqa: E402
 from fluxtuner.config import (  # noqa: E402
     get_config_value,
     get_playback_state,
+    get_storage_directory,
     save_playback_state,
     set_config_value,
+    set_storage_directory,
 )
 from fluxtuner.core import db  # noqa: E402
 from fluxtuner.core.compatibility import (  # noqa: E402
@@ -46,6 +48,7 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_key,
     station_url,
 )
+from fluxtuner.core.storage_validation import validate_storage_destination  # noqa: E402
 from fluxtuner.core.stream_metadata import fetch_stream_metadata  # noqa: E402
 from fluxtuner.gui.appearance import (  # noqa: E402
     AppearanceMode,
@@ -205,6 +208,7 @@ class MainWindow(Gtk.ApplicationWindow):
             check_availability=ripping_backend.availability,
             profile_context=self._ripping_profile_context,
             data_directory=DATA_DIR,
+            rips_directory=lambda: get_storage_directory("rips_directory"),
             show_status=self.status_label.set_text,
             is_shutting_down=lambda: self._shutdown_controller.shutting_down,
             schedule=GLib.timeout_add,
@@ -468,6 +472,15 @@ class MainWindow(Gtk.ApplicationWindow):
             self,
             appearance=self.configured_appearance,
             on_appearance_changed=self._apply_appearance_preference,
+            storage_directories={
+                "recordings_directory": get_storage_directory("recordings_directory"),
+                "rips_directory": get_storage_directory("rips_directory"),
+            },
+            storage_defaults={
+                "recordings_directory": DATA_DIR / "recordings",
+                "rips_directory": DATA_DIR / "rips",
+            },
+            on_storage_changed=self._apply_storage_preference,
         )
         self._preferences_dialog = dialog
         dialog.connect("destroy", self._on_preferences_destroyed)
@@ -477,6 +490,16 @@ class MainWindow(Gtk.ApplicationWindow):
         """Forget the destroyed dialog without retaining stale widgets."""
         if getattr(self, "_preferences_dialog", None) is dialog:
             self._preferences_dialog = None
+
+    def _apply_storage_preference(
+        self,
+        key: str,
+        directory: Path | None,
+    ) -> None:
+        """Validate and persist destinations for future jobs."""
+        if directory is not None:
+            validate_storage_destination(directory)
+        set_storage_directory(key, directory)
 
     def _apply_appearance_preference(self, mode: AppearanceMode) -> None:
         """Persist and immediately apply the selected appearance."""

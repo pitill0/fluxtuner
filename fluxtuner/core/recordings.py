@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fluxtuner.config import get_storage_directory
 from fluxtuner.core import db
 from fluxtuner.core.profiles import resolve_profile_id
 from fluxtuner.core.recording import RecordingError, RecordingSession
@@ -20,10 +21,22 @@ RECORDINGS_DIR = data_file("recordings")
 STATUS_COMPLETED = "completed"
 
 
-def ensure_recordings_dir() -> Path:
-    """Return the recordings directory, creating it when needed."""
-    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-    return RECORDINGS_DIR
+def ensure_recordings_dir(
+    directory: Path | None = None,
+) -> Path:
+    """Resolve the current destination and create it when needed."""
+    destination = directory
+    if destination is None:
+        destination = get_storage_directory("recordings_directory")
+    if destination is None:
+        destination = RECORDINGS_DIR
+
+    destination = destination.expanduser()
+    if not destination.is_absolute():
+        raise ValueError("Recording destination must be absolute")
+
+    destination.mkdir(parents=True, exist_ok=True)
+    return destination
 
 
 def recording_output_path(
@@ -31,6 +44,7 @@ def recording_output_path(
     *,
     timestamp: datetime | None = None,
     suffix: str | None = None,
+    directory: Path | None = None,
 ) -> Path:
     """Return a unique, filesystem-safe Matroska path for one recording."""
     normalized = (
@@ -46,7 +60,7 @@ def recording_output_path(
     stamp = started_at.strftime("%Y%m%d-%H%M%S")
     unique_suffix = suffix or secrets.token_hex(4)
 
-    return ensure_recordings_dir() / f"{stamp}-{slug}-{unique_suffix}.mka"
+    return ensure_recordings_dir(directory) / f"{stamp}-{slug}-{unique_suffix}.mka"
 
 
 def _resolve_recording_profile_id(

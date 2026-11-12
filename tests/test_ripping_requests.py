@@ -37,3 +37,24 @@ def test_builder_snapshots_station_profile_and_output_destination(
     assert request.profile_name == "Focus"
     assert request.output_directory == (tmp_path / "app-data" / "rips" / "profile-7" / run_id.hex)
     assert not (tmp_path / "app-data").exists()
+
+
+def test_builder_uses_custom_rips_directory(
+    tmp_path: Path,
+) -> None:
+    from fluxtuner.core.ripping_requests import build_ripping_request
+
+    run_id = UUID("11111111-1111-4111-8111-111111111111")
+    custom = tmp_path / "custom-rips"
+
+    request = build_ripping_request(
+        {"name": "Radio", "url": "https://example.invalid/stream"},
+        data_directory=tmp_path / "app-data",
+        rips_directory=custom,
+        profile_id=7,
+        profile_name="Focus",
+        run_id=run_id,
+    )
+
+    assert request.output_directory == (custom / "profile-7" / run_id.hex)
+    assert not custom.exists()

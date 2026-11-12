@@ -247,3 +247,49 @@ def test_custom_titlebar_close_hides_reusable_dialog():
 
     assert dialog.hidden
     assert not dialog.destroyed
+
+
+def test_dialog_storage_controls_restore_independent_defaults(tmp_path):
+    on_storage = Mock()
+    recordings = tmp_path / "recordings"
+    rips = tmp_path / "rips"
+
+    dialog = create_preferences_dialog(
+        object(),
+        appearance="system",
+        on_appearance_changed=Mock(),
+        storage_directories={
+            "recordings_directory": recordings,
+            "rips_directory": rips,
+        },
+        storage_defaults={
+            "recordings_directory": tmp_path / "default-recordings",
+            "rips_directory": tmp_path / "default-rips",
+        },
+        on_storage_changed=on_storage,
+        gtk=FAKE_GTK,
+    )
+
+    notebook = dialog.children[-1]
+    storage_page = notebook.pages[2][0]
+
+    # For each destination: heading, controls row, error label.
+    assert len(storage_page.children) == 6
+
+    first_row = storage_page.children[1]
+    second_row = storage_page.children[4]
+
+    for row in (first_row, second_row):
+        assert row.children[1].kwargs["label"] == "Browse…"
+        assert row.children[2].kwargs["label"] == "Restore default"
+
+    for row in (first_row, second_row):
+        reset = row.children[2]
+        signal, callback, args = reset.connections[0]
+        assert signal == "clicked"
+        callback(reset, *args)
+
+    assert on_storage.call_args_list == [
+        (("recordings_directory", None),),
+        (("rips_directory", None),),
+    ]

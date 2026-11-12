@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from fluxtuner.core.storage import write_json_atomic
@@ -63,6 +64,48 @@ def set_config_value(key: str, value: Any) -> None:
     config = load_config()
     config[key] = value
     save_config(config)
+
+
+_STORAGE_KEYS = frozenset({"recordings_directory", "rips_directory"})
+
+
+def get_storage_directory(key: str) -> Path | None:
+    """Return a configured absolute storage root, or the default sentinel."""
+    if key not in _STORAGE_KEYS:
+        raise ValueError(f"Unknown storage directory setting: {key}")
+
+    value = get_config_value(key)
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid storage directory setting: {key}")
+
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise ValueError(f"Storage directory must be absolute: {key}")
+
+    return path
+
+
+def set_storage_directory(key: str, directory: str | Path | None) -> None:
+    """Persist a storage root without creating or moving any files."""
+    if key not in _STORAGE_KEYS:
+        raise ValueError(f"Unknown storage directory setting: {key}")
+
+    if directory is None:
+        normalized = None
+    else:
+        if not isinstance(directory, (str, Path)):
+            raise ValueError("Storage directory must be a path or None")
+        if not str(directory).strip():
+            raise ValueError("Storage directory cannot be empty")
+
+        path = Path(directory).expanduser()
+        if not path.is_absolute():
+            raise ValueError("Storage directory must be absolute")
+        normalized = str(path)
+
+    set_config_value(key, normalized)
 
 
 def _normalize_volume(value: Any) -> int | None:

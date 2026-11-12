@@ -33,6 +33,7 @@ class RippingController:
         schedule: Callable[[int, Callable[[], bool]], int],
         remove_source: Callable[[int], object],
         dispatch: Callable[[Callable[[], bool]], object],
+        rips_directory: Callable[[], Path | None] = lambda: None,
         new_run_id: Callable[[], UUID] = uuid4,
     ) -> None:
         self._service = service
@@ -45,6 +46,7 @@ class RippingController:
         self._remove_source = remove_source
         self._dispatch = dispatch
         self._new_run_id = new_run_id
+        self._rips_directory = rips_directory
         self.availability = RippingAvailability(False, "Checking Brynse availability.")
         self.probe_worker: threading.Thread | None = None
         self._timer_id: int | None = None
@@ -68,6 +70,7 @@ class RippingController:
                 profile_id=profile_id,
                 profile_name=profile_name,
                 run_id=self._new_run_id(),
+                rips_directory=self._rips_directory(),
             )
         except Exception as exc:  # noqa: BLE001 - user-facing GTK status.
             self._show_status(f"Could not start ripping: {exc}")

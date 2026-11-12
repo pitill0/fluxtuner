@@ -29,6 +29,7 @@ def coordinate_ripping_start(
     profile_id: int,
     profile_name: str | None,
     run_id: UUID,
+    rips_directory: Path | None = None,
 ) -> RippingStartResult:
     """Submit an explicit station using an already checked capability."""
     if not availability.available:
@@ -43,6 +44,7 @@ def coordinate_ripping_start(
             profile_id=profile_id,
             profile_name=profile_name,
             run_id=run_id,
+            rips_directory=rips_directory,
         )
         job_id = service.start(request)
     except Exception as exc:  # noqa: BLE001 - translated into a UI result.

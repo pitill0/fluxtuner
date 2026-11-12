@@ -7,6 +7,7 @@ The caller supplies the current appearance and handles persisted changes.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from fluxtuner.gui.appearance import AppearanceMode, normalize_appearance
@@ -56,11 +57,168 @@ def _dialog_close_request(dialog: Any) -> bool:
     return True
 
 
+STORAGE_FIELDS = (
+    ("recordings_directory", "Continuous recordings"),
+    ("rips_directory", "Ripped tracks"),
+)
+
+
+def _storage_label(directory: Path | None, default: Path) -> str:
+    if directory is None:
+        return f"Default: {default}"
+    return str(directory)
+
+
+def _storage_apply(
+    key: str,
+    directory: Path | None,
+    *,
+    on_change: Callable[[str, Path | None], None],
+    path_label: Any,
+    error_label: Any,
+    default: Path,
+) -> None:
+    try:
+        on_change(key, directory)
+    except (OSError, ValueError) as exc:
+        error_label.set_text(str(exc))
+        return
+    path_label.set_text(_storage_label(directory, default))
+    error_label.set_text("")
+
+
+def _storage_browse(
+    _button: Any,
+    *,
+    gtk: Any,
+    parent: Any,
+    key: str,
+    current: Path | None,
+    default: Path,
+    on_change: Callable[[str, Path | None], None],
+    path_label: Any,
+    error_label: Any,
+) -> None:
+    chooser = gtk.FileChooserNative.new(
+        "Choose storage directory",
+        parent,
+        gtk.FileChooserAction.SELECT_FOLDER,
+        "Select",
+        "Cancel",
+    )
+
+    initial = current or default
+    if initial.is_dir():
+        from gi.repository import Gio
+
+        chooser.set_current_folder(Gio.File.new_for_path(str(initial)))
+
+    def on_response(native: Any, response: int) -> None:
+        try:
+            if response == gtk.ResponseType.ACCEPT:
+                selected = native.get_file()
+                selected_path = selected.get_path() if selected else None
+                if selected_path is None:
+                    error_label.set_text("Choose a local directory.")
+                else:
+                    _storage_apply(
+                        key,
+                        Path(selected_path),
+                        on_change=on_change,
+                        path_label=path_label,
+                        error_label=error_label,
+                        default=default,
+                    )
+        finally:
+            native.destroy()
+
+    chooser.connect("response", on_response)
+    chooser.show()
+
+
+def _append_storage_row(
+    *,
+    gtk: Any,
+    page: Any,
+    dialog: Any,
+    key: str,
+    title: str,
+    current: Path | None,
+    default: Path,
+    on_change: Callable[[str, Path | None], None],
+) -> None:
+    heading = gtk.Label(label=title)
+    heading.set_xalign(0)
+    page.append(heading)
+
+    row = gtk.Box(
+        orientation=gtk.Orientation.HORIZONTAL,
+        spacing=8,
+    )
+
+    path_label = gtk.Label(label=_storage_label(current, default))
+    path_label.set_xalign(0)
+    path_label.set_hexpand(True)
+    path_label.set_wrap(True)
+    row.append(path_label)
+
+    error_label = gtk.Label(label="")
+    error_label.set_xalign(0)
+    error_label.set_wrap(True)
+
+    browse = gtk.Button(label="Browse…")
+    browse.connect(
+        "clicked",
+        lambda button: _storage_browse(
+            button,
+            gtk=gtk,
+            parent=dialog,
+            key=key,
+            current=on_current_path(),
+            default=default,
+            on_change=update_storage,
+            path_label=path_label,
+            error_label=error_label,
+        ),
+    )
+
+    selected = current
+
+    def on_current_path() -> Path | None:
+        return selected
+
+    def update_storage(field: str, directory: Path | None) -> None:
+        nonlocal selected
+        on_change(field, directory)
+        selected = directory
+
+    reset = gtk.Button(label="Restore default")
+    reset.connect(
+        "clicked",
+        lambda _button: _storage_apply(
+            key,
+            None,
+            on_change=update_storage,
+            path_label=path_label,
+            error_label=error_label,
+            default=default,
+        ),
+    )
+
+    row.append(browse)
+    row.append(reset)
+    page.append(row)
+    page.append(error_label)
+
+
 def create_preferences_dialog(
     parent: Any,
     *,
     appearance: AppearanceMode | str | None,
     on_appearance_changed: Callable[[AppearanceMode], None],
+    storage_directories: dict[str, Path | None] | None = None,
+    storage_defaults: dict[str, Path] | None = None,
+    on_storage_changed: Callable[[str, Path | None], None] | None = None,
     gtk: Any | None = None,
 ) -> Any:
     """Build a GTK4 preferences dialog without modifying persistent state."""
@@ -134,13 +292,24 @@ def create_preferences_dialog(
             row.append(dropdown)
             page.append(row)
 
+        elif section == "Storage" and on_storage_changed is not None:
+            for key, title in STORAGE_FIELDS:
+                _append_storage_row(
+                    gtk=gtk,
+                    page=page,
+                    dialog=dialog,
+                    key=key,
+                    title=title,
+                    current=(storage_directories or {}).get(key),
+                    default=(storage_defaults or {}).get(key, Path.home()),
+                    on_change=on_storage_changed,
+                )
         else:
-            message = (
-                "General preferences will appear here as features are added."
+            label = gtk.Label(
+                label="General preferences will appear here as features are added."
                 if section == "General"
-                else "Storage destinations will be configurable in a future update."
+                else "Storage destinations are not available."
             )
-            label = gtk.Label(label=message)
             label.set_wrap(True)
             label.set_xalign(0)
             label.add_css_class("dim-label")

@@ -6,8 +6,8 @@ naming and stream closure. FluxTuner owns requests, profile context, destination
 policy, worker scheduling and observations.
 
 The optional requirements pin Brynse commit
-[`e8418776e54ba7df4f3c5abeca5dc1033c7322c6`](https://github.com/pitill0/brynse/tree/e8418776e54ba7df4f3c5abeca5dc1033c7322c6),
-which corresponds to Brynse v0.1.1. Historical validation checkpoints below
+[`f4c964493008db37d867b1d86e0db2fd9b11c769`](https://github.com/pitill0/brynse/tree/f4c964493008db37d867b1d86e0db2fd9b11c769),
+the v0.1.3 integration baseline. Historical validation checkpoints below
 retain their original Brynse revisions.
 
 ## Components
@@ -45,8 +45,15 @@ directory can take precedence over an editable installation.
 exports and FFmpeg in PATH, without constructing a runner. It distinguishes
 absence from a broken dependency or incompatible API.
 
-This establishes local readiness, not station compatibility. The inspected
-radio runner requires ICY metadata and MP3 or AAC audio.
+This establishes local readiness, not station compatibility. The pinned
+Brynse integration supports MP3 and AAC streams. When HTTP `Content-Type` is
+missing or not useful, Brynse can determine the format from bounded,
+ICY-aware examination of actual audio frames. If the format cannot be
+identified reliably, startup fails rather than assuming a codec.
+
+Codec detection is separate from song segmentation. A stream without usable
+per-track metadata may produce a continuous recording rather than
+individual song files.
 
 ## Requests and destinations
 
@@ -58,16 +65,27 @@ The caller must resolve the profile ID and name from the same profile context
 and generate a fresh UUID for each new operation. Positive-ID validation does
 not establish database existence or authorization.
 
-The destination is:
+Without a custom ripping destination, the output path remains:
 
 ```text
 <data_directory>/rips/profile-<id>/<uuid.hex>/
 ```
 
-The application supplies its configured data directory, including the existing
-`FLUXTUNER_DATA_DIR` policy. Path calculation expands `~`, captures an absolute
-destination and creates no directories. Brynse creates output directories when
-the run starts. Naming within each operation remains Brynse's responsibility.
+GTK Preferences → Storage can independently configure the base directories
+for continuous recordings and ripped tracks. With a custom ripping base:
+
+```text
+<configured_rips_directory>/profile-<id>/<uuid.hex>/
+```
+
+An unset preference preserves the original data-directory behavior, including
+`FLUXTUNER_DATA_DIR`. Custom paths are normalized and validated when selected.
+The ripping request captures its resolved destination before starting; later
+preference changes do not redirect an active job.
+
+Path calculation creates no directories. Brynse materializes the ripping
+destination and owns the filenames. Profile and operation subdirectories
+remain isolated under either base directory.
 
 Direct `RippingRequest` construction supports caller-supplied destinations.
 Its profile fields remain optional for compatibility.
@@ -201,8 +219,10 @@ commands inside a dedicated virtual environment:
       --json-report-file=brynse-contracts.json \
       tests/test_brynse_ripper_contract.py
 
-The CI requires at least seven collected contracts. Every collected
-contract must pass, with no skips, failures or errors.
+The CI requires at least seven collected contracts. The current
+integration coverage includes eleven contracts, with real MP3/AAC fallback
+detection for missing and generic HTTP `Content-Type` responses.
+Every collected contract must pass, with no skips, failures or errors.
 
 The general quality matrix continues to test FluxTuner without
 requiring optional Brynse.
@@ -210,8 +230,8 @@ requiring optional Brynse.
 These contracts use controlled synthetic sources and FFmpeg. They
 do not replace native GTK or real-network smoke tests.
 
-Updating the pinned Brynse revision remains dependent on resolving
-Brynse issue #5.
+Brynse issue #5 was resolved before the current pinned integration.
+Historical validation results below retain the revisions used at the time.
 
 Real-runner tests skip when Brynse or FFmpeg is absent. A run with skips does
 not establish the installed integration contract.

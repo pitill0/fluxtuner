@@ -2,7 +2,20 @@
 
 ## Status
 
-Completed as a historical audit and decision record.
+**COMPLETED — historical audit, not an implementation backlog.**
+
+The original findings were addressed before FluxTuner v1.5.0.
+The current implementation was rechecked on 2026-11-12 at
+FluxTuner commit `5bdcd4d`.
+
+All 23 focused TUI metadata lifecycle tests passed, along with
+Ruff lint and formatting checks. The review also confirmed request
+identity, station identity, cancellation, throttling, deduplication,
+exception containment and the corresponding regression contracts.
+
+No outstanding implementation work was identified by this review.
+The findings and branch plan below describe the historical baseline,
+not work remaining for v1.5.1.
 
 The recommended sequence was delivered through contracts, race hardening and
 the `MetadataLifecycle` extraction. Request identity, throttling, active-task
@@ -18,14 +31,14 @@ hardening and extraction sequence.
 The goal is to identify a safe extraction boundary after playback coordination
 and view-state transitions were centralized.
 
-## Current responsibilities
+## Historical responsibilities (before extraction)
 
-The TUI currently owns metadata display state, duplicate suppression, polling
+At the audited baseline, the TUI owned metadata display state, duplicate suppression, polling
 throttling, the active async task, eligibility checks, task creation, blocking
 fetch delegation, fallback projection, widget updates, reset behavior and
 unmount cancellation.
 
-## Current lifecycle
+## Historical lifecycle (before hardening)
 
 ### Initialization
 
@@ -66,10 +79,11 @@ The widget is updated only while mounted.
 
 ### Stop and unmount
 
-Idle Now Playing clears metadata. Stop does not directly cancel an in-flight
-metadata task. Unmount cancels the active task when it is not done.
+At the audited baseline, idle Now Playing cleared metadata. Stop did not
+directly cancel an in-flight metadata task. Unmount canceled the active
+task when it was not done.
 
-## Key risks
+## Historical risks (addressed)
 
 ### Stale-result race
 
@@ -110,9 +124,10 @@ protected before refactoring.
 11. Obsolete-station results must not update current metadata.
 12. Fetch exceptions must not become unhandled task failures.
 
-Items 11 and 12 are desired safety contracts not fully guaranteed today.
+Items 11 and 12 were gaps in the original baseline. Both are
+covered by the current lifecycle implementation and regression tests.
 
-## Recommended boundary
+## Historical extraction decision (implemented)
 
 Do not extract a generic cross-interface service yet.
 
@@ -121,7 +136,7 @@ throttling, active task, last accepted raw metadata, cancellation, reset and
 result acceptance. Keep the Textual interval, widget rendering and playback
 integration in `tui.py`.
 
-## Recommended branch sequence
+## Historical implementation sequence (completed)
 
 ### 1. Add metadata lifecycle contracts
 
@@ -160,7 +175,7 @@ shared behavior.
 - no formatting or layout change;
 - no player-state or data-usage extraction.
 
-## Validation expectations
+## Validation expectations for future changes
 
 ```bash
 git diff --check

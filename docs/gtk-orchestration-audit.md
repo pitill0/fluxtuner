@@ -66,6 +66,17 @@ Focused GTK modules now own isolated decisions:
 No broad generic GUI service was introduced, and no cross-interface abstraction
 was forced where GTK and TUI runtime semantics remain different.
 
+## Historical checkpoint interpretation
+
+**The extraction workstreams are complete.** Sections below describing
+the next extraction, a pending gate, an open workstream or #316 awaiting
+closure preserve the state at their respective historical checkpoints.
+
+They are not current release blockers or instructions to repeat
+completed work. Issue #316 was subsequently closed after PRs
+#322–#326. New GTK work should be justified by a concrete requirement
+or defect rather than these historical plans.
+
 ## Original shape
 
 `MainWindow` is both the GTK application window and the primary orchestration
@@ -796,9 +807,10 @@ window-ownership metrics, not a claim of less total production code or improved
 runtime performance. The source issue's historical method estimate used a
 different measurement; direct AST counts are used consistently in these stages.
 
-The planned extraction scope is complete subject to the final quality/security
-gate, CI and review before merge. Those results must be reviewed separately;
-this document does not mark #316 closed. The GTK fixture application-ID collision
+At this historical checkpoint, the extraction awaited its final
+quality/security gate, CI review and merge. Those steps were
+subsequently completed, and issue #316 was closed.
+The GTK fixture application-ID collision
 was fixed before extraction. The focused and real-GTK contracts, preserved method
 ASTs and manual checks cover the migrated boundaries; optional backend contracts
 must run without skips in the final native gate. Web work, Flatpak permissions

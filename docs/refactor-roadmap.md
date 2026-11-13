@@ -256,6 +256,17 @@ should continue through small, independently reviewable branches rather than
 extending completed Web composition, player, metadata or CSS series
 opportunistically.
 
+## Historical roadmap and implementation checkpoints
+
+**Status: completed.** The phases below document the sequence of
+implementation and validation at the time each stage was performed.
+References to future steps, pending gates or issue #316 remaining open
+describe those historical checkpoints, not the current backlog.
+
+Issue #316 was subsequently completed and closed following PRs
+#322–#326. No further MainWindow extraction is recommended solely
+to reduce its line count.
+
 ## Proposed incremental phases
 
 ### Phase 1: Audit and safety rails
@@ -777,5 +788,6 @@ Post-extraction ownership reassessment recommends retaining top-level GTK
 composition, search thread/main-loop handoff, dialogs, tray adapters and direct
 widget projections in MainWindow. Existing lifecycle and functional owners
 remain separate. No further extraction is proposed solely for line count.
-The planned #316 scope can be considered complete after final gate/CI review
-and merge; the issue is kept open until those steps are verified.
+At this historical checkpoint, #316 awaited its final gate, CI
+review and merge. Those steps were subsequently completed and
+issue #316 was closed. This checkpoint is not an outstanding task.

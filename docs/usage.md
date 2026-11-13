@@ -174,8 +174,12 @@ FluxTuner data directory:
 The TUI uses `R` to start or stop recording. GTK provides a Record / Stop recording
 button.
 
-Recording metadata is stored in the FluxTuner SQLite database and scoped to the active
-profile. Web/server recording is not included in this release.
+In GTK, **Preferences → Storage** can override the base directory for
+new continuous recordings. Without an override, the existing default is
+preserved. Changing this preference does not relocate existing files.
+
+Recording metadata is stored in the FluxTuner SQLite database and scoped
+to the active profile. Web/server recording is not included in this release.
 
 ## Track ripping with Brynse in GTK
 
@@ -204,8 +208,12 @@ same profile to request `Stop ripping`. Start remains unavailable until both
 the run and stop workers finish. Status messages report progress, failures,
 finalized track counts and the output directory.
 
-Tracks are saved under `<data_directory>/rips/profile-<id>/<uuid.hex>/`.
-`FLUXTUNER_DATA_DIR` overrides the data directory. Brynse controls filenames;
+By default, tracks are saved under
+`<data_directory>/rips/profile-<id>/<uuid.hex>/`.
+`FLUXTUNER_DATA_DIR` overrides the data directory. GTK **Preferences → Storage**
+can configure a custom ripping base while preserving the profile and
+operation subdirectories. Active jobs retain their captured destination.
+Brynse controls filenames;
 FluxTuner does not reorder artist/title text. Ripping results are not stored
 in the SQLite recording history.
 
@@ -400,12 +408,19 @@ See [Playlist imports](playlist-imports.md) for format and conflict rules.
 ## GTK preferences and appearance
 
 Choose **Preferences…** from the application menu to open the
-preferences dialog. The dialog currently provides General, Appearance
-and Storage sections. General and Storage are reserved for future
-settings; they do not modify application behavior yet.
+preferences dialog. The dialog provides General, Appearance and Storage
+sections. General remains reserved for future settings.
 
-The dialog can be closed and reopened without discarding the selected
-appearance. Use the Appearance section to change the GTK theme.
+**Appearance** selects the GTK theme. **Storage** configures independent
+base directories for continuous recordings and Brynse track ripping.
+Each destination provides actions to choose a directory, restore its
+default and open the effective folder in the desktop file manager.
+
+Changes affect new operations without relocating existing files or
+redirecting active ripping jobs. Flatpak custom directories use the
+desktop document portal where supported.
+
+The dialog can be closed and reopened without discarding preferences.
 
 
 The GTK desktop GUI provides an appearance selector with three modes:

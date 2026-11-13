@@ -2,7 +2,7 @@
 
 ## Web unified library (introduced in v1.4.1)
 
-The unified library contract below remains valid in 1.5.0. Later changes defer
+The unified library contract below remains valid in 1.5.1. Later changes defer
 optional browser controllers and off-screen station-card rendering (#314,
 #320). Persistent, content-addressed static builds may be enabled through
 `FLUXTUNER_WEB_VERSIONED_STATIC=1` (#307, #312); see

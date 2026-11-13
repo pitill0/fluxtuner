@@ -83,6 +83,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.5.1" date="2026-11-13">
+      <description>
+        <ul>
+          <li>Added centralized GTK preferences and improved application menus.</li>
+          <li>Added configurable recording and track-ripping destinations with direct folder-opening actions.</li>
+          <li>Improved optional Brynse codec detection and GTK import reliability.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.5.0" date="2026-11-03">
       <description>
         <ul>

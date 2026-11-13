@@ -44,6 +44,7 @@ Run the Web/server mode on your own infrastructure and keep accounts, favorites,
 - On Linux, keep the GTK GUI available from a StatusNotifierItem-compatible system tray while the main window is hidden.
 - Record the currently selected station from the TUI or GTK GUI with FFmpeg stream copy, independently from playback.
 - Rip individual tracks from compatible ICY radio streams in GTK through the optional Brynse integration.
+- Configure separate GTK recording and ripping destinations and open their folders directly from Preferences.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
 

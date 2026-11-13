@@ -147,6 +147,20 @@ Expected:
 - canceling creation, addition or deletion does not apply the operation
 - favorite tag filters remain available under the collapsed Filter favorites section
 
+## GTK Storage preferences (1.5.1)
+
+- Open **Preferences → Storage** and verify independent recording and
+  ripping destinations.
+- Select custom directories and confirm both persist after reopening.
+- Use **Open folder** and verify the effective directory opens correctly.
+- Use **Restore default** independently for both destinations.
+- Confirm a new recording uses the configured recording directory.
+- With Brynse installed, verify that a new ripping job captures its
+  configured destination without redirecting active jobs.
+- Test document-portal paths with an isolated Flatpak installation.
+  Successful portal tests alone do not establish Brynse availability.
+- Verify missing directories or desktop-launch failures do not crash GTK.
+
 Optional explicit backend tests:
 
 ```bash

@@ -6,6 +6,32 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
+## [1.5.1] - 2026-11-13
+
+### Added
+
+- Added centralized GTK preferences, including persistent appearance settings
+  and dedicated General, Appearance and Storage sections (#343).
+- Added independent configurable destinations for continuous recordings
+  and optional Brynse track ripping (#344).
+- Added direct folder-opening actions and improved GTK Storage layout (#351).
+
+### Changed
+
+- Reorganized GTK application menus and actions (#345).
+- Updated the Brynse integration documentation and validation contract (#350).
+
+### Fixed
+
+- Improved GTK remote M3U import callback cleanup (#340).
+- Improved Brynse MP3/AAC identification when stream MIME headers are missing
+  or unusable (#342).
+
+### Documentation
+
+- Reconciled historical TUI metadata and GTK refactoring audit completion
+  status to distinguish resolved work from outstanding tasks (#353).
+
 ## [1.5.0] - 2026-11-03
 
 ### Added

@@ -26,6 +26,8 @@ def test_station_payload_normalizes_missing_and_numeric_values() -> None:
         "name": "Unknown station",
         "url": "https://example.test/stream.mp3",
         "url_resolved": "https://example.test/stream.mp3",
+        "stationuuid": "",
+        "favicon": "",
         "country": "Unknown",
         "countrycode": "",
         "tags": "",
@@ -38,6 +40,20 @@ def test_station_payload_normalizes_missing_and_numeric_values() -> None:
         "custom_name": "",
         "favorite_tags": ["reggae", "7"],
     }
+
+
+def test_station_payload_preserves_artwork_metadata() -> None:
+    payload = station_payload(
+        {
+            "name": "Example Radio",
+            "url": "https://example.com/stream",
+            "stationuuid": "example-station-uuid",
+            "favicon": "https://example.com/logo.png",
+        }
+    )
+
+    assert payload["stationuuid"] == "example-station-uuid"
+    assert payload["favicon"] == "https://example.com/logo.png"
 
 
 def test_safe_int_handles_empty_invalid_and_numeric_values() -> None:

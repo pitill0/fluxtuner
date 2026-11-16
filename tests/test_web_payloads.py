@@ -42,7 +42,6 @@ def test_station_payload_normalizes_missing_and_numeric_values() -> None:
     }
 
 
-
 def test_station_payload_preserves_artwork_metadata() -> None:
     payload = station_payload(
         {

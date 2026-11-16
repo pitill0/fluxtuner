@@ -23,6 +23,8 @@ def station_payload(station: dict[str, Any]) -> dict[str, Any]:
         "name": str(station.get("name") or "Unknown station"),
         "url": str(station.get("url") or ""),
         "url_resolved": str(station.get("url_resolved") or station.get("url") or ""),
+        "stationuuid": str(station.get("stationuuid") or ""),
+        "favicon": str(station.get("favicon") or ""),
         "country": str(station.get("country") or "Unknown"),
         "countrycode": str(station.get("countrycode") or ""),
         "tags": str(station.get("tags") or ""),

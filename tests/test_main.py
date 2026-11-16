@@ -576,6 +576,8 @@ def test_search_flow_saves_selected_station_when_requested(monkeypatch) -> None:
             "name": "Raw Radio",
             "url": "https://example.com/raw",
             "url_resolved": "https://example.com/raw",
+            "stationuuid": "",
+            "favicon": "",
             "country": "Unknown",
             "countrycode": "",
             "tags": "",

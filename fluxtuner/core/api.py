@@ -57,6 +57,8 @@ def normalize_station(station: dict[str, Any]) -> dict[str, Any]:
         "name": station.get("name") or "Unknown station",
         "url": raw_url or resolved_url,
         "url_resolved": resolved_url,
+        "stationuuid": station.get("stationuuid") or "",
+        "favicon": station.get("favicon") or "",
         "country": station.get("country") or "Unknown",
         "countrycode": station.get("countrycode") or "",
         "tags": station.get("tags") or "",

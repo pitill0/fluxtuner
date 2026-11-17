@@ -137,6 +137,8 @@ export function createAppElements(root = document) {
     playlistStationNameNode: root.querySelector("[data-playlist-station-name]"),
     playlistCancelButtons: root.querySelectorAll("[data-playlist-cancel]"),
     playerBar: root.querySelector("[data-player-bar]"),
+    playerArtworkImageNode: root.querySelector("[data-player-artwork-image]"),
+    playerArtworkFallbackNode: root.querySelector("[data-player-artwork-fallback]"),
     audioNode: root.querySelector("[data-audio]"),
     playerTitleNode: root.querySelector("[data-player-title]"),
     playerCopyButton: root.querySelector("[data-player-copy]"),

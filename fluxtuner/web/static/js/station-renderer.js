@@ -74,7 +74,7 @@ export function createStationRenderer({
             streamUrl
               ? `<button type="button" data-play-station="${stationButtonPayload(
                   station,
-                )}">Play</button>`
+                )}"${artworkUrl ? ` data-station-artwork-ref="${artworkRef}"` : ""}>Play</button>`
               : ""
           }
           ${
@@ -142,7 +142,7 @@ export function createStationRenderer({
       button.addEventListener("click", () => {
         try {
           const station = parseStationButton(button);
-          if (station) callback(station);
+          if (station) callback(station, button.getAttribute("data-station-artwork-ref") || "");
         } catch (error) {
           onStationActionError?.(error);
         }

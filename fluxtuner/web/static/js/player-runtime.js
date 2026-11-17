@@ -38,8 +38,8 @@ export function createPlayerRuntime() {
     return requireController().pauseCurrentStationPlayback(message);
   }
 
-  function playStation(station) {
-    return requireController().playStation(station);
+  function playStation(station, artworkRef = "") {
+    return requireController().playStation(station, artworkRef);
   }
 
   function setPlayerState(...args) {

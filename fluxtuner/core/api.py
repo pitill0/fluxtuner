@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
 from time import perf_counter
 from typing import Any
+from unicodedata import combining, normalize
 
 import requests
 
@@ -226,6 +229,108 @@ def _station_bitrate(station: dict[str, Any]) -> int:
         return 0
 
 
+def _fold_search_text(value: str) -> str:
+    """Fold case and accents for local fallback matching only."""
+    return "".join(
+        character for character in normalize("NFKD", value.casefold()) if not combining(character)
+    )
+
+
+def _fallback_terms(query: str) -> list[str]:
+    """Bound broad remote fallback to a small, meaningful multi-word query."""
+    words = list(dict.fromkeys(_fold_search_text(query).split()))
+    if not 2 <= len(words) <= 4 or any(len(word) < 2 for word in words):
+        return []
+    return words
+
+
+def _term_match_count(station: dict[str, Any], terms: list[str]) -> int:
+    """Count matching query words without treating 'ser' as part of 'service'."""
+    words = re.findall(
+        r"\w+",
+        _fold_search_text(f"{station.get('name') or ''} {station.get('tags') or ''}"),
+    )
+    return sum(
+        any(word == term or (len(term) >= 4 and word.startswith(term)) for word in words)
+        for term in terms
+    )
+
+
+def _matches_search_terms(station: dict[str, Any], terms: list[str]) -> bool:
+    return not terms or bool(_term_match_count(station, terms))
+
+
+def _passes_search_filters(
+    station: dict[str, Any],
+    *,
+    country: str | None,
+    min_bitrate: int | None,
+    terms: list[str],
+    debug: dict[str, Any],
+) -> bool:
+    if not _matches_country(station, country):
+        debug["country_filtered_results"] += 1
+        return False
+    if min_bitrate is not None and _station_bitrate(station) < min_bitrate:
+        debug["bitrate_filtered_results"] += 1
+        return False
+    return _matches_search_terms(station, terms)
+
+
+def _add_term_fallback_batches(
+    *,
+    add_batch: Callable[..., None],
+    raw_batches: list[tuple[str, list[dict[str, Any]]]],
+    query: str,
+    terms: list[str],
+    country: str | None,
+    min_bitrate: int | None,
+    api_country: str | None,
+    api_countrycode: str | None,
+    api_limit: int,
+    limit: int,
+) -> None:
+    if not terms or (
+        not country and min_bitrate is None and sum(len(items) for _, items in raw_batches) >= limit
+    ):
+        return
+
+    # Radio Browser matches literal phrases. Search a bounded set of words.
+    provider_terms = {_fold_search_text(word): word for word in query.split()}
+    for index, term in enumerate(sorted(terms, key=len, reverse=True)[:3]):
+        provider_term = provider_terms.get(term, term)
+        add_batch(
+            f"terms_{index}_name",
+            name=provider_term,
+            country=api_country,
+            countrycode=api_countrycode,
+            limit=api_limit,
+        )
+        add_batch(
+            f"terms_{index}_tag",
+            tag=provider_term,
+            country=api_country,
+            countrycode=api_countrycode,
+            limit=api_limit,
+        )
+
+
+def _sort_search_candidates(
+    candidates: list[tuple[str, dict[str, Any]]], query: str, terms: list[str]
+) -> None:
+    if not query:
+        return
+    if terms:
+        candidates.sort(
+            key=lambda item: (
+                -_term_match_count(item[1], terms),
+                _search_relevance_rank(item[1], query),
+            )
+        )
+    else:
+        candidates.sort(key=lambda item: _search_relevance_rank(item[1], query))
+
+
 def _search_relevance_rank(station: dict[str, Any], query: str) -> int:
     """Return a local relevance tier; lower values are more relevant."""
     needle = " ".join((query or "").casefold().split())
@@ -347,6 +452,10 @@ def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/compl
     debug["cache_bypassed"] = not use_cache
 
     cache_key = make_search_key(query, country, min_bitrate, limit)
+    terms = _fallback_terms(query)
+    if terms:
+        # Existing literal-search cache entries use different semantics.
+        cache_key = f"terms-v4|{cache_key}"
     if use_cache:
         cached_results = get_cached_search(cache_key)
         if cached_results is not None:
@@ -378,6 +487,7 @@ def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/compl
             )
 
         debug[f"{source}_results"] = len(items)
+        debug.setdefault(f"{source}_returned_results", 0)
         debug["raw_results"] += len(items)
         debug["sources"][source] = source_debug
         raw_batches.append((source, items))
@@ -403,6 +513,19 @@ def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/compl
         if country and not any(items for _, items in raw_batches):
             add_batch("fallback_name", name=query, limit=api_limit)
             add_batch("fallback_tag", tag=query, limit=api_limit)
+
+        _add_term_fallback_batches(
+            add_batch=add_batch,
+            raw_batches=raw_batches,
+            query=query,
+            terms=terms,
+            country=country,
+            min_bitrate=min_bitrate,
+            api_country=api_country,
+            api_countrycode=api_countrycode,
+            api_limit=api_limit,
+            limit=limit,
+        )
     else:
         add_batch(
             "country",
@@ -433,11 +556,13 @@ def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/compl
             if not url or url in seen_urls:
                 debug["deduped_results"] += 1
                 continue
-            if not _matches_country(station, country):
-                debug["country_filtered_results"] += 1
-                continue
-            if min_bitrate is not None and _station_bitrate(station) < min_bitrate:
-                debug["bitrate_filtered_results"] += 1
+            if not _passes_search_filters(
+                station,
+                country=country,
+                min_bitrate=min_bitrate,
+                terms=terms,
+                debug=debug,
+            ):
                 continue
 
             seen_urls.add(url)
@@ -446,8 +571,7 @@ def _filtered_search_result(  # noqa: C901 - reviewed ceiling 20; see docs/compl
         if not advanced:
             break
 
-    if query:
-        candidates.sort(key=lambda item: _search_relevance_rank(item[1], query))
+    _sort_search_candidates(candidates, query, terms)
 
     selected = candidates[: max(0, limit)]
     results = [station for _source, station in selected]

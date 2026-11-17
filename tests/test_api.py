@@ -58,6 +58,143 @@ def test_search_relevance_rank_is_neutral_without_query() -> None:
     assert api._search_relevance_rank({"name": "Any Station"}, "   ") == 0
 
 
+def test_multiword_search_ranks_complete_matches_ahead_of_partial_matches(
+    monkeypatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        calls.append(filters)
+        if filters.get("name") == "valencia":
+            return [
+                {
+                    "name": "Cadena SER - Ràdio Valencia",
+                    "url": "https://example.com/ser-valencia",
+                },
+                {"name": "Radio Valencia", "url": "https://example.com/valencia"},
+            ]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    results, debug = api.search_stations_filtered_debug("ser valencia", limit=20, use_cache=False)
+
+    assert [station["name"] for station in results] == [
+        "Cadena SER - Ràdio Valencia",
+        "Radio Valencia",
+    ]
+    assert [(call.get("name"), call.get("tag")) for call in calls] == [
+        ("ser valencia", None),
+        (None, "ser valencia"),
+        ("valencia", None),
+        (None, "valencia"),
+        ("ser", None),
+        (None, "ser"),
+    ]
+    assert debug["terms_0_name_results"] == 2
+    assert debug["terms_0_name_returned_results"] == 2
+
+
+def test_multiword_search_preserves_literal_ranking(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        calls.append(filters)
+        if filters.get("name") == "cadena ser":
+            return [{"name": "Cadena SER", "url": "https://example.com/ser"}]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    results = api.search_stations_filtered("cadena ser", use_cache=False)
+
+    assert [station["name"] for station in results] == ["Cadena SER"]
+    assert len(calls) == 6
+
+
+def test_multiword_search_skips_fallback_when_literal_results_suffice(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        calls.append(filters)
+        if filters.get("name") == "cadena ser":
+            return [{"name": "Cadena SER", "url": "https://example.com/ser"}]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    results = api.search_stations_filtered("cadena ser", limit=1, use_cache=False)
+
+    assert [station["name"] for station in results] == ["Cadena SER"]
+    assert len(calls) == 2
+
+
+def test_multiword_search_does_not_match_short_terms_inside_words(monkeypatch) -> None:
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        if filters.get("name") == "ser":
+            return [
+                {"name": "BBC World Service", "url": "https://example.com/bbc"},
+            ]
+        if filters.get("name") == "valencia":
+            return [
+                {
+                    "name": "Cadena SER - Radio Valencia",
+                    "url": "https://example.com/ser-valencia",
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    results = api.search_stations_filtered("ser valencia", use_cache=False)
+
+    assert [station["name"] for station in results] == [
+        "Cadena SER - Radio Valencia",
+    ]
+
+
+def test_multiword_fallback_matches_accents_and_tags(monkeypatch) -> None:
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        if filters.get("tag") == "valencia":
+            return [
+                {
+                    "name": "Música local",
+                    "tags": "SER, Valencia",
+                    "url": "https://example.com/local",
+                }
+            ]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    results = api.search_stations_filtered("música valencia", use_cache=False)
+
+    assert [station["name"] for station in results] == ["Música local"]
+
+
+def test_multiword_search_uses_versioned_cache_key(monkeypatch) -> None:
+    keys: list[str] = []
+    monkeypatch.setattr(api, "get_cached_search", lambda key: keys.append(key) or [])
+    assert api.search_stations_filtered("ser valencia") == []
+    assert keys == ["terms-v4|query=ser valencia|country=|min_bitrate=|limit=50"]
+
+
+def test_multiword_search_is_independent_of_word_order(monkeypatch) -> None:
+    def fake_search(**filters: Any) -> list[dict[str, Any]]:
+        if filters.get("name") == "valencia":
+            return [
+                {"name": "Radio Valencia", "url": "https://example.com/partial"},
+                {
+                    "name": "Cadena SER - Radio Valencia",
+                    "url": "https://example.com/full",
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(api, "search_stations", fake_search)
+    for query in ("ser valencia", "valencia ser"):
+        results = api.search_stations_filtered(query, use_cache=False)
+        assert [station["name"] for station in results] == [
+            "Cadena SER - Radio Valencia",
+            "Radio Valencia",
+        ]
+
+
 def test_search_stations_filtered_returns_empty_for_empty_filters() -> None:
     assert api.search_stations_filtered("", use_cache=False) == []
 

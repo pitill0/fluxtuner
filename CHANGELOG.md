@@ -6,6 +6,31 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
+## [1.5.2] - 2026-11-17
+
+### Added
+
+- Preserved station artwork metadata from Radio Browser for use across
+  FluxTuner frontends (#355).
+- Added secure station artwork download and caching with bounded,
+  validated retrieval (#356).
+- Displayed cached station logos in the Web station interface and player
+  without altering playback behavior (#357, #358).
+- Displayed cached station logos in the GTK desktop station list (#359).
+
+### Changed
+
+- Improved multiword station searches with bounded per-term fallback and
+  relevance ranking that prioritizes all-word matches regardless of word
+  order (#360).
+- Avoided unnecessary fallback requests when literal search results are
+  sufficient (#360).
+
+### Fixed
+
+- Prevented short search terms from matching inside unrelated words, such
+  as `ser` within `Service` (#360).
+
 ## [1.5.1] - 2026-11-13
 
 ### Added

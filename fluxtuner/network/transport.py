@@ -234,10 +234,12 @@ class ProtectedHTTPTransport:
         *,
         if_none_match: str | None = None,
         if_modified_since: str | None = None,
+        icy_metadata: bool = True,
     ) -> ProtectedHTTPResponse:
         conditional = _conditional_header("If-None-Match", if_none_match) + _conditional_header(
             "If-Modified-Since", if_modified_since
         )
+        icy_header = "Icy-MetaData: 1\r\n" if icy_metadata else ""
         if timeout <= 0:
             raise MetadataTransportError("Metadata request budget is exhausted.")
 
@@ -255,7 +257,7 @@ class ProtectedHTTPTransport:
                 f"Host: {_host_header(target)}\r\n"
                 "User-Agent: FluxTuner-Web/1\r\n"
                 "Accept: */*\r\n"
-                "Icy-MetaData: 1\r\n"
+                f"{icy_header}"
                 f"{conditional}"
                 "Connection: close\r\n"
                 "\r\n"

@@ -87,8 +87,6 @@ class StationList:
         table_box.append(table_header)
 
         self._append_cell(table_header, "Status", 6)
-        if self._artwork is not None:
-            self._append_cell(table_header, "", 4)
         self._append_cell(table_header, "Name", 32, expand=True)
         self._append_cell(table_header, "Country", 14)
         self._append_cell(table_header, "Tags", 28, expand=True)
@@ -149,8 +147,13 @@ class StationList:
         self._append_cell(row_box, self._station_marker(station), 6)
         artwork = getattr(self, "_artwork", None)
         if artwork is not None:
-            row_box.append(artwork.widget(station, scope="rows", size=28))
-        self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
+            name_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            name_box.set_hexpand(True)
+            name_box.append(artwork.widget(station, scope="rows", size=28))
+            self._append_cell(name_box, self._station_display_name(station), 32, expand=True)
+            row_box.append(name_box)
+        else:
+            self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
         self._append_cell(row_box, station_country(station), 14)
         self._append_cell(row_box, library_tags_text(station, fallback=""), 28, expand=True)
         self._append_cell(row_box, station_codec(station), 8)

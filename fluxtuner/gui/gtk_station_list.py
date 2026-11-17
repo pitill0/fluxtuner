@@ -21,6 +21,7 @@ from fluxtuner.core.stations import (  # noqa: E402
     station_name,
     station_url,
 )
+from fluxtuner.gui.gtk_artwork import GtkArtwork  # noqa: E402
 from fluxtuner.gui.gtk_library import library_tags_text  # noqa: E402
 from fluxtuner.players.capabilities import PlayerCapabilities  # noqa: E402
 
@@ -45,6 +46,7 @@ class StationList:
         update_favorite_buttons: Callable[[], None],
         play_selected: Callable[[], None],
         context_click: Callable[[Gtk.GestureClick, int, float, float, Gtk.ListBoxRow], None],
+        artwork: GtkArtwork | None = None,
     ) -> None:
         self._ports = ports
         self._is_favorite_station = is_favorite
@@ -52,6 +54,7 @@ class StationList:
         self.play_selected_station = play_selected
         self.on_row_context_click = context_click
         self._station_url = station_url
+        self._artwork = artwork
 
     @property
     def stations(self) -> list[dict[str, Any]]:
@@ -142,7 +145,15 @@ class StationList:
         row_box.set_margin_end(6)
 
         self._append_cell(row_box, self._station_marker(station), 6)
-        self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
+        artwork = getattr(self, "_artwork", None)
+        if artwork is not None:
+            name_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            name_box.set_hexpand(True)
+            name_box.append(artwork.widget(station, scope="rows", size=28))
+            self._append_cell(name_box, self._station_display_name(station), 32, expand=True)
+            row_box.append(name_box)
+        else:
+            self._append_cell(row_box, self._station_display_name(station), 32, expand=True)
         self._append_cell(row_box, station_country(station), 14)
         self._append_cell(row_box, library_tags_text(station, fallback=""), 28, expand=True)
         self._append_cell(row_box, station_codec(station), 8)
@@ -203,6 +214,9 @@ class StationList:
 
     def _render_results(self) -> None:
         preferred_url = self._preferred_station_url()
+        artwork = getattr(self, "_artwork", None)
+        if artwork is not None:
+            artwork.invalidate("rows")
         self._clear_results()
         row_to_select: Gtk.ListBoxRow | None = None
 

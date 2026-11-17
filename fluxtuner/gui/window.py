@@ -56,6 +56,7 @@ from fluxtuner.gui.appearance import (  # noqa: E402
     normalize_appearance,
 )
 from fluxtuner.gui.gtk_application_menu import create_application_menu  # noqa: E402
+from fluxtuner.gui.gtk_artwork import GtkArtwork  # noqa: E402
 from fluxtuner.gui.gtk_library import LibraryController, library_tags_text  # noqa: E402
 from fluxtuner.gui.gtk_library_panel import LibraryPanel, LibraryViewPorts  # noqa: E402
 from fluxtuner.gui.gtk_metadata import MetadataLifecycle  # noqa: E402
@@ -131,6 +132,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._metadata_lifecycle = MetadataLifecycle()
         self._search_lifecycle = SearchLifecycle()
         self._view_state = ViewState()
+        self._artwork = GtkArtwork()
         self.last_search_results: list[dict[str, Any]] = []
         self._library_controller = LibraryController(profile_name=lambda: self.profile_name)
         self._library_controller.refresh_favorite_cache()
@@ -187,6 +189,7 @@ class MainWindow(Gtk.ApplicationWindow):
             update_favorite_buttons=self._update_favorite_buttons,
             play_selected=lambda: self.play_selected_station(),
             context_click=self._station_context.on_row_context_click,
+            artwork=self._artwork,
         )
         self.restored_volume: int | None = None
         self.restored_muted: bool = False
@@ -381,6 +384,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._library._build_saved_playlist_controls(side_panel)
 
         self._append_section_title(side_panel, "Now Playing")
+
+        self.now_playing_artwork_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        side_panel.append(self.now_playing_artwork_box)
 
         self.now_playing_label = Gtk.Label(label="Nothing playing")
         self.now_playing_label.set_xalign(0)
@@ -907,6 +913,13 @@ class MainWindow(Gtk.ApplicationWindow):
         return True
 
     def update_now_playing(self) -> None:
+        artwork = getattr(self, "_artwork", None)
+        artwork_box = getattr(self, "now_playing_artwork_box", None)
+        if artwork is not None and artwork_box is not None:
+            artwork.invalidate("player")
+            previous = artwork_box.get_first_child()
+            if previous is not None:
+                artwork_box.remove(previous)
         if not self.current_station:
             self.now_playing_label.set_text("Nothing playing")
             if hasattr(self, "country_detail_label"):
@@ -918,6 +931,9 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         station = self.current_station
+
+        if artwork is not None and artwork_box is not None:
+            artwork_box.append(artwork.widget(station, scope="player", size=64))
 
         self.now_playing_label.set_text(self._station_display_name(station))
         self.country_detail_label.set_text(station_country(station))
@@ -1208,6 +1224,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _stop_background_activity(self) -> None:
         """Cancel window-owned activity after shutdown has blocked new work."""
+        artwork = getattr(self, "_artwork", None)
+        if artwork is not None:
+            artwork.close()
         self._ripping_controller.stop_monitoring()
         self._stop_usage_timer()
         self._stop_player_state_timer()

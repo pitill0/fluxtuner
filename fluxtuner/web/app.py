@@ -62,6 +62,7 @@ def create_app(  # noqa: C901 - reviewed ceiling 23; see docs/complexity-baselin
 
         from fluxtuner.web.middleware import register_http_middleware
         from fluxtuner.web.routes import admin as admin_routes
+        from fluxtuner.web.routes import artwork as artwork_routes
         from fluxtuner.web.routes import auth as auth_routes
         from fluxtuner.web.routes import imports as import_routes
         from fluxtuner.web.routes import library as library_routes
@@ -122,6 +123,7 @@ def create_app(  # noqa: C901 - reviewed ceiling 23; see docs/complexity-baselin
         return web_dashboard.server_health_payload()
 
     app.include_router(public_routes.router)
+    app.include_router(artwork_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(library_routes.router)
     app.include_router(import_routes.router)

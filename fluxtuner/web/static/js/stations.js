@@ -55,5 +55,7 @@ export function formatDisplayDateTime(value) {
 }
 
 export function stationButtonPayload(station) {
-  return escapeHtml(JSON.stringify(station));
+  const actionStation = { ...station };
+  delete actionStation.artwork_ref;
+  return escapeHtml(JSON.stringify(actionStation));
 }

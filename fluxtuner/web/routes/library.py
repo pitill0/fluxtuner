@@ -11,8 +11,11 @@ from fluxtuner.core import db
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import library
+from fluxtuner.web.artwork_payloads import with_artwork_references
 from fluxtuner.web.m3u_import import _profile_id
 from fluxtuner.web.payloads import station_payload
+from fluxtuner.web.routes.artwork import get_artwork_signing_key
+from fluxtuner.web.security import SESSION_COOKIE_NAME
 from fluxtuner.web.validation import (
     is_supported_web_url,
     playlist_name,
@@ -50,6 +53,19 @@ def _require_station_stream_url(station_data: dict[str, Any]) -> None:
         raise HTTPException(status_code=400, detail=INVALID_STATION_URL_DETAIL)
 
 
+def _with_artwork_refs(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    """Keep artwork optional even if its persistent signing key is unavailable."""
+    token = request.cookies.get(SESSION_COOKIE_NAME, "")
+    if not token or not any(
+        isinstance(item, dict) and item.get("favicon") for item in payload.get("stations", [])
+    ):
+        return payload
+    try:
+        return with_artwork_references(payload, token, get_artwork_signing_key())
+    except (OSError, ValueError):
+        return payload
+
+
 @router.get("/api/search")
 def search(
     request: Request,
@@ -64,7 +80,7 @@ def search(
     user = _require_authenticated_user(request)
 
     try:
-        return library.search_payload(
+        payload = library.search_payload(
             query=q,
             country=country,
             min_bitrate=min_bitrate,
@@ -74,6 +90,7 @@ def search(
             user_id=int(user["id"]),
             profile_name=web_context.effective_profile_name(profile),
         )
+        return _with_artwork_refs(payload, request)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -86,10 +103,13 @@ def history(
 ) -> dict[str, Any]:
     user = _require_authenticated_user(request)
 
-    return library.history_payload(
-        user_id=int(user["id"]),
-        profile_name=web_context.effective_profile_name(profile),
-        limit=limit,
+    return _with_artwork_refs(
+        library.history_payload(
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
+            limit=limit,
+        ),
+        request,
     )
 
 
@@ -119,9 +139,12 @@ def favorites(
 ) -> dict[str, Any]:
     user = _require_authenticated_user(request)
 
-    return library.favorites_payload(
-        user_id=int(user["id"]),
-        profile_name=web_context.effective_profile_name(profile),
+    return _with_artwork_refs(
+        library.favorites_payload(
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
+        ),
+        request,
     )
 
 
@@ -219,10 +242,13 @@ def playlist_stations(
 ) -> dict[str, Any]:
     user = _require_authenticated_user(request)
 
-    return library.playlist_stations_payload(
-        name,
-        user_id=int(user["id"]),
-        profile_name=web_context.effective_profile_name(profile),
+    return _with_artwork_refs(
+        library.playlist_stations_payload(
+            name,
+            user_id=int(user["id"]),
+            profile_name=web_context.effective_profile_name(profile),
+        ),
+        request,
     )
 
 

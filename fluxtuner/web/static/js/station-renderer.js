@@ -32,12 +32,21 @@ export function createStationRenderer({
     const playCount = Number(station.play_count || 0);
     const lastPlayedAt = formatDisplayDateTime(station.last_played_at);
     const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
+    const stationName = String(station.custom_name || station.name || "Unknown station");
+    const artworkRef = typeof station.artwork_ref === "string" ? station.artwork_ref : "";
+    const artworkUrl = artworkRef.length <= 4096 && /^v1\.[0-9]+\.[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(artworkRef)
+      ? `/api/artwork/${encodeURIComponent(artworkRef)}`
+      : "";
 
     return `
       <article class="station-card" data-station-card>
         <header>
-          <div>
-            <h3>${escapeHtml(station.custom_name || station.name || "Unknown station")}</h3>
+          <div class="station-identity">
+            <span class="station-artwork" aria-hidden="true">
+              <span class="station-artwork-fallback">${escapeHtml(stationName.trim().charAt(0).toUpperCase() || "♫")}</span>
+              ${artworkUrl ? `<img data-station-artwork src="${artworkUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
+            </span>
+            <h3>${escapeHtml(stationName)}</h3>
           </div>
           <div class="station-meta">
             <span>${escapeHtml(station.country || "Unknown")}</span>
@@ -142,6 +151,12 @@ export function createStationRenderer({
   }
 
   function bindResultActions() {
+    document.querySelectorAll("img[data-station-artwork]").forEach((image) => {
+      if (image.dataset.artworkBound === "true") return;
+      image.dataset.artworkBound = "true";
+      image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+      if (image.complete && image.naturalWidth === 0) image.hidden = true;
+    });
     bindStationAction("[data-play-station]", onPlayStation);
     bindStationAction("[data-add-favorite]", onAddFavorite);
     bindStationAction("[data-remove-favorite]", onRemoveFavorite);

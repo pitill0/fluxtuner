@@ -77,6 +77,7 @@ export function createPlayerController({
   logPlayerEvent,
   mediaSessionController,
   metadataController,
+  artworkController,
   recordHistory,
   resetRecordedHistory,
   windowRef = window,
@@ -507,7 +508,7 @@ export function createPlayerController({
     }, 0);
   }
 
-  async function playStation(station) {
+  async function playStation(station, artworkRef = "") {
     if (!audioNode || !titleNode || !openLink) return;
 
     cancelNetworkRecovery("station-change");
@@ -518,6 +519,7 @@ export function createPlayerController({
     }
 
     currentStation = station;
+    artworkController?.show(currentStationTitle(), artworkRef);
     lastMetadataTimeupdateRunId = 0;
     prepareAudioElementForMediaHandoff();
     resetRecordedHistory();
@@ -542,6 +544,7 @@ export function createPlayerController({
     clearAudioSource();
 
     currentStation = null;
+    artworkController?.clear();
     resetRecordedHistory();
     metadataController?.clear();
     titleNode.textContent = "Nothing playing yet";

@@ -28,6 +28,7 @@ import { createNavigationController } from "./js/navigation.js";
 import { createNavigationPresentation } from "./js/navigation-presentation.js";
 import { createPlayerDebugController } from "./js/player-debug.js";
 import { createPlayerController } from "./js/player.js";
+import { createPlayerArtworkController } from "./js/player-artwork.js";
 import { createPlayerRuntime } from "./js/player-runtime.js";
 import { createPlaylistController } from "./js/playlists.js";
 import { createPlaylistRenderer } from "./js/playlist-renderer.js";
@@ -110,6 +111,8 @@ const {
   recoveryCodesRegenerateMessageNode,
   recoveryCodesRegenerateOpenButton,
   playerBar,
+  playerArtworkImageNode,
+  playerArtworkFallbackNode,
   playerDebugClearButton,
   playerDebugCopyButton,
   playerDebugDetailsNode,
@@ -513,6 +516,11 @@ const metadataController = createMetadataController({
   logPlayerEvent,
 });
 
+const artworkController = createPlayerArtworkController({
+  imageNode: playerArtworkImageNode,
+  fallbackNode: playerArtworkFallbackNode,
+});
+
 const playerController = createPlayerController({
   audioNode,
   playerBar,
@@ -525,6 +533,7 @@ const playerController = createPlayerController({
   logPlayerEvent,
   mediaSessionController,
   metadataController,
+  artworkController,
   recordHistory: (station) => recordHistory(station),
   resetRecordedHistory: () => favoriteController.resetRecordedHistory(),
 });

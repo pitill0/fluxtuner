@@ -26,7 +26,7 @@ def test_fresh_schema_has_remote_subscription_tables() -> None:
         assert "remote_catalog_entries" in tables
 
 
-def test_v4_schema_migrates_to_v5_without_losing_existing_rows() -> None:
+def test_v4_schema_migrates_to_current_without_losing_existing_rows() -> None:
     with _connection() as conn:
         db.create_schema(conn)
 
@@ -38,7 +38,7 @@ def test_v4_schema_migrates_to_v5_without_losing_existing_rows() -> None:
 
         db.migrate_schema(conn)
 
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         tables = {
             row["name"]
             for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -88,7 +88,7 @@ def test_v4_migration_preserves_existing_profile_and_source() -> None:
 
         db.migrate_schema(conn)
 
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         assert (
             conn.execute(
                 "SELECT name FROM profiles WHERE id = ?",

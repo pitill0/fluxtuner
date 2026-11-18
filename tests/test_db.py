@@ -44,6 +44,7 @@ def test_init_db_creates_expected_tables(
             "favorites",
             "history_entries",
             "playlist_stations",
+            "playlist_shares",
             "playlists",
             "profiles",
             "recordings",
@@ -541,7 +542,7 @@ def test_fresh_database_contains_auth_retention_indexes(tmp_path) -> None:
     assert "idx_web_recovery_attempts_attempted_at" in indexes
 
 
-def test_schema_v0_upgrades_through_v5(tmp_path) -> None:
+def test_schema_v0_upgrades_through_v6(tmp_path) -> None:
     db_path = tmp_path / "fluxtuner.db"
 
     with db.connect(db_path) as conn:
@@ -567,6 +568,5 @@ def test_schema_v0_upgrades_through_v5(tmp_path) -> None:
         }
 
     assert version == db.CURRENT_SCHEMA_VERSION
-    assert version == 5
     assert "idx_web_login_attempts_attempted_at" in indexes
     assert "idx_web_recovery_attempts_attempted_at" in indexes

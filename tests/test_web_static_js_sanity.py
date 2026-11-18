@@ -370,6 +370,24 @@ def test_web_static_js_uses_playlists_module() -> None:
     assert "function setPlaylistDialogMessage" not in app_response.text
 
 
+def test_web_playlist_export_controls_are_wired() -> None:
+    client = TestClient(create_app())
+    app_response = client.get("/static/app.js")
+    renderer_response = client.get("/static/js/playlist-renderer.js")
+
+    assert app_response.status_code == 200
+    assert renderer_response.status_code == 200
+    assert "data-export-playlist-m3u" in renderer_response.text
+    assert "data-export-playlist-pls" in renderer_response.text
+    assert "onExportPlaylist(name, format)" in renderer_response.text
+    assert "async function exportPlaylistDownload(name, format)" in app_response.text
+    assert "encodeURIComponent(name)" in app_response.text
+    assert "await apiFetch(" in app_response.text
+    assert "URL.createObjectURL(blob)" in app_response.text
+    assert "URL.revokeObjectURL(url)" in app_response.text
+    assert "onExportPlaylist: (name, format)" in app_response.text
+
+
 def test_web_static_js_uses_playlist_renderer_module() -> None:
     client = TestClient(create_app())
 

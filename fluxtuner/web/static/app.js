@@ -578,12 +578,50 @@ const searchController = createSearchController({
 
 const { renderResults, renderSearchError } = searchController;
 
+async function exportPlaylistDownload(name, format) {
+  if (!["m3u", "pls"].includes(format)) return;
+
+  try {
+    const response = await apiFetch(
+      `/api/playlists/${encodeURIComponent(name)}/export/${format}`,
+      { headers: { Accept: "application/octet-stream" } },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    try {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `fluxtuner-playlist.${format}`;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    playerRuntime.setPlayerState(
+      "idle",
+      `${format.toUpperCase()} download started. Shared files may expose stream URL access tokens.`,
+    );
+  } catch (error) {
+    playerRuntime.setPlayerState("error", `Could not export playlist. ${error}`);
+  }
+}
+
 const playlistRenderer = createPlaylistRenderer({
   resultsNode,
   resultCountNode,
   onCreatePlaylist: (name) => playlistController.createPlaylist(name),
   onOpenPlaylist: (name) => loadPlaylistStations(name),
   onDeletePlaylist: (name) => playlistController.deletePlaylist(name),
+  onExportPlaylist: (name, format) => exportPlaylistDownload(name, format),
 });
 
 const { bindPlaylistActions, renderPlaylists } = playlistRenderer;

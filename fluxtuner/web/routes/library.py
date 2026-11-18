@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import sqlite3
 from contextlib import closing
 from typing import Any, Literal
 
-from fastapi import APIRouter, Body, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Path, Query, Request, Response
 
 from fluxtuner.core import db
+from fluxtuner.core.exporters import export_m3u, export_pls
+from fluxtuner.core.playlist_export import resolve_playlist_entries
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web import library
@@ -249,6 +252,55 @@ def playlist_stations(
             profile_name=web_context.effective_profile_name(profile),
         ),
         request,
+    )
+
+
+@router.get("/api/playlists/{name}/export/{format_name}")
+def export_web_playlist(
+    request: Request,
+    name: str = Path(..., min_length=1, max_length=MAX_PLAYLIST_NAME_LENGTH),
+    format_name: Literal["m3u", "pls"] = Path(...),
+    profile: str | None = Query(default=None, max_length=80),
+) -> Response:
+    """Export only a playlist owned by the authenticated user and profile."""
+    user = _require_authenticated_user(request)
+
+    if not db.DB_FILE.is_file():
+        raise HTTPException(status_code=404, detail="Playlist is unavailable.")
+
+    try:
+        with closing(sqlite3.connect(f"{db.DB_FILE.resolve().as_uri()}?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            profile_id = _profile_id(
+                conn,
+                user_id=int(user["id"]),
+                profile_name=web_context.effective_profile_name(profile),
+            )
+            entries = resolve_playlist_entries(
+                conn,
+                user_id=int(user["id"]),
+                profile_id=profile_id,
+                playlist_name=name,
+            )
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail="Playlist is unavailable.") from exc
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=503, detail="Playlist export is unavailable.") from exc
+
+    try:
+        content = export_m3u(entries) if format_name == "m3u" else export_pls(entries)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Playlist cannot be exported.") from exc
+
+    media_type = "audio/x-mpegurl" if format_name == "m3u" else "audio/x-scpls"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="fluxtuner-playlist.{format_name}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

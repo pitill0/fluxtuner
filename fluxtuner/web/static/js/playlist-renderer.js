@@ -10,6 +10,7 @@ export function createPlaylistRenderer({
   onCreatePlaylist,
   onOpenPlaylist,
   onDeletePlaylist,
+  onExportPlaylist,
 }) {
   function renderCreatePlaylistForm() {
     return `
@@ -68,6 +69,12 @@ export function createPlaylistRenderer({
                 <button type="button" data-open-playlist="${escapeHtml(
                   playlist.name,
                 )}">Open playlist</button>
+                <button type="button" data-export-playlist-m3u="${escapeHtml(
+                  playlist.name,
+                )}">Export M3U</button>
+                <button type="button" data-export-playlist-pls="${escapeHtml(
+                  playlist.name,
+                )}">Export PLS</button>
                 <button type="button" data-delete-playlist="${escapeHtml(
                   playlist.name,
                 )}">Delete playlist</button>
@@ -110,6 +117,22 @@ export function createPlaylistRenderer({
         }
       });
     });
+
+    for (const format of ["m3u", "pls"]) {
+      document.querySelectorAll(`[data-export-playlist-${format}]`).forEach((button) => {
+        if (button.dataset.playlistExportBound === "true") {
+          return;
+        }
+
+        button.dataset.playlistExportBound = "true";
+        button.addEventListener("click", () => {
+          const name = button.getAttribute(`data-export-playlist-${format}`);
+          if (name) {
+            onExportPlaylist(name, format);
+          }
+        });
+      });
+    }
 
     document.querySelectorAll("[data-delete-playlist]").forEach((button) => {
       if (button.dataset.playlistDeleteBound === "true") {

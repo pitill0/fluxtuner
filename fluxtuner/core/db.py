@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -167,6 +167,13 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_remote_subscription_schema(conn)
                 stored_version = 5
                 conn.execute("PRAGMA user_version = 5")
+                continue
+
+            if stored_version == 5:
+                _create_playlist_share_schema(conn)
+                _create_playlist_share_triggers(conn)
+                stored_version = 6
+                conn.execute("PRAGMA user_version = 6")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -442,6 +449,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
     )
     _create_station_provenance_schema(conn)
     _create_remote_subscription_schema(conn)
+    _create_playlist_share_schema(conn)
 
 
 def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:
@@ -1271,3 +1279,105 @@ def list_profiles(
     from fluxtuner.core import profiles as _profiles
 
     return _profiles.list_profiles(conn, user_id=user_id)
+
+
+def _create_playlist_share_schema(conn: sqlite3.Connection) -> None:
+    """Create the user-to-user recommendation schema without committing."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS playlist_shares (
+            id INTEGER PRIMARY KEY,
+            sender_user_id INTEGER NOT NULL,
+            recipient_user_id INTEGER NOT NULL,
+            source_profile_id INTEGER,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            snapshot_json TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            resolved_at TEXT,
+
+            FOREIGN KEY (sender_user_id)
+                REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (recipient_user_id)
+                REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (source_profile_id)
+                REFERENCES profiles(id) ON DELETE SET NULL,
+
+            CHECK (sender_user_id != recipient_user_id),
+            CHECK (kind IN ('station', 'playlist')),
+            CHECK (length(trim(title)) BETWEEN 1 AND 120),
+            CHECK (
+                snapshot_json IS NULL OR (
+                    json_valid(snapshot_json) = 1
+                    AND CASE
+                        WHEN json_valid(snapshot_json) = 1
+                        THEN json_type(snapshot_json) = 'object'
+                        ELSE 0
+                    END
+                    AND length(CAST(snapshot_json AS BLOB))
+                        BETWEEN 1 AND 1048576
+                )
+            ),
+            CHECK (
+                (
+                    status = 'pending'
+                    AND snapshot_json IS NOT NULL
+                    AND resolved_at IS NULL
+                )
+                OR
+                (
+                    status IN ('accepted', 'rejected', 'expired')
+                    AND snapshot_json IS NULL
+                    AND resolved_at IS NOT NULL
+                )
+            )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_playlist_shares_inbox
+        ON playlist_shares(recipient_user_id, status, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_playlist_shares_sent
+        ON playlist_shares(sender_user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_playlist_shares_expiry
+        ON playlist_shares(status, expires_at);
+        """,
+    )
+
+
+def _create_playlist_share_triggers(conn: sqlite3.Connection) -> None:
+    """Install ownership triggers after legacy profile normalization."""
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS trg_playlist_shares_profile_insert
+        BEFORE INSERT ON playlist_shares
+        WHEN NEW.source_profile_id IS NOT NULL
+         AND NOT EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = NEW.source_profile_id
+              AND user_id = NEW.sender_user_id
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Source profile must belong to sender');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS trg_playlist_shares_profile_update
+        BEFORE UPDATE OF source_profile_id, sender_user_id
+        ON playlist_shares
+        WHEN NEW.source_profile_id IS NOT NULL
+         AND NOT EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = NEW.source_profile_id
+              AND user_id = NEW.sender_user_id
+         )
+        BEGIN
+            SELECT RAISE(ABORT, 'Source profile must belong to sender');
+        END
+        """
+    )

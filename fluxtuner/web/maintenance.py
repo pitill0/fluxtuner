@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from threading import Lock
 from time import monotonic
 
-from fluxtuner.core import db, recovery_codes
+from fluxtuner.core import db, recovery_codes, share_lifecycle
 from fluxtuner.web import auth, reauth_attempts
+
+logger = logging.getLogger(__name__)
 
 AUTH_ATTEMPT_RETENTION_SECONDS = 24 * 60 * 60
 AUTH_MAINTENANCE_INTERVAL_SECONDS = 60 * 60
@@ -24,6 +28,7 @@ class AuthMaintenanceResult:
     old_recovery_attempts: int
     old_reauth_attempts: int = 0
     expired_refresh_receipts: int = 0
+    expired_recommendations: int = 0
 
 
 def run_auth_maintenance(
@@ -56,12 +61,29 @@ def run_auth_maintenance(
         ).rowcount
         conn.commit()
 
+    # The recommendation lifecycle owns its transaction. Run it after
+    # authentication maintenance commits, using an independent connection.
+    try:
+        with closing(db.connect()) as share_conn:
+            expired_recommendations = share_lifecycle.expire_shares(
+                share_conn,
+                now=now,
+                batch_size=share_lifecycle.MAX_EXPIRY_BATCH,
+            )
+    except Exception:
+        # Recommendation cleanup is optional maintenance. Never make
+        # startup or authentication depend on its availability.
+        # Preserve the traceback for operational diagnosis.
+        logger.exception("Recommendation expiry maintenance failed")
+        expired_recommendations = 0
+
     return AuthMaintenanceResult(
         expired_sessions=expired_sessions,
         old_login_attempts=old_login_attempts,
         old_recovery_attempts=old_recovery_attempts,
         old_reauth_attempts=old_reauth_attempts,
         expired_refresh_receipts=expired_refresh_receipts,
+        expired_recommendations=expired_recommendations,
     )
 
 

@@ -216,6 +216,8 @@ def resolve_share(
         }
 
         if action == "accept":
+            if destination_profile_id is None:
+                raise ValueError("Destination unavailable.")
             result.update(
                 _accept_into_profile(
                     conn,

@@ -63,42 +63,60 @@ def list_shares(
 
     _validate_identity(conn, user_id)
 
+    # Keep both ownership paths as literal SQL. Parameterize every
+    # user-controlled value; never interpolate SQL identifiers or clauses.
     if direction == "inbox":
-        owner_column = "sh.recipient_user_id"
-        counterpart_column = "sh.sender_user_id"
+        query = """
+            SELECT
+                sh.id,
+                sh.kind,
+                sh.title,
+                sh.status,
+                sh.created_at,
+                sh.expires_at,
+                sh.resolved_at,
+                counterpart.username AS counterpart_username
+            FROM playlist_shares AS sh
+            JOIN users AS counterpart
+              ON counterpart.id = sh.sender_user_id
+            WHERE sh.recipient_user_id = ?
+              AND (sh.status != 'pending' OR sh.expires_at > ?)
+              AND (
+                  ? = 'all'
+                  OR (? = 'pending' AND sh.status = 'pending')
+                  OR (? = 'resolved' AND sh.status != 'pending')
+              )
+            ORDER BY sh.created_at DESC, sh.id DESC
+            LIMIT ? OFFSET ?
+        """
     else:
-        owner_column = "sh.sender_user_id"
-        counterpart_column = "sh.recipient_user_id"
+        query = """
+            SELECT
+                sh.id,
+                sh.kind,
+                sh.title,
+                sh.status,
+                sh.created_at,
+                sh.expires_at,
+                sh.resolved_at,
+                counterpart.username AS counterpart_username
+            FROM playlist_shares AS sh
+            JOIN users AS counterpart
+              ON counterpart.id = sh.recipient_user_id
+            WHERE sh.sender_user_id = ?
+              AND (sh.status != 'pending' OR sh.expires_at > ?)
+              AND (
+                  ? = 'all'
+                  OR (? = 'pending' AND sh.status = 'pending')
+                  OR (? = 'resolved' AND sh.status != 'pending')
+              )
+            ORDER BY sh.created_at DESC, sh.id DESC
+            LIMIT ? OFFSET ?
+        """
 
-    status_clause = ""
-    if status == "pending":
-        status_clause = "AND sh.status = 'pending'"
-    elif status == "resolved":
-        status_clause = "AND sh.status != 'pending'"
-
-    # Column names and filter clauses are exclusively selected from
-    # static internal strings, never interpolated from arbitrary input.
     rows = conn.execute(
-        f"""
-        SELECT
-            sh.id,
-            sh.kind,
-            sh.title,
-            sh.status,
-            sh.created_at,
-            sh.expires_at,
-            sh.resolved_at,
-            counterpart.username AS counterpart_username
-        FROM playlist_shares AS sh
-        JOIN users AS counterpart
-          ON counterpart.id = {counterpart_column}
-        WHERE {owner_column} = ?
-          AND (sh.status != 'pending' OR sh.expires_at > ?)
-          {status_clause}
-        ORDER BY sh.created_at DESC, sh.id DESC
-        LIMIT ? OFFSET ?
-        """,
-        (user_id, current, limit, offset),
+        query,
+        (user_id, current, status, status, status, limit, offset),
     ).fetchall()
 
     return [

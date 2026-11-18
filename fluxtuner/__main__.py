@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import secrets
+import sqlite3
 import sys
+import tempfile
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +19,7 @@ from rich.table import Table
 
 from fluxtuner import __version__
 from fluxtuner.config import get_config_value, set_config_value
+from fluxtuner.core import db
 from fluxtuner.core.api import normalize_station, search_stations
 from fluxtuner.core.cache import clear_search_cache
 from fluxtuner.core.compatibility import (
@@ -22,9 +27,11 @@ from fluxtuner.core.compatibility import (
     station_is_supported,
     unsupported_station_message,
 )
+from fluxtuner.core.exporters import export_m3u, export_pls
 from fluxtuner.core.favorites import add_favorite, load_favorites, remove_favorite, save_favorites
 from fluxtuner.core.importers import validate_imported_favorites, validate_imported_playlists
 from fluxtuner.core.manual_playlists import load_playlists, save_playlists
+from fluxtuner.core.playlist_export import resolve_playlist_entries
 from fluxtuner.core.profiles import (
     clear_active_profile_name,
     get_active_profile_name,
@@ -541,6 +548,18 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Import persistent playlists from a JSON file and exit.",
     )
     parser.add_argument(
+        "--export-playlist-m3u",
+        nargs=2,
+        metavar=("NAME", "PATH"),
+        help="Export one playlist to an extended M3U file and exit.",
+    )
+    parser.add_argument(
+        "--export-playlist-pls",
+        nargs=2,
+        metavar=("NAME", "PATH"),
+        help="Export one playlist to a PLS v2 file and exit.",
+    )
+    parser.add_argument(
         "--list-players",
         action="store_true",
         help="List supported and available player backends, then exit.",
@@ -615,7 +634,86 @@ def _handle_diagnostic_command(args: argparse.Namespace) -> bool:
     return False
 
 
+def _write_export_exclusive(destination: Path, payload: bytes) -> None:
+    """Publish a complete export atomically without replacing an existing file."""
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=".fluxtuner-export-",
+            dir=destination.parent,
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+
+        os.link(temporary_path, destination)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def _export_portable_playlist(
+    name: str,
+    path_value: str,
+    profile_name: str | None,
+    *,
+    format_name: str,
+) -> None:
+    """Export an existing local playlist without modifying SQLite."""
+    selected_profile = profile_name or db.DEFAULT_PROFILE_NAME
+    exporter = export_m3u if format_name == "m3u" else export_pls
+    destination = Path(path_value).expanduser()
+
+    try:
+        if not db.DB_FILE.is_file():
+            raise ValueError("Local library is unavailable.")
+
+        with closing(sqlite3.connect(f"{db.DB_FILE.resolve().as_uri()}?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                """
+                SELECT p.id AS profile_id, u.id AS user_id
+                FROM profiles AS p
+                JOIN users AS u ON u.id = p.user_id
+                WHERE u.username = ?
+                  AND lower(p.name) = lower(?)
+                """,
+                (db.DEFAULT_USER_NAME, selected_profile),
+            ).fetchone()
+            if row is None:
+                raise ValueError("Local profile is unavailable.")
+
+            entries = resolve_playlist_entries(
+                conn,
+                user_id=int(row["user_id"]),
+                profile_id=int(row["profile_id"]),
+                playlist_name=name,
+            )
+            payload = exporter(entries)
+
+        _write_export_exclusive(destination, payload)
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        console.print(f"[red]Could not export playlist:[/red] {exc}")
+        raise SystemExit(1) from exc
+
+    console.print(f"[green]{format_name.upper()} playlist exported to:[/green] {destination}")
+    console.print("[yellow]Shared files may expose stream URL access tokens.[/yellow]")
+
+
 def _handle_library_command(args: argparse.Namespace, effective_profile_name: str | None) -> bool:
+    if args.export_playlist_m3u:
+        name, path = args.export_playlist_m3u
+        _export_portable_playlist(name, path, effective_profile_name, format_name="m3u")
+        return True
+
+    if args.export_playlist_pls:
+        name, path = args.export_playlist_pls
+        _export_portable_playlist(name, path, effective_profile_name, format_name="pls")
+        return True
+
     if args.export_favs:
         export_json_list(
             args.export_favs,

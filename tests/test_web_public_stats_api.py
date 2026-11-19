@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from fluxtuner.core import db, favorites, history, manual_playlists
 from fluxtuner.web import auth
 from fluxtuner.web.app import create_app
+from fluxtuner.web.routes import public as public_routes
 from fluxtuner.web.security import CSRF_HEADER_NAME
 
 VALID_PASSWORD = "correct horse battery staple"
@@ -170,3 +171,76 @@ def test_public_stats_count_only_active_approved_users(tmp_path, monkeypatch) ->
 
     assert response.status_code == 200
     assert response.json()["totals"]["users"] == 1
+
+
+def test_public_top_artwork_is_cached_only_and_scoped(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+    fetched: list[str] = []
+
+    class StubCache:
+        def get(self, url: str) -> tuple[bytes, str] | None:
+            fetched.append(url)
+            if url == "https://art.example.com/top.jpg":
+                return b"cached-image", "image/jpeg"
+            return None
+
+    monkeypatch.setattr(public_routes, "ArtworkCache", StubCache)
+    for index in range(4):
+        station = station_payload(f"Radio {index}", f"https://stream.example.com/{index}")
+        station["favicon"] = f"https://art.example.com/{'top' if index == 3 else index}.jpg"
+        for _ in range(index + 1):
+            assert (
+                client.post(
+                    "/api/history", json=station, headers=csrf_headers(csrf_token)
+                ).status_code
+                == 200
+            )
+
+    payload = client.get("/api/public/stats").json()
+    assert len(payload["top_stations"]) == 3
+    assert all("artwork_url" in item for item in payload["top_stations"])
+    assert "art.example.com" not in str(payload)
+
+    top_url = payload["top_stations"][0]["artwork_url"]
+    image = client.get(top_url)
+    assert image.status_code == 200
+    assert image.content == b"cached-image"
+    assert image.headers["content-type"] == "image/jpeg"
+    assert image.headers["cache-control"] == "no-store"
+    assert image.headers["x-content-type-options"] == "nosniff"
+    assert fetched == ["https://art.example.com/top.jpg"]
+
+    missing = client.get(payload["top_stations"][1]["artwork_url"])
+    assert missing.status_code == 404
+    assert client.get("/api/public/stations/99999/artwork").status_code == 404
+    assert client.get("/api/public/stations/-1/artwork").status_code == 404
+    assert len(fetched) == 2
+
+
+def test_public_artwork_does_not_publish_stations_outside_top_three(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    csrf_token = login(client, "alice")
+    for index in range(4):
+        station = station_payload(f"Radio {index}", f"https://stream.example.com/{index}")
+        station["favicon"] = f"https://art.example.com/{index}.jpg"
+        for _ in range(index + 1):
+            assert (
+                client.post(
+                    "/api/history", json=station, headers=csrf_headers(csrf_token)
+                ).status_code
+                == 200
+            )
+    with db.connect() as conn:
+        excluded_id = conn.execute("SELECT id FROM stations WHERE name = 'Radio 0'").fetchone()[
+            "id"
+        ]
+
+    class ForbiddenCache:
+        def get(self, url: str) -> None:
+            raise AssertionError(f"Must not fetch non-public artwork: {url}")
+
+    monkeypatch.setattr(public_routes, "ArtworkCache", ForbiddenCache)
+    assert client.get(f"/api/public/stations/{excluded_id}/artwork").status_code == 404

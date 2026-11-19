@@ -44,8 +44,15 @@ function renderPublicStats(contentNode, payload) {
           .map((station) => {
             const name = escapeHtml(station.name || "Unknown station");
             const playCount = formatPublicStatCount(station.play_count, "play", "plays");
+            const artworkUrl = String(station.artwork_url || "");
+            const safeArtworkUrl = /^\/api\/public\/stations\/[1-9][0-9]*\/artwork$/.test(artworkUrl)
+              ? artworkUrl : "";
             return `
               <li>
+                <span class="public-station-artwork" aria-hidden="true">
+                  <span class="public-station-artwork-fallback">♫</span>
+                  ${safeArtworkUrl ? `<img src="${safeArtworkUrl}" alt="" loading="lazy" decoding="async">` : ""}
+                </span>
                 <span>${name}</span>
                 <strong>${escapeHtml(playCount)}</strong>
               </li>
@@ -71,6 +78,9 @@ function renderPublicStats(contentNode, payload) {
       ${renderPublicStatTile(users, "active user", "active users")}
     </div>
   `;
+  contentNode.querySelectorAll(".public-station-artwork img").forEach((img) => {
+    img.addEventListener("error", () => { img.hidden = true; }, { once: true });
+  });
 }
 
 export function createPublicStatsController({ contentNode, messageNode, fetchImpl = fetch }) {

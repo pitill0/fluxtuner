@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -174,6 +174,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_playlist_share_triggers(conn)
                 stored_version = 6
                 conn.execute("PRAGMA user_version = 6")
+                continue
+
+            if stored_version == 6:
+                _create_daily_play_counts_schema(conn)
+                stored_version = 7
+                conn.execute("PRAGMA user_version = 7")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -1279,6 +1285,27 @@ def list_profiles(
     from fluxtuner.core import profiles as _profiles
 
     return _profiles.list_profiles(conn, user_id=user_id)
+
+
+def _create_daily_play_counts_schema(conn: sqlite3.Connection) -> None:
+    """Create anonymous per-station UTC-day counters without user identifiers."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS station_daily_plays (
+            station_id INTEGER NOT NULL,
+            day_utc TEXT NOT NULL,
+            play_count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (station_id, day_utc),
+            FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE,
+            CHECK (length(day_utc) = 10),
+            CHECK (play_count >= 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_station_daily_plays_day
+        ON station_daily_plays(day_utc);
+        """,
+    )
 
 
 def _create_playlist_share_schema(conn: sqlite3.Connection) -> None:

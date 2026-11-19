@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ LEGACY_HISTORY_FILE = Path.home() / ".fluxtuner_history.json"
 HISTORY_FILE = data_file("history.json")
 HISTORY_JSON_MIGRATION = "history_json_v1"
 MAX_HISTORY_ITEMS = 100
+DAILY_PLAYS_RETENTION_DAYS = 35
 
 
 def _db_path() -> Path:
@@ -155,6 +157,28 @@ def add_history_record(
             snapshot,
         ),
     )
+
+    # Only actual history-record events update public trending aggregates.
+    # Legacy imports and replace_history() deliberately bypass this counter.
+    try:
+        instant = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            raise ValueError("History timestamp must include a timezone")
+        day_utc = instant.astimezone(UTC).date().isoformat()
+    except ValueError:
+        day_utc = datetime.now(UTC).date().isoformat()
+
+    conn.execute(
+        """
+        INSERT INTO station_daily_plays (station_id, day_utc, play_count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(station_id, day_utc) DO UPDATE SET
+            play_count = play_count + 1
+        """,
+        (station_id, day_utc),
+    )
+    cutoff = (datetime.now(UTC).date() - timedelta(days=DAILY_PLAYS_RETENTION_DAYS)).isoformat()
+    conn.execute("DELETE FROM station_daily_plays WHERE day_utc < ?", (cutoff,))
 
 
 def replace_history(

@@ -4,6 +4,8 @@
 
 export function createAppElements(root = document) {
   return {
+    recommendationsDialog: root.querySelector("[data-recommendations-dialog]"),
+    recommendationsOpenButton: root.querySelector("[data-recommendations-open]"),
     subscriptionElements: {
       openButton: root.querySelector("[data-nav-manage-subscriptions]"),
       dialog: root.querySelector("[data-subscriptions-dialog]"),

@@ -33,6 +33,7 @@ import { createPlayerRuntime } from "./js/player-runtime.js";
 import { createPlaylistController } from "./js/playlists.js";
 import { createPlaylistRenderer } from "./js/playlist-renderer.js";
 import { createPublicStatsController } from "./js/public-stats.js";
+import { createRecommendationsController } from "./js/recommendations.js";
 import { createSearchController } from "./js/search.js";
 import { createSessionUiController } from "./js/session-ui.js";
 import { createSetupController } from "./js/setup.js";
@@ -42,6 +43,8 @@ import { createStationRenderer } from "./js/station-renderer.js";
 import { stationUrl } from "./js/stations.js";
 
 const {
+  recommendationsDialog,
+  recommendationsOpenButton,
   stationImportElements,
   subscriptionElements,
   customStationMenuButton,
@@ -286,6 +289,19 @@ const apiFetch = createApiFetch({
   },
 });
 
+const recommendationController = createRecommendationsController({
+  apiFetch,
+  dialog: recommendationsDialog,
+  openButton: recommendationsOpenButton,
+  getCurrentUser: appState.getCurrentUser,
+  getSessionKey: appState.getCsrfToken,
+  beforeOpen: () => {
+    closeMobileMenu();
+    closeOpenDialog();
+  },
+});
+recommendationController.bind();
+
 const dashboardController = createDashboardController({
   apiFetch,
   getCurrentUser: appState.getCurrentUser,
@@ -438,6 +454,7 @@ const subscriptionController = createLazyRemoteSubscriptionController({
 });
 
 const sessionUiController = createSessionUiController({
+  recommendationController,
   subscriptionController,
   stationImportController,
   customStationController,
@@ -550,6 +567,7 @@ const stationRenderer = createStationRenderer({
   onRemoveFavorite: (station) => removeFavorite(station),
   onAddToPlaylist: (station) => playlistController.addToPlaylist(station),
   onRemoveFromPlaylist: (station) => playlistController.removeFromPlaylist(station),
+  onShareStation: (station) => recommendationController.shareStation(station),
   onStationActionError: (error) => {
     playerRuntime.setPlayerState("error", `Could not read station data. ${error}`);
   },
@@ -622,6 +640,7 @@ const playlistRenderer = createPlaylistRenderer({
   onOpenPlaylist: (name) => loadPlaylistStations(name),
   onDeletePlaylist: (name) => playlistController.deletePlaylist(name),
   onExportPlaylist: (name, format) => exportPlaylistDownload(name, format),
+  onSharePlaylist: (name) => recommendationController.sharePlaylist(name),
 });
 
 const { bindPlaylistActions, renderPlaylists } = playlistRenderer;
@@ -707,6 +726,7 @@ const playlistController = createPlaylistController({
 });
 
 const navigationController = createNavigationController({
+  recommendationController,
   subscriptionController,
   stationImportController,
   customStationController,

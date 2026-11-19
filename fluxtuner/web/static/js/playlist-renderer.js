@@ -11,6 +11,7 @@ export function createPlaylistRenderer({
   onOpenPlaylist,
   onDeletePlaylist,
   onExportPlaylist,
+  onSharePlaylist,
 }) {
   function renderCreatePlaylistForm() {
     return `
@@ -75,6 +76,9 @@ export function createPlaylistRenderer({
                 <button type="button" data-export-playlist-pls="${escapeHtml(
                   playlist.name,
                 )}">Export PLS</button>
+                <button type="button" data-share-playlist="${escapeHtml(
+                  playlist.name,
+                )}">Share</button>
                 <button type="button" data-delete-playlist="${escapeHtml(
                   playlist.name,
                 )}">Delete playlist</button>
@@ -133,6 +137,15 @@ export function createPlaylistRenderer({
         });
       });
     }
+
+    document.querySelectorAll("[data-share-playlist]").forEach((button) => {
+      if (button.dataset.playlistShareBound === "true") return;
+      button.dataset.playlistShareBound = "true";
+      button.addEventListener("click", () => {
+        const name = button.getAttribute("data-share-playlist");
+        if (name) onSharePlaylist?.(name);
+      });
+    });
 
     document.querySelectorAll("[data-delete-playlist]").forEach((button) => {
       if (button.dataset.playlistDeleteBound === "true") {

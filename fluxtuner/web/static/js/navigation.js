@@ -3,6 +3,7 @@
  */
 
 export function createNavigationController({
+  recommendationController,
   accountPanel,
   subscriptionController,
   stationImportController,
@@ -30,6 +31,7 @@ export function createNavigationController({
   showRadioBrowserView,
 }) {
   function closeOpenDialog() {
+    if (recommendationController?.closeIfOpen()) return true;
     if (subscriptionController?.closeIfOpen()) return true;
     if (stationImportController?.closeIfOpen()) return true;
     if (customStationController?.closeIfOpen()) return true;

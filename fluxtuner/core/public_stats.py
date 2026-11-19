@@ -29,6 +29,8 @@ def public_activity_stats(
     top_rows = conn.execute(
         """
         SELECT
+            stations.id AS station_id,
+            stations.favicon AS favicon,
             COALESCE(NULLIF(trim(stations.name), ''), 'Unknown station') AS name,
             SUM(history_entries.play_count) AS play_count,
             MAX(history_entries.last_played_at) AS last_played_at
@@ -67,6 +69,11 @@ def public_activity_stats(
             {
                 "name": str(row["name"] or "Unknown station"),
                 "play_count": _safe_int(row["play_count"]),
+                **(
+                    {"artwork_url": f"/api/public/stations/{int(row['station_id'])}/artwork"}
+                    if str(row["favicon"] or "").strip()
+                    else {}
+                ),
             }
             for row in top_rows
         ],

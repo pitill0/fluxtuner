@@ -43,6 +43,7 @@ def test_init_db_creates_expected_tables(
             "web_reauth_attempts",
             "favorites",
             "history_entries",
+            "station_daily_plays",
             "playlist_stations",
             "playlist_shares",
             "playlists",

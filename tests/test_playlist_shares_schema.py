@@ -46,7 +46,7 @@ def test_v5_migration_preserves_data_and_matches_fresh_schema(tmp_path):
 
     with db.connect(legacy) as old, db.connect(fresh) as new:
         assert _schema_objects(old) == _schema_objects(new)
-        assert old.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert old.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         assert db.get_user_by_username(old, "alice")["id"] == alice
         assert (
             old.execute("SELECT id FROM profiles WHERE id = ?", (profile,)).fetchone() is not None

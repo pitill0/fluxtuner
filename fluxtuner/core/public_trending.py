@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
+
+"""Conservative public station momentum selection.
+
+Activity thresholds reduce sparse-data exposure but cannot establish a minimum
+number of distinct listeners: daily aggregates contain no listener identities.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import UTC, date, datetime, timedelta
+
+MIN_RECENT_PLAYS = 10
+MIN_ACTIVE_DAYS = 3
+MIN_ELIGIBLE_STATIONS = 3
+PUBLIC_TREND_LIMIT = 3
+
+
+def public_station_trends(
+    conn: sqlite3.Connection, *, as_of: date | None = None
+) -> dict[str, object]:
+    """Return name-only trends for completed UTC days, without playback totals.
+
+    ``as_of`` is the final day of the seven-day comparison window. A public
+    caller should leave it unset to exclude the current incomplete UTC day.
+    """
+    final_day = as_of if as_of is not None else datetime.now(UTC).date() - timedelta(days=1)
+    if not isinstance(final_day, date) or isinstance(final_day, datetime):
+        raise TypeError("as_of must be a date")
+    recent_start = final_day - timedelta(days=6)
+    previous_start = recent_start - timedelta(days=7)
+    next_day = final_day + timedelta(days=1)
+
+    rows = conn.execute(
+        """
+        SELECT
+            stations.id AS station_id,
+            COALESCE(NULLIF(trim(stations.name), ''), 'Unknown station') AS name,
+            SUM(CASE WHEN daily.day_utc >= ? THEN daily.play_count ELSE 0 END)
+                AS recent_plays,
+            SUM(CASE WHEN daily.day_utc < ? THEN daily.play_count ELSE 0 END)
+                AS previous_plays,
+            COUNT(DISTINCT CASE WHEN daily.day_utc >= ? THEN daily.day_utc END)
+                AS active_days
+        FROM station_daily_plays AS daily
+        JOIN stations ON stations.id = daily.station_id
+        WHERE daily.day_utc >= ? AND daily.day_utc < ?
+        GROUP BY stations.id
+        HAVING recent_plays >= ? AND active_days >= ?
+           AND recent_plays > previous_plays
+        ORDER BY
+            (recent_plays - previous_plays) DESC,
+            recent_plays DESC,
+            name COLLATE NOCASE ASC,
+            stations.id ASC
+        LIMIT ?
+        """,
+        (
+            recent_start.isoformat(),
+            recent_start.isoformat(),
+            recent_start.isoformat(),
+            previous_start.isoformat(),
+            next_day.isoformat(),
+            MIN_RECENT_PLAYS,
+            MIN_ACTIVE_DAYS,
+            PUBLIC_TREND_LIMIT,
+        ),
+    ).fetchall()
+
+    names = (
+        [{"name": str(row["name"])} for row in rows] if len(rows) >= MIN_ELIGIBLE_STATIONS else []
+    )
+    return {"stations": names, "period_end_utc": final_day.isoformat()}

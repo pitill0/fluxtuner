@@ -416,6 +416,15 @@ dialog.custom-station-dialog::backdrop {
 dialog.recommendation-dialog {
   width: min(42rem, calc(100vw - 2rem));
 }
+.recommendation-dialog .dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.recommendation-dialog [data-recommendations-close] {
+  flex-shrink: 0;
+}
 .recommendation-dialog [data-recommendations-items] {
   max-height: min(42vh, 25rem);
   overflow-y: auto;

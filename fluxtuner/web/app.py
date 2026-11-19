@@ -68,6 +68,7 @@ def create_app(  # noqa: C901 - reviewed ceiling 23; see docs/complexity-baselin
         from fluxtuner.web.routes import library as library_routes
         from fluxtuner.web.routes import metadata as metadata_routes
         from fluxtuner.web.routes import public as public_routes
+        from fluxtuner.web.routes import recommendations as recommendation_routes
         from fluxtuner.web.routes import subscriptions as subscription_routes
         from fluxtuner.web.static_routes import register_static_routes
 
@@ -128,6 +129,7 @@ def create_app(  # noqa: C901 - reviewed ceiling 23; see docs/complexity-baselin
     app.include_router(library_routes.router)
     app.include_router(import_routes.router)
     app.include_router(subscription_routes.router)
+    app.include_router(recommendation_routes.router)
     app.include_router(metadata_routes.router)
     app.include_router(admin_routes.router)
 

@@ -18,6 +18,7 @@ export function createStationRenderer({
   onRemoveFavorite,
   onAddToPlaylist,
   onRemoveFromPlaylist,
+  onShareStation,
   onStationActionError,
 }) {
   function currentRenderState() {
@@ -106,6 +107,13 @@ export function createStationRenderer({
               : ""
           }
           ${
+            currentUser && ["favorites", "playlist"].includes(currentView) && streamUrl
+              ? `<button type="button" data-share-station="${stationButtonPayload(
+                  station,
+                )}">Share</button>`
+              : ""
+          }
+          ${
             streamUrl
               ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
               : ""
@@ -126,6 +134,7 @@ export function createStationRenderer({
       button.getAttribute("data-add-favorite") ||
       button.getAttribute("data-remove-favorite") ||
       button.getAttribute("data-add-to-playlist") ||
+      button.getAttribute("data-share-station") ||
       button.getAttribute("data-remove-from-playlist");
 
     if (!payload) return null;
@@ -161,6 +170,7 @@ export function createStationRenderer({
     bindStationAction("[data-add-favorite]", onAddFavorite);
     bindStationAction("[data-remove-favorite]", onRemoveFavorite);
     bindStationAction("[data-add-to-playlist]", onAddToPlaylist);
+    bindStationAction("[data-share-station]", onShareStation);
     bindStationAction("[data-remove-from-playlist]", onRemoveFromPlaylist);
   }
 

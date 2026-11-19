@@ -103,6 +103,7 @@
   <div class="app-nav-group-content" id="app-nav-group-library" data-nav-group-content="library" hidden>
 <button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
 <button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
+<button type="button" data-recommendations-open data-private-action disabled>Recommendations</button>
 <button type="button" data-nav-stations data-private-action disabled>My stations</button>
 <button type="button" data-nav-catalogs data-private-action disabled>Remote catalogs</button>
 <button type="button" data-nav-history data-private-action disabled>History</button>
@@ -748,6 +749,37 @@
         </form>
       </div>
     </section>
+
+    <dialog class="custom-station-dialog recommendation-dialog" data-recommendations-dialog aria-labelledby="recommendations-title">
+      <div class="playlist-dialog-card">
+        <div class="dialog-heading">
+          <h2 id="recommendations-title" data-recommendations-title>Recommendations</h2>
+          <button type="button" data-recommendations-close>Close</button>
+        </div>
+        <div class="station-actions">
+          <button type="button" data-recommendations-received>Received</button>
+          <button type="button" data-recommendations-sent>Sent</button>
+        </div>
+        <div data-recommendations-compose hidden>
+          <form class="playlist-dialog-form" data-recommendations-form>
+            <label>
+              <span>Recipient username</span>
+              <input type="text" data-recommendations-recipient maxlength="80" autocomplete="off" required>
+            </label>
+            <div class="station-actions">
+              <button type="submit">Send recommendation</button>
+              <button type="button" data-recommendations-cancel>Cancel</button>
+            </div>
+          </form>
+        </div>
+        <p class="playlist-dialog-message" data-recommendations-message role="status" aria-live="polite"></p>
+        <div class="results" data-recommendations-items></div>
+        <div class="station-actions">
+          <button type="button" data-recommendations-prev disabled>Previous</button>
+          <button type="button" data-recommendations-next disabled>Next</button>
+        </div>
+      </div>
+    </dialog>
 
     <section class="playlist-dialog" data-playlist-dialog hidden aria-labelledby="playlist-dialog-title">
       <div class="playlist-dialog-card">

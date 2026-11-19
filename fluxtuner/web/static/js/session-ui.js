@@ -3,6 +3,7 @@
  */
 
 export function createSessionUiController({
+  recommendationController,
   subscriptionController,
   stationImportController,
   customStationController,
@@ -34,6 +35,7 @@ export function createSessionUiController({
   adminPanel,
 }) {
   function updateAuthUi() {
+    recommendationController?.syncSession();
     stationImportController?.syncSession();
     subscriptionController?.syncSession();
     customStationController?.syncSession();

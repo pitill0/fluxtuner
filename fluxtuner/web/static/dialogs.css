@@ -413,6 +413,14 @@ dialog.custom-station-dialog::backdrop {
   background: var(--dialog-backdrop);
   backdrop-filter: blur(0.6rem);
 }
+dialog.recommendation-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+}
+.recommendation-dialog [data-recommendations-items] {
+  max-height: min(42vh, 25rem);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
 .custom-station-dialog .playlist-dialog-card {
   width: 100%;
   box-sizing: border-box;

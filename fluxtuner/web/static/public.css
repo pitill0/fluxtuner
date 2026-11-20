@@ -37,6 +37,21 @@
   grid-column: 1 / -1;
 }
 
+.public-stats-featured {
+  grid-column: 1 / -1;
+}
+
+.public-featured-name {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
 .public-trending-note {
   margin: 0.2rem 0 0;
   color: var(--muted);

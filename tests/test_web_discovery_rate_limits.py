@@ -43,6 +43,26 @@ def test_discovery_rate_limit_is_bounded_and_resets(tmp_path):
         assert conn.execute("SELECT COUNT(*) FROM web_discovery_rate_limits").fetchone()[0] == 0
 
 
+def test_backward_clock_does_not_reset_redemption_window(tmp_path):
+    path = tmp_path / "backward.db"
+    db.init_db(path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=UTC)
+    with db.connect(path) as conn:
+        user_id = _default_user(conn)
+        for _ in range(MAX_ATTEMPTS):
+            assert admit_redemption(conn, user_id=user_id, now=now)
+        # A thread whose clock was read before it acquired the SQLite lock
+        # must not replenish the exhausted per-user quota.
+        assert not admit_redemption(conn, user_id=user_id, now=now - timedelta(seconds=1))
+        assert not admit_redemption(conn, user_id=user_id, now=now)
+        assert (
+            conn.execute(
+                "SELECT attempts FROM web_discovery_rate_limits WHERE user_id = ?", (user_id,)
+            ).fetchone()[0]
+            == MAX_ATTEMPTS
+        )
+
+
 def test_discovery_rate_limit_serializes_concurrent_attempts(tmp_path):
     path = tmp_path / "concurrent.db"
     db.init_db(path)

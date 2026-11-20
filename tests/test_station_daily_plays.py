@@ -60,6 +60,6 @@ def test_migration_from_v6_creates_empty_daily_aggregate(tmp_path, monkeypatch) 
 
     db.init_db()
     with db.connect() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         assert conn.execute("SELECT COUNT(*) FROM station_daily_plays").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM history_entries").fetchone()[0] == 1

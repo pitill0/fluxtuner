@@ -44,6 +44,7 @@ def test_init_db_creates_expected_tables(
             "favorites",
             "history_entries",
             "station_daily_plays",
+            "public_station_opt_ins",
             "playlist_stations",
             "playlist_shares",
             "playlists",

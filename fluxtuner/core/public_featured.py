@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
-"""Daily public-directory station suggestion without exposing stream details."""
+"""Daily public station suggestion without exposing stream details."""
 
 from __future__ import annotations
 
@@ -29,10 +29,11 @@ def _safe_directory_url(value: object) -> bool:
 def public_featured_station(
     conn: sqlite3.Connection, *, as_of: date | None = None
 ) -> dict[str, object]:
-    """Rotate daily over catalog-identified stations; never publish URLs or IDs.
+    """Rotate over catalog stations and currently opted-in favorites, name only.
 
-    Custom stations are excluded until an explicit owner-controlled opt-in exists.
-    A catalog identifier alone is not a stream-health verification.
+    An opt-in belongs to a favorite owned by an active, approved account.
+    Revoking the last opt-in removes a custom station from the candidate set.
+    A catalog identifier or opt-in alone is not a stream-health verification.
     """
     day = as_of if as_of is not None else datetime.now(UTC).date()
     if not isinstance(day, date) or isinstance(day, datetime):
@@ -40,11 +41,23 @@ def public_featured_station(
 
     rows = conn.execute(
         """
-        SELECT stationuuid, name, url, url_resolved
-        FROM stations
-        WHERE stationuuid IS NOT NULL AND trim(stationuuid) != ''
-          AND name IS NOT NULL AND trim(name) != ''
-        ORDER BY stationuuid ASC, id ASC
+        SELECT s.name, s.url, s.url_resolved
+        FROM stations AS s
+        WHERE s.name IS NOT NULL AND trim(s.name) != ''
+          AND (
+              (s.stationuuid IS NOT NULL AND trim(s.stationuuid) != '')
+              OR EXISTS (
+                  SELECT 1
+                  FROM public_station_opt_ins AS o
+                  JOIN favorites AS f ON f.id = o.favorite_id
+                  JOIN profiles AS p ON p.id = f.profile_id
+                  JOIN users AS u ON u.id = p.user_id
+                  WHERE f.station_id = s.id
+                    AND u.is_active = 1
+                    AND u.approval_status = 'approved'
+              )
+          )
+        ORDER BY COALESCE(NULLIF(trim(s.stationuuid), ''), '') ASC, s.id ASC
         """
     ).fetchall()
     eligible = [

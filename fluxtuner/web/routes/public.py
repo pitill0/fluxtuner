@@ -30,8 +30,8 @@ def public_trending(response: Response) -> dict[str, object]:
 
 @router.get("/api/public/featured")
 def public_featured(response: Response) -> dict[str, object]:
-    """Provide a name-only, UTC-day rotating public directory suggestion."""
-    response.headers["Cache-Control"] = "public, max-age=3600"
+    """Provide a name-only, UTC-day rotating suggestion with live revocation."""
+    response.headers["Cache-Control"] = "no-store"
     with db.connect() as conn:
         return public_featured_station(conn)
 

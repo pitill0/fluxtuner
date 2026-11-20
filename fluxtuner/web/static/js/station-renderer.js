@@ -19,6 +19,7 @@ export function createStationRenderer({
   onAddToPlaylist,
   onRemoveFromPlaylist,
   onShareStation,
+  onTogglePublication,
   onStationActionError,
 }) {
   function currentRenderState() {
@@ -34,6 +35,9 @@ export function createStationRenderer({
     const lastPlayedAt = formatDisplayDateTime(station.last_played_at);
     const favoriteTags = Array.isArray(station.favorite_tags) ? station.favorite_tags : [];
     const stationName = String(station.custom_name || station.name || "Unknown station");
+    const publicationId = Number(station.station_id);
+    const canManagePublication = currentUser && currentView === "favorites" &&
+      Number.isSafeInteger(publicationId) && publicationId > 0;
     const artworkRef = typeof station.artwork_ref === "string" ? station.artwork_ref : "";
     const artworkUrl = artworkRef.length <= 4096 && /^v1\.[0-9]+\.[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(artworkRef)
       ? `/api/artwork/${encodeURIComponent(artworkRef)}`
@@ -100,6 +104,15 @@ export function createStationRenderer({
               : ""
           }
           ${
+            canManagePublication
+              ? `<button type="button" data-toggle-publication="${stationButtonPayload(
+                  station,
+                )}"${!station.published && !station.publication_eligible
+                  ? ' disabled title="This stream URL cannot be made public."' : ""}>${station.published
+                  ? "Make private" : "Make public"}</button>`
+              : ""
+          }
+          ${
             currentUser && currentView === "playlist" && streamUrl
               ? `<button type="button" data-remove-from-playlist="${stationButtonPayload(
                   station,
@@ -135,6 +148,7 @@ export function createStationRenderer({
       button.getAttribute("data-remove-favorite") ||
       button.getAttribute("data-add-to-playlist") ||
       button.getAttribute("data-share-station") ||
+      button.getAttribute("data-toggle-publication") ||
       button.getAttribute("data-remove-from-playlist");
 
     if (!payload) return null;
@@ -171,6 +185,18 @@ export function createStationRenderer({
     bindStationAction("[data-remove-favorite]", onRemoveFavorite);
     bindStationAction("[data-add-to-playlist]", onAddToPlaylist);
     bindStationAction("[data-share-station]", onShareStation);
+    document.querySelectorAll("[data-toggle-publication]").forEach((button) => {
+      if (button.dataset.stationActionBound === "true") return;
+      button.dataset.stationActionBound = "true";
+      button.addEventListener("click", () => {
+        try {
+          const station = parseStationButton(button);
+          if (station) onTogglePublication?.(station, button);
+        } catch (error) {
+          onStationActionError?.(error);
+        }
+      });
+    });
     bindStationAction("[data-remove-from-playlist]", onRemoveFromPlaylist);
   }
 

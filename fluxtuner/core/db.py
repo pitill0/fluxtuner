@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -180,6 +180,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_daily_play_counts_schema(conn)
                 stored_version = 7
                 conn.execute("PRAGMA user_version = 7")
+                continue
+
+            if stored_version == 7:
+                _create_public_station_opt_ins_schema(conn)
+                stored_version = 8
+                conn.execute("PRAGMA user_version = 8")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -456,6 +462,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
     _create_station_provenance_schema(conn)
     _create_remote_subscription_schema(conn)
     _create_playlist_share_schema(conn)
+    _create_public_station_opt_ins_schema(conn)
 
 
 def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:
@@ -1304,6 +1311,21 @@ def _create_daily_play_counts_schema(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_station_daily_plays_day
         ON station_daily_plays(day_utc);
+        """,
+    )
+
+
+def _create_public_station_opt_ins_schema(conn: sqlite3.Connection) -> None:
+    """Store opt-ins on owned favorites, never on globally shared stations."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS public_station_opt_ins (
+            favorite_id INTEGER PRIMARY KEY,
+            published_at TEXT NOT NULL,
+            FOREIGN KEY (favorite_id) REFERENCES favorites(id) ON DELETE CASCADE,
+            CHECK (length(trim(published_at)) > 0)
+        );
         """,
     )
 

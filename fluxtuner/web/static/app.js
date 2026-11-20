@@ -578,6 +578,12 @@ const stationRenderer = createStationRenderer({
   onAddToPlaylist: (station) => playlistController.addToPlaylist(station),
   onRemoveFromPlaylist: (station) => playlistController.removeFromPlaylist(station),
   onShareStation: (station) => recommendationController.shareStation(station),
+  onExportStation: (station) => {
+    const id = Number(station.station_id);
+    if (Number.isSafeInteger(id) && id > 0) {
+      exportFavoriteDownload(`/api/favorites/stations/${id}/export/m3u`, "station.m3u");
+    }
+  },
   onTogglePublication: stationPublicationController.toggle,
   onStationActionError: (error) => {
     playerRuntime.setPlayerState("error", `Could not read station data. ${error}`);
@@ -644,6 +650,30 @@ async function exportPlaylistDownload(name, format) {
   }
 }
 
+async function exportFavoriteDownload(endpoint, filename) {
+  try {
+    const response = await apiFetch(endpoint, {
+      headers: { Accept: "application/octet-stream" },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const url = URL.createObjectURL(await response.blob());
+    try {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `fluxtuner-${filename}`;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    playerRuntime.setPlayerState("idle", "Download started. Shared files may expose stream URL access tokens.");
+  } catch (error) {
+    playerRuntime.setPlayerState("error", `Could not export favorites. ${error}`);
+  }
+}
+
 const playlistRenderer = createPlaylistRenderer({
   resultsNode,
   resultCountNode,
@@ -658,6 +688,11 @@ const { bindPlaylistActions, renderPlaylists } = playlistRenderer;
 
 const libraryViewsController = createLibraryViewsController({
   apiFetch,
+  onExportFavorites: (format) => {
+    if (["m3u", "pls"].includes(format)) {
+      exportFavoriteDownload(`/api/favorites/export/${format}`, `favorites.${format}`);
+    }
+  },
   getCurrentView: appState.getCurrentView,
   getCurrentUser: appState.getCurrentUser,
   isLibraryVisible: () => searchPanel?.hidden === false,

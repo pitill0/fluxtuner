@@ -104,3 +104,52 @@ def test_cli_failed_publication_leaves_no_partial_file(library, tmp_path, monkey
     assert exc.value.code == 1
     assert not destination.exists()
     assert list(tmp_path.glob(".fluxtuner-export-*")) == []
+
+
+@pytest.mark.parametrize(
+    ("option", "parser", "extension"),
+    [("--export-favs-m3u", parse_m3u, "m3u"), ("--export-favs-pls", parse_pls, "pls")],
+)
+def test_cli_exports_all_favorites(library, tmp_path, monkeypatch, option, parser, extension):
+    with db.connect(library) as conn:
+        user_id = int(
+            conn.execute(
+                "SELECT id FROM users WHERE username = ?", (db.DEFAULT_USER_NAME,)
+            ).fetchone()[0]
+        )
+        profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        db.add_favorite_record(
+            conn,
+            {"name": "Favorite Jazz", "url": "https://radio.example/favorite"},
+            profile_id=profile_id,
+        )
+        conn.commit()
+    destination = tmp_path / f"favorites.{extension}"
+    monkeypatch.setattr(sys, "argv", ["fluxtuner", option, str(destination)])
+    cli.main()
+    assert [(entry.name, entry.url) for entry in parser(destination.read_bytes()).entries] == [
+        ("Favorite Jazz", "https://radio.example/favorite")
+    ]
+
+
+def test_cli_favorites_export_never_overwrites(library, tmp_path, monkeypatch):
+    with db.connect(library) as conn:
+        user_id = int(
+            conn.execute(
+                "SELECT id FROM users WHERE username = ?", (db.DEFAULT_USER_NAME,)
+            ).fetchone()[0]
+        )
+        profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        db.add_favorite_record(
+            conn,
+            {"name": "Favorite", "url": "https://radio.example/favorite"},
+            profile_id=profile_id,
+        )
+        conn.commit()
+    destination = tmp_path / "favorites.m3u"
+    destination.write_bytes(b"untouched")
+    monkeypatch.setattr(sys, "argv", ["fluxtuner", "--export-favs-m3u", str(destination)])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 1
+    assert destination.read_bytes() == b"untouched"

@@ -20,6 +20,7 @@ export function createLibraryViewsController({
   renderResults,
   renderPlaylists,
   renderSearchError,
+  onExportFavorites,
   setLibraryView,
   getCurrentView,
   getCurrentUser,
@@ -109,6 +110,18 @@ export function createLibraryViewsController({
       const payload = await response.json();
       if (!stillCurrent()) return;
       renderResults(payload);
+      if (onExportFavorites && typeof resultsNode.insertAdjacentHTML === "function") {
+        const count = Number(payload.count || payload.stations?.length || 0);
+        resultsNode.insertAdjacentHTML("afterbegin", `
+        <div class="station-actions">
+          <button type="button" data-export-favorites="m3u"${count ? "" : " disabled"}>Export favorites M3U</button>
+          <button type="button" data-export-favorites="pls"${count ? "" : " disabled"}>Export favorites PLS</button>
+        </div>
+      `);
+        resultsNode.querySelectorAll("[data-export-favorites]").forEach((button) => {
+          button.addEventListener("click", () => onExportFavorites(button.dataset.exportFavorites));
+        });
+      }
     } catch (error) {
       if (stillCurrent()) renderSearchError(error);
     }

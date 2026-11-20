@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, HTTPException, Path, Query, Request, Respon
 
 from fluxtuner.core import db
 from fluxtuner.core.exporters import export_m3u, export_pls
+from fluxtuner.core.favorite_export import resolve_favorite_entries
 from fluxtuner.core.playlist_export import resolve_playlist_entries
 from fluxtuner.web import context as web_context
 from fluxtuner.web import guards as web_guards
@@ -148,6 +149,73 @@ def favorites(
             profile_name=web_context.effective_profile_name(profile),
         ),
         request,
+    )
+
+
+@router.get("/api/favorites/export/{format_name}")
+def export_web_favorites(
+    request: Request,
+    format_name: Literal["m3u", "pls"] = Path(...),
+    profile: str | None = Query(default=None, max_length=80),
+) -> Response:
+    """Download only favorites belonging to the authenticated profile."""
+    return _export_web_favorites(request, format_name=format_name, profile=profile)
+
+
+@router.get("/api/favorites/stations/{station_id}/export/m3u")
+def export_web_favorite_station(
+    request: Request,
+    station_id: int = Path(..., ge=1),
+    profile: str | None = Query(default=None, max_length=80),
+) -> Response:
+    """Download one favorite as M3U without exposing other users' stations."""
+    return _export_web_favorites(request, format_name="m3u", profile=profile, station_id=station_id)
+
+
+def _export_web_favorites(
+    request: Request,
+    *,
+    format_name: Literal["m3u", "pls"],
+    profile: str | None,
+    station_id: int | None = None,
+) -> Response:
+    user = _require_authenticated_user(request)
+    if not db.DB_FILE.is_file():
+        raise HTTPException(status_code=404, detail="Favorites are unavailable.")
+    try:
+        with closing(sqlite3.connect(f"{db.DB_FILE.resolve().as_uri()}?mode=ro", uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            profile_id = _profile_id(
+                conn,
+                user_id=int(user["id"]),
+                profile_name=web_context.effective_profile_name(profile),
+            )
+            entries = resolve_favorite_entries(
+                conn,
+                user_id=int(user["id"]),
+                profile_id=profile_id,
+                station_id=station_id,
+            )
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail="Favorites are unavailable.") from exc
+    except sqlite3.Error as exc:
+        raise HTTPException(status_code=503, detail="Favorites export is unavailable.") from exc
+    try:
+        content = export_m3u(entries) if format_name == "m3u" else export_pls(entries)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Favorites cannot be exported.") from exc
+
+    filename = (
+        "fluxtuner-station.m3u" if station_id is not None else f"fluxtuner-favorites.{format_name}"
+    )
+    return Response(
+        content=content,
+        media_type="audio/x-mpegurl" if format_name == "m3u" else "audio/x-scpls",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

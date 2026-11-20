@@ -69,6 +69,21 @@ def set_station_publication(
         conn.execute("DELETE FROM public_station_opt_ins WHERE favorite_id = ?", (favorite_id,))
 
 
+def get_station_publication(
+    conn: sqlite3.Connection, *, user_id: int, profile_id: int, station_id: int
+) -> bool:
+    """Read only the publication choice associated with an owned favorite."""
+    favorite_id = _owned_favorite_id(
+        conn, user_id=user_id, profile_id=profile_id, station_id=station_id
+    )
+    return (
+        conn.execute(
+            "SELECT 1 FROM public_station_opt_ins WHERE favorite_id = ?", (favorite_id,)
+        ).fetchone()
+        is not None
+    )
+
+
 def list_public_station_ids(conn: sqlite3.Connection) -> list[int]:
     """Return distinct station IDs with a current valid opt-in from an active owner."""
     rows = conn.execute(

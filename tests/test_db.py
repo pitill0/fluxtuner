@@ -41,6 +41,7 @@ def test_init_db_creates_expected_tables(
             "station_sources",
             "station_source_memberships",
             "web_reauth_attempts",
+            "web_discovery_rate_limits",
             "favorites",
             "history_entries",
             "station_daily_plays",

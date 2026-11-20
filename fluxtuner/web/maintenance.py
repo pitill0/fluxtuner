@@ -10,7 +10,7 @@ from threading import Lock
 from time import monotonic
 
 from fluxtuner.core import db, recovery_codes, share_lifecycle
-from fluxtuner.web import auth, reauth_attempts
+from fluxtuner.web import auth, discovery_rate_limits, reauth_attempts
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class AuthMaintenanceResult:
     old_reauth_attempts: int = 0
     expired_refresh_receipts: int = 0
     expired_recommendations: int = 0
+    stale_discovery_limits: int = 0
 
 
 def run_auth_maintenance(
@@ -55,6 +56,7 @@ def run_auth_maintenance(
             now=now,
             window_seconds=AUTH_ATTEMPT_RETENTION_SECONDS,
         )
+        stale_discovery_limits = discovery_rate_limits.purge_stale_limits(conn, now=now)
         expired_refresh_receipts = conn.execute(
             "DELETE FROM remote_catalog_refresh_receipts WHERE expires_at < ?",
             ((now or datetime.now(UTC)).isoformat(),),
@@ -84,6 +86,7 @@ def run_auth_maintenance(
         old_reauth_attempts=old_reauth_attempts,
         expired_refresh_receipts=expired_refresh_receipts,
         expired_recommendations=expired_recommendations,
+        stale_discovery_limits=stale_discovery_limits,
     )
 
 

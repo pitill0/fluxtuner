@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -186,6 +186,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_public_station_opt_ins_schema(conn)
                 stored_version = 8
                 conn.execute("PRAGMA user_version = 8")
+                continue
+
+            if stored_version == 8:
+                _create_discovery_rate_limit_schema(conn)
+                stored_version = 9
+                conn.execute("PRAGMA user_version = 9")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -463,6 +469,21 @@ def create_schema(conn: sqlite3.Connection) -> None:
     _create_remote_subscription_schema(conn)
     _create_playlist_share_schema(conn)
     _create_public_station_opt_ins_schema(conn)
+    _create_discovery_rate_limit_schema(conn)
+
+
+def _create_discovery_rate_limit_schema(conn: sqlite3.Connection) -> None:
+    """One bounded rate-limit counter per account, deleted with that account."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS web_discovery_rate_limits (
+            user_id INTEGER PRIMARY KEY,
+            window_start TEXT NOT NULL,
+            attempts INTEGER NOT NULL CHECK (attempts BETWEEN 1 AND 5),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """
+    )
 
 
 def _create_station_provenance_schema(conn: sqlite3.Connection) -> None:

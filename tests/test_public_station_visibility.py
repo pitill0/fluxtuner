@@ -106,7 +106,7 @@ def test_secret_url_rejected_and_upgrade_preserves_library(tmp_path):
 
     db.init_db(path)
     with db.connect(path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 8
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         assert conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0] >= 1
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
         assert list_public_station_ids(conn) == []

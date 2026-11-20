@@ -21,11 +21,12 @@ def admit_redemption(
         raise ValueError("Invalid user.")
     if conn.in_transaction:
         raise RuntimeError("Discovery admission requires an idle connection.")
-    current = (now or datetime.now(UTC)).astimezone(UTC)
-    current_text = current.isoformat()
-
     conn.execute("BEGIN IMMEDIATE")
     try:
+        # Read wall time *after* acquiring the write lock: workers may be
+        # scheduled in a different order than their initial timestamps.
+        current = (now or datetime.now(UTC)).astimezone(UTC)
+        current_text = current.isoformat()
         row = conn.execute(
             "SELECT window_start, attempts FROM web_discovery_rate_limits WHERE user_id = ?",
             (user_id,),
@@ -38,7 +39,8 @@ def admit_redemption(
             if start.tzinfo is None:
                 start = start.replace(tzinfo=UTC)
             age = (current - start.astimezone(UTC)).total_seconds()
-            if 0 <= age < WINDOW_SECONDS:
+            # A backward wall-clock adjustment must not replenish a window.
+            if age < WINDOW_SECONDS:
                 if int(row["attempts"]) >= MAX_ATTEMPTS:
                     conn.commit()
                     return False

@@ -38,6 +38,23 @@ def test_web_static_js_loads_public_stats() -> None:
     assert '"active user", "active users"' in public_stats_response.text
 
 
+def test_public_trending_ui_fetches_independently_and_escapes_names() -> None:
+    client = TestClient(create_app())
+
+    script = client.get("/static/js/public-stats.js")
+    styles = client.get("/static/public.css")
+
+    assert script.status_code == 200
+    assert styles.status_code == 200
+    assert 'fetchImpl("/api/public/trending"' in script.text
+    assert 'escapeHtml(station.name || "Unknown station")' in script.text
+    assert "Trending availability must never hide existing public statistics" in script.text
+    assert "Weekly trends will appear when enough listening activity is available." in script.text
+    assert "public-stats-trending" in script.text
+    assert ".public-trending-list" in styles.text
+    assert "grid-template-columns: 1fr" in styles.text
+
+
 def test_web_static_css_styles_public_stats() -> None:
     client = TestClient(create_app())
 

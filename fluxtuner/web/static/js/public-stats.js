@@ -20,7 +20,7 @@ function renderPublicStatTile(value, singular, plural) {
   `;
 }
 
-function renderPublicStats(contentNode, payload) {
+function renderPublicStats(contentNode, payload, trendingPayload = null) {
   if (!contentNode) return;
 
   const topStations = Array.isArray(payload?.top_stations)
@@ -31,6 +31,9 @@ function renderPublicStats(contentNode, payload) {
   const favorites = Number(totals.favorites || 0);
   const playlists = Number(totals.playlists || 0);
   const users = Number(totals.users || 0);
+  const trendingStations = Array.isArray(trendingPayload?.stations)
+    ? trendingPayload.stations.slice(0, 3)
+    : [];
 
   if (!topStations.length && !plays && !favorites && !playlists && !users) {
     contentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
@@ -63,6 +66,14 @@ function renderPublicStats(contentNode, payload) {
     `
     : '<p class="empty">No top stations yet.</p>';
 
+  const trendingMarkup = trendingStations.length
+    ? `<ol class="public-trending-list">
+        ${trendingStations.map((station) => `<li>${escapeHtml(station.name || "Unknown station")}</li>`).join("")}
+      </ol>`
+    : `<p class="empty">${trendingPayload === null
+      ? "Weekly trends are unavailable right now."
+      : "Weekly trends will appear when enough listening activity is available."}</p>`;
+
   contentNode.innerHTML = `
     <section class="public-stats-card public-stats-top" aria-labelledby="public-stats-most-played-title">
       <div class="public-stats-card-heading">
@@ -77,6 +88,14 @@ function renderPublicStats(contentNode, payload) {
       ${renderPublicStatTile(playlists, "playlist", "playlists")}
       ${renderPublicStatTile(users, "active user", "active users")}
     </div>
+    <section class="public-stats-card public-stats-trending" aria-labelledby="public-stats-trending-title">
+      <div class="public-stats-card-heading">
+        <p class="eyebrow">This week</p>
+        <h3 id="public-stats-trending-title">Trending stations</h3>
+        <p class="public-trending-note">Growing in popularity over the last seven completed UTC days.</p>
+      </div>
+      ${trendingMarkup}
+    </section>
   `;
   contentNode.querySelectorAll(".public-station-artwork img").forEach((img) => {
     img.addEventListener("error", () => { img.hidden = true; }, { once: true });
@@ -108,7 +127,18 @@ export function createPublicStatsController({ contentNode, messageNode, fetchImp
       }
 
       const payload = await response.json();
-      renderPublicStats(contentNode, payload);
+      let trendingPayload = null;
+      try {
+        const trendingResponse = await fetchImpl("/api/public/trending", {
+          headers: { Accept: "application/json" },
+        });
+        if (trendingResponse.ok) {
+          trendingPayload = await trendingResponse.json();
+        }
+      } catch (_trendingError) {
+        // Trending availability must never hide existing public statistics.
+      }
+      renderPublicStats(contentNode, payload, trendingPayload);
       loaded = true;
       if (messageNode) {
         messageNode.textContent = "";

@@ -68,6 +68,28 @@ def test_public_featured_ui_fetches_independently_and_escapes_name() -> None:
     assert ".public-stats-featured" in styles.text
 
 
+def test_discovery_selection_ui_is_ephemeral_and_csrf_protected() -> None:
+    client = TestClient(create_app())
+    featured = client.get("/static/js/public-stats.js")
+    pending = client.get("/static/js/discovery-pending.js")
+    app = client.get("/static/app.js")
+    styles = client.get("/static/public.css")
+
+    assert all(response.status_code == 200 for response in (featured, pending, app, styles))
+    assert "data-featured-save" in featured.text
+    assert "escapeHtml(featuredName)" in featured.text
+    assert "onSelect(selection)" in featured.text
+    assert "discoverySessionStorage()" in app.text
+    assert "window.sessionStorage" in pending.text
+    assert "apiFetch: (...args) => apiFetch(...args)" in app.text
+    assert "await discoveryPending.redeem()" in app.text
+    assert "MAX_AGE_MS = 15 * 60 * 1000" in pending.text
+    assert "storage?.removeItem(STORAGE_KEY)" in pending.text
+    assert '"/api/public/featured/redeem"' in pending.text
+    assert 'method: "POST"' in pending.text
+    assert ".public-featured-save" in styles.text
+
+
 def test_web_static_css_styles_public_stats() -> None:
     client = TestClient(create_app())
 

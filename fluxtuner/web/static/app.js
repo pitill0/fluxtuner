@@ -18,6 +18,7 @@ import { createLazyCustomStationController } from "./js/custom-stations-lazy.js"
 import { createLazyStationImportController } from "./js/station-imports-lazy.js";
 import { createLazyRemoteSubscriptionController } from "./js/remote-subscriptions-lazy.js";
 import { createDashboardController } from "./js/dashboard.js";
+import { createDiscoveryPendingController, discoverySessionStorage } from "./js/discovery-pending.js";
 import { createFavoriteController } from "./js/favorites.js";
 import { createHealthController } from "./js/health.js";
 import { createLibraryViewsController } from "./js/library-views.js";
@@ -246,10 +247,28 @@ const healthController = createHealthController({
 const { checkHealth } = healthController;
 
 
+const discoveryPending = createDiscoveryPendingController({
+  storage: discoverySessionStorage(),
+  apiFetch: (...args) => apiFetch(...args),
+});
+
 const publicStatsController = createPublicStatsController({
   contentNode: publicStatsContentNode,
   messageNode: publicStatsMessageNode,
   fetchImpl: window.fetch.bind(window),
+  onSelect: (reference) => {
+    if (!discoveryPending.select(reference)) {
+      if (publicStatsMessageNode) {
+        publicStatsMessageNode.textContent = "Could not save this selection in your browser.";
+      }
+      return;
+    }
+    if (publicStatsMessageNode) {
+      publicStatsMessageNode.textContent =
+        "Selection saved for 15 minutes. Sign in to add the station to favorites.";
+    }
+    loginForm?.querySelector('input[name="username"]')?.focus();
+  },
 });
 
 const playerDebugController = createPlayerDebugController({
@@ -489,7 +508,27 @@ const sessionUiController = createSessionUiController({
 const { renderAuthRequired, updateAuthUi } = sessionUiController;
 
 const authController = createAuthController({
-  onAuthReady: () => browserNavigation?.onAuthReady(),
+  onAuthReady: async () => {
+    await browserNavigation?.onAuthReady();
+    if (!appState.isAuthenticated() || !appState.getCsrfToken()) return;
+    const result = await discoveryPending.redeem();
+    if (!result) return;
+    if (result.ok) {
+      showRadioBrowserView();
+      await loadFavorites();
+      if (resultCountNode) {
+        resultCountNode.textContent = result.added
+          ? "Discovered station saved to your favorites."
+          : "Discovered station was already in your favorites.";
+      }
+    } else if (dashboardMessageNode) {
+      showDashboardView();
+      dashboardMessageNode.textContent = result.network
+        ? "Discovery could not be completed. Sign in again soon to retry."
+        : result.limited ? "Too many discovery attempts. Please try again later."
+          : "Your discovery selection has expired or is no longer available.";
+    }
+  },
   onLogout: () => browserNavigation?.onLogout(),
   apiFetch,
   authMessageNode,

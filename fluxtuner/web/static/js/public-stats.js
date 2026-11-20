@@ -36,6 +36,9 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
     : [];
   const featuredName = typeof featuredPayload?.station?.name === "string"
     ? featuredPayload.station.name.trim() : "";
+  const featuredSelection = typeof featuredPayload?.selection === "string" &&
+    /^v1\.[0-9]{10}\.[A-Za-z0-9_-]{43}$/.test(featuredPayload.selection)
+    ? featuredPayload.selection : "";
 
   if (!topStations.length && !plays && !favorites && !playlists && !users) {
     contentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
@@ -105,7 +108,10 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
         <p class="public-trending-note">A new suggestion each UTC day, from the public station directory.</p>
       </div>
       ${featuredName
-        ? `<p class="public-featured-name">${escapeHtml(featuredName)}</p>`
+        ? `<div class="public-featured-choice">
+             <p class="public-featured-name">${escapeHtml(featuredName)}</p>
+             ${featuredSelection ? '<button type="button" class="public-featured-save" data-featured-save>Save for listening</button>' : ""}
+           </div>`
         : '<p class="empty">A station suggestion is not available yet.</p>'}
     </section>
   `;
@@ -114,9 +120,17 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
   });
 }
 
-export function createPublicStatsController({ contentNode, messageNode, fetchImpl = fetch }) {
+export function createPublicStatsController({
+  contentNode, messageNode, fetchImpl = fetch, onSelect = () => {},
+}) {
   let loaded = false;
   let loading = false;
+  let selection = "";
+
+  contentNode?.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-featured-save]") || !selection) return;
+    onSelect(selection);
+  });
 
   async function loadPublicStats(force = false) {
     if (!contentNode || loading) return;
@@ -159,12 +173,14 @@ export function createPublicStatsController({ contentNode, messageNode, fetchImp
       } catch (_featuredError) {
         // Featured availability must never hide existing public statistics.
       }
+      selection = typeof featuredPayload?.selection === "string" ? featuredPayload.selection : "";
       renderPublicStats(contentNode, payload, trendingPayload, featuredPayload);
       loaded = true;
       if (messageNode) {
         messageNode.textContent = "";
       }
     } catch (_error) {
+      selection = "";
       contentNode.innerHTML = '<p class="empty">Public activity is unavailable.</p>';
       if (messageNode) {
         messageNode.textContent = "";
@@ -176,6 +192,7 @@ export function createPublicStatsController({ contentNode, messageNode, fetchImp
 
   function reset() {
     loaded = false;
+    selection = "";
   }
 
   return {

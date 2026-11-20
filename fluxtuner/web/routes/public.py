@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Response
 
 from fluxtuner.core import db
 from fluxtuner.core.artwork_cache import ArtworkCache
+from fluxtuner.core.public_featured import public_featured_station
 from fluxtuner.core.public_trending import public_station_trends
 
 router = APIRouter()
@@ -25,6 +26,14 @@ def public_trending(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "public, max-age=3600"
     with db.connect() as conn:
         return public_station_trends(conn)
+
+
+@router.get("/api/public/featured")
+def public_featured(response: Response) -> dict[str, object]:
+    """Provide a name-only, UTC-day rotating public directory suggestion."""
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    with db.connect() as conn:
+        return public_featured_station(conn)
 
 
 @router.get("/api/public/stations/{station_id}/artwork", include_in_schema=False)

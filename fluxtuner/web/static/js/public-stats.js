@@ -20,7 +20,7 @@ function renderPublicStatTile(value, singular, plural) {
   `;
 }
 
-function renderPublicStats(contentNode, payload, trendingPayload = null) {
+function renderPublicStats(contentNode, payload, trendingPayload = null, featuredPayload = null) {
   if (!contentNode) return;
 
   const topStations = Array.isArray(payload?.top_stations)
@@ -34,6 +34,8 @@ function renderPublicStats(contentNode, payload, trendingPayload = null) {
   const trendingStations = Array.isArray(trendingPayload?.stations)
     ? trendingPayload.stations.slice(0, 3)
     : [];
+  const featuredName = typeof featuredPayload?.station?.name === "string"
+    ? featuredPayload.station.name.trim() : "";
 
   if (!topStations.length && !plays && !favorites && !playlists && !users) {
     contentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
@@ -96,6 +98,16 @@ function renderPublicStats(contentNode, payload, trendingPayload = null) {
       </div>
       ${trendingMarkup}
     </section>
+    <section class="public-stats-card public-stats-featured" aria-labelledby="public-stats-featured-title">
+      <div class="public-stats-card-heading">
+        <p class="eyebrow">Discover</p>
+        <h3 id="public-stats-featured-title">Station to discover</h3>
+        <p class="public-trending-note">A new suggestion each UTC day, from the public station directory.</p>
+      </div>
+      ${featuredName
+        ? `<p class="public-featured-name">${escapeHtml(featuredName)}</p>`
+        : '<p class="empty">A station suggestion is not available yet.</p>'}
+    </section>
   `;
   contentNode.querySelectorAll(".public-station-artwork img").forEach((img) => {
     img.addEventListener("error", () => { img.hidden = true; }, { once: true });
@@ -128,6 +140,7 @@ export function createPublicStatsController({ contentNode, messageNode, fetchImp
 
       const payload = await response.json();
       let trendingPayload = null;
+      let featuredPayload = null;
       try {
         const trendingResponse = await fetchImpl("/api/public/trending", {
           headers: { Accept: "application/json" },
@@ -138,7 +151,15 @@ export function createPublicStatsController({ contentNode, messageNode, fetchImp
       } catch (_trendingError) {
         // Trending availability must never hide existing public statistics.
       }
-      renderPublicStats(contentNode, payload, trendingPayload);
+      try {
+        const featuredResponse = await fetchImpl("/api/public/featured", {
+          headers: { Accept: "application/json" },
+        });
+        if (featuredResponse.ok) featuredPayload = await featuredResponse.json();
+      } catch (_featuredError) {
+        // Featured availability must never hide existing public statistics.
+      }
+      renderPublicStats(contentNode, payload, trendingPayload, featuredPayload);
       loaded = true;
       if (messageNode) {
         messageNode.textContent = "";

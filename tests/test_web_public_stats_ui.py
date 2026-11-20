@@ -55,6 +55,19 @@ def test_public_trending_ui_fetches_independently_and_escapes_names() -> None:
     assert "grid-template-columns: 1fr" in styles.text
 
 
+def test_public_featured_ui_fetches_independently_and_escapes_name() -> None:
+    client = TestClient(create_app())
+    script = client.get("/static/js/public-stats.js")
+    styles = client.get("/static/public.css")
+    assert script.status_code == 200
+    assert styles.status_code == 200
+    assert 'fetchImpl("/api/public/featured"' in script.text
+    assert "escapeHtml(featuredName)" in script.text
+    assert "Featured availability must never hide existing public statistics" in script.text
+    assert "Station to discover" in script.text
+    assert ".public-stats-featured" in styles.text
+
+
 def test_web_static_css_styles_public_stats() -> None:
     client = TestClient(create_app())
 

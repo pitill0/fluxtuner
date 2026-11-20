@@ -36,12 +36,21 @@ def public_featured_station(
     A catalog identifier or opt-in alone is not a stream-health verification.
     """
     day = as_of if as_of is not None else datetime.now(UTC).date()
+    chosen = featured_station_candidate(conn, as_of=day)
+    if chosen is None:
+        return {"station": None, "date_utc": day.isoformat()}
+    return {"station": {"name": str(chosen["name"])}, "date_utc": day.isoformat()}
+
+
+def featured_station_candidate(conn: sqlite3.Connection, *, as_of: date) -> sqlite3.Row | None:
+    """Return the current eligible candidate for this UTC day, server-side only."""
+    day = as_of
     if not isinstance(day, date) or isinstance(day, datetime):
         raise TypeError("as_of must be a date")
 
     rows = conn.execute(
         """
-        SELECT s.name, s.url, s.url_resolved
+        SELECT s.id, s.station_key, s.name, s.url, s.url_resolved
         FROM stations AS s
         WHERE s.name IS NOT NULL AND trim(s.name) != ''
           AND (
@@ -66,9 +75,8 @@ def public_featured_station(
         if _safe_directory_url(row["url"]) and _safe_directory_url(row["url_resolved"])
     ]
     if not eligible:
-        return {"station": None, "date_utc": day.isoformat()}
+        return None
 
     # Stable across workers and restarts; no global RNG state or playback counts.
     seed = hashlib.sha256(day.isoformat().encode("ascii")).digest()
-    chosen = eligible[int.from_bytes(seed, "big") % len(eligible)]
-    return {"station": {"name": str(chosen["name"])}, "date_utc": day.isoformat()}
+    return eligible[int.from_bytes(seed, "big") % len(eligible)]

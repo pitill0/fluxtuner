@@ -19,6 +19,7 @@ export function createStationRenderer({
   onAddToPlaylist,
   onRemoveFromPlaylist,
   onShareStation,
+  onExportStation,
   onTogglePublication,
   onStationActionError,
 }) {
@@ -127,6 +128,13 @@ export function createStationRenderer({
               : ""
           }
           ${
+            currentUser && currentView === "favorites" && Number.isSafeInteger(publicationId) && publicationId > 0
+              ? `<button type="button" data-export-station="${stationButtonPayload(
+                  station,
+                )}">Download M3U</button>`
+              : ""
+          }
+          ${
             streamUrl
               ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
               : ""
@@ -148,6 +156,7 @@ export function createStationRenderer({
       button.getAttribute("data-remove-favorite") ||
       button.getAttribute("data-add-to-playlist") ||
       button.getAttribute("data-share-station") ||
+      button.getAttribute("data-export-station") ||
       button.getAttribute("data-toggle-publication") ||
       button.getAttribute("data-remove-from-playlist");
 
@@ -185,6 +194,7 @@ export function createStationRenderer({
     bindStationAction("[data-remove-favorite]", onRemoveFavorite);
     bindStationAction("[data-add-to-playlist]", onAddToPlaylist);
     bindStationAction("[data-share-station]", onShareStation);
+    bindStationAction("[data-export-station]", onExportStation);
     document.querySelectorAll("[data-toggle-publication]").forEach((button) => {
       if (button.dataset.stationActionBound === "true") return;
       button.dataset.stationActionBound = "true";

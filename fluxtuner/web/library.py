@@ -18,6 +18,7 @@ from fluxtuner.core.manual_playlists import (
     remove_station_from_playlist,
 )
 from fluxtuner.core.profiles import get_profile_by_name
+from fluxtuner.core.public_featured import _safe_directory_url
 from fluxtuner.core.search_service import SearchRequest, SearchService
 from fluxtuner.web.payloads import station_payload
 
@@ -150,7 +151,18 @@ def favorites_payload(*, user_id: int, profile_name: str | None) -> dict[str, An
     stations = load_favorites(profile_name=profile_name, user_id=user_id)
     return {
         "count": len(stations),
-        "stations": [station_payload(station) for station in stations],
+        "stations": [
+            {
+                **station_payload(station),
+                "station_id": int(station["station_id"]),
+                "published": bool(station["published"]),
+                "publication_eligible": (
+                    _safe_directory_url(station.get("url"))
+                    and _safe_directory_url(station.get("url_resolved"))
+                ),
+            }
+            for station in stations
+        ],
     }
 
 

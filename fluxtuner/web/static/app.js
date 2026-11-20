@@ -40,6 +40,7 @@ import { createSetupController } from "./js/setup.js";
 import { createThemeController } from "./js/theme.js";
 import { createUiShellController } from "./js/ui-shell.js";
 import { createStationRenderer } from "./js/station-renderer.js";
+import { createStationPublicationController } from "./js/station-publication.js";
 import { stationUrl } from "./js/stations.js";
 
 const {
@@ -557,6 +558,15 @@ const playerController = createPlayerController({
 
 playerRuntime.attach(playerController);
 
+const stationPublicationController = createStationPublicationController({
+  apiFetch,
+  getCurrentUser: appState.getCurrentUser,
+  getSessionKey: appState.getCsrfToken,
+  getCurrentView: appState.getCurrentView,
+  loadFavorites: () => loadFavorites(),
+  setMessage: playerRuntime.setPlayerState,
+});
+
 const stationRenderer = createStationRenderer({
   renderState: () => ({
     currentUser: appState.getCurrentUser(),
@@ -568,6 +578,7 @@ const stationRenderer = createStationRenderer({
   onAddToPlaylist: (station) => playlistController.addToPlaylist(station),
   onRemoveFromPlaylist: (station) => playlistController.removeFromPlaylist(station),
   onShareStation: (station) => recommendationController.shareStation(station),
+  onTogglePublication: stationPublicationController.toggle,
   onStationActionError: (error) => {
     playerRuntime.setPlayerState("error", `Could not read station data. ${error}`);
   },

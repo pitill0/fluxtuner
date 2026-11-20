@@ -66,6 +66,8 @@ def favorite_tags_to_json(value: Any) -> str:
 def favorite_from_row(row: sqlite3.Row) -> dict[str, Any]:
     """Return a favorite station dict from a joined favorite/station row."""
     favorite = station_from_row(row)
+    favorite["station_id"] = int(row["id"])
+    favorite["published"] = bool(row["is_published"]) if "is_published" in row.keys() else False  # noqa: SIM118
 
     custom_name = _clean_text(row["custom_name"])
     favorite["custom_name"] = custom_name
@@ -95,9 +97,11 @@ def list_favorites(
         SELECT
             stations.*,
             favorites.custom_name,
-            favorites.favorite_tags_json
+            favorites.favorite_tags_json,
+            (public_station_opt_ins.favorite_id IS NOT NULL) AS is_published
         FROM favorites
         JOIN stations ON stations.id = favorites.station_id
+        LEFT JOIN public_station_opt_ins ON public_station_opt_ins.favorite_id = favorites.id
         WHERE favorites.profile_id = ?
         ORDER BY favorites.created_at ASC, favorites.id ASC
         """,

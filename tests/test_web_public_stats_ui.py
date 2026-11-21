@@ -90,7 +90,7 @@ def test_discovery_selection_ui_is_ephemeral_and_csrf_protected() -> None:
     assert ".public-featured-save" in styles.text
     assert "html[data-theme] .public-featured-save:hover" in styles.text
     assert "background: var(--action-fill-hover);" in styles.text
-    assert "color: #fff;" in styles.text
+    assert "color: #fff !important;" in styles.text
 
 
 def test_web_static_css_styles_public_stats() -> None:

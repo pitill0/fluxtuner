@@ -79,7 +79,8 @@
 html[data-theme] .public-featured-save:hover,
 html[data-theme] .public-featured-save:focus-visible {
   background: var(--action-fill-hover);
-  color: #fff;
+  /* Shared button hover rules may be loaded later than public.css. */
+  color: #fff !important;
   border-color: var(--action-fill-hover);
 }
 

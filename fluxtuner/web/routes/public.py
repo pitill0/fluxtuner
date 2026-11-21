@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, HTTPException, Request, Response
 from fluxtuner.core import db
 from fluxtuner.core.artwork_cache import ArtworkCache
 from fluxtuner.core.public_featured import featured_station_candidate, public_featured_station
+from fluxtuner.core.public_genres import public_popular_genres
 from fluxtuner.core.public_trending import public_station_trends
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web.discovery_rate_limits import admit_redemption
@@ -32,6 +33,14 @@ def public_trending(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "public, max-age=3600"
     with db.connect() as conn:
         return public_station_trends(conn)
+
+
+@router.get("/api/public/genres")
+def public_genres(response: Response) -> dict[str, object]:
+    """Publish recognized, sufficiently active genres without listener details."""
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    with db.connect() as conn:
+        return public_popular_genres(conn)
 
 
 @router.get("/api/public/featured")

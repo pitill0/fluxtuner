@@ -78,3 +78,13 @@ def test_web_css_extracts_stations_domain() -> None:
     assert "Search controls and diagnostics" in search_response.text
     assert "Result lists, station cards and responsive behavior" in stations_response.text
     assert "Station action controls and responsive behavior" in actions_response.text
+
+
+def test_favorite_actions_do_not_conflict_in_favorites_view() -> None:
+    """A saved station must offer removal, not another add action."""
+    renderer = TestClient(create_app()).get("/static/js/station-renderer.js")
+    assert renderer.status_code == 200
+    assert 'currentUser && currentView !== "favorites" && streamUrl' in renderer.text
+    assert 'currentUser && currentView === "favorites" && streamUrl' in renderer.text
+    assert "data-add-favorite=" in renderer.text
+    assert "data-remove-favorite=" in renderer.text

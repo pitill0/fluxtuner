@@ -40,7 +40,9 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
     /^v1\.[0-9]{10}\.[A-Za-z0-9_-]{43}$/.test(featuredPayload.selection)
     ? featuredPayload.selection : "";
 
-  if (!topStations.length && !plays && !favorites && !playlists && !users) {
+  // A newly installed server may already have an eligible discovery candidate
+  // before anyone has played or saved a station. Do not hide that suggestion.
+  if (!topStations.length && !plays && !favorites && !playlists && !users && !featuredName) {
     contentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
     return;
   }

@@ -76,9 +76,16 @@
   cursor: pointer;
 }
 
-.public-featured-save:hover,
+html[data-theme] .public-featured-save:hover,
+html[data-theme] .public-featured-save:focus-visible {
+  background: var(--action-fill-hover);
+  color: #fff;
+  border-color: var(--action-fill-hover);
+}
+
 .public-featured-save:focus-visible {
-  filter: brightness(1.08);
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
 }
 
 @media (max-width: 640px) {

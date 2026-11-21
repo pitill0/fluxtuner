@@ -29,6 +29,7 @@ class AuthMaintenanceResult:
     old_reauth_attempts: int = 0
     expired_refresh_receipts: int = 0
     expired_recommendations: int = 0
+    purged_recommendations: int = 0
     stale_discovery_limits: int = 0
 
 
@@ -79,6 +80,17 @@ def run_auth_maintenance(
         logger.exception("Recommendation expiry maintenance failed")
         expired_recommendations = 0
 
+    try:
+        with closing(db.connect()) as share_conn:
+            purged_recommendations = share_lifecycle.purge_old_shares(
+                share_conn,
+                now=now,
+                batch_size=share_lifecycle.MAX_EXPIRY_BATCH,
+            )
+    except Exception:
+        logger.exception("Recommendation history purge failed")
+        purged_recommendations = 0
+
     return AuthMaintenanceResult(
         expired_sessions=expired_sessions,
         old_login_attempts=old_login_attempts,
@@ -86,6 +98,7 @@ def run_auth_maintenance(
         old_reauth_attempts=old_reauth_attempts,
         expired_refresh_receipts=expired_refresh_receipts,
         expired_recommendations=expired_recommendations,
+        purged_recommendations=purged_recommendations,
         stale_discovery_limits=stale_discovery_limits,
     )
 

@@ -84,7 +84,7 @@ export function createStationRenderer({
               : ""
           }
           ${
-            currentUser && streamUrl
+            currentUser && currentView !== "favorites" && streamUrl
               ? `<button type="button" data-add-favorite="${stationButtonPayload(
                   station,
                 )}">Add favorite</button>`

@@ -41,6 +41,30 @@
   grid-column: 1 / -1;
 }
 
+.public-stats-genres {
+  grid-column: 1 / -1;
+}
+
+.public-genres-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-genres-list li {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
 .public-featured-name {
   margin: 0;
   padding: 0.9rem 1rem;

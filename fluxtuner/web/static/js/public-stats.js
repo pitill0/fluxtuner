@@ -20,7 +20,7 @@ function renderPublicStatTile(value, singular, plural) {
   `;
 }
 
-function renderPublicStats(contentNode, payload, trendingPayload = null, featuredPayload = null) {
+function renderPublicStats(contentNode, payload, trendingPayload = null, featuredPayload = null, genresPayload = null) {
   if (!contentNode) return;
 
   const topStations = Array.isArray(payload?.top_stations)
@@ -34,6 +34,9 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
   const trendingStations = Array.isArray(trendingPayload?.stations)
     ? trendingPayload.stations.slice(0, 3)
     : [];
+  const popularGenres = Array.isArray(genresPayload?.genres)
+    ? genresPayload.genres.filter((genre) => typeof genre?.name === "string" && genre.name.trim()).slice(0, 5)
+    : [];
   const featuredName = typeof featuredPayload?.station?.name === "string"
     ? featuredPayload.station.name.trim() : "";
   const featuredSelection = typeof featuredPayload?.selection === "string" &&
@@ -42,7 +45,7 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
 
   // A newly installed server may already have an eligible discovery candidate
   // before anyone has played or saved a station. Do not hide that suggestion.
-  if (!topStations.length && !plays && !favorites && !playlists && !users && !featuredName) {
+  if (!topStations.length && !plays && !favorites && !playlists && !users && !featuredName && !popularGenres.length) {
     contentNode.innerHTML = '<p class="empty">No public activity yet.</p>';
     return;
   }
@@ -81,6 +84,14 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
       ? "Weekly trends are unavailable right now."
       : "Weekly trends will appear when enough listening activity is available."}</p>`;
 
+  const genresMarkup = popularGenres.length
+    ? `<ul class="public-genres-list">
+        ${popularGenres.map((genre) => `<li>${escapeHtml(genre.name.trim())}</li>`).join("")}
+      </ul>`
+    : `<p class="empty">${genresPayload === null
+      ? "Popular genres are unavailable right now."
+      : "Popular genres will appear when enough listening activity is available."}</p>`;
+
   contentNode.innerHTML = `
     <section class="public-stats-card public-stats-top" aria-labelledby="public-stats-most-played-title">
       <div class="public-stats-card-heading">
@@ -115,6 +126,14 @@ function renderPublicStats(contentNode, payload, trendingPayload = null, feature
              ${featuredSelection ? '<button type="button" class="public-featured-save" data-featured-save>Save for listening</button>' : ""}
            </div>`
         : '<p class="empty">A station suggestion is not available yet.</p>'}
+    </section>
+    <section class="public-stats-card public-stats-genres" aria-labelledby="public-stats-genres-title">
+      <div class="public-stats-card-heading">
+        <p class="eyebrow">Explore</p>
+        <h3 id="public-stats-genres-title">Popular genres</h3>
+        <p class="public-trending-note">Most listened-to genres over the last seven completed UTC days.</p>
+      </div>
+      ${genresMarkup}
     </section>
   `;
   contentNode.querySelectorAll(".public-station-artwork img").forEach((img) => {
@@ -157,6 +176,7 @@ export function createPublicStatsController({
       const payload = await response.json();
       let trendingPayload = null;
       let featuredPayload = null;
+      let genresPayload = null;
       try {
         const trendingResponse = await fetchImpl("/api/public/trending", {
           headers: { Accept: "application/json" },
@@ -175,8 +195,16 @@ export function createPublicStatsController({
       } catch (_featuredError) {
         // Featured availability must never hide existing public statistics.
       }
+      try {
+        const genresResponse = await fetchImpl("/api/public/genres", {
+          headers: { Accept: "application/json" },
+        });
+        if (genresResponse.ok) genresPayload = await genresResponse.json();
+      } catch (_genresError) {
+        // Genre availability must never hide existing public statistics.
+      }
       selection = typeof featuredPayload?.selection === "string" ? featuredPayload.selection : "";
-      renderPublicStats(contentNode, payload, trendingPayload, featuredPayload);
+      renderPublicStats(contentNode, payload, trendingPayload, featuredPayload, genresPayload);
       loaded = true;
       if (messageNode) {
         messageNode.textContent = "";

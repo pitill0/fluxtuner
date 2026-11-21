@@ -68,6 +68,22 @@ def test_public_featured_ui_fetches_independently_and_escapes_name() -> None:
     assert ".public-stats-featured" in styles.text
 
 
+def test_public_popular_genres_ui_is_optional_and_escapes_names() -> None:
+    client = TestClient(create_app())
+    script = client.get("/static/js/public-stats.js")
+    styles = client.get("/static/public.css")
+
+    assert script.status_code == 200
+    assert styles.status_code == 200
+    assert 'fetchImpl("/api/public/genres"' in script.text
+    assert "escapeHtml(genre.name.trim())" in script.text
+    assert "Genre availability must never hide existing public statistics" in script.text
+    assert "Popular genres will appear when enough listening activity is available." in script.text
+    assert "Popular genres are unavailable right now." in script.text
+    assert "public-stats-genres" in script.text
+    assert ".public-genres-list" in styles.text
+
+
 def test_discovery_selection_ui_is_ephemeral_and_csrf_protected() -> None:
     client = TestClient(create_app())
     featured = client.get("/static/js/public-stats.js")

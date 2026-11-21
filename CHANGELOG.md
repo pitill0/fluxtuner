@@ -6,7 +6,7 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
-## [Unreleased]
+## [1.6.0] - 2026-11-21
 
 ### Added
 
@@ -28,6 +28,8 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Restricted public genre output to recognized categories with activity
   thresholds; public discovery responses do not expose stream URLs.
+- Prevented private custom station names and artwork from appearing in public
+  top-station and trending rankings without active owner publication consent.
 
 
 ## [1.5.2] - 2026-11-17

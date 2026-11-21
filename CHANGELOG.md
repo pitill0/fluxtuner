@@ -6,6 +6,30 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
+## [Unreleased]
+
+### Added
+
+- Extended Web station and playlist portability with authenticated M3U/PLS
+  exports and user-to-user recommendations within an instance.
+- Added owner-scoped publication controls for favorite stations and eligible
+  custom station discovery, with conservative stream URL checks (#377–#380).
+- Expanded the public landing page with cached artwork for top stations,
+  seven-day trends, daily station discovery and popular genres.
+- Added a short-lived anonymous discovery selection that can be redeemed
+  after sign-in, with CSRF verification and persistent rate limits.
+
+### Changed
+
+- Added bounded retention of recommendation history metadata: 30 days after
+  resolution or expiry, with batch cleanup through Web maintenance.
+
+### Security
+
+- Restricted public genre output to recognized categories with activity
+  thresholds; public discovery responses do not expose stream URLs.
+
+
 ## [1.5.2] - 2026-11-17
 
 ### Added

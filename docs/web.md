@@ -34,8 +34,10 @@ http://127.0.0.1:8080
 ```
 
 On first run, FluxTuner Web shows a setup wizard to create the first
-administrator. After setup, the Web UI requires login before search, playback,
-favorites, history, playlists or dashboard data are available.
+administrator. After setup, the public landing page shows anonymous aggregate
+activity and eligible discovery suggestions; login is still required for
+search, playback, private favorites, history, playlists and the authenticated
+dashboard.
 
 The app shell includes an authenticated dashboard, quick navigation, isolated
 Admin user management, browser playback, a compact server-health summary inside
@@ -53,6 +55,34 @@ grants immediate access: the account is created as pending and inactive until an
 administrator approves it. FluxTuner does not send email notifications, so users
 should try signing in later; pending users with the correct password see
 `Account pending approval.`
+
+### Public activity and discovery
+
+The anonymous landing page shows aggregate play, saved-station, playlist and
+active-user totals; top stations with cached artwork; weekly station trends;
+one daily station suggestion; and popular genres. Trends and genres use the
+last seven completed UTC days and appear only when activity meets their
+privacy thresholds. Empty-state messages are expected on new installations.
+
+The daily suggestion comes from eligible catalog stations or favorites
+explicitly published by approved users. A user can revoke their own favorite's
+publication choice. Stream URLs and private library data are never included
+in the public suggestion payload. Credential-bearing or parameterized station
+URLs are excluded from public discovery.
+
+An anonymous visitor may select **Save for listening**. The choice is temporary
+and expires after 15 minutes. After signing in, the selection can be redeemed
+into the user's own default favorites; the server verifies current eligibility,
+requires CSRF protection and limits redemption attempts.
+
+### Portable exports and recommendations
+
+Authenticated users can export their own favorites or playlists in M3U and
+PLS format. Recommendations allow approved users of the same instance to send
+one owned station or a playlist to another approved account. The recipient
+must accept or reject the recommendation; acceptance imports into an owned
+profile. Each recommendation is a bounded snapshot, with private ownership,
+CSRF protection for mutations and limits on pending and daily sends.
 
 
 For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).

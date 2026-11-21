@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 
 from fluxtuner.core import db
+from fluxtuner.core.public_station_visibility import set_station_publication
 from fluxtuner.core.public_trending import public_station_trends
 from fluxtuner.web.app import create_app
 
@@ -16,6 +17,7 @@ def _plays(conn, name: str, day, count: int) -> None:
             "name": name,
             "url": f"https://private.example/{name.lower()}",
             "favicon": "https://private.example/artwork.png",
+            "stationuuid": f"public-{name}",
         },
     )
     conn.execute(
@@ -90,3 +92,46 @@ def test_public_trending_excludes_declining_and_old_activity(tmp_path) -> None:
         _plays(conn, "Old", final_day - timedelta(days=14), 100)
         names = [item["name"] for item in public_station_trends(conn, as_of=final_day)["stations"]]
         assert names == ["Rising A", "Rising B", "Rising C"]
+
+
+def test_private_trend_requires_active_owner_publication(tmp_path) -> None:
+    path = tmp_path / "trending-consent.db"
+    db.init_db(path)
+    day = datetime.now(UTC).date() - timedelta(days=1)
+    with db.connect(path) as conn:
+        user_id = db.get_or_create_user(conn, "trend-owner", password_hash="test")
+        profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        for name in ("Public A", "Public B"):
+            for offset in range(3):
+                _plays(conn, name, day - timedelta(days=offset), 4)
+        station_id = db.upsert_station(
+            conn, {"name": "Private Trend", "url": "https://radio.example/private"}
+        )
+        for offset in range(3):
+            conn.execute(
+                "INSERT INTO station_daily_plays (station_id, day_utc, play_count) "
+                "VALUES (?, ?, ?)",
+                (station_id, (day - timedelta(days=offset)).isoformat(), 4),
+            )
+        db.add_favorite_record(
+            conn,
+            {"name": "Private Trend", "url": "https://radio.example/private"},
+            profile_id=profile_id,
+        )
+        assert public_station_trends(conn, as_of=day)["stations"] == []
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=True,
+        )
+        assert len(public_station_trends(conn, as_of=day)["stations"]) == 3
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=False,
+        )
+        assert public_station_trends(conn, as_of=day)["stations"] == []

@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from fluxtuner.core import db, favorites, history, manual_playlists
+from fluxtuner.core.public_station_visibility import set_station_publication
 from fluxtuner.web import auth
 from fluxtuner.web.app import create_app
 from fluxtuner.web.routes import public as public_routes
@@ -56,6 +57,13 @@ def station_payload(name: str, url: str) -> dict[str, str]:
     }
 
 
+def mark_catalog_stations() -> None:
+    """The public ranking tests must use genuine catalog-eligible stations."""
+    with db.connect() as conn:
+        conn.execute("UPDATE stations SET stationuuid = 'catalog-' || id")
+        conn.commit()
+
+
 def test_public_stats_are_available_without_authentication(tmp_path, monkeypatch) -> None:
     client = make_client(tmp_path, monkeypatch)
 
@@ -100,6 +108,8 @@ def test_public_stats_return_only_anonymous_aggregates(tmp_path, monkeypatch) ->
         == 200
     )
 
+    mark_catalog_stations()
+
     response = client.get("/api/public/stats")
 
     assert response.status_code == 200
@@ -134,6 +144,8 @@ def test_public_stats_limit_top_stations_to_three(tmp_path, monkeypatch) -> None
                 ).status_code
                 == 200
             )
+
+    mark_catalog_stations()
 
     response = client.get("/api/public/stats")
 
@@ -198,6 +210,8 @@ def test_public_top_artwork_is_cached_only_and_scoped(tmp_path, monkeypatch) -> 
                 == 200
             )
 
+    mark_catalog_stations()
+
     payload = client.get("/api/public/stats").json()
     assert len(payload["top_stations"]) == 3
     assert all("artwork_url" in item for item in payload["top_stations"])
@@ -233,6 +247,7 @@ def test_public_artwork_does_not_publish_stations_outside_top_three(tmp_path, mo
                 ).status_code
                 == 200
             )
+    mark_catalog_stations()
     with db.connect() as conn:
         excluded_id = conn.execute("SELECT id FROM stations WHERE name = 'Radio 0'").fetchone()[
             "id"
@@ -244,3 +259,49 @@ def test_public_artwork_does_not_publish_stations_outside_top_three(tmp_path, mo
 
     monkeypatch.setattr(public_routes, "ArtworkCache", ForbiddenCache)
     assert client.get(f"/api/public/stations/{excluded_id}/artwork").status_code == 404
+
+
+def test_private_top_is_hidden_until_publication_and_revoked_immediately(
+    tmp_path, monkeypatch
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+    token = login(client, "alice")
+    station = station_payload("Private Journal Radio", "https://stream.example.com/private")
+    station["favicon"] = "https://art.example.com/private.jpg"
+    assert client.post("/api/history", json=station, headers=csrf_headers(token)).status_code == 200
+    assert (
+        client.post("/api/favorites", json=station, headers=csrf_headers(token)).status_code == 200
+    )
+    with db.connect() as conn:
+        row = conn.execute("SELECT id FROM stations WHERE name = ?", (station["name"],)).fetchone()
+        assert row is not None
+        station_id = int(row["id"])
+        profile_id = db.get_or_create_profile(conn, "default", user_id=user_id)
+        conn.commit()
+
+    assert client.get("/api/public/stats").json()["top_stations"] == []
+    assert client.get(f"/api/public/stations/{station_id}/artwork").status_code == 404
+
+    with db.connect() as conn:
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=True,
+        )
+        conn.commit()
+    assert client.get("/api/public/stats").json()["top_stations"][0]["name"] == station["name"]
+
+    with db.connect() as conn:
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=False,
+        )
+        conn.commit()
+    assert client.get("/api/public/stats").json()["top_stations"] == []
+    assert client.get(f"/api/public/stations/{station_id}/artwork").status_code == 404

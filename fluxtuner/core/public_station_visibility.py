@@ -9,6 +9,11 @@ from fluxtuner.core import db
 from fluxtuner.core.public_featured import _safe_directory_url
 
 
+def public_station_urls_safe(url: object, resolved_url: object) -> bool:
+    """Require both original and resolved stream URLs to be shareable."""
+    return _safe_directory_url(url) and _safe_directory_url(resolved_url)
+
+
 def _owned_favorite_id(
     conn: sqlite3.Connection, *, user_id: int, profile_id: int, station_id: int
 ) -> int:

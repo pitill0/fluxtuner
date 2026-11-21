@@ -11,6 +11,7 @@ from fluxtuner.core import db
 from fluxtuner.core.artwork_cache import ArtworkCache
 from fluxtuner.core.public_featured import featured_station_candidate, public_featured_station
 from fluxtuner.core.public_genres import public_popular_genres
+from fluxtuner.core.public_stats import public_top_station_rows
 from fluxtuner.core.public_trending import public_station_trends
 from fluxtuner.web import guards as web_guards
 from fluxtuner.web.discovery_rate_limits import admit_redemption
@@ -108,23 +109,14 @@ def public_station_artwork(station_id: int) -> Response:
     if station_id < 1:
         raise HTTPException(status_code=404, detail="Artwork not available.")
     with db.connect() as conn:
-        row = conn.execute(
-            """
-            SELECT favicon FROM stations
-            WHERE id = ? AND id IN (
-                SELECT history_entries.station_id
-                FROM history_entries
-                JOIN stations AS ranked ON ranked.id = history_entries.station_id
-                GROUP BY history_entries.station_id
-                ORDER BY SUM(history_entries.play_count) DESC,
-                         MAX(history_entries.last_played_at) DESC,
-                         COALESCE(NULLIF(trim(ranked.name), ''), 'Unknown station')
-                             COLLATE NOCASE ASC
-                LIMIT 3
-            )
-            """,
-            (station_id,),
-        ).fetchone()
+        row = next(
+            (
+                item
+                for item in public_top_station_rows(conn)
+                if int(item["station_id"]) == station_id
+            ),
+            None,
+        )
     favicon = str(row["favicon"] or "").strip() if row else ""
     if not favicon:
         raise HTTPException(status_code=404, detail="Artwork not available.")

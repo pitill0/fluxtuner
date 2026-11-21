@@ -47,6 +47,8 @@ Run the Web/server mode on your own infrastructure and keep accounts, favorites,
 - Configure separate GTK recording and ripping destinations and open their folders directly from Preferences.
 - Use Web/server accounts with first-run admin setup, pending account requests, authenticated profiles, CSRF-protected mutations, dashboard metrics and admin user management.
 - Store library data in a local SQLite database, with XDG-style config, data and cache locations.
+- Export Web favorites and playlists as portable M3U or PLS collections, and send station or playlist recommendations to other approved users of the same instance.
+- Explore anonymous aggregate listening statistics, station artwork, weekly trends, a daily station suggestion and popular genres on the public Web landing page.
 
 ---
 
@@ -65,6 +67,7 @@ The Web/server mode includes:
 - A responsive browser interface.
 - Persistent SQLite storage.
 - Docker- and Podman-friendly deployment.
+- Optional per-favorite publication controls for custom stations, and a short-lived "Save for listening" selection that can be redeemed after sign-in.
 
 Run FluxTuner on your own server and access your radio library from any modern browser. See [`docs/secure-web-deployment.md`](docs/secure-web-deployment.md) before exposing an instance to a LAN or the internet.
 
@@ -93,6 +96,18 @@ to Favorites and the selected new or existing playlist.
 automatically copying its stations to Favorites or Playlists. Open
 **My library → Remote catalogs → Browse stations** to explore it.
 Updates are initiated manually and require review and confirmation.
+
+Use **Recommendations** to share an owned favorite or playlist with another
+approved account on the same instance. Recipients explicitly accept or reject
+incoming recommendations; no station or playlist is imported automatically.
+Web favorites and playlists can also be downloaded in portable M3U/PLS format.
+
+The public landing page displays aggregate activity, top stations with cached
+artwork, weekly trends, a daily station suggestion and popular genres when
+enough activity exists. Eligible custom stations require an owner's explicit
+publication choice. Anonymous visitors can select the daily suggestion for
+later listening, then sign in within 15 minutes to save it to their favorites.
+The public page does not expose the selected stream URL.
 
 See [Web usage](docs/web.md),
 [playlist imports](docs/playlist-imports.md) and

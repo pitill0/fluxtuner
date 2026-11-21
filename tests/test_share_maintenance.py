@@ -78,6 +78,26 @@ def test_existing_maintenance_clears_expired_snapshots(library):
     assert maintenance.run_auth_maintenance(now=NOW).expired_recommendations == 0
 
 
+def test_maintenance_purges_old_resolved_recommendations(library):
+    _, alice, profile = library
+    old = send(alice, profile, 0, NOW - timedelta(days=40))
+    recent = send(alice, profile, 1, NOW - timedelta(days=10))
+    with db.connect() as conn:
+        for identifier, age in ((old, 31), (recent, 29)):
+            conn.execute(
+                "UPDATE playlist_shares SET status = 'accepted', snapshot_json = NULL, "
+                "resolved_at = ? WHERE id = ?",
+                ((NOW - timedelta(days=age)).isoformat(), identifier),
+            )
+        conn.commit()
+
+    result = maintenance.run_auth_maintenance(now=NOW)
+    assert result.purged_recommendations == 1
+    assert read_share(old) is None
+    assert read_share(recent) is not None
+    assert maintenance.run_auth_maintenance(now=NOW).purged_recommendations == 0
+
+
 def test_expiry_uses_independent_idle_transaction(library, monkeypatch):
     _, alice, profile = library
 

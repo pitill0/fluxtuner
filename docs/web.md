@@ -308,3 +308,12 @@ session user:
 Profiles separate favorites, manual playlists and playback history by context.
 They are not login accounts by themselves; Web users provide authentication,
 ownership and administrator permissions.
+
+### Recommendation history retention
+
+Recommendations are visible only to their sender and recipient. Pending shares
+expire after seven days and their station/playlist snapshots are cleared by
+periodic maintenance. Accepted and rejected shares also have their snapshots
+cleared on resolution. The remaining history metadata is retained for 30 days
+after resolution (or the actual expiry date), then removed by maintenance in
+bounded batches. The cleanup does not delete pending shares before expiry.

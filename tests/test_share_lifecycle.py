@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from fluxtuner.core import db
-from fluxtuner.core.share_lifecycle import expire_shares
+from fluxtuner.core.share_lifecycle import expire_shares, purge_old_shares
 from fluxtuner.core.share_service import create_share
 
 NOW = datetime(2026, 11, 18, 21, 0, tzinfo=UTC)
@@ -242,4 +242,103 @@ def test_failure_rolls_back_entire_expiry_batch(library):
         assert row["snapshot_json"] is not None
         assert row["resolved_at"] is None
 
+    assert not conn.in_transaction
+
+
+def test_history_purge_preserves_pending_and_recent_resolutions(library):
+    conn, alice, profile = library
+    old = send(conn, alice, profile, NOW - timedelta(days=40))
+    recent = send(conn, alice, profile, NOW - timedelta(days=10), station_number=1)
+    pending = send(conn, alice, profile, NOW - timedelta(days=40), station_number=2)
+    conn.execute(
+        "UPDATE playlist_shares SET status = 'accepted', snapshot_json = NULL, "
+        "resolved_at = ? WHERE id = ?",
+        ((NOW - timedelta(days=31)).isoformat(), old),
+    )
+    conn.execute(
+        "UPDATE playlist_shares SET status = 'rejected', snapshot_json = NULL, "
+        "resolved_at = ? WHERE id = ?",
+        ((NOW - timedelta(days=29)).isoformat(), recent),
+    )
+    conn.commit()
+
+    assert purge_old_shares(conn, now=NOW) == 1
+    assert load(conn, old) is None
+    assert load(conn, recent) is not None
+    assert load(conn, pending)["status"] == "pending"
+    assert purge_old_shares(conn, now=NOW) == 0
+
+
+def test_history_purge_uses_expiry_date_not_delayed_cleanup_date(library):
+    conn, alice, profile = library
+    identifier = send(conn, alice, profile, NOW - timedelta(days=40))
+    assert expire_shares(conn, now=NOW) == 1
+    assert load(conn, identifier)["resolved_at"] == NOW.isoformat()
+    assert purge_old_shares(conn, now=NOW) == 1
+    assert load(conn, identifier) is None
+
+
+def test_history_purge_is_bounded_and_keeps_30_day_boundary(library):
+    conn, alice, profile = library
+    ids = [
+        send(conn, alice, profile, NOW - timedelta(days=40), station_number=index)
+        for index in range(3)
+    ]
+    for index, identifier in enumerate(ids):
+        conn.execute(
+            "UPDATE playlist_shares SET status = 'rejected', snapshot_json = NULL, "
+            "resolved_at = ? WHERE id = ?",
+            ((NOW - timedelta(days=31 if index < 2 else 29)).isoformat(), identifier),
+        )
+    conn.commit()
+
+    assert purge_old_shares(conn, now=NOW, batch_size=1) == 1
+    assert purge_old_shares(conn, now=NOW, batch_size=1) == 1
+    assert purge_old_shares(conn, now=NOW, batch_size=1) == 0
+    assert load(conn, ids[2]) is not None
+
+
+@pytest.mark.parametrize("batch_size", [0, -1, 501, True, 1.5, "20"])
+def test_history_purge_rejects_invalid_batch_sizes(library, batch_size):
+    conn, _, _ = library
+    with pytest.raises(ValueError):
+        purge_old_shares(conn, now=NOW, batch_size=batch_size)
+    assert not conn.in_transaction
+
+
+def test_history_purge_does_not_commit_caller_transaction(library):
+    conn, _, _ = library
+    conn.execute("BEGIN")
+    with pytest.raises(ValueError, match="independent transaction"):
+        purge_old_shares(conn, now=NOW)
+    assert conn.in_transaction
+    conn.rollback()
+
+
+def test_history_purge_failure_rolls_back_entire_batch(library):
+    conn, alice, profile = library
+    first = send(conn, alice, profile, NOW - timedelta(days=40))
+    second = send(conn, alice, profile, NOW - timedelta(days=40), station_number=1)
+    for identifier in (first, second):
+        conn.execute(
+            "UPDATE playlist_shares SET status = 'rejected', snapshot_json = NULL, "
+            "resolved_at = ? WHERE id = ?",
+            ((NOW - timedelta(days=31)).isoformat(), identifier),
+        )
+    conn.execute(
+        f"""
+        CREATE TRIGGER block_history_purge_{second}
+        BEFORE DELETE ON playlist_shares
+        WHEN OLD.id = {second}
+        BEGIN
+            SELECT RAISE(ABORT, 'history purge blocked');
+        END
+        """
+    )
+    conn.commit()
+
+    with pytest.raises(Exception, match="history purge blocked"):
+        purge_old_shares(conn, now=NOW)
+    assert load(conn, first) is not None
+    assert load(conn, second) is not None
     assert not conn.in_transaction

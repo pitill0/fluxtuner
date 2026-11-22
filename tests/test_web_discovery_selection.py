@@ -137,3 +137,65 @@ def test_authenticated_redemption_is_scoped_idempotent_and_limited(web_library, 
             client.post(endpoint, json={"selection": "invalid"}, headers=headers).status_code == 404
         )
     assert client.post(endpoint, json={"selection": reference}, headers=headers).status_code == 429
+
+
+def test_redeem_scans_without_writer_lock_and_rechecks_revocation(web_library, monkeypatch):
+    client, _users = web_library
+    monkeypatch.setattr(public_routes, "get_artwork_signing_key", lambda: _KEY)
+
+    with db.connect() as conn:
+        _seed(conn)
+
+    reference = client.get("/api/public/featured").json()["selection"]
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "alice", "password": "correct horse battery staple"},
+    )
+    assert login.status_code == 200
+    session = client.cookies.get(SESSION_COOKIE_NAME)
+    assert session
+    headers = {CSRF_HEADER_NAME: csrf_token_for_session_token(session)}
+
+    original_verify = public_routes.verify_selection
+    scanned_outside_lock = False
+
+    def revoke_after_scan(conn, reference, key):
+        nonlocal scanned_outside_lock
+        scanned_outside_lock = not conn.in_transaction
+        selected = original_verify(conn, reference, key)
+        assert selected is not None
+        with db.connect() as other:
+            owner = other.execute(
+                "SELECT id FROM users WHERE username = 'discovery-owner'"
+            ).fetchone()
+            assert owner is not None
+            profile = db.ensure_default_profile(other, user_id=int(owner["id"]))
+            set_station_publication(
+                other,
+                user_id=int(owner["id"]),
+                profile_id=profile,
+                station_id=int(selected["id"]),
+                published=False,
+            )
+            other.commit()
+        return selected
+
+    monkeypatch.setattr(public_routes, "verify_selection", revoke_after_scan)
+    response = client.post(
+        "/api/public/featured/redeem",
+        json={"selection": reference},
+        headers=headers,
+    )
+
+    assert scanned_outside_lock
+    assert response.status_code == 404
+    with db.connect() as conn:
+        alice_id = conn.execute("SELECT id FROM users WHERE username = 'alice'").fetchone()["id"]
+        alice_profile = db.ensure_default_profile(conn, user_id=int(alice_id))
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM favorites WHERE profile_id = ?",
+                (alice_profile,),
+            ).fetchone()[0]
+            == 0
+        )

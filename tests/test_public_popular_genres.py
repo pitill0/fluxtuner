@@ -140,7 +140,7 @@ def test_public_genres_endpoint_is_name_only_and_cacheable(tmp_path, monkeypatch
     db.init_db(path)
     response = TestClient(create_app()).get("/api/public/genres")
     assert response.status_code == 200
-    assert response.headers["cache-control"] == "public, max-age=3600"
+    assert response.headers["cache-control"] == "public, max-age=0, must-revalidate"
     assert response.json()["genres"] == []
     assert "period_end_utc" in response.json()
     assert "station_id" not in response.text

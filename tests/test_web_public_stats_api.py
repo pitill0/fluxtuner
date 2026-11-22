@@ -578,3 +578,219 @@ def test_private_top_is_hidden_until_publication_and_revoked_immediately(
         conn.commit()
     assert client.get("/api/public/stats").json()["top_stations"] == []
     assert client.get(f"/api/public/stations/{station_id}/artwork").status_code == 404
+
+
+def test_public_artwork_preflight_skips_ranking_for_private_or_unsafe_station(
+    tmp_path, monkeypatch
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("alice")
+    csrf = login(client, "alice")
+    station = station_payload("Preflight Radio", "https://stream.example.com/preflight")
+    station["favicon"] = "https://art.example.com/preflight.jpg"
+
+    assert (
+        client.post("/api/favorites", json=station, headers=csrf_headers(csrf)).status_code == 200
+    )
+
+    with db.connect() as conn:
+        row = conn.execute("SELECT id FROM stations WHERE name = ?", (station["name"],)).fetchone()
+        assert row is not None
+        station_id = int(row["id"])
+        profile_id = db.get_or_create_profile(conn, "default", user_id=user_id)
+        conn.commit()
+
+    ranking_calls = 0
+
+    def counted_ranking(conn):
+        nonlocal ranking_calls
+        ranking_calls += 1
+        return []
+
+    monkeypatch.setattr(public_routes, "public_top_station_rows", counted_ranking)
+    url = f"/api/public/stations/{station_id}/artwork"
+
+    # Private stations must fail before the expensive ranking query.
+    assert client.get(url).status_code == 404
+    assert ranking_calls == 0
+
+    with db.connect() as conn:
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=True,
+        )
+        conn.commit()
+
+    # Publication is necessary, but not sufficient: Top-3 membership
+    # is still checked on every eligible request.
+    assert client.get(url).status_code == 404
+    assert ranking_calls == 1
+
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE stations SET url_resolved = ? WHERE id = ?",
+            ("https://stream.example.com/live?token=secret", station_id),
+        )
+        conn.commit()
+
+    assert client.get(url).status_code == 404
+    assert ranking_calls == 1
+
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE stations SET url_resolved = url WHERE id = ?",
+            (station_id,),
+        )
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=False,
+        )
+        conn.commit()
+
+    # Revocation must take effect without a cache delay.
+    assert client.get(url).status_code == 404
+    assert ranking_calls == 1
+
+
+def test_public_stats_cache_reuses_reads_but_invalidates_on_commit(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    original = db.public_activity_stats
+    calls = 0
+
+    def counted_stats(conn):
+        nonlocal calls
+        calls += 1
+        return original(conn)
+
+    monkeypatch.setattr(db, "public_activity_stats", counted_stats)
+
+    first = client.get("/api/public/stats")
+    second = client.get("/api/public/stats")
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert calls == 1
+    assert first.headers["cache-control"] == "public, max-age=0, must-revalidate"
+
+    # Commit on another connection must invalidate immediately.
+    create_user("cache-invalidation-user")
+    third = client.get("/api/public/stats")
+    assert third.status_code == 200
+    assert calls == 2
+    assert third.json()["totals"]["users"] == (first.json()["totals"]["users"] + 1)
+
+
+def test_public_trending_and_genres_cache_invalidate_after_write(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+
+    original_trending = public_routes.public_station_trends
+    original_genres = public_routes.public_popular_genres
+    calls = {"trending": 0, "genres": 0}
+
+    def counted_trending(conn):
+        calls["trending"] += 1
+        return original_trending(conn)
+
+    def counted_genres(conn):
+        calls["genres"] += 1
+        return original_genres(conn)
+
+    monkeypatch.setattr(public_routes, "public_station_trends", counted_trending)
+    monkeypatch.setattr(public_routes, "public_popular_genres", counted_genres)
+
+    for endpoint in ("/api/public/trending", "/api/public/genres"):
+        first = client.get(endpoint)
+        second = client.get(endpoint)
+        assert first.status_code == second.status_code == 200
+        assert first.json() == second.json()
+        assert first.headers["cache-control"] == ("public, max-age=0, must-revalidate")
+
+    assert calls == {"trending": 1, "genres": 1}
+
+    create_user("cached-aggregate-user")
+
+    assert client.get("/api/public/trending").status_code == 200
+    assert client.get("/api/public/genres").status_code == 200
+    assert calls == {"trending": 2, "genres": 2}
+
+
+def test_public_artwork_reuses_top_ranking_until_database_changes(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    user_id = create_user("artwork-cache-owner")
+    csrf = login(client, "artwork-cache-owner")
+    station = station_payload("Artwork Cache Radio", "https://radio.example.test/artwork-cache")
+    station["favicon"] = "https://art.example.test/cache.jpg"
+    assert (
+        client.post("/api/favorites", json=station, headers=csrf_headers(csrf)).status_code == 200
+    )
+
+    with db.connect() as conn:
+        station_id = int(
+            conn.execute("SELECT id FROM stations WHERE name = ?", (station["name"],)).fetchone()[
+                "id"
+            ]
+        )
+        profile_id = db.get_or_create_profile(conn, "default", user_id=user_id)
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=True,
+        )
+        conn.commit()
+
+    calls = 0
+
+    def counted_ranking(conn):
+        nonlocal calls
+        calls += 1
+        return []
+
+    monkeypatch.setattr(public_routes, "public_top_station_rows", counted_ranking)
+    url = f"/api/public/stations/{station_id}/artwork"
+
+    assert client.get(url).status_code == 404
+    assert client.get(url).status_code == 404
+    assert calls == 1
+
+    create_user("artwork-cache-write")
+    assert client.get(url).status_code == 404
+    assert calls == 2
+
+    with db.connect() as conn:
+        set_station_publication(
+            conn,
+            user_id=user_id,
+            profile_id=profile_id,
+            station_id=station_id,
+            published=False,
+        )
+        conn.commit()
+
+    assert client.get(url).status_code == 404
+    assert calls == 2
+
+
+def test_public_response_cache_has_bounded_entries(tmp_path, monkeypatch) -> None:
+    from fluxtuner.web.public_cache import (
+        MAX_ENTRIES,
+        PublicResponseCache,
+    )
+
+    make_client(tmp_path, monkeypatch)
+    cache = PublicResponseCache()
+
+    for index in range(MAX_ENTRIES + 12):
+        result = cache.get(
+            f"test-key-{index}",
+            lambda conn: {"value": 1},
+        )
+        assert result == {"value": 1}
+
+    assert len(cache._entries) == MAX_ENTRIES

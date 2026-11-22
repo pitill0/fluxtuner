@@ -213,6 +213,32 @@ A reverse proxy should provide at least:
 - Access logs suitable for auditing without logging cookies, setup tokens,
   CSRF tokens or request bodies.
 
+For internet-facing deployments, apply a **per-client-IP request limit**
+at the reverse proxy to `/api/public/`. These anonymous endpoints include
+database-backed aggregates, featured discovery, and public artwork, so the
+application cache is not a substitute for admission control.
+
+For Nginx, an illustrative starting point is:
+
+~~~nginx
+# In the http context:
+limit_req_zone $binary_remote_addr zone=fluxtuner_public:10m rate=5r/s;
+
+# Inside the existing location handling /api/public/:
+limit_req zone=fluxtuner_public burst=20 nodelay;
+limit_req_status 429;
+~~~
+
+Integrate these directives into the **existing** proxy configuration rather
+than adding a competing `location` or replacing existing proxy headers.
+Tune the rate and burst for legitimate page loads (one visit can request
+several public endpoints and artwork URLs), and verify that excess traffic
+returns HTTP 429 without disrupting normal use. If another proxy or CDN
+sits in front of Nginx, configure trusted client-IP forwarding correctly:
+never trust a client-supplied `X-Forwarded-For` value indiscriminately.
+The application's authenticated, per-user discovery redemption limit remains
+necessary; IP limiting does not replace it.
+
 Example shape:
 
 ```text

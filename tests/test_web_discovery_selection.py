@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from fluxtuner.core import db
 from fluxtuner.core.public_featured import featured_station_candidate
+from fluxtuner.core.public_station_visibility import set_station_publication
 from fluxtuner.web.app import create_app
 from fluxtuner.web.discovery_selection import issue_selection, verify_selection
 from fluxtuner.web.routes import public as public_routes
@@ -19,9 +20,32 @@ _KEY = b"d" * 32
 
 
 def _seed(conn):
-    db.upsert_station(
+    station = {
+        "name": "Safe Radio",
+        "url": "https://radio.example.test/live",
+        "stationuuid": "safe",
+    }
+    station_id = db.upsert_station(conn, station)
+
+    user_id = db.get_or_create_user(conn, "discovery-owner", password_hash="test")
+    profile_id = db.ensure_default_profile(conn, user_id=user_id)
+
+    now = db.utc_now()
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO favorites (
+            profile_id, station_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?)
+        """,
+        (profile_id, station_id, now, now),
+    )
+
+    set_station_publication(
         conn,
-        {"name": "Safe Radio", "url": "https://radio.example.test/live", "stationuuid": "safe"},
+        user_id=user_id,
+        profile_id=profile_id,
+        station_id=station_id,
+        published=True,
     )
     conn.commit()
 

@@ -20,6 +20,20 @@ def _plays(conn, name: str, day, count: int) -> None:
             "stationuuid": f"public-{name}",
         },
     )
+    user_id = db.get_or_create_user(conn, "trend-test-owner", password_hash="test")
+    profile_id = db.ensure_default_profile(conn, user_id=user_id)
+    db.add_favorite_record(
+        conn,
+        {"name": name, "url": f"https://private.example/{name.lower()}"},
+        profile_id=profile_id,
+    )
+    set_station_publication(
+        conn,
+        user_id=user_id,
+        profile_id=profile_id,
+        station_id=station_id,
+        published=True,
+    )
     conn.execute(
         """
         INSERT INTO station_daily_plays (station_id, day_utc, play_count)

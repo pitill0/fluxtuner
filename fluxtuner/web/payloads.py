@@ -62,3 +62,52 @@ def admin_user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "created_at": str(user["created_at"]),
         "updated_at": str(user["updated_at"]),
     }
+
+
+WEB_STATION_FIELD_LIMITS = {
+    "name": 200,
+    "url": 4096,
+    "url_resolved": 4096,
+    "stationuuid": 100,
+    "favicon": 2048,
+    "country": 100,
+    "countrycode": 16,
+    "tags": 500,
+    "codec": 50,
+    "homepage": 2048,
+    "language": 100,
+    "custom_name": 200,
+    "last_played_at": 64,
+}
+
+
+def station_input_payload(station: dict[str, Any]) -> dict[str, Any]:
+    """Bound untrusted Web station data and protect shared records."""
+    if not isinstance(station, dict):
+        raise ValueError("Invalid station payload.")
+
+    for field, limit in WEB_STATION_FIELD_LIMITS.items():
+        value = station.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or len(value) > limit:
+            raise ValueError("Station metadata exceeds allowed limits.")
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError("Station metadata contains control characters.")
+
+    favorite_tags = station.get("favorite_tags")
+    if favorite_tags is not None:
+        if not isinstance(favorite_tags, list) or len(favorite_tags) > 32:
+            raise ValueError("Favorite tags exceed allowed limits.")
+        if any(
+            not isinstance(item, str)
+            or len(item) > 100
+            or any(ord(char) < 32 or ord(char) == 127 for char in item)
+            for item in favorite_tags
+        ):
+            raise ValueError("Favorite tags contain invalid values.")
+
+    result = station_payload(station)
+    result["stationuuid"] = ""
+    result["_web_untrusted"] = True
+    return result

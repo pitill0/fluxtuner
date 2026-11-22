@@ -8,11 +8,15 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fluxtuner.core.public_station_visibility import (
     public_station_urls_safe,
 )
+
+MIN_PUBLIC_LISTENERS = 3
+PUBLIC_PLAYS_RETENTION_DAYS = 35
 
 
 def _safe_int(value: Any) -> int:
@@ -27,6 +31,9 @@ def public_top_station_rows(conn: sqlite3.Connection, *, top_limit: int = 3) -> 
     safe_limit = max(0, int(top_limit))
     if not safe_limit:
         return []
+    cutoff = (
+        datetime.now(UTC).date() - timedelta(days=PUBLIC_PLAYS_RETENTION_DAYS - 1)
+    ).isoformat()
     rows = conn.execute(
         """
         SELECT
@@ -35,26 +42,30 @@ def public_top_station_rows(conn: sqlite3.Connection, *, top_limit: int = 3) -> 
             s.url AS url,
             s.url_resolved AS url_resolved,
             COALESCE(NULLIF(trim(s.name), ''), 'Unknown station') AS name,
-            SUM(history_entries.play_count) AS play_count,
-            MAX(history_entries.last_played_at) AS last_played_at
-        FROM history_entries
-        JOIN stations AS s ON s.id = history_entries.station_id
-        WHERE (
-            EXISTS (
-                SELECT 1 FROM public_station_opt_ins AS o
-                JOIN favorites AS f ON f.id = o.favorite_id
-                JOIN profiles AS p ON p.id = f.profile_id
-                JOIN users AS u ON u.id = p.user_id
-                WHERE f.station_id = s.id
-                  AND u.is_active = 1 AND u.approval_status = 'approved'
-            )
-        )
-        GROUP BY history_entries.station_id
+            SUM(plays.play_count) AS play_count,
+            MAX(plays.last_counted_at) AS last_played_at
+        FROM web_public_play_contributions AS plays
+        JOIN stations AS s ON s.id = plays.station_id
+        JOIN users AS listeners ON listeners.id = plays.user_id
+        WHERE plays.day_utc >= ?
+          AND listeners.is_active = 1
+          AND listeners.approval_status = 'approved'
+          AND EXISTS (
+              SELECT 1 FROM public_station_opt_ins AS o
+              JOIN favorites AS f ON f.id = o.favorite_id
+              JOIN profiles AS p ON p.id = f.profile_id
+              JOIN users AS u ON u.id = p.user_id
+              WHERE f.station_id = s.id
+                AND u.is_active = 1 AND u.approval_status = 'approved'
+          )
+        GROUP BY s.id
+        HAVING COUNT(DISTINCT plays.user_id) >= ?
         ORDER BY
-            SUM(history_entries.play_count) DESC,
-            MAX(history_entries.last_played_at) DESC,
+            SUM(plays.play_count) DESC,
+            MAX(plays.last_counted_at) DESC,
             name COLLATE NOCASE ASC
-        """
+        """,
+        (cutoff, MIN_PUBLIC_LISTENERS),
     )
     eligible: list[sqlite3.Row] = []
     for row in rows:
@@ -73,10 +84,20 @@ def public_activity_stats(
     """Return anonymous global activity stats without private station identities."""
     top_rows = public_top_station_rows(conn, top_limit=top_limit)
 
+    cutoff = (
+        datetime.now(UTC).date() - timedelta(days=PUBLIC_PLAYS_RETENTION_DAYS - 1)
+    ).isoformat()
     totals_row = conn.execute(
         """
         SELECT
-            COALESCE(SUM(history_entries.play_count), 0) AS plays_count,
+            (
+                SELECT COALESCE(SUM(plays.play_count), 0)
+                FROM web_public_play_contributions AS plays
+                JOIN users AS u ON u.id = plays.user_id
+                WHERE plays.day_utc >= ?
+                  AND u.is_active = 1
+                  AND u.approval_status = 'approved'
+            ) AS plays_count,
             (SELECT COUNT(*) FROM favorites) AS favorites_count,
             (SELECT COUNT(*) FROM playlists) AS playlists_count,
             (
@@ -87,8 +108,8 @@ def public_activity_stats(
                   AND password_hash IS NOT NULL
                   AND trim(password_hash) != ''
             ) AS users_count
-        FROM history_entries
-        """
+        """,
+        (cutoff,),
     ).fetchone()
 
     return {

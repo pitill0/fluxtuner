@@ -45,6 +45,7 @@ def test_init_db_creates_expected_tables(
             "favorites",
             "history_entries",
             "station_daily_plays",
+            "web_public_play_contributions",
             "public_station_opt_ins",
             "playlist_stations",
             "playlist_shares",
@@ -274,10 +275,59 @@ def test_schema_v9_to_v10_preserves_favorites(tmp_path) -> None:
     db.init_db(db_file)
 
     with db.connect(db_file) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         indexes = {row["name"] for row in conn.execute("PRAGMA index_list(favorites)")}
         assert "idx_favorites_station_id" in indexes
         assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
+def test_schema_v10_to_v11_preserves_existing_library_data(tmp_path) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+    db.init_db(db_file)
+
+    station = {
+        "name": "Existing Radio",
+        "url": "https://stream.example.com/existing",
+    }
+
+    with db.connect(db_file) as conn:
+        user_id = db.get_or_create_user(conn, "migration-owner", password_hash="fixture")
+        profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        db.add_favorite_record(conn, station, profile_id=profile_id)
+        db.add_history_record(conn, station, profile_id=profile_id)
+
+        before = {
+            "favorites": conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0],
+            "history": conn.execute("SELECT COUNT(*) FROM history_entries").fetchone()[0],
+        }
+
+        # Reconstruct the exact schema-10 boundary: the new table did not exist.
+        conn.execute("DROP TABLE web_public_play_contributions")
+        conn.execute("PRAGMA user_version = 10")
+        conn.commit()
+
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        tables = db.table_names(conn)
+        indexes = {
+            row["name"] for row in conn.execute("PRAGMA index_list(web_public_play_contributions)")
+        }
+        after = {
+            "favorites": conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0],
+            "history": conn.execute("SELECT COUNT(*) FROM history_entries").fetchone()[0],
+        }
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        foreign_key_errors = conn.execute("PRAGMA foreign_key_check").fetchall()
+
+    assert version == db.CURRENT_SCHEMA_VERSION == 11
+    assert "web_public_play_contributions" in tables
+    assert "idx_web_public_plays_station_day" in indexes
+    assert "idx_web_public_plays_day" in indexes
+    assert after == before == {"favorites": 1, "history": 1}
+    assert integrity == "ok"
+    assert foreign_key_errors == []
 
 
 def test_current_schema_version_does_not_rerun_compatibility_migrations(

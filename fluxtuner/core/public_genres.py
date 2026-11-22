@@ -7,9 +7,12 @@ import sqlite3
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 
+from fluxtuner.core.public_station_visibility import public_station_urls_safe
+
 MIN_PLAYS = 20
 MIN_STATIONS = 3
 MIN_ACTIVE_DAYS = 3
+MIN_DISTINCT_LISTENERS = 3
 PUBLIC_GENRE_LIMIT = 5
 
 # Only these canonical, non-identifying categories may leave the server.
@@ -54,8 +57,7 @@ def public_popular_genres(
 ) -> dict[str, object]:
     """Rank categories using completed UTC days and omit sparse categories.
 
-    Station diversity is not listener diversity: these aggregates have no
-    user identities, so no claim about distinct listeners can be made.
+    Require distinct listeners and explicit station publication consent.
     """
     final_day = as_of if as_of is not None else datetime.now(UTC).date() - timedelta(days=1)
     if not isinstance(final_day, date) or isinstance(final_day, datetime):
@@ -64,11 +66,30 @@ def public_popular_genres(
     next_day = final_day + timedelta(days=1)
     rows = conn.execute(
         """
-        SELECT daily.station_id, daily.day_utc, daily.play_count, stations.tags
-        FROM station_daily_plays AS daily
+        SELECT
+            daily.station_id,
+            daily.user_id,
+            daily.day_utc,
+            daily.play_count,
+            stations.tags,
+            stations.url,
+            stations.url_resolved
+        FROM web_public_play_contributions AS daily
         JOIN stations ON stations.id = daily.station_id
+        JOIN users AS listeners ON listeners.id = daily.user_id
         WHERE daily.day_utc >= ? AND daily.day_utc < ?
           AND daily.play_count > 0
+          AND listeners.is_active = 1
+          AND listeners.approval_status = 'approved'
+          AND EXISTS (
+              SELECT 1 FROM public_station_opt_ins AS o
+              JOIN favorites AS f ON f.id = o.favorite_id
+              JOIN profiles AS p ON p.id = f.profile_id
+              JOIN users AS u ON u.id = p.user_id
+              WHERE f.station_id = stations.id
+                AND u.is_active = 1
+                AND u.approval_status = 'approved'
+          )
         """,
         (start.isoformat(), next_day.isoformat()),
     )
@@ -76,11 +97,15 @@ def public_popular_genres(
     plays: dict[str, int] = defaultdict(int)
     stations: dict[str, set[int]] = defaultdict(set)
     days: dict[str, set[str]] = defaultdict(set)
+    listeners: dict[str, set[int]] = defaultdict(set)
     for row in rows:
+        if not public_station_urls_safe(row["url"], row["url_resolved"]):
+            continue
         for genre in _genres(row["tags"]):
             plays[genre] += int(row["play_count"])
             stations[genre].add(int(row["station_id"]))
             days[genre].add(str(row["day_utc"]))
+            listeners[genre].add(int(row["user_id"]))
 
     eligible = [
         genre
@@ -88,6 +113,7 @@ def public_popular_genres(
         if count >= MIN_PLAYS
         and len(stations[genre]) >= MIN_STATIONS
         and len(days[genre]) >= MIN_ACTIVE_DAYS
+        and len(listeners[genre]) >= MIN_DISTINCT_LISTENERS
     ]
     eligible.sort(key=lambda genre: (-plays[genre], genre.casefold()))
     return {

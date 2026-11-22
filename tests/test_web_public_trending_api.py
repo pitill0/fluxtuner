@@ -34,13 +34,31 @@ def _plays(conn, name: str, day, count: int) -> None:
         station_id=station_id,
         published=True,
     )
-    conn.execute(
-        """
-        INSERT INTO station_daily_plays (station_id, day_utc, play_count)
-        VALUES (?, ?, ?)
-        """,
-        (station_id, day.isoformat(), count),
-    )
+    # Three accounts, no synthetic single-account trend inflation.
+    remaining = max(3, count)
+    for index in range(3):
+        listener_id = db.get_or_create_user(
+            conn,
+            f"trend-listener-{index}",
+            password_hash="fixture",
+        )
+        contribution = min(12, max(1, remaining // (3 - index)))
+        remaining -= contribution
+        conn.execute(
+            """
+            INSERT INTO web_public_play_contributions (
+                user_id, station_id, day_utc, play_count, last_counted_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                listener_id,
+                station_id,
+                day.isoformat(),
+                contribution,
+                f"{day.isoformat()}T12:00:00+00:00",
+            ),
+        )
 
 
 def test_public_trending_requires_multiple_eligible_stations_and_days(tmp_path) -> None:
@@ -122,11 +140,25 @@ def test_private_trend_requires_active_owner_publication(tmp_path) -> None:
             conn, {"name": "Private Trend", "url": "https://radio.example/private"}
         )
         for offset in range(3):
-            conn.execute(
-                "INSERT INTO station_daily_plays (station_id, day_utc, play_count) "
-                "VALUES (?, ?, ?)",
-                (station_id, (day - timedelta(days=offset)).isoformat(), 4),
-            )
+            for listener_index in range(3):
+                listener_id = db.get_or_create_user(
+                    conn,
+                    f"trend-listener-{listener_index}",
+                    password_hash="fixture",
+                )
+                activity_day = (day - timedelta(days=offset)).isoformat()
+                conn.execute(
+                    "INSERT INTO web_public_play_contributions "
+                    "(user_id, station_id, day_utc, play_count, last_counted_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        listener_id,
+                        station_id,
+                        activity_day,
+                        2 if listener_index == 0 else 1,
+                        f"{activity_day}T12:00:00+00:00",
+                    ),
+                )
         db.add_favorite_record(
             conn,
             {"name": "Private Trend", "url": "https://radio.example/private"},

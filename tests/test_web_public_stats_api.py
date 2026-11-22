@@ -57,6 +57,37 @@ def station_payload(name: str, url: str) -> dict[str, str]:
     }
 
 
+def _seed_public_listener_diversity(
+    conn,
+    station_id: int,
+    *,
+    count: int = 1,
+) -> None:
+    """Give a published station three independent listeners in test data."""
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    day = now.date().isoformat()
+    for index in range(3):
+        user_id = db.get_or_create_user(
+            conn,
+            f"public-fixture-listener-{index}",
+            password_hash="fixture",
+        )
+        conn.execute(
+            """
+            INSERT INTO web_public_play_contributions (
+                user_id, station_id, day_utc, play_count, last_counted_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, station_id, day_utc) DO UPDATE SET
+                play_count = excluded.play_count,
+                last_counted_at = excluded.last_counted_at
+            """,
+            (user_id, station_id, day, min(12, max(1, count)), now.isoformat()),
+        )
+
+
 def mark_catalog_stations() -> None:
     """Publish test stations through an approved owner's favorites."""
     with db.connect() as conn:
@@ -81,6 +112,16 @@ def mark_catalog_stations() -> None:
                 profile_id=profile_id,
                 station_id=int(station["id"]),
                 published=True,
+            )
+            row = conn.execute(
+                "SELECT COALESCE(SUM(play_count), 0) AS plays "
+                "FROM history_entries WHERE station_id = ?",
+                (int(station["id"]),),
+            ).fetchone()
+            _seed_public_listener_diversity(
+                conn,
+                int(station["id"]),
+                count=int(row["plays"]),
             )
         conn.commit()
 
@@ -342,12 +383,12 @@ def test_public_stats_return_only_anonymous_aggregates(tmp_path, monkeypatch) ->
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["top_stations"] == [{"name": "Public Radio", "play_count": 2}]
+    assert payload["top_stations"] == [{"name": "Public Radio", "play_count": 7}]
     assert payload["totals"] == {
-        "plays": 2,
+        "plays": 7,
         "favorites": 1,
         "playlists": 1,
-        "users": 1,
+        "users": 4,
     }
 
     serialized = str(payload)
@@ -384,8 +425,8 @@ def test_public_stats_limit_top_stations_to_three(tmp_path, monkeypatch) -> None
         "Radio 2",
         "Radio 1",
     ]
-    assert payload["totals"]["plays"] == 10
-    assert payload["totals"]["users"] == 1
+    assert payload["totals"]["plays"] == 34
+    assert payload["totals"]["users"] == 4
 
 
 def test_public_stats_count_only_active_approved_users(tmp_path, monkeypatch) -> None:
@@ -506,6 +547,10 @@ def test_private_top_is_hidden_until_publication_and_revoked_immediately(
         assert row is not None
         station_id = int(row["id"])
         profile_id = db.get_or_create_profile(conn, "default", user_id=user_id)
+        conn.commit()
+
+    with db.connect() as conn:
+        _seed_public_listener_diversity(conn, station_id)
         conn.commit()
 
     assert client.get("/api/public/stats").json()["top_stations"] == []

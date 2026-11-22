@@ -53,8 +53,7 @@ def public_station_trends(
         JOIN stations AS s ON s.id = daily.station_id
         WHERE daily.day_utc >= ? AND daily.day_utc < ?
           AND (
-              (s.stationuuid IS NOT NULL AND trim(s.stationuuid) != '')
-              OR EXISTS (
+              EXISTS (
                   SELECT 1 FROM public_station_opt_ins AS o
                   JOIN favorites AS f ON f.id = o.favorite_id
                   JOIN profiles AS p ON p.id = f.profile_id

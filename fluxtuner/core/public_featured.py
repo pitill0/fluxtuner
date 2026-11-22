@@ -54,8 +54,7 @@ def featured_station_candidate(conn: sqlite3.Connection, *, as_of: date) -> sqli
         FROM stations AS s
         WHERE s.name IS NOT NULL AND trim(s.name) != ''
           AND (
-              (s.stationuuid IS NOT NULL AND trim(s.stationuuid) != '')
-              OR EXISTS (
+              EXISTS (
                   SELECT 1
                   FROM public_station_opt_ins AS o
                   JOIN favorites AS f ON f.id = o.favorite_id

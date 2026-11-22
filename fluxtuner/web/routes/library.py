@@ -17,7 +17,7 @@ from fluxtuner.web import guards as web_guards
 from fluxtuner.web import library
 from fluxtuner.web.artwork_payloads import with_artwork_references
 from fluxtuner.web.m3u_import import _profile_id
-from fluxtuner.web.payloads import station_payload
+from fluxtuner.web.payloads import station_input_payload, station_payload
 from fluxtuner.web.routes.artwork import get_artwork_signing_key
 from fluxtuner.web.security import SESSION_COOKIE_NAME
 from fluxtuner.web.validation import (
@@ -126,7 +126,10 @@ def record_history(
     user = _require_authenticated_user(request)
     _require_csrf(request)
 
-    station_data = station_payload(station)
+    try:
+        station_data = station_input_payload(station)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     _require_station_stream_url(station_data)
 
     return library.record_history_payload(
@@ -228,7 +231,10 @@ def create_favorite(
     user = _require_authenticated_user(request)
     _require_csrf(request)
 
-    station_data = station_payload(station)
+    try:
+        station_data = station_input_payload(station)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     _require_station_stream_url(station_data)
 
     return library.create_favorite_payload(
@@ -382,7 +388,10 @@ def add_web_station_to_playlist(
     user = _require_authenticated_user(request)
     _require_csrf(request)
 
-    station_data = station_payload(station)
+    try:
+        station_data = station_input_payload(station)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     _require_station_stream_url(station_data)
 
     return library.add_station_to_playlist_payload(

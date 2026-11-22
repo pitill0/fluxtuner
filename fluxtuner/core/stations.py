@@ -190,6 +190,8 @@ def upsert_station(conn: sqlite3.Connection, station: dict[str, Any]) -> int:
     url = _clean_text(station.get("url")) or key
     url_resolved = _clean_text(station.get("url_resolved")) or url
 
+    web_untrusted = station.get("_web_untrusted") is True
+
     conn.execute(
         """
         INSERT INTO stations (
@@ -226,6 +228,7 @@ def upsert_station(conn: sqlite3.Connection, station: dict[str, Any]) -> int:
             bitrate = excluded.bitrate,
             metadata_json = excluded.metadata_json,
             updated_at = excluded.updated_at
+        WHERE ? = 1
         """,
         (
             key,
@@ -241,9 +244,12 @@ def upsert_station(conn: sqlite3.Connection, station: dict[str, Any]) -> int:
             _clean_text(station.get("tags")),
             _clean_text(station.get("codec")),
             _safe_int(station.get("bitrate")),
-            station_metadata(station),
+            station_metadata(
+                {key: value for key, value in station.items() if key != "_web_untrusted"}
+            ),
             now,
             now,
+            0 if web_untrusted else 1,
         ),
     )
 

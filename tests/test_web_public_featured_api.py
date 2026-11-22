@@ -17,6 +17,20 @@ def _station(conn, name: str, url: str, uuid: str = "") -> None:
     )
 
 
+def _publish(conn, name: str, url: str) -> None:
+    user_id = db.get_or_create_user(conn, "featured-test-owner", password_hash="test")
+    profile_id = db.ensure_default_profile(conn, user_id=user_id)
+    station_id = db.upsert_station(conn, {"name": name, "url": url})
+    db.add_favorite_record(conn, {"name": name, "url": url}, profile_id=profile_id)
+    set_station_publication(
+        conn,
+        user_id=user_id,
+        profile_id=profile_id,
+        station_id=station_id,
+        published=True,
+    )
+
+
 def test_featured_never_publishes_custom_or_secret_urls(tmp_path) -> None:
     path = tmp_path / "featured.db"
     db.init_db(path)
@@ -30,6 +44,7 @@ def test_featured_never_publishes_custom_or_secret_urls(tmp_path) -> None:
             "date_utc": "2026-11-20",
         }
         _station(conn, "Safe directory station", "https://radio.example.test/live", "uuid-safe")
+        _publish(conn, "Safe directory station", "https://radio.example.test/live")
         expected = {"station": {"name": "Safe directory station"}, "date_utc": "2026-11-20"}
         assert public_featured_station(conn, as_of=day) == expected
         assert public_featured_station(conn, as_of=day) == expected
@@ -41,6 +56,7 @@ def test_featured_endpoint_returns_only_name_and_date(tmp_path, monkeypatch) -> 
     db.init_db(path)
     with db.connect(path) as conn:
         _station(conn, "Public catalog", "https://radio.example.test/live", "uuid-safe")
+        _publish(conn, "Public catalog", "https://radio.example.test/live")
         conn.commit()
     response = TestClient(create_app()).get("/api/public/featured")
     assert response.status_code == 200

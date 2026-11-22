@@ -58,10 +58,238 @@ def station_payload(name: str, url: str) -> dict[str, str]:
 
 
 def mark_catalog_stations() -> None:
-    """The public ranking tests must use genuine catalog-eligible stations."""
+    """Publish test stations through an approved owner's favorites."""
     with db.connect() as conn:
-        conn.execute("UPDATE stations SET stationuuid = 'catalog-' || id")
+        user = conn.execute("SELECT id FROM users WHERE username = 'alice'").fetchone()
+        assert user is not None
+        user_id = int(user["id"])
+        profile_id = db.ensure_default_profile(conn, user_id=user_id)
+        stations = conn.execute("SELECT id, name, url FROM stations").fetchall()
+        for station in stations:
+            now = db.utc_now()
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO favorites (
+                    profile_id, station_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (profile_id, int(station["id"]), now, now),
+            )
+            set_station_publication(
+                conn,
+                user_id=user_id,
+                profile_id=profile_id,
+                station_id=int(station["id"]),
+                published=True,
+            )
         conn.commit()
+
+
+def test_untrusted_stationuuid_never_grants_public_visibility(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("bob")
+    csrf = login(client, "bob")
+
+    station = {
+        "name": "Forged directory station",
+        "url": "https://forged.example/live",
+        "stationuuid": "invented-directory-id",
+    }
+
+    for _ in range(12):
+        response = client.post(
+            "/api/history",
+            json=station,
+            headers=csrf_headers(csrf),
+        )
+        assert response.status_code == 200
+
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT stationuuid FROM stations WHERE station_key = ?",
+            (station["url"],),
+        ).fetchone()
+        assert row is not None
+        assert not row["stationuuid"]
+
+    assert client.get("/api/public/stats").json()["top_stations"] == []
+
+
+def test_other_user_cannot_rewrite_shared_station_metadata(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    create_user("bob")
+
+    alice_csrf = login(client, "alice")
+    url = "https://shared.example/live"
+
+    original = {
+        "name": "Alice Radio",
+        "url": url,
+        "favicon": "https://art.example/original.png",
+        "tags": "jazz",
+    }
+    assert (
+        client.post(
+            "/api/favorites",
+            json=original,
+            headers=csrf_headers(alice_csrf),
+        ).status_code
+        == 200
+    )
+
+    assert (
+        client.post(
+            "/api/auth/logout",
+            headers=csrf_headers(alice_csrf),
+        ).status_code
+        == 200
+    )
+
+    bob_csrf = login(client, "bob")
+    malicious = {
+        "name": "Attacker Radio",
+        "url": url,
+        "favicon": "https://attacker.example/pixel.png",
+        "tags": "spam",
+        "stationuuid": "fake-id",
+    }
+
+    assert (
+        client.post(
+            "/api/history",
+            json=malicious,
+            headers=csrf_headers(bob_csrf),
+        ).status_code
+        == 200
+    )
+
+    assert (
+        client.post(
+            "/api/favorites",
+            json=malicious,
+            headers=csrf_headers(bob_csrf),
+        ).status_code
+        == 200
+    )
+
+    assert (
+        client.post(
+            "/api/playlists/Malicious/stations",
+            json=malicious,
+            headers=csrf_headers(bob_csrf),
+        ).status_code
+        == 200
+    )
+
+    with db.connect() as conn:
+        row = conn.execute(
+            """
+            SELECT name, favicon, tags, stationuuid
+            FROM stations WHERE station_key = ?
+            """,
+            (url,),
+        ).fetchone()
+
+    assert row is not None
+    assert row["name"] == "Alice Radio"
+    assert row["favicon"] == "https://art.example/original.png"
+    assert row["tags"] == "jazz"
+    assert not row["stationuuid"]
+
+
+def test_other_user_cannot_publish_private_station_by_forging_uuid(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("alice")
+    create_user("bob")
+
+    url = "https://alice.example/private-radio"
+
+    alice_csrf = login(client, "alice")
+    station = {
+        "name": "Alice Private Radio",
+        "url": url,
+    }
+
+    assert (
+        client.post(
+            "/api/favorites",
+            json=station,
+            headers=csrf_headers(alice_csrf),
+        ).status_code
+        == 200
+    )
+
+    for _ in range(5):
+        assert (
+            client.post(
+                "/api/history",
+                json=station,
+                headers=csrf_headers(alice_csrf),
+            ).status_code
+            == 200
+        )
+
+    assert client.get("/api/public/stats").json()["top_stations"] == []
+
+    assert (
+        client.post(
+            "/api/auth/logout",
+            headers=csrf_headers(alice_csrf),
+        ).status_code
+        == 200
+    )
+
+    bob_csrf = login(client, "bob")
+    assert (
+        client.post(
+            "/api/history",
+            json={
+                "name": "Forged public directory station",
+                "url": url,
+                "stationuuid": "forged",
+            },
+            headers=csrf_headers(bob_csrf),
+        ).status_code
+        == 200
+    )
+
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT name, stationuuid FROM stations WHERE station_key = ?",
+            (url,),
+        ).fetchone()
+
+    assert row is not None
+    assert row["name"] == "Alice Private Radio"
+    assert not row["stationuuid"]
+
+    assert client.get("/api/public/stats").json()["top_stations"] == []
+
+
+def test_oversized_web_station_metadata_is_rejected(tmp_path, monkeypatch) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    create_user("bob")
+    csrf = login(client, "bob")
+
+    response = client.post(
+        "/api/favorites",
+        json={
+            "name": "A" * 2_000_000,
+            "url": "https://oversized.example/live",
+        },
+        headers=csrf_headers(csrf),
+    )
+
+    assert response.status_code == 422
+
+    with db.connect() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM stations WHERE station_key = ?",
+            ("https://oversized.example/live",),
+        ).fetchone()[0]
+
+    assert count == 0
 
 
 def test_public_stats_are_available_without_authentication(tmp_path, monkeypatch) -> None:

@@ -88,7 +88,12 @@ def test_private_api_responses_disable_storage(path: str) -> None:
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_public_routes_do_not_inherit_private_cache_policy() -> None:
+def test_public_routes_do_not_inherit_private_cache_policy(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import db
+
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
     client = TestClient(create_app())
 
     for path in ("/api/health", "/api/public/stats"):

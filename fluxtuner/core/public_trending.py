@@ -16,6 +16,7 @@ from fluxtuner.core.public_station_visibility import (
 )
 
 MIN_RECENT_PLAYS = 10
+MIN_DISTINCT_LISTENERS = 3
 MIN_ACTIVE_DAYS = 3
 MIN_ELIGIBLE_STATIONS = 3
 PUBLIC_TREND_LIMIT = 3
@@ -48,10 +49,15 @@ def public_station_trends(
             SUM(CASE WHEN daily.day_utc < ? THEN daily.play_count ELSE 0 END)
                 AS previous_plays,
             COUNT(DISTINCT CASE WHEN daily.day_utc >= ? THEN daily.day_utc END)
-                AS active_days
-        FROM station_daily_plays AS daily
+                AS active_days,
+            COUNT(DISTINCT CASE WHEN daily.day_utc >= ? THEN daily.user_id END)
+                AS distinct_listeners
+        FROM web_public_play_contributions AS daily
         JOIN stations AS s ON s.id = daily.station_id
+        JOIN users AS listeners ON listeners.id = daily.user_id
         WHERE daily.day_utc >= ? AND daily.day_utc < ?
+          AND listeners.is_active = 1
+          AND listeners.approval_status = 'approved'
           AND (
               EXISTS (
                   SELECT 1 FROM public_station_opt_ins AS o
@@ -64,6 +70,7 @@ def public_station_trends(
           )
         GROUP BY s.id
         HAVING recent_plays >= ? AND active_days >= ?
+           AND distinct_listeners >= ?
            AND recent_plays > previous_plays
         ORDER BY
             (recent_plays - previous_plays) DESC,
@@ -75,10 +82,12 @@ def public_station_trends(
             recent_start.isoformat(),
             recent_start.isoformat(),
             recent_start.isoformat(),
+            recent_start.isoformat(),
             previous_start.isoformat(),
             next_day.isoformat(),
             MIN_RECENT_PLAYS,
             MIN_ACTIVE_DAYS,
+            MIN_DISTINCT_LISTENERS,
         ),
     )
 

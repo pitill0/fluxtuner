@@ -10,7 +10,12 @@ def test_public_router_registers_public_stats_route() -> None:
     assert "/api/public/stats" in paths
 
 
-def test_public_stats_route_is_included_in_app() -> None:
+def test_public_stats_route_is_included_in_app(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import db
+
+    monkeypatch.setattr(db, "DB_FILE", tmp_path / "fluxtuner.db")
+    db.init_db()
+
     client = TestClient(create_app())
 
     response = client.get("/api/public/stats")

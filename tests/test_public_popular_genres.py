@@ -27,14 +27,50 @@ def _plays(conn, *, index: int, tags: str, day: date, count: int) -> None:
             "tags": tags,
         },
     )
-    conn.execute(
-        """
-        INSERT INTO station_daily_plays (station_id, day_utc, play_count)
-        VALUES (?, ?, ?)
-        ON CONFLICT(station_id, day_utc) DO UPDATE SET play_count = excluded.play_count
-        """,
-        (station_id, day.isoformat(), count),
+    from fluxtuner.core.public_station_visibility import set_station_publication
+
+    owner_id = db.get_or_create_user(conn, "genre-fixture-owner", password_hash="fixture")
+    owner_profile = db.ensure_default_profile(conn, user_id=owner_id)
+    db.add_favorite_record(
+        conn,
+        {
+            "name": f"Private Station {index}",
+            "url": f"https://secret.example/{index}",
+            "tags": tags,
+        },
+        profile_id=owner_profile,
     )
+    set_station_publication(
+        conn,
+        user_id=owner_id,
+        profile_id=owner_profile,
+        station_id=station_id,
+        published=True,
+    )
+    for listener_index in range(3):
+        user_id = db.get_or_create_user(
+            conn,
+            f"genre-listener-{listener_index}",
+            password_hash="fixture",
+        )
+        conn.execute(
+            """
+            INSERT INTO web_public_play_contributions (
+                user_id, station_id, day_utc, play_count, last_counted_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, station_id, day_utc) DO UPDATE SET
+                play_count = excluded.play_count,
+                last_counted_at = excluded.last_counted_at
+            """,
+            (
+                user_id,
+                station_id,
+                day.isoformat(),
+                min(12, max(1, count)),
+                f"{day.isoformat()}T12:00:00+00:00",
+            ),
+        )
 
 
 def test_genres_normalize_aliases_and_never_expose_station_details(database):

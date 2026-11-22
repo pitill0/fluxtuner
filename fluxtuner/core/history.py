@@ -104,6 +104,7 @@ def add_history_record(
     *,
     played_at: str | None = None,
     profile_id: int | None = None,
+    record_daily_play: bool = True,
 ) -> None:
     """Insert or update one history entry for a station.
 
@@ -158,7 +159,11 @@ def add_history_record(
         ),
     )
 
-    # Only actual history-record events update public trending aggregates.
+    # Web activity uses separately bounded, account-scoped contributions.
+    # CLI/GTK continue to maintain the legacy daily aggregate unchanged.
+    if not record_daily_play:
+        return
+
     # Legacy imports and replace_history() deliberately bypass this counter.
     try:
         instant = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -179,6 +184,91 @@ def add_history_record(
     )
     cutoff = (datetime.now(UTC).date() - timedelta(days=DAILY_PLAYS_RETENTION_DAYS)).isoformat()
     conn.execute("DELETE FROM station_daily_plays WHERE day_utc < ?", (cutoff,))
+
+
+PUBLIC_PLAY_MIN_INTERVAL_SECONDS = 3600
+PUBLIC_PLAY_MAX_PER_DAY = 12
+PUBLIC_PLAY_MAX_STATIONS_PER_DAY = 100
+
+
+def purge_old_public_play_contributions(
+    conn: sqlite3.Connection,
+    *,
+    now: datetime | None = None,
+) -> int:
+    """Physically delete per-account activity beyond the 35-day window."""
+    current = now or datetime.now(UTC)
+    cutoff = (
+        current.astimezone(UTC).date() - timedelta(days=DAILY_PLAYS_RETENTION_DAYS - 1)
+    ).isoformat()
+    cursor = conn.execute(
+        "DELETE FROM web_public_play_contributions WHERE day_utc < ?",
+        (cutoff,),
+    )
+    return int(cursor.rowcount)
+
+
+def _record_web_public_play(
+    conn: sqlite3.Connection,
+    *,
+    station: dict[str, Any],
+    user_id: int,
+) -> None:
+    """Count bounded Web activity without trusting client timestamps."""
+    key = station_key(station)
+    if not key:
+        return
+
+    row = conn.execute(
+        "SELECT id FROM stations WHERE station_key = ?",
+        (key,),
+    ).fetchone()
+    if row is None:
+        return
+
+    now = datetime.now(UTC)
+    day_utc = now.date().isoformat()
+    current_time = now.isoformat()
+    interval_start = (now - timedelta(seconds=PUBLIC_PLAY_MIN_INTERVAL_SECONDS)).isoformat()
+
+    conn.execute(
+        """
+        INSERT INTO web_public_play_contributions (
+            user_id, station_id, day_utc, play_count, last_counted_at
+        )
+        SELECT ?, ?, ?, 1, ?
+        WHERE (
+            SELECT COUNT(*)
+            FROM web_public_play_contributions
+            WHERE user_id = ? AND day_utc = ?
+        ) < ?
+        OR EXISTS (
+            SELECT 1 FROM web_public_play_contributions
+            WHERE user_id = ? AND station_id = ? AND day_utc = ?
+        )
+        ON CONFLICT(user_id, station_id, day_utc) DO UPDATE SET
+            play_count = web_public_play_contributions.play_count + 1,
+            last_counted_at = excluded.last_counted_at
+        WHERE web_public_play_contributions.play_count < ?
+          AND web_public_play_contributions.last_counted_at <= ?
+        """,
+        (
+            user_id,
+            int(row["id"]),
+            day_utc,
+            current_time,
+            user_id,
+            day_utc,
+            PUBLIC_PLAY_MAX_STATIONS_PER_DAY,
+            user_id,
+            int(row["id"]),
+            day_utc,
+            PUBLIC_PLAY_MAX_PER_DAY,
+            interval_start,
+        ),
+    )
+
+    purge_old_public_play_contributions(conn, now=now)
 
 
 def replace_history(
@@ -350,6 +440,7 @@ def add_history(
     profile_id: int | None = None,
     profile_name: str | None = None,
     user_id: int | None = None,
+    count_web_public_play: bool = False,
 ) -> None:
     if not station.get("url"):
         return
@@ -363,7 +454,20 @@ def add_history(
             profile_name=profile_name,
             user_id=user_id,
         )
-        add_history_record(conn, station, profile_id=active_profile_id)
+        add_history_record(
+            conn,
+            station,
+            profile_id=active_profile_id,
+            record_daily_play=not count_web_public_play,
+        )
+        if count_web_public_play:
+            if user_id is None:
+                raise ValueError("Web public play accounting requires a user.")
+            _record_web_public_play(
+                conn,
+                station=station,
+                user_id=user_id,
+            )
         conn.commit()
 
 

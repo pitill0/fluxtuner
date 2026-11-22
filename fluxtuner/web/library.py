@@ -143,7 +143,12 @@ def record_history_payload(
     user_id: int,
     profile_name: str | None,
 ) -> dict[str, Any]:
-    add_history(station_data, profile_name=profile_name, user_id=user_id)
+    add_history(
+        station_data,
+        profile_name=profile_name,
+        user_id=user_id,
+        count_web_public_play=True,
+    )
     return {"status": "ok", "station": station_data}
 
 

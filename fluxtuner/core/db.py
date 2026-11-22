@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -60,6 +60,16 @@ def init_db(db_path: Path | None = None) -> None:
         conn.commit()
 
 
+def _validate_supported_schema_version(stored_version: int) -> None:
+    """Reject databases created by a newer FluxTuner release."""
+    if stored_version > CURRENT_SCHEMA_VERSION:
+        raise RuntimeError(
+            "Database schema version "
+            f"{stored_version} is newer than supported version "
+            f"{CURRENT_SCHEMA_VERSION}."
+        )
+
+
 def migrate_schema(conn: sqlite3.Connection) -> None:
     """Upgrade a FluxTuner database to the current schema version."""
     if conn.in_transaction:
@@ -72,12 +82,7 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
         # connection was waiting for the lock.
         stored_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
 
-        if stored_version > CURRENT_SCHEMA_VERSION:
-            raise RuntimeError(
-                "Database schema version "
-                f"{stored_version} is newer than supported version "
-                f"{CURRENT_SCHEMA_VERSION}."
-            )
+        _validate_supported_schema_version(stored_version)
 
         while stored_version < CURRENT_SCHEMA_VERSION:
             if stored_version == 0:
@@ -203,6 +208,12 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 )
                 stored_version = 10
                 conn.execute("PRAGMA user_version = 10")
+                continue
+
+            if stored_version == 10:
+                _create_public_play_contributions_schema(conn)
+                stored_version = 11
+                conn.execute("PRAGMA user_version = 11")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")
@@ -481,6 +492,33 @@ def create_schema(conn: sqlite3.Connection) -> None:
     _create_playlist_share_schema(conn)
     _create_public_station_opt_ins_schema(conn)
     _create_discovery_rate_limit_schema(conn)
+
+
+def _create_public_play_contributions_schema(conn: sqlite3.Connection) -> None:
+    """Bounded per-account contributions, separate from personal history."""
+    _execute_schema_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS web_public_play_contributions (
+            user_id INTEGER NOT NULL,
+            station_id INTEGER NOT NULL,
+            day_utc TEXT NOT NULL,
+            play_count INTEGER NOT NULL DEFAULT 1,
+            last_counted_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, station_id, day_utc),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE,
+            CHECK (length(day_utc) = 10),
+            CHECK (play_count BETWEEN 1 AND 12)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_public_plays_station_day
+        ON web_public_play_contributions(station_id, day_utc);
+
+        CREATE INDEX IF NOT EXISTS idx_web_public_plays_day
+        ON web_public_play_contributions(day_utc);
+        """,
+    )
 
 
 def _create_discovery_rate_limit_schema(conn: sqlite3.Connection) -> None:

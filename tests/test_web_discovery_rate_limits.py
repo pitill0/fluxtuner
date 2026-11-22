@@ -90,7 +90,7 @@ def test_v8_upgrade_preserves_data_and_adds_limit_table(tmp_path):
         conn.commit()
     db.init_db(path)
     with db.connect(path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == db.CURRENT_SCHEMA_VERSION
         assert _default_user(conn) == user_id
         assert admit_redemption(conn, user_id=user_id)
         assert conn.execute("PRAGMA foreign_key_check").fetchall() == []

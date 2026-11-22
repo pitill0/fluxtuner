@@ -20,7 +20,7 @@ DB_FILE = data_file("fluxtuner.db")
 DEFAULT_USER_NAME = "default"
 DEFAULT_PROFILE_NAME = "default"
 SCHEMA_MIGRATION_NAME = "schema_v6"
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 10
 APPROVAL_APPROVED = "approved"
 APPROVAL_PENDING = "pending"
 APPROVAL_REJECTED = "rejected"
@@ -192,6 +192,17 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
                 _create_discovery_rate_limit_schema(conn)
                 stored_version = 9
                 conn.execute("PRAGMA user_version = 9")
+                continue
+
+            if stored_version == 9:
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_favorites_station_id
+                    ON favorites(station_id)
+                    """
+                )
+                stored_version = 10
+                conn.execute("PRAGMA user_version = 10")
                 continue
 
             raise RuntimeError(f"Unsupported database schema version: {stored_version}.")

@@ -235,6 +235,51 @@ def test_init_db_records_current_schema_version(tmp_path) -> None:
     assert version == db.CURRENT_SCHEMA_VERSION
 
 
+def test_favorites_station_id_index_exists_and_is_used(tmp_path) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        indexes = {row["name"] for row in conn.execute("PRAGMA index_list(favorites)")}
+        assert "idx_favorites_station_id" in indexes
+
+        plan = conn.execute(
+            """
+            EXPLAIN QUERY PLAN
+            SELECT s.id
+            FROM stations AS s
+            WHERE EXISTS (
+                SELECT 1
+                FROM favorites AS f
+                WHERE f.station_id = s.id
+            )
+            """
+        ).fetchall()
+
+    details = [str(row["detail"]) for row in plan]
+    assert any(
+        "SEARCH f USING" in detail and "idx_favorites_station_id" in detail for detail in details
+    ), details
+
+
+def test_schema_v9_to_v10_preserves_favorites(tmp_path) -> None:
+    db_file = tmp_path / "fluxtuner.sqlite3"
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        conn.execute("DROP INDEX idx_favorites_station_id")
+        conn.execute("PRAGMA user_version = 9")
+        conn.commit()
+
+    db.init_db(db_file)
+
+    with db.connect(db_file) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        indexes = {row["name"] for row in conn.execute("PRAGMA index_list(favorites)")}
+        assert "idx_favorites_station_id" in indexes
+        assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
 def test_current_schema_version_does_not_rerun_compatibility_migrations(
     tmp_path,
     monkeypatch,

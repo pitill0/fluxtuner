@@ -131,3 +131,74 @@ def test_custom_station_requires_live_owner_opt_in(tmp_path) -> None:
             published=False,
         )
         assert public_featured_station(conn, as_of=day) == empty
+
+
+def test_featured_endpoint_selects_candidate_once(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import public_featured as featured_core
+    from fluxtuner.web.routes import public as public_routes
+
+    path = tmp_path / "featured-once.db"
+    monkeypatch.setattr(db, "DB_FILE", path)
+    monkeypatch.setattr(public_routes, "get_artwork_signing_key", lambda: b"k" * 32)
+    db.init_db(path)
+
+    with db.connect(path) as conn:
+        _station(conn, "One candidate", "https://radio.example.test/once")
+        _publish(conn, "One candidate", "https://radio.example.test/once")
+        conn.commit()
+
+    calls = 0
+    original_candidate = featured_core.featured_station_candidate
+
+    def counted_candidate(conn, *, as_of):
+        nonlocal calls
+        calls += 1
+        return original_candidate(conn, as_of=as_of)
+
+    monkeypatch.setattr(public_routes, "featured_station_candidate", counted_candidate)
+
+    response = TestClient(create_app()).get("/api/public/featured")
+
+    assert response.status_code == 200
+    assert response.json()["station"] == {"name": "One candidate"}
+    assert response.json()["selection"].startswith("v1.")
+    assert calls == 1
+
+
+def test_featured_candidate_cache_invalidates_on_database_commit(tmp_path, monkeypatch) -> None:
+    from fluxtuner.core import public_featured as featured_core
+    from fluxtuner.web.routes import public as public_routes
+
+    path = tmp_path / "featured-cache.db"
+    monkeypatch.setattr(db, "DB_FILE", path)
+    monkeypatch.setattr(public_routes, "get_artwork_signing_key", lambda: b"k" * 32)
+    db.init_db(path)
+
+    with db.connect(path) as conn:
+        _station(conn, "Cached station", "https://radio.example.test/cached")
+        _publish(conn, "Cached station", "https://radio.example.test/cached")
+        conn.commit()
+
+    calls = 0
+    original = featured_core.featured_station_candidate
+
+    def counted(conn, *, as_of):
+        nonlocal calls
+        calls += 1
+        return original(conn, as_of=as_of)
+
+    monkeypatch.setattr(public_routes, "featured_station_candidate", counted)
+    client = TestClient(create_app())
+
+    first = client.get("/api/public/featured")
+    second = client.get("/api/public/featured")
+    assert first.status_code == second.status_code == 200
+    assert first.json()["station"] == second.json()["station"]
+    assert calls == 1
+
+    with db.connect(path) as conn:
+        _station(conn, "Another station", "https://radio.example.test/another")
+        conn.commit()
+
+    assert client.get("/api/public/featured").status_code == 200
+    assert calls == 2

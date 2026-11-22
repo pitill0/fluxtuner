@@ -102,7 +102,7 @@ def test_public_trending_api_excludes_today_and_leaks_no_counts_or_urls(
     client = TestClient(create_app())
     response = client.get("/api/public/trending")
     assert response.status_code == 200
-    assert response.headers["cache-control"] == "public, max-age=3600"
+    assert response.headers["cache-control"] == "public, max-age=0, must-revalidate"
     assert response.json() == {
         "stations": [{"name": "Alpha"}, {"name": "Beta"}, {"name": "Gamma"}],
         "period_end_utc": final_day.isoformat(),

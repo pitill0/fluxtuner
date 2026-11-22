@@ -62,3 +62,49 @@ def verify_selection(
     if not hmac.compare_digest(parts[2], expected):
         return None
     return row
+
+
+def revalidate_selection_station(
+    conn: sqlite3.Connection, selected: sqlite3.Row
+) -> sqlite3.Row | None:
+    """Recheck selected identity, URL safety and live opt-in under the writer lock.
+
+    The expensive daily-candidate scan and HMAC check happen beforehand.
+    This query is intentionally restricted to the previously signed station.
+    """
+    row = conn.execute(
+        """
+        SELECT s.id, s.station_key, s.name, s.url, s.url_resolved
+        FROM stations AS s
+        WHERE s.id = ?
+          AND s.station_key = ?
+          AND s.url = ?
+          AND s.url_resolved = ?
+          AND s.name IS NOT NULL
+          AND trim(s.name) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM public_station_opt_ins AS o
+              JOIN favorites AS f ON f.id = o.favorite_id
+              JOIN profiles AS p ON p.id = f.profile_id
+              JOIN users AS u ON u.id = p.user_id
+              WHERE f.station_id = s.id
+                AND u.is_active = 1
+                AND u.approval_status = 'approved'
+          )
+        """,
+        (
+            int(selected["id"]),
+            str(selected["station_key"]),
+            str(selected["url"]),
+            str(selected["url_resolved"]),
+        ),
+    ).fetchone()
+    if row is None:
+        return None
+
+    from fluxtuner.core.public_station_visibility import public_station_urls_safe
+
+    if not public_station_urls_safe(row["url"], row["url_resolved"]):
+        return None
+    return row

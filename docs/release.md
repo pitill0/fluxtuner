@@ -310,6 +310,31 @@ If the release includes Flatpak changes:
 
 Flatpak release automation should be handled separately from the Python package artifact workflow.
 
+## Web database compatibility gate
+
+Before publishing or deploying a Web release, check whether it
+introduces SQLite schema migrations. Record both the source and target
+schema versions, take a consistent pre-upgrade backup, and test the
+migration using an isolated copy of representative persistent data.
+
+A release rollback is not automatically a database rollback. In
+particular, FluxTuner Web 1.5.2 supports schema v5, while 1.6.0
+introduced schema v9. Starting 1.5.2 against a migrated v9 database
+fails safely; it does not downgrade that database.
+
+The post-1.6.0 remediation work introduces schema v10 and v11.
+Do not assume an older Web image can use these newer schemas.
+
+To restore an earlier incompatible release, stop writes and restore
+its matching pre-upgrade database snapshot, other persistent data,
+configuration and image together. Validate the restored environment
+before resuming public access. Changes made after the snapshot may
+be lost; retain a separate copy of failed-upgrade data for analysis.
+
+The deployment checklist and detailed recovery procedure are in
+`docs/secure-web-deployment.md`, under *Database migrations and
+rollback safety*.
+
 ## Rollback guidance
 
 If a release has a serious problem:

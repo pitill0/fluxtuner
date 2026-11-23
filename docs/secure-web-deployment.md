@@ -263,6 +263,52 @@ At minimum, preserve:
 For SQLite, prefer stopping the service or using a SQLite-aware backup method
 before copying the database.
 
+## Database migrations and rollback safety
+
+**Back up before every Web upgrade**, even when the container image can
+be rebuilt or downloaded later. Database migrations may advance the
+SQLite schema and are not guaranteed to be reversible.
+
+Before switching production to a new release:
+
+1. Identify the currently running image, application version, SQLite
+   `PRAGMA user_version`, data volume and Compose configuration.
+2. Create a consistent SQLite backup using the SQLite backup API, or
+   stop the application before copying the database. Do not copy a
+   live SQLite database file without accounting for its WAL state.
+3. Preserve the remaining persistent application data, relevant
+   configuration, image reference and exact rollback image. Protect
+   backups because they may contain private user information.
+4. Verify the saved database independently with `PRAGMA integrity_check`
+   and record its schema version.
+5. Test the candidate upgrade against an isolated copy before changing
+   production. Keep the pre-upgrade backup and rollback image until
+   acceptance is complete.
+
+**Do not roll back by changing only the container image.** An older
+FluxTuner version may reject an already-migrated database.
+
+If rollback becomes necessary:
+
+1. Stop the affected application and prevent additional writes.
+2. Preserve a separate copy of the failed upgrade's data for diagnosis
+   and possible recovery of changes made since deployment.
+3. Restore the consistent **pre-upgrade database and persistent data**
+   that belong to the target version. Do not overwrite the only backup
+   or mix files from incompatible snapshots.
+4. Restore the matching image and deployment configuration.
+5. Start the previous release against the restored data and verify
+   database integrity, expected schema, health, login, favorites,
+   playlists and playback before reopening public traffic.
+
+Restoring a pre-upgrade snapshot can discard changes made after that
+snapshot was captured. Account for this data-loss window explicitly;
+do not claim zero-data-loss rollback without an independently verified
+reconciliation procedure.
+
+For a forward-only database migration, prefer a new corrective patch
+release if restoring a previous snapshot is not operationally acceptable.
+
 ## Static asset deployment verification
 
 After upgrading FluxTuner Web, verify both the application listener

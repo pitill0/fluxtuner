@@ -76,3 +76,39 @@ def test_token_stream_is_disabled_in_favorites_payload(web_library) -> None:
     station = client.get("/api/favorites").json()["stations"][0]
     assert station["publication_eligible"] is False
     assert station["published"] is False
+
+
+def test_publication_requires_informed_confirmation() -> None:
+    from fastapi.testclient import TestClient
+
+    from fluxtuner.web.app import create_app
+
+    client = TestClient(create_app())
+    response = client.get("/static/js/station-publication.js")
+
+    assert response.status_code == 200
+    source = response.text
+
+    assert "if (published)" in source
+    assert "window.confirm(" in source
+    assert "if (!confirmed) return;" in source
+    assert "Other users may discover it" in source
+    assert "copies already saved" in source
+
+    assert source.index("window.confirm(") < source.index("button.disabled = true;")
+    assert source.index("if (!confirmed) return;") < source.index(
+        "apiFetch(`/api/stations/${id}/publication`"
+    )
+
+
+def test_publication_privacy_is_documented() -> None:
+    from pathlib import Path
+
+    guide = Path("docs/web.md").read_text(encoding="utf-8")
+
+    assert "## Station publication and privacy" in guide
+    assert "private by default" in guide
+    assert "Make public" in guide
+    assert "Make private" in guide
+    assert "previously saved by third parties" in guide
+    assert "Neither operation automatically" in guide

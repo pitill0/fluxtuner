@@ -14,6 +14,19 @@ export function createStationPublicationController({
 
     const published = !Boolean(station.published);
     if (published && !station.publication_eligible) return;
+
+    if (published) {
+      const confirmed = window.confirm(
+        "Make this station public?\\n\\n" +
+        "Other users may discover it through public station lists and " +
+        "activity rankings. Its name, associated public metadata and " +
+        "shareable stream URL may become accessible to others.\\n\\n" +
+        "You can make it private again, but copies already saved by " +
+        "other people cannot be recalled."
+      );
+      if (!confirmed) return;
+    }
+
     button.disabled = true;
     try {
       const response = await apiFetch(`/api/stations/${id}/publication`, {

@@ -4,12 +4,16 @@ import { stationUrl } from "./stations.js";
 
 const PAGE_SIZE = 20;
 
-export function createRecommendationsController({ apiFetch, dialog, openButton, getCurrentUser, getSessionKey, beforeOpen }) {
+export function createRecommendationsController({
+  apiFetch, dialog, openButton, getCurrentUser, getSessionKey,
+  beforeOpen, onOpenAccepted,
+}) {
   let identity = "";
   let revision = 0;
   let selection = null;
   let direction = "inbox";
   let offset = 0;
+  let acceptedDestination = null;
 
   const byRole = (role) => dialog?.querySelector(`[data-recommendations-${role}]`);
 
@@ -25,6 +29,37 @@ export function createRecommendationsController({ apiFetch, dialog, openButton, 
   function message(value) {
     const node = byRole("message");
     if (node) node.textContent = value;
+    acceptedDestination = null;
+    const destination = byRole("destination");
+    if (destination) destination.hidden = true;
+  }
+
+  function acceptedMessage(kind, outcome) {
+    if (kind === "station") {
+      const existing = outcome.existing_favorites > 0;
+      message(existing
+        ? "Station already in Favorites. Find and play it in My Library → Favorites."
+        : "Station added to Favorites. Find and play it in My Library → Favorites.");
+      acceptedDestination = { kind: "station" };
+    } else if (kind === "playlist" &&
+               typeof outcome.playlist_name === "string" &&
+               outcome.playlist_name.trim()) {
+      message("Playlist added to your library. Find it in My Library → Playlists.");
+      acceptedDestination = {
+        kind: "playlist",
+        playlistName: outcome.playlist_name,
+      };
+    } else {
+      message("Recommendation accepted.");
+      return;
+    }
+
+    const destination = byRole("destination");
+    const viewButton = byRole("view");
+    if (!destination || !viewButton) return;
+    viewButton.textContent = acceptedDestination.kind === "station"
+      ? "View Favorites" : "View Playlist";
+    destination.hidden = false;
   }
 
   function closeIfOpen() {
@@ -174,6 +209,7 @@ export function createRecommendationsController({ apiFetch, dialog, openButton, 
   async function resolve(button) {
     const action = button.dataset.recommendationAction;
     const identifier = button.dataset.recommendationId;
+    const kind = button.dataset.recommendationKind;
     if (!["accept", "reject"].includes(action) || !/^[1-9][0-9]*$/.test(identifier || "")) return;
     syncSession();
     const captured = identity;
@@ -188,8 +224,22 @@ export function createRecommendationsController({ apiFetch, dialog, openButton, 
       });
       if (!current(ticket, captured)) return;
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      await load();
-      if (captured === identity) message(`Recommendation ${action === "accept" ? "accepted" : "rejected"}.`);
+      const outcome = action === "accept" ? await response.json() : null;
+      if (!current(ticket, captured)) return;
+      if (action === "accept" && outcome?.status !== "accepted") {
+        throw new Error("Unexpected acceptance result.");
+      }
+
+      const refreshing = load();
+      const refreshTicket = revision;
+      await refreshing;
+      if (!current(refreshTicket, captured) || !dialog?.open) return;
+
+      if (action === "accept") {
+        acceptedMessage(kind, outcome);
+      } else {
+        message("Recommendation rejected.");
+      }
     } catch (_error) {
       if (current(ticket, captured)) {
         button.disabled = false;
@@ -202,6 +252,13 @@ export function createRecommendationsController({ apiFetch, dialog, openButton, 
     if (!dialog) return;
     dialog.addEventListener("close", () => { selection = null; revision += 1; });
     byRole("close")?.addEventListener("click", closeIfOpen);
+    byRole("view")?.addEventListener("click", () => {
+      if (!acceptedDestination || !sessionIdentity() ||
+          identity !== sessionIdentity()) return;
+      const destination = acceptedDestination;
+      closeIfOpen();
+      onOpenAccepted?.(destination);
+    });
     openButton?.addEventListener("click", show);
     byRole("form")?.addEventListener("submit", send);
     byRole("cancel")?.addEventListener("click", () => {

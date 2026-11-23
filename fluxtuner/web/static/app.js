@@ -319,6 +319,16 @@ const recommendationController = createRecommendationsController({
     closeMobileMenu();
     closeOpenDialog();
   },
+  onOpenAccepted: ({ kind, playlistName }) => {
+    if (kind === "station") {
+      return navigateToPrivateView(loadFavorites);
+    }
+    if (kind === "playlist") {
+      return navigateToPrivateView(
+        () => loadPlaylistStations(playlistName),
+      );
+    }
+  },
 });
 recommendationController.bind();
 

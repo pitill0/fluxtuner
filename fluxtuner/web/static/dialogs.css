@@ -425,6 +425,10 @@ dialog.recommendation-dialog {
 .recommendation-dialog [data-recommendations-close] {
   flex-shrink: 0;
 }
+.recommendation-dialog [data-recommendations-destination][hidden] {
+  display: none;
+}
+
 .recommendation-dialog [data-recommendations-items] {
   max-height: min(42vh, 25rem);
   overflow-y: auto;

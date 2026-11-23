@@ -347,3 +347,24 @@ periodic maintenance. Accepted and rejected shares also have their snapshots
 cleared on resolution. The remaining history metadata is retained for 30 days
 after resolution (or the actual expiry date), then removed by maintenance in
 bounded batches. The cleanup does not delete pending shares before expiry.
+
+
+## Station publication and privacy
+
+Favorites are private by default. The **Make public** action is an explicit
+opt-in for an eligible station owned by your account. Before publication,
+FluxTuner asks for confirmation.
+
+Publishing allows the station to participate in public discovery and
+activity-based rankings, subject to the platform's eligibility and privacy
+thresholds. Its name, public metadata and shareable stream URL may become
+accessible to others. Do not publish a station if its URL contains private
+credentials, access tokens or information you are not authorized to share.
+
+**Make private** revokes the station's current publication consent. This
+removes its eligibility for subsequent public discovery and rankings; it
+does not erase copies or references previously saved by third parties.
+
+Publication is distinct from recommending a station to another account
+or exporting a playlist. Neither operation automatically makes a favorite
+public.

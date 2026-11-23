@@ -20,6 +20,33 @@ from fluxtuner.web.security import (
     set_session_cookie,
 )
 
+# Scripts are same-origin modules. Audio and artwork may originate from
+# independent Internet radio hosts; blob: supports client-side media URLs.
+# Existing JavaScript also updates inline CSS properties dynamically.
+CONTENT_SECURITY_POLICY = " ".join(
+    (
+        "default-src 'self';",
+        "script-src 'self';",
+        "style-src 'self' 'unsafe-inline';",
+        "img-src 'self' data: blob: http: https:;",
+        "media-src 'self' blob: http: https:;",
+        "connect-src 'self';",
+        "font-src 'self' data:;",
+        "manifest-src 'self';",
+        "object-src 'none';",
+        "base-uri 'self';",
+        "form-action 'self';",
+        "frame-ancestors 'none';",
+    )
+)
+
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
+
 SESSION_COOKIE_MUTATION_PATHS = frozenset(
     {
         "/api/auth/login",
@@ -94,6 +121,8 @@ async def add_static_cache_headers(request: Request, call_next: Any) -> Response
         and path.endswith((".js", ".css", ".webmanifest"))
     ):
         response.headers["Cache-Control"] = "no-cache"
+    for name, value in SECURITY_HEADERS.items():
+        response.headers[name] = value
     return response
 
 

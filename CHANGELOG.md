@@ -8,6 +8,14 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 ## [1.6.0] - 2026-11-21
 
+### Upgrade and rollback notice
+
+- FluxTuner Web 1.6.0 migrates SQLite from schema v5 (used by
+  Web 1.5.2) to schema v9. Returning to 1.5.x requires restoring
+  the corresponding pre-upgrade database backup; switching only the
+  application image is insufficient. Back up persistent data before
+  upgrading and consult `docs/secure-web-deployment.md`.
+
 ### Added
 
 - Extended Web station and playlist portability with authenticated M3U/PLS

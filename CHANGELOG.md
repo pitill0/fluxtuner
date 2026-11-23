@@ -6,6 +6,52 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
  ---
 
+## [Unreleased]
+
+### Added
+
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+## [1.6.1] - 2026-11-23
+
+### Upgrade and rollback notice
+
+- FluxTuner Web 1.6.1 advances SQLite from schema v9 to v11.
+  The migrations add a favorites lookup index and persistent public-play
+  contribution tracking. Back up all persistent application data and create
+  a verified, consistent SQLite backup before upgrading.
+- Returning to Web 1.6.0 requires restoring its matching pre-upgrade
+  database and persistent data alongside the previous application image.
+  Switching only the image is not a safe rollback procedure.
+  See `docs/secure-web-deployment.md`.
+
+### Changed
+
+- Indexed favorites by station to improve public-query performance (#394).
+- Cached public aggregates and shortened discovery write locks to reduce
+  database contention and repeated query work (#397).
+
+### Fixed
+
+- Added contextual acceptance feedback and direct navigation to Favorites
+  or the imported playlist for shared recommendations (#399).
+
+### Security
+
+- Prevented shared-catalog tampering and forged station-publication
+  operations (#395).
+- Bounded public-play contributions to protect rankings against inflated
+  activity and introduced persistent contribution accounting (#396).
+- Hardened browser security policy and publication consent validation (#398).
+
 ## [1.6.0] - 2026-11-21
 
 ### Upgrade and rollback notice

@@ -84,6 +84,8 @@ must accept or reject the recommendation; acceptance imports into an owned
 profile. Each recommendation is a bounded snapshot, with private ownership,
 CSRF protection for mutations and limits on pending and daily sends.
 
+After accepting a station recommendation, FluxTuner Web confirms whether the station was added to Favorites or was already saved, and offers **View Favorites** to open the library destination. After accepting a playlist recommendation, **View Playlist** opens the imported playlist directly. The destination uses the playlist name confirmed by the server.
+
 
 For network-accessible deployments, see [`docs/secure-web-deployment.md`](secure-web-deployment.md).
 

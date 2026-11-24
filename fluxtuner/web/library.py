@@ -153,7 +153,9 @@ def record_history_payload(
 
 
 def favorites_payload(*, user_id: int, profile_name: str | None) -> dict[str, Any]:
-    stations = load_favorites(profile_name=profile_name, user_id=user_id)
+    # Web favorites show the most recently added station first.
+    # Preserve the shared storage order for desktop clients and exports.
+    stations = list(reversed(load_favorites(profile_name=profile_name, user_id=user_id)))
     return {
         "count": len(stations),
         "stations": [

@@ -222,6 +222,36 @@ def test_create_favorite_payload_adds_station(tmp_path, monkeypatch) -> None:
     assert favorites_payload["stations"][0]["name"] == "Alice Radio"
 
 
+def test_web_favorites_show_newest_first_without_changing_storage_order(
+    tmp_path, monkeypatch
+) -> None:
+    configure_files(tmp_path, monkeypatch)
+
+    for name in ("Old Radio", "Middle Radio", "New Radio"):
+        result = library.create_favorite_payload(
+            {
+                "name": name,
+                "url": f"https://example.com/{name.lower().replace(' ', '-')}",
+            },
+            user_id=1,
+            profile_name="default",
+        )
+        assert result["added"] is True
+
+    # The shared storage order must remain unchanged.
+    stored = favorites.load_favorites(user_id=1, profile_name="default")
+    assert [item["name"] for item in stored] == ["Old Radio", "Middle Radio", "New Radio"]
+
+    # Only the Web presentation reverses that order.
+    payload = library.favorites_payload(user_id=1, profile_name="default")
+    assert payload["count"] == 3
+    assert [item["name"] for item in payload["stations"]] == [
+        "New Radio",
+        "Middle Radio",
+        "Old Radio",
+    ]
+
+
 def test_playlists_payload_includes_station_count(tmp_path, monkeypatch) -> None:
     configure_files(tmp_path, monkeypatch)
 

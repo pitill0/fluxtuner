@@ -20,6 +20,15 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.6.2] - 2026-11-24
+
+### Fixed
+
+- Show the most recently added favorites first in FluxTuner Web, making
+  newly accepted station recommendations easier to find (#401).
+  The ordering of shared storage, GTK/TUI favorites, playlists and
+  portable exports remains unchanged.
+
 ## [1.6.1] - 2026-11-23
 
 ### Upgrade and rollback notice

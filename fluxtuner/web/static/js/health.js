@@ -2,37 +2,46 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-export function createHealthController({ fetch, statusNode, healthStateNode, healthSummaryNode }) {
-  function formatHealthSummary(payload) {
-    const status = payload.status || payload.state || "ok";
+export function createHealthController({ presentation, fetch, statusNode, healthStateNode, healthSummaryNode }) {
+  function healthDetails(payload) {
     const version = payload.version ? ` · ${payload.version}` : "";
     const database = payload.database || payload.db || payload.storage || "";
     const databaseText = database ? ` · ${database}` : "";
 
     const details = `${version}${databaseText}`.trim();
 
-    return {
-      state: String(status).toUpperCase(),
-      summary: details ? `${details} · checked now` : "checked now",
-    };
+    return details ? `${details} · ` : "";
+  }
+
+  function formatHealthSummary(payload) {
+    const status = payload.status || payload.state || "ok";
+    return { state: String(status).toUpperCase(), summary: `${healthDetails(payload)}checked now` };
+  }
+
+  function show(node, value, key, params = {}) {
+    if (!node) return;
+    presentation?.clear(node);
+    if (presentation && key) presentation.present(node, key, value, "textContent", params);
+    else node.textContent = value;
   }
 
   function setHealthSummary(state, summary) {
     if (healthStateNode) {
-      healthStateNode.textContent = state;
+      show(healthStateNode, state);
     }
 
     if (healthSummaryNode) {
-      healthSummaryNode.textContent = summary;
+      show(healthSummaryNode, summary);
     }
   }
 
   async function checkHealth() {
     if (statusNode) {
-      statusNode.textContent = "Checking server...";
+      show(statusNode, "Checking server...", "health.check_server");
     }
 
-    setHealthSummary("Checking", "Refreshing server status...");
+    show(healthStateNode, "Checking", "health.checking");
+    show(healthSummaryNode, "Refreshing server status...", "health.refresh");
 
     try {
       const response = await fetch("/api/health", {
@@ -49,15 +58,19 @@ export function createHealthController({ fetch, statusNode, healthStateNode, hea
       const summary = formatHealthSummary(payload);
 
       setHealthSummary(summary.state, summary.summary);
+      show(healthSummaryNode, summary.summary, "health.checked", {
+        details: healthDetails(payload),
+      });
 
       if (statusNode) {
-        statusNode.textContent = JSON.stringify(payload, null, 2);
+        show(statusNode, JSON.stringify(payload, null, 2));
       }
     } catch (error) {
-      setHealthSummary("Error", `Server check failed: ${error}`);
+      show(healthStateNode, "Error", "health.error");
+      show(healthSummaryNode, `Server check failed: ${error}`, "health.failed", { error: String(error) });
 
       if (statusNode) {
-        statusNode.textContent = `Server check failed: ${error}`;
+        show(statusNode, `Server check failed: ${error}`, "health.failed", { error: String(error) });
       }
     }
   }

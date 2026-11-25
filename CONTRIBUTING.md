@@ -76,6 +76,10 @@ python -m fluxtuner --cli
 
 ---
 
+## Web translations
+
+See [Translating FluxTuner Web](TRANSLATING.md) for catalog conventions, translation contributions and locale validation.
+
 ## Development workflow
 
 Use a feature branch for any functional, UX, packaging or documentation change:

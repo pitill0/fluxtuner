@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fluxtuner"
-version = "1.6.2"
+version = "1.7.0"
 description = "Modern internet radio platform for terminal, desktop and web, powered by Textual, GTK and browser playback."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -110,6 +110,7 @@ fluxtuner = [
     "web/static/*.css",
     "web/static/*.js",
     "web/static/js/*.js",
+    "web/static/locales/*.json",
     "web/static/*.svg",
     "web/static/*.png",
     "web/static/*.webp",

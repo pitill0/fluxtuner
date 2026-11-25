@@ -74,7 +74,17 @@ export function createSearchController({
   getCurrentUser,
   isSearchVisible,
   subscribeViewChange,
+  presentation,
 }) {
+  function presentCount(key, fallback, params = {}) {
+    if (presentation) presentation.present(resultCountNode, key, fallback, "textContent", params);
+    else if (resultCountNode) resultCountNode.textContent = fallback;
+  }
+
+  function presentNotice(selector, key, fallback) {
+    if (presentation) presentation.present(resultsNode?.querySelector?.(selector), key, fallback);
+  }
+
   let activeSearchController = null;
   let searchRequestId = 0;
 
@@ -102,6 +112,8 @@ export function createSearchController({
     all: "All sources",
   };
 
+  const sourceKeys = { "radio-browser": "shell.radio", local: "search.local", all: "search.all" };
+
   function selectedSource() {
     const value = sourceSelector?.value || "radio-browser";
     return Object.hasOwn(sourceLabels, value) ? value : "radio-browser";
@@ -113,11 +125,12 @@ export function createSearchController({
     ++searchRequestId;
 
     setSearchView();
-    setResultsHeader(sourceLabels[selectedSource()], "Search stations");
-    if (resultCountNode) resultCountNode.textContent = "No search yet.";
+    setResultsHeader(sourceLabels[selectedSource()], "Search stations", sourceKeys[selectedSource()], "search.title");
+    presentCount("search.empty", "No search yet.");
     if (resultsNode) {
       resultsNode.innerHTML =
-        '<p class="empty">Search with the selected source to see results.</p>';
+        '<p class="empty" data-search-notice>Search with the selected source to see results.</p>';
+      presentNotice("[data-search-notice]", "search.selected_help", "Search with the selected source to see results.");
     }
   });
 
@@ -129,18 +142,18 @@ export function createSearchController({
     const debugPanel = renderSearchDebug(payload.debug);
 
     if (status === "unavailable") {
-      resultCountNode.textContent = "Search unavailable.";
-      resultsNode.innerHTML = `${debugPanel}<p class="error">The selected search sources are temporarily unavailable. Please try again.</p>`;
+      presentCount("search.unavailable", "Search unavailable.");
+      resultsNode.innerHTML = `${debugPanel}<p class="error" data-search-notice>The selected search sources are temporarily unavailable. Please try again.</p>`;
+      presentNotice("[data-search-notice]", "search.unavailable_help", "The selected search sources are temporarily unavailable. Please try again.");
       return;
     }
 
-    resultCountNode.textContent = `${payload.count ?? stations.length} result${
-      stations.length === 1 ? "" : "s"
-    }`;
+    const count = payload.count ?? stations.length;
+    presentCount("search.result_count", `${count} result${count === 1 ? "" : "s"}`, { count: Number(count) });
 
     const partialNotice =
       status === "partial"
-        ? '<p class="empty">Some search sources were unavailable. Showing available results.</p>'
+        ? '<p class="empty" data-search-partial>Some search sources were unavailable. Showing available results.</p>'
         : "";
 
     if (!stations.length) {
@@ -148,20 +161,23 @@ export function createSearchController({
         status === "partial"
           ? "No stations found in the available search sources."
           : "No stations found.";
-      resultsNode.innerHTML = `${debugPanel}${partialNotice}<p class="empty">${emptyMessage}</p>`;
+      resultsNode.innerHTML = `${debugPanel}${partialNotice}<p class="empty" data-search-notice>${emptyMessage}</p>`;
+      presentNotice("[data-search-notice]", status === "partial" ? "search.empty_partial" : "search.no_stations", emptyMessage);
+      if (status === "partial") presentNotice("[data-search-partial]", "search.partial", "Some search sources were unavailable. Showing available results.");
       return;
     }
 
     resultsNode.innerHTML = `${debugPanel}${partialNotice}${stations
       .map(renderStation)
       .join("")}`;
+    if (status === "partial") presentNotice("[data-search-partial]", "search.partial", "Some search sources were unavailable. Showing available results.");
     bindResultActions();
   }
 
   function renderSearchError(error) {
     if (!resultsNode || !resultCountNode) return;
 
-    resultCountNode.textContent = "Search failed.";
+    presentCount("search.failed", "Search failed.");
     const message = error?.message || String(error);
     resultsNode.innerHTML = `<p class="error">${escapeHtml(message)}</p>`;
   }
@@ -199,9 +215,11 @@ export function createSearchController({
 
     const sourceLabel = sourceLabels[selectedSource()];
     setSearchView();
-    setResultsHeader(sourceLabel, "Search stations");
-    resultCountNode.textContent = "Searching...";
-    resultsNode.innerHTML = `<p class="empty">Searching ${sourceLabel}...</p>`;
+    setResultsHeader(sourceLabel, "Search stations", sourceKeys[selectedSource()], "search.title");
+    presentCount("search.running", "Searching...");
+    resultsNode.innerHTML = `<p class="empty" data-search-notice>Searching ${sourceLabel}...</p>`;
+    const sourceKey = { "radio-browser": "search.running_radio", local: "search.running_local", all: "search.running_all" };
+    presentNotice("[data-search-notice]", sourceKey[selectedSource()], `Searching ${sourceLabel}...`);
 
     try {
       const response = await fetch(`/api/search?${params.toString()}`, {

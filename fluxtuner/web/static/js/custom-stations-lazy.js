@@ -17,7 +17,9 @@ export function createLazyCustomStationController(options) {
       `${options.getCurrentUser()?.id ?? ""}:${options.getSessionKey() ?? ""}`,
     onError: () => {
       if (options.messageNode) {
-        options.messageNode.textContent = "Could not load custom station controls.";
+        if (options.presentation) options.presentation.present(options.messageNode,
+          "custom.load_error", "Could not load custom station controls.");
+        else options.messageNode.textContent = "Could not load custom station controls.";
       }
     },
   });

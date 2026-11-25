@@ -91,7 +91,10 @@ def test_metadata_ui_uses_safe_text_rendering_and_bounded_polling() -> None:
     assert "onMetadataChange(metadata, fallbackTitle, streamUrl);" in module
     assert "onMetadataChange(null, fallbackTitle, streamUrl);" in module
     assert (
-        'titleNode.textContent = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";'
+        'const label = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";' in module
+    )
+    assert (
+        'presentation.present(titleNode, fallbackTitle ? "player.waiting" : "player.empty", label)'
         in module
     )
     assert "stationNode.textContent = fallbackTitle;" in module

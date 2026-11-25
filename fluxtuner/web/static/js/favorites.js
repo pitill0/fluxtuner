@@ -43,7 +43,7 @@ export function createFavoriteController({
   async function addFavorite(station) {
     const url = stationUrl(station);
     if (!url) {
-      setPlayerState("error", "This station has no URL to save as favorite.");
+      setPlayerState("error", "This station has no URL to save as favorite.", undefined, "favorite.no_save_url");
       return;
     }
 
@@ -65,16 +65,17 @@ export function createFavoriteController({
       setPlayerState(
         "idle",
         payload.added ? "Saved to favorites." : "Station is already in favorites.",
+        undefined, payload.added ? "favorite.saved" : "favorite.exists",
       );
     } catch (error) {
-      setPlayerState("error", `Could not save favorite. ${error}`);
+      setPlayerState("error", `Could not save favorite. ${error}`, undefined, "favorite.save_failed", { error: String(error) });
     }
   }
 
   async function removeFavorite(station) {
     const url = stationUrl(station);
     if (!url) {
-      setPlayerState("error", "This station has no URL to remove.");
+      setPlayerState("error", "This station has no URL to remove.", undefined, "favorite.no_remove_url");
       return;
     }
 
@@ -94,13 +95,14 @@ export function createFavoriteController({
       setPlayerState(
         "idle",
         payload.removed ? "Removed from favorites." : "Station was not in favorites.",
+        undefined, payload.removed ? "favorite.removed" : "favorite.absent",
       );
 
       if (getCurrentView() === "favorites") {
         await loadFavorites();
       }
     } catch (error) {
-      setPlayerState("error", `Could not remove favorite. ${error}`);
+      setPlayerState("error", `Could not remove favorite. ${error}`, undefined, "favorite.remove_failed", { error: String(error) });
     }
   }
 

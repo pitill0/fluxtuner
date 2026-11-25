@@ -18,7 +18,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0d1117">
-    <meta name="description" content="Private self-hosted internet radio platform.">
+    <meta name="description" content="Private self-hosted internet radio platform." data-i18n-content="brand.description">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="/static/shell.css">
     <link rel="stylesheet" href="/static/buttons.css">
@@ -34,23 +34,34 @@
     <link rel="stylesheet" href="/static/stations.css">
     <link rel="stylesheet" href="/static/station-actions.css">
     <link rel="stylesheet" href="/static/player.css">
+    <script type="module" src="/static/js/i18n-early.js"></script>
     <script type="module" src="/static/app.js"></script>
   </head>
   <body>
     <main class="shell">
       <header class="app-header" data-app-header data-mobile-menu-open="false">
-        <a class="app-brand" href="/" aria-label="FluxTuner Web home">
+        <a class="app-brand" href="/" aria-label="FluxTuner Web home" data-i18n-aria-label="brand.home">
           <img class="app-brand-icon" src="/static/brand-icon.webp" width="38" height="38" alt="" aria-hidden="true">
           <span>
             <strong>FluxTuner Web</strong>
-            <small>Private internet radio platform</small>
+            <small data-i18n="brand.subtitle">Private internet radio platform</small>
           </span>
         </a>
 
         <div class="app-header-actions">
           <div class="app-user" data-auth-user hidden>
             <span data-auth-username></span>
-            <button type="button" data-logout>Logout</button>
+            <button type="button" data-logout data-i18n="auth.logout">Logout</button>
+          </div>
+
+          <div data-language-control>
+            <label for="language-select" data-i18n="settings.language">Language</label>
+            <select id="language-select" data-language-select>
+              <option value="en" lang="en">English</option>
+              <option value="es" lang="es">Español</option>
+              <option value="ca" lang="ca">Valencià</option>
+              <option value="fr" lang="fr">Français</option>
+            </select>
           </div>
 
           <button
@@ -59,8 +70,8 @@
             data-theme-toggle
             aria-label="Switch theme"
             title="Switch theme"
-          >
-            <span data-theme-label>Theme</span>
+           data-i18n-aria-label="theme.switch" data-i18n-title="theme.switch">
+            <span data-theme-label data-i18n="theme.label">Theme</span>
           </button>
 
 
@@ -72,7 +83,7 @@
             aria-controls="app-menu"
             aria-expanded="false"
           >
-            <span class="sr-only">Toggle navigation</span>
+            <span class="sr-only" data-i18n="nav.toggle">Toggle navigation</span>
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
@@ -89,39 +100,40 @@
               data-mobile-drawer-back
               aria-label="Back to navigation"
               hidden
-            >‹ Back</button>
-            <strong data-mobile-drawer-title>Navigation</strong>
+             data-i18n="nav.back" data-i18n-aria-label="nav.back_accessible">‹ Back</button>
+            <strong data-mobile-drawer-title data-i18n="nav.title">Navigation</strong>
           </div>
-          <nav class="app-nav" aria-label="Primary navigation">
-<div class="app-nav-group" role="group" aria-label="Discover" data-nav-group="discover">
-  <p class="app-nav-group-title" aria-hidden="true">Discover</p>
-    <button type="button" data-nav-dashboard data-private-action disabled>Dashboard</button>
-    <button type="button" data-nav-search data-private-action disabled>Search</button>
+          <div data-language-mobile-slot></div>
+          <nav class="app-nav" aria-label="Primary navigation" data-i18n-aria-label="nav.primary">
+<div class="app-nav-group" role="group" aria-label="Discover" data-nav-group="discover" data-i18n-aria-label="nav.discover">
+  <p class="app-nav-group-title" aria-hidden="true" data-i18n="nav.discover">Discover</p>
+    <button type="button" data-nav-dashboard data-private-action disabled data-i18n="nav.dashboard">Dashboard</button>
+    <button type="button" data-nav-search data-private-action disabled data-i18n="nav.search">Search</button>
 </div>
-<div class="app-nav-group" role="group" aria-label="My library" data-nav-group="library">
-  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="library" aria-controls="app-nav-group-library" aria-expanded="false"><span>My library</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+<div class="app-nav-group" role="group" aria-label="My library" data-nav-group="library" data-i18n-aria-label="nav.library">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="library" aria-controls="app-nav-group-library" aria-expanded="false"><span data-i18n="nav.library">My library</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
   <div class="app-nav-group-content" id="app-nav-group-library" data-nav-group-content="library" hidden>
-<button type="button" data-nav-favorites data-private-action disabled>Favorites</button>
-<button type="button" data-nav-playlists data-private-action disabled>Playlists</button>
-<button type="button" data-recommendations-open data-private-action disabled>Recommendations</button>
-<button type="button" data-nav-stations data-private-action disabled>My stations</button>
-<button type="button" data-nav-catalogs data-private-action disabled>Remote catalogs</button>
-<button type="button" data-nav-history data-private-action disabled>History</button>
+<button type="button" data-nav-favorites data-private-action disabled data-i18n="nav.favorites">Favorites</button>
+<button type="button" data-nav-playlists data-private-action disabled data-i18n="nav.playlists">Playlists</button>
+<button type="button" data-recommendations-open data-private-action disabled data-i18n="nav.recommendations">Recommendations</button>
+<button type="button" data-nav-stations data-private-action disabled data-i18n="nav.stations">My stations</button>
+<button type="button" data-nav-catalogs data-private-action disabled data-i18n="nav.catalogs">Remote catalogs</button>
+<button type="button" data-nav-history data-private-action disabled data-i18n="nav.history">History</button>
 </div>
 </div>
-<div class="app-nav-group" role="group" aria-label="Library actions" data-nav-group="actions">
-  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="actions" aria-controls="app-nav-group-actions" aria-expanded="false"><span>Library actions</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+<div class="app-nav-group" role="group" aria-label="Library actions" data-nav-group="actions" data-i18n-aria-label="nav.actions">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="actions" aria-controls="app-nav-group-actions" aria-expanded="false"><span data-i18n="nav.actions">Library actions</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
   <div class="app-nav-group-content" id="app-nav-group-actions" data-nav-group-content="actions" hidden>
-<button type="button" data-nav-custom-station data-private-action disabled>Add station…</button>
-<button type="button" data-nav-station-import data-private-action disabled>Import stations…</button>
-<button type="button" data-nav-manage-subscriptions data-private-action disabled>Manage subscriptions…</button>
+<button type="button" data-nav-custom-station data-private-action disabled data-i18n="stations.add_dialog">Add station…</button>
+<button type="button" data-nav-station-import data-private-action disabled data-i18n="stations.import_dialog">Import stations…</button>
+<button type="button" data-nav-manage-subscriptions data-private-action disabled data-i18n="subscriptions.manage">Manage subscriptions…</button>
 </div>
 </div>
-<div class="app-nav-group" role="group" aria-label="Account & system" data-nav-group="system">
-  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="system" aria-controls="app-nav-group-system" aria-expanded="false"><span>Account & system</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
+<div class="app-nav-group" role="group" aria-label="Account & system" data-nav-group="system" data-i18n-aria-label="nav.system">
+  <button class="app-nav-group-toggle" type="button" data-nav-group-toggle="system" aria-controls="app-nav-group-system" aria-expanded="false"><span data-i18n="nav.system">Account & system</span><span class="app-nav-group-chevron" aria-hidden="true">›</span></button>
   <div class="app-nav-group-content" id="app-nav-group-system" data-nav-group-content="system" hidden>
-<button type="button" data-nav-account data-private-action disabled>Account</button>
-<button type="button" data-nav-admin hidden>Admin</button>
+<button type="button" data-nav-account data-private-action disabled data-i18n="nav.account">Account</button>
+<button type="button" data-nav-admin hidden data-i18n="nav.admin">Admin</button>
 </div>
 </div>
 </nav>
@@ -134,21 +146,21 @@
             aria-controls="app-menu"
             aria-expanded="true"
             title="Collapse sidebar"
-          ><span data-sidebar-toggle-icon aria-hidden="true">‹</span><span data-sidebar-toggle-label>Menu</span></button>
+           data-i18n-aria-label="nav.collapse" data-i18n-title="nav.collapse"><span data-sidebar-toggle-icon aria-hidden="true">‹</span><span data-sidebar-toggle-label data-i18n="nav.menu">Menu</span></button>
       </div>
 
 
       <section class="panel setup-panel" data-setup-panel hidden aria-labelledby="setup-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">First-run setup</p>
-            <h2 id="setup-title">Create the first administrator</h2>
+            <p class="eyebrow" data-i18n="setup.eyebrow">First-run setup</p>
+            <h2 id="setup-title" data-i18n="setup.title">Create the first administrator</h2>
           </div>
         </div>
 
         <form class="setup-form" method="post" action="/api/setup/create-admin" data-setup-form>
           <label>
-            <span>Admin username</span>
+            <span data-i18n="setup.username">Admin username</span>
             <input
               name="username"
               type="text"
@@ -159,18 +171,18 @@
           </label>
 
           <label>
-            <span>Password</span>
+            <span data-i18n="auth.password">Password</span>
             <input
               name="password"
               type="password"
               autocomplete="new-password"
               required
              minlength="15">
-              <small class="field-help">Password must be at least 15 characters.</small>
+              <small class="field-help" data-i18n="auth.password_help">Password must be at least 15 characters.</small>
           </label>
 
           <label>
-            <span>Confirm password</span>
+            <span data-i18n="auth.confirm_password">Confirm password</span>
             <input
               name="confirm_password"
               type="password"
@@ -180,7 +192,7 @@
           </label>
 
           <label data-setup-token-field hidden>
-            <span>Setup verification token</span>
+            <span data-i18n="setup.token">Setup verification token</span>
             <input
               name="setup_token"
               type="password"
@@ -188,44 +200,44 @@
             >
           </label>
 
-          <button type="submit" data-setup-submit>Create administrator</button>
+          <button type="submit" data-setup-submit data-i18n="setup.create">Create administrator</button>
         </form>
 
-        <p class="setup-message" data-setup-message>
+        <p class="setup-message" data-setup-message data-i18n="setup.empty">
           No administrator exists yet. Create one to finish securing FluxTuner Web.
         </p>
       </section>
 
-      <section class="public-entry" data-public-entry aria-label="FluxTuner Web access">
+      <section class="public-entry" data-public-entry aria-label="FluxTuner Web access" data-i18n-aria-label="public.access">
         <section class="panel public-intro-panel" aria-labelledby="public-intro-title">
           <div>
-            <p class="eyebrow">Self-hosted radio</p>
-            <h1 id="public-intro-title">Your private listening space</h1>
+            <p class="eyebrow" data-i18n="public.self_hosted">Self-hosted radio</p>
+            <h1 id="public-intro-title" data-i18n="public.title">Your private listening space</h1>
           </div>
 
-          <p class="public-intro-copy">
+          <p class="public-intro-copy" data-i18n="public.intro">
             Search, save, organize and stream internet radio from your own curated library.
             FluxTuner Web keeps the experience private while making shared listening easy at home.
           </p>
 
-          <div class="public-intro-points" aria-label="FluxTuner Web highlights">
-            <span>Browser playback</span>
-            <span>Personal favorites</span>
-            <span>Private playlists</span>
+          <div class="public-intro-points" aria-label="FluxTuner Web highlights" data-i18n-aria-label="public.highlights">
+            <span data-i18n="player.browser">Browser playback</span>
+            <span data-i18n="public.favorites">Personal favorites</span>
+            <span data-i18n="public.playlists">Private playlists</span>
           </div>
         </section>
 
         <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Private library</p>
-              <h2 id="auth-title">Sign in</h2>
+              <p class="eyebrow" data-i18n="public.library">Private library</p>
+              <h2 id="auth-title" data-i18n="auth.sign_in">Sign in</h2>
             </div>
           </div>
 
           <form class="auth-form" method="post" action="/api/auth/login" data-login-form inert>
             <label>
-              <span>Username</span>
+              <span data-i18n="auth.username">Username</span>
               <input
                 name="username"
                 type="text"
@@ -235,7 +247,7 @@
             </label>
 
             <label>
-              <span>Password</span>
+              <span data-i18n="auth.password">Password</span>
               <input
                 name="password"
                 type="password"
@@ -244,16 +256,16 @@
               >
             </label>
 
-            <button type="submit" data-login-submit disabled>Login</button>
+            <button type="submit" data-login-submit disabled data-i18n="auth.login">Login</button>
           </form>
 
           <div class="auth-secondary-actions">
-            <button type="button" data-register-open>Request access</button>
+            <button type="button" data-register-open data-i18n="auth.request_access">Request access</button>
             <span aria-hidden="true">·</span>
-            <button type="button" data-password-change-open>Forgot password?</button>
+            <button type="button" data-password-change-open data-i18n="auth.forgot">Forgot password?</button>
           </div>
 
-          <p class="auth-note">
+          <p class="auth-note" data-i18n="auth.approval_help">
             Access is approved by an administrator. No email notifications are sent.
           </p>
 
@@ -264,14 +276,14 @@
       <section class="panel public-stats-panel" data-public-stats hidden aria-labelledby="public-stats-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Server activity</p>
-            <h2 id="public-stats-title">Public stats</h2>
-            <p>Anonymous aggregate usage and listening stats from this FluxTuner Web server.</p>
+            <p class="eyebrow" data-i18n="public.activity">Server activity</p>
+            <h2 id="public-stats-title" data-i18n="public.stats">Public stats</h2>
+            <p data-i18n="public.stats_help">Anonymous aggregate usage and listening stats from this FluxTuner Web server.</p>
           </div>
         </div>
 
         <div class="public-stats-content" data-public-stats-content>
-          <p class="empty">Loading public activity...</p>
+          <p class="empty" data-i18n="public.loading">Loading public activity...</p>
         </div>
 
         <p class="public-stats-message" data-public-stats-message></p>
@@ -281,27 +293,27 @@
         <section class="panel account-panel" data-account-panel hidden aria-labelledby="account-title">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Your account</p>
-              <h2 id="account-title">Account</h2>
+              <p class="eyebrow" data-i18n="account.title">Your account</p>
+              <h2 id="account-title" data-i18n="nav.account">Account</h2>
             </div>
           </div>
 
           <div class="account-sections">
             <section class="account-card" aria-labelledby="account-information-title">
-              <h3 id="account-information-title">Account information</h3>
+              <h3 id="account-information-title" data-i18n="account.info">Account information</h3>
               <dl class="account-details">
                 <div>
-                  <dt>Username</dt>
+                  <dt data-i18n="auth.username">Username</dt>
                   <dd data-account-username></dd>
                 </div>
               </dl>
             </section>
 
             <section class="account-card account-security" aria-labelledby="account-security-title">
-              <h3 id="account-security-title">Security</h3>
-              <p>Recovery codes help you regain access to your account if you forget your password.</p>
-              <p>Generating new recovery codes invalidates all previously generated codes.</p>
-              <button type="button" data-recovery-codes-regenerate-open>
+              <h3 id="account-security-title" data-i18n="account.security">Security</h3>
+              <p data-i18n="account.recovery_help">Recovery codes help you regain access to your account if you forget your password.</p>
+              <p data-i18n="account.invalidate">Generating new recovery codes invalidates all previously generated codes.</p>
+              <button type="button" data-recovery-codes-regenerate-open data-i18n="account.generate">
                 Generate new recovery codes
               </button>
             </section>
@@ -311,29 +323,29 @@
               <section class="panel dashboard-panel" data-dashboard-panel hidden aria-labelledby="dashboard-title">
                 <div class="panel-heading">
                   <div>
-                    <p class="eyebrow">Overview</p>
-                    <h2 id="dashboard-title">Dashboard</h2>
+                    <p class="eyebrow" data-i18n="dashboard.overview">Overview</p>
+                    <h2 id="dashboard-title" data-i18n="nav.dashboard">Dashboard</h2>
                   </div>
 
-                  <button type="button" data-dashboard-refresh>Refresh dashboard</button>
+                  <button type="button" data-dashboard-refresh data-i18n="dashboard.refresh">Refresh dashboard</button>
                 </div>
 
                 <div class="dashboard-card dashboard-quick-actions">
-                  <p class="eyebrow">Quick actions</p>
+                  <p class="eyebrow" data-i18n="dashboard.quick_actions">Quick actions</p>
                   <div class="station-actions">
-                    <button type="button" data-dashboard-action="search">Search</button>
-                    <button type="button" data-dashboard-action="favorites">Favorites</button>
-                    <button type="button" data-dashboard-action="playlists">Playlists</button>
-                    <button type="button" data-dashboard-action="history">History</button>
-                    <button type="button" data-dashboard-action="admin" data-dashboard-admin-action hidden>Admin</button>
+                    <button type="button" data-dashboard-action="search" data-i18n="nav.search">Search</button>
+                    <button type="button" data-dashboard-action="favorites" data-i18n="nav.favorites">Favorites</button>
+                    <button type="button" data-dashboard-action="playlists" data-i18n="nav.playlists">Playlists</button>
+                    <button type="button" data-dashboard-action="history" data-i18n="nav.history">History</button>
+                    <button type="button" data-dashboard-action="admin" data-dashboard-admin-action hidden data-i18n="nav.admin">Admin</button>
                   </div>
                 </div>
 
                 <div class="dashboard-card" data-dashboard-admin hidden>
                   <div class="panel-heading">
                     <div>
-                      <p class="eyebrow">Administration</p>
-                      <h3>Server and users</h3>
+                      <p class="eyebrow" data-i18n="admin.title">Administration</p>
+                      <h3 data-i18n="admin.server_users">Server and users</h3>
                     </div>
                   </div>
                   <div class="dashboard-grid" data-dashboard-admin-metrics></div>
@@ -345,24 +357,24 @@
                   <section class="dashboard-card">
                     <div class="panel-heading">
                       <div>
-                        <p class="eyebrow">Playback</p>
-                        <h3>Recently played</h3>
+                        <p class="eyebrow" data-i18n="player.playback">Playback</p>
+                        <h3 data-i18n="dashboard.recent">Recently played</h3>
                       </div>
                     </div>
                     <div class="results" data-dashboard-recent-history>
-                      <p class="empty">No recent playback yet.</p>
+                      <p class="empty" data-i18n="dashboard.no_recent">No recent playback yet.</p>
                     </div>
                   </section>
 
                   <section class="dashboard-card">
                     <div class="panel-heading">
                       <div>
-                        <p class="eyebrow">Library</p>
-                        <h3>Favorite highlights</h3>
+                        <p class="eyebrow" data-i18n="dashboard.library">Library</p>
+                        <h3 data-i18n="dashboard.favorite_highlights">Favorite highlights</h3>
                       </div>
                     </div>
                     <div class="results" data-dashboard-favorite-highlights>
-                      <p class="empty">No favorites yet.</p>
+                      <p class="empty" data-i18n="dashboard.no_favorites">No favorites yet.</p>
                     </div>
                   </section>
                 </div>
@@ -373,135 +385,135 @@
               <section class="panel admin-panel" data-admin-panel hidden aria-labelledby="admin-title">
                 <div class="panel-heading">
                   <div>
-                    <p class="eyebrow">Administration</p>
-                    <h2 id="admin-title">Web users</h2>
+                    <p class="eyebrow" data-i18n="admin.title">Administration</p>
+                    <h2 id="admin-title" data-i18n="admin.users">Web users</h2>
                   </div>
 
-                  <button type="button" data-admin-load-users>Refresh users</button>
+                  <button type="button" data-admin-load-users data-i18n="admin.refresh_users">Refresh users</button>
                 </div>
 
                 <div class="admin-health" data-admin-health>
                   <div>
-                    <p class="eyebrow">Server health</p>
-                    <strong data-health-state>Not checked yet</strong>
-                    <span data-health-summary>Open Admin to refresh server status.</span>
+                    <p class="eyebrow" data-i18n="health.title">Server health</p>
+                    <strong data-health-state data-i18n="health.unchecked">Not checked yet</strong>
+                    <span data-health-summary data-i18n="health.help">Open Admin to refresh server status.</span>
                   </div>
 
-                  <button type="button" data-health-check>Refresh</button>
+                  <button type="button" data-health-check data-i18n="common.refresh">Refresh</button>
 
                   <details class="admin-health-details">
-                    <summary>Details</summary>
-                    <pre class="status" data-status>Server status: not checked yet.</pre>
+                    <summary data-i18n="common.details">Details</summary>
+                    <pre class="status" data-status data-i18n="health.unchecked_status">Server status: not checked yet.</pre>
                   </details>
                 </div>
 
                 <div class="admin-health player-debug-panel" data-player-debug-panel hidden>
                   <div>
-                    <p class="eyebrow">Player debug</p>
-                    <strong>Playback diagnostics</strong>
-                    <span data-player-debug-summary>Debug logging is disabled.</span>
+                    <p class="eyebrow" data-i18n="debug.title">Player debug</p>
+                    <strong data-i18n="debug.diagnostics">Playback diagnostics</strong>
+                    <span data-player-debug-summary data-i18n="debug.disabled">Debug logging is disabled.</span>
                     <label class="player-debug-enable">
                       <input type="checkbox" data-player-debug-enable />
-                      <span>Enable player debug on this browser</span>
+                      <span data-i18n="debug.enable">Enable player debug on this browser</span>
                     </label>
                   </div>
 
                   <div class="player-debug-actions">
-                    <button type="button" data-player-debug-toggle>Show</button>
-                    <button type="button" data-player-debug-copy>Copy</button>
-                    <button type="button" data-player-debug-download>Download</button>
-                    <button type="button" data-player-debug-clear>Clear</button>
+                    <button type="button" data-player-debug-toggle data-i18n="common.show">Show</button>
+                    <button type="button" data-player-debug-copy data-i18n="common.copy">Copy</button>
+                    <button type="button" data-player-debug-download data-i18n="common.download">Download</button>
+                    <button type="button" data-player-debug-clear data-i18n="common.clear">Clear</button>
                   </div>
 
                   <details class="admin-health-details player-debug-details" data-player-debug-details>
-                    <summary>Details</summary>
+                    <summary data-i18n="common.details">Details</summary>
 
                     <section class="player-debug-section" aria-labelledby="player-debug-current-snapshot-title">
-                      <h4 id="player-debug-current-snapshot-title">Current snapshot</h4>
-                      <p>Current audio, player and Media Session state.</p>
-                      <pre class="status" data-player-debug-snapshot>No player snapshot yet.</pre>
+                      <h4 id="player-debug-current-snapshot-title" data-i18n="debug.snapshot">Current snapshot</h4>
+                      <p data-i18n="debug.snapshot_help">Current audio, player and Media Session state.</p>
+                      <pre class="status" data-player-debug-snapshot data-i18n="debug.no_snapshot">No player snapshot yet.</pre>
                     </section>
 
                     <section class="player-debug-section" aria-labelledby="player-debug-recent-events-title">
-                      <h4 id="player-debug-recent-events-title">Recent events</h4>
-                      <p>Last captured playback and Media Session events.</p>
-                      <pre class="status" data-player-debug-log>No player events yet.</pre>
+                      <h4 id="player-debug-recent-events-title" data-i18n="debug.events">Recent events</h4>
+                      <p data-i18n="debug.events_help">Last captured playback and Media Session events.</p>
+                      <pre class="status" data-player-debug-log data-i18n="debug.no_events">No player events yet.</pre>
                     </section>
 
                     <section class="player-debug-section player-debug-export-section" aria-labelledby="player-debug-export-title">
-                      <h4 id="player-debug-export-title">Exported debug log</h4>
-                      <p>Shown after copying or downloading when manual selection is useful.</p>
+                      <h4 id="player-debug-export-title" data-i18n="debug.exported">Exported debug log</h4>
+                      <p data-i18n="debug.export_help">Shown after copying or downloading when manual selection is useful.</p>
                       <textarea
                         class="player-debug-export"
                       data-player-debug-export
                       readonly
                         hidden
                         aria-label="Player debug log export"
-                      ></textarea>
+                       data-i18n-aria-label="debug.export_label"></textarea>
                     </section>
                   </details>
                 </div>
 
                 <div class="admin-forms">
                   <form class="admin-user-form" data-admin-create-user-form>
-                    <h3>Create user</h3>
+                    <h3 data-i18n="admin.create_user">Create user</h3>
 
                     <label>
-                      <span>Username</span>
+                      <span data-i18n="auth.username">Username</span>
                       <input name="username" type="text" autocomplete="off" maxlength="80" required>
                     </label>
 
                     <label>
-                      <span>Display name</span>
+                      <span data-i18n="auth.display_name">Display name</span>
                       <input name="display_name" type="text" autocomplete="off" maxlength="120">
                     </label>
 
                     <label>
-                      <span>Password</span>
+                      <span data-i18n="auth.password">Password</span>
                       <input name="password" type="password" autocomplete="new-password" required minlength="15">
-              <small class="field-help">Password must be at least 15 characters.</small>
+              <small class="field-help" data-i18n="auth.password_help">Password must be at least 15 characters.</small>
                     </label>
 
                     <label>
-                      <span>Confirm password</span>
+                      <span data-i18n="auth.confirm_password">Confirm password</span>
                       <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
                     </label>
 
                     <label class="checkbox-label">
                       <input name="is_admin" type="checkbox">
-                      <span>Administrator</span>
+                      <span data-i18n="admin.role">Administrator</span>
                     </label>
 
-                    <button type="submit">Create user</button>
+                    <button type="submit" data-i18n="admin.create_user">Create user</button>
                   </form>
 
                   <form class="admin-user-form" data-admin-password-form>
-                    <h3>Reset password</h3>
+                    <h3 data-i18n="admin.reset_password">Reset password</h3>
 
                     <label>
-                      <span>Username</span>
+                      <span data-i18n="auth.username">Username</span>
                       <input name="username" type="text" autocomplete="off" required>
                     </label>
 
                     <label>
-                      <span>New password</span>
+                      <span data-i18n="auth.new_password">New password</span>
                       <input name="password" type="password" autocomplete="new-password" required minlength="15">
-                      <small class="field-help">Password must be at least 15 characters.</small>
+                      <small class="field-help" data-i18n="auth.password_help">Password must be at least 15 characters.</small>
                     </label>
 
                     <label>
-                      <span>Confirm password</span>
+                      <span data-i18n="auth.confirm_password">Confirm password</span>
                       <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
                     </label>
 
-                    <button type="submit">Update password</button>
+                    <button type="submit" data-i18n="admin.update_password">Update password</button>
                   </form>
                 </div>
 
                 <p class="admin-message" data-admin-message></p>
 
                 <div class="admin-users" data-admin-users>
-                  <p class="empty">Admin users will appear here.</p>
+                  <p class="empty" data-i18n="admin.users_empty">Admin users will appear here.</p>
                 </div>
               </section>
 
@@ -509,54 +521,54 @@
                 <div class="panel-heading">
                   <div>
                     <p class="eyebrow" data-results-kicker>Radio Browser</p>
-                    <h2 id="search-title" data-results-title>Search stations</h2>
+                    <h2 id="search-title" data-results-title data-i18n="search.title">Search stations</h2>
                   </div>
 
                   <div class="panel-tools">
-                    <p data-result-count role="status" aria-live="polite">No search yet.</p>
+                    <p data-result-count role="status" aria-live="polite" data-i18n="search.empty">No search yet.</p>
                     <details data-custom-station-tools hidden>
-                      <summary>Library actions</summary>
-                      <button type="button" data-custom-station-open data-private-action disabled>Add station…</button>
+                      <summary data-i18n="nav.actions">Library actions</summary>
+                      <button type="button" data-custom-station-open data-private-action disabled data-i18n="stations.add_dialog">Add station…</button>
                     </details>
-                    <button type="button" data-load-history data-private-action disabled>Load history</button>
-                    <button type="button" data-load-favorites data-private-action disabled>Load favorites</button>
-                    <button type="button" data-load-playlists data-private-action disabled>Load playlists</button>
+                    <button type="button" data-load-history data-private-action disabled data-i18n="search.load_history">Load history</button>
+                    <button type="button" data-load-favorites data-private-action disabled data-i18n="search.load_favorites">Load favorites</button>
+                    <button type="button" data-load-playlists data-private-action disabled data-i18n="search.load_playlists">Load playlists</button>
                   </div>
                 </div>
 
                 <form class="search-form" data-search-form>
                   <label>
-                    <span>Source</span>
-                    <select name="source" aria-label="Station discovery source">
+                    <span data-i18n="search.source">Source</span>
+                    <select name="source" aria-label="Station discovery source" data-i18n-aria-label="search.source_label">
                       <option value="radio-browser" selected>Radio Browser</option>
-                      <option value="local">Local library</option>
-                      <option value="all">All sources</option>
+                      <option value="local" data-i18n="search.local">Local library</option>
+                      <option value="all" data-i18n="search.all">All sources</option>
                     </select>
                   </label>
 
                   <label>
-                    <span>Search</span>
+                    <span data-i18n="nav.search">Search</span>
                     <input
                       name="q"
                       type="search"
                       placeholder="Station name or genre/tag"
                       autocomplete="off"
                       required
-                    >
+                     data-i18n-placeholder="search.query_placeholder">
                   </label>
 
                   <label>
-                    <span>Country</span>
+                    <span data-i18n="search.country">Country</span>
                     <input
                       name="country"
                       type="search"
                       placeholder="Optional, e.g. Spain or ES"
                       autocomplete="off"
-                    >
+                     data-i18n-placeholder="search.country_placeholder">
                   </label>
 
                   <label>
-                    <span>Min kbps</span>
+                    <span data-i18n="search.min_bitrate">Min kbps</span>
                     <input
                       name="min_bitrate"
                       type="number"
@@ -568,8 +580,8 @@
                   </label>
 
                   <label>
-                    <span>Results</span>
-                    <select name="limit" aria-label="Search results limit">
+                    <span data-i18n="search.results">Results</span>
+                    <select name="limit" aria-label="Search results limit" data-i18n-aria-label="search.limit">
                       <option value="25" selected>25</option>
                       <option value="50">50</option>
                       <option value="75">75</option>
@@ -579,14 +591,14 @@
 
                   <label class="search-debug-label">
                     <input name="debug" type="checkbox" value="1">
-                    <span>Debug</span>
+                    <span data-i18n="debug.label">Debug</span>
                   </label>
 
-                  <button type="submit">Search</button>
+                  <button type="submit" data-i18n="nav.search">Search</button>
                 </form>
 
                 <div class="results" data-results>
-                  <p class="empty">Search for a station, genre or tag to see results here.</p>
+                  <p class="empty" data-i18n="search.help">Search for a station, genre or tag to see results here.</p>
                 </div>
               </section>
       </div>
@@ -600,41 +612,41 @@
       <div class="playlist-dialog-card register-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Account recovery</p>
-            <h2 id="password-change-dialog-title">Recover account</h2>
+            <p class="eyebrow" data-i18n="recovery.title">Account recovery</p>
+            <h2 id="password-change-dialog-title" data-i18n="recovery.action">Recover account</h2>
           </div>
         </div>
 
-        <p class="auth-note">
+        <p class="auth-note" data-i18n="recovery.help">
           Use one of the recovery codes you saved previously. The code is single-use and a successful recovery replaces your existing recovery codes.
         </p>
 
         <form class="auth-form register-form" method="post" action="/api/auth/recover-password" data-password-change-form>
           <label>
-            <span>Username</span>
+            <span data-i18n="auth.username">Username</span>
             <input name="username" type="text" autocomplete="username" maxlength="80" required>
           </label>
 
           <label>
-            <span>Recovery code</span>
+            <span data-i18n="recovery.code">Recovery code</span>
             <input name="recovery_code" type="text" autocomplete="off" spellcheck="false" required>
           </label>
 
           <label>
-            <span>New password</span>
+            <span data-i18n="auth.new_password">New password</span>
             <input name="new_password" type="password" autocomplete="new-password" required minlength="15">
           </label>
 
           <label>
-            <span>Confirm new password</span>
+            <span data-i18n="auth.confirm_new_password">Confirm new password</span>
             <input name="confirm_password" type="password" autocomplete="new-password" required minlength="15">
           </label>
 
           <p class="register-dialog-message" data-password-change-message></p>
 
           <div class="station-actions">
-            <button type="submit" data-password-change-submit>Recover account</button>
-            <button type="button" data-password-change-cancel>Cancel</button>
+            <button type="submit" data-password-change-submit data-i18n="recovery.action">Recover account</button>
+            <button type="button" data-password-change-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
@@ -649,18 +661,18 @@
       <div class="playlist-dialog-card register-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Account recovery</p>
-            <h2 id="recovery-codes-regenerate-title">Generate new recovery codes</h2>
+            <p class="eyebrow" data-i18n="recovery.title">Account recovery</p>
+            <h2 id="recovery-codes-regenerate-title" data-i18n="account.generate">Generate new recovery codes</h2>
           </div>
         </div>
 
-        <p class="auth-note">
+        <p class="auth-note" data-i18n="recovery.regenerate_help">
           Enter your current password to generate a new set. This invalidates every previous recovery code.
         </p>
 
         <form class="auth-form" data-recovery-codes-regenerate-form>
           <label>
-            <span>Current password</span>
+            <span data-i18n="auth.current_password">Current password</span>
             <input
               name="current_password"
               type="password"
@@ -672,8 +684,8 @@
           <p class="register-dialog-message" data-recovery-codes-regenerate-message></p>
 
           <div class="station-actions">
-            <button type="submit">Generate new recovery codes</button>
-            <button type="button" data-recovery-codes-regenerate-cancel>Cancel</button>
+            <button type="submit" data-i18n="account.generate">Generate new recovery codes</button>
+            <button type="button" data-recovery-codes-regenerate-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
@@ -683,23 +695,23 @@
       <div class="playlist-dialog-card register-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Account recovery</p>
-            <h2 id="recovery-codes-dialog-title">Save your recovery codes</h2>
+            <p class="eyebrow" data-i18n="recovery.title">Account recovery</p>
+            <h2 id="recovery-codes-dialog-title" data-i18n="recovery.save">Save your recovery codes</h2>
           </div>
         </div>
 
-        <p class="auth-note">
+        <p class="auth-note" data-i18n="recovery.save_help">
           These codes are shown only once. Store them somewhere safe before continuing. Each code can be used to recover your account if you forget your password.
         </p>
 
         <ol class="recovery-codes-list" data-recovery-codes-list></ol>
 
-        <p class="auth-note">
+        <p class="auth-note" data-i18n="recovery.invalidate">
           Generating a new set invalidates every previous recovery code.
         </p>
 
         <div class="station-actions">
-          <button type="button" data-recovery-codes-close>I have saved these codes</button>
+          <button type="button" data-recovery-codes-close data-i18n="recovery.saved">I have saved these codes</button>
         </div>
       </div>
     </section>
@@ -708,43 +720,43 @@
       <div class="playlist-dialog-card register-dialog-card">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Private library</p>
-            <h2 id="register-dialog-title">Request access</h2>
+            <p class="eyebrow" data-i18n="public.library">Private library</p>
+            <h2 id="register-dialog-title" data-i18n="auth.request_access">Request access</h2>
           </div>
 
         </div>
 
-        <p class="auth-note">
+        <p class="auth-note" data-i18n="register.help">
           Create a pending account for this private FluxTuner server. No email is sent; try signing in later to check whether an administrator has approved it.
         </p>
 
         <form class="auth-form register-form" method="post" action="/api/auth/register" data-register-form>
           <label>
-            <span>Username</span>
+            <span data-i18n="auth.username">Username</span>
             <input name="username" type="text" autocomplete="username" maxlength="80" required>
           </label>
 
           <label>
-            <span>Password</span>
+            <span data-i18n="auth.password">Password</span>
             <input name="password" type="password" autocomplete="new-password" required minlength="15">
-              <small class="field-help">Password must be at least 15 characters.</small>
+              <small class="field-help" data-i18n="auth.password_help">Password must be at least 15 characters.</small>
           </label>
 
           <label>
-            <span>Display name</span>
+            <span data-i18n="auth.display_name">Display name</span>
             <input name="display_name" type="text" autocomplete="name" maxlength="120">
           </label>
 
           <label>
-            <span>Note for admin</span>
-            <input name="note" type="text" autocomplete="off" maxlength="1000" placeholder="Optional">
+            <span data-i18n="register.note">Note for admin</span>
+            <input name="note" type="text" autocomplete="off" maxlength="1000" placeholder="Optional" data-i18n-placeholder="common.optional">
           </label>
 
           <p class="register-dialog-message" data-register-message></p>
 
           <div class="station-actions">
-            <button type="submit" data-register-submit>Request access</button>
-            <button type="button" data-register-cancel>Cancel</button>
+            <button type="submit" data-register-submit data-i18n="auth.request_access">Request access</button>
+            <button type="button" data-register-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
@@ -753,33 +765,33 @@
     <dialog class="custom-station-dialog recommendation-dialog" data-recommendations-dialog aria-labelledby="recommendations-title">
       <div class="playlist-dialog-card">
         <div class="dialog-heading">
-          <h2 id="recommendations-title" data-recommendations-title>Recommendations</h2>
-          <button type="button" data-recommendations-close>Close</button>
+          <h2 id="recommendations-title" data-recommendations-title data-i18n="nav.recommendations">Recommendations</h2>
+          <button type="button" data-recommendations-close data-i18n="common.close">Close</button>
         </div>
         <div class="station-actions">
-          <button type="button" data-recommendations-received>Received</button>
-          <button type="button" data-recommendations-sent>Sent</button>
+          <button type="button" data-recommendations-received data-i18n="recommendations.received">Received</button>
+          <button type="button" data-recommendations-sent data-i18n="recommendations.sent">Sent</button>
         </div>
         <div data-recommendations-compose hidden>
           <form class="playlist-dialog-form" data-recommendations-form>
             <label>
-              <span>Recipient username</span>
+              <span data-i18n="recommendations.recipient">Recipient username</span>
               <input type="text" data-recommendations-recipient maxlength="80" autocomplete="off" required>
             </label>
             <div class="station-actions">
-              <button type="submit">Send recommendation</button>
-              <button type="button" data-recommendations-cancel>Cancel</button>
+              <button type="submit" data-i18n="recommendations.send">Send recommendation</button>
+              <button type="button" data-recommendations-cancel data-i18n="common.cancel">Cancel</button>
             </div>
           </form>
         </div>
         <p class="playlist-dialog-message" data-recommendations-message role="status" aria-live="polite"></p>
         <div class="station-actions" data-recommendations-destination hidden>
-          <button type="button" data-recommendations-view>View Favorites</button>
+          <button type="button" data-recommendations-view data-i18n="recommendations.view_favorites">View Favorites</button>
         </div>
         <div class="results" data-recommendations-items></div>
         <div class="station-actions">
-          <button type="button" data-recommendations-prev disabled>Previous</button>
-          <button type="button" data-recommendations-next disabled>Next</button>
+          <button type="button" data-recommendations-prev disabled data-i18n="common.previous">Previous</button>
+          <button type="button" data-recommendations-next disabled data-i18n="common.next">Next</button>
         </div>
       </div>
     </dialog>
@@ -788,51 +800,51 @@
       <div class="playlist-dialog-card">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Playlist</p>
-            <h2 id="playlist-dialog-title">Add station to playlist</h2>
+            <p class="eyebrow" data-i18n="playlists.single">Playlist</p>
+            <h2 id="playlist-dialog-title" data-i18n="playlists.add_station">Add station to playlist</h2>
           </div>
 
-          <button type="button" data-playlist-cancel>Cancel</button>
+          <button type="button" data-playlist-cancel data-i18n="common.cancel">Cancel</button>
         </div>
 
         <p class="playlist-dialog-station" data-playlist-station-name></p>
 
         <form class="playlist-dialog-form" data-playlist-form>
           <label>
-            <span>Existing playlist</span>
+            <span data-i18n="playlists.existing">Existing playlist</span>
             <select name="playlist" data-playlist-select>
-              <option value="">Loading playlists...</option>
+              <option value="" data-i18n="playlists.loading">Loading playlists...</option>
             </select>
           </label>
 
           <label>
-            <span>Or create a new playlist</span>
+            <span data-i18n="playlists.create_alternative">Or create a new playlist</span>
             <input
               name="new_playlist"
               type="text"
               autocomplete="off"
               maxlength="120"
               placeholder="New playlist name"
-            >
+             data-i18n-placeholder="playlists.new_name">
           </label>
 
           <p class="playlist-dialog-message" data-playlist-message></p>
 
           <div class="station-actions">
-            <button type="submit">Add station</button>
-            <button type="button" data-playlist-cancel>Cancel</button>
+            <button type="submit" data-i18n="stations.add">Add station</button>
+            <button type="button" data-playlist-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
     </section>
 
-    <aside id="player-bar" class="player-bar" data-player-bar aria-live="polite" hidden>
+    <aside id="player-bar" class="player-bar" data-player-bar hidden>
       <div class="player-info">
         <span class="player-artwork" aria-hidden="true">
           <span data-player-artwork-fallback>♫</span>
           <img data-player-artwork-image alt="" decoding="async" referrerpolicy="no-referrer" hidden>
         </span>
-        <p class="eyebrow">Browser playback</p>
+        <p class="eyebrow" data-i18n="player.browser">Browser playback</p>
         <p class="player-station" data-player-station hidden></p>
         <h2 class="player-track">
           <button
@@ -842,14 +854,14 @@
             aria-label="Current track information unavailable"
             title="Current track information unavailable"
             disabled
-          >
-            <span class="player-track-text" data-player-title>Nothing playing yet</span>
+           data-i18n-aria-label="player.track_unavailable" data-i18n-title="player.track_unavailable">
+            <span class="player-track-text" data-player-title data-i18n="player.empty">Nothing playing yet</span>
           </button>
         </h2>
-        <p class="player-message" data-player-status>Idle</p>
+        <p class="player-message" data-player-status role="status" aria-live="polite" data-i18n="player.idle">Idle</p>
       </div>
 
-      <div class="player-actions" role="group" aria-label="Playback controls">
+      <div class="player-actions" role="group" aria-label="Playback controls" data-i18n-aria-label="player.controls">
         <button
           class="player-control"
           type="button"
@@ -858,9 +870,9 @@
           aria-label="Pause"
           title="Pause"
           disabled
-        >
+         data-i18n-aria-label="player.pause" data-i18n-title="player.pause">
           <span class="player-control-icon" data-player-control-icon aria-hidden="true">❚❚</span>
-          <span class="sr-only" data-player-control-label>Pause</span>
+          <span class="sr-only" data-player-control-label data-i18n="player.pause">Pause</span>
         </button>
         <button
           class="player-control"
@@ -869,9 +881,9 @@
           aria-label="Stop"
           title="Stop"
           disabled
-        >
+         data-i18n-aria-label="player.stop" data-i18n-title="player.stop">
           <span class="player-control-icon" aria-hidden="true">■</span>
-          <span class="sr-only">Stop</span>
+          <span class="sr-only" data-i18n="player.stop">Stop</span>
         </button>
         <a
           class="player-control"
@@ -882,9 +894,9 @@
           aria-label="Open stream externally"
           title="Open stream externally"
           hidden
-        >
+         data-i18n-aria-label="player.external" data-i18n-title="player.external">
           <span class="player-control-icon" aria-hidden="true">↗</span>
-          <span class="sr-only">Open stream externally</span>
+          <span class="sr-only" data-i18n="player.external">Open stream externally</span>
         </a>
       </div>
 
@@ -894,24 +906,24 @@
       <div class="playlist-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Personal library</p>
-            <h2 id="custom-station-title">Add station</h2>
+            <p class="eyebrow" data-i18n="library.personal">Personal library</p>
+            <h2 id="custom-station-title" data-i18n="stations.add">Add station</h2>
           </div>
         </div>
-        <p>Save a stream URL to your favorites. Playback starts only when you choose Play.</p>
+        <p data-i18n="stations.add_help">Save a stream URL to your favorites. Playback starts only when you choose Play.</p>
         <form class="playlist-dialog-form" data-custom-station-form>
           <label for="custom_station_name">
-            <span>Station name</span>
+            <span data-i18n="stations.name">Station name</span>
             <input id="custom_station_name" name="name" type="text" required maxlength="200" autocomplete="off">
           </label>
           <label for="custom_station_url">
-            <span>Stream URL</span>
+            <span data-i18n="stations.url">Stream URL</span>
             <input id="custom_station_url" name="url" type="url" required maxlength="2048" autocomplete="off" placeholder="https://example.org/live">
           </label>
           <p class="playlist-dialog-message" data-custom-station-message role="status" aria-live="polite"></p>
           <div class="station-actions">
-            <button type="submit">Add station</button>
-            <button type="button" data-custom-station-cancel>Cancel</button>
+            <button type="submit" data-i18n="stations.add">Add station</button>
+            <button type="button" data-custom-station-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
@@ -922,32 +934,32 @@
       <div class="playlist-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Personal library</p>
-            <h2 id="station-import-title">Import stations</h2>
+            <p class="eyebrow" data-i18n="library.personal">Personal library</p>
+            <h2 id="station-import-title" data-i18n="imports.title">Import stations</h2>
           </div>
         </div>
-        <p>Choose a local M3U, M3U8 or PLS collection, or enter a remote HTTP/HTTPS URL (up to 1 MiB).
+        <p data-i18n="imports.help">Choose a local M3U, M3U8 or PLS collection, or enter a remote HTTP/HTTPS URL (up to 1 MiB).
           Existing favorite names and tags are preserved.</p>
         <form class="playlist-dialog-form" data-station-import-form>
           <label>
-            <span>Playlist file</span>
+            <span data-i18n="imports.file">Playlist file</span>
             <input type="file" accept=".m3u,.m3u8,.pls" data-station-import-file>
           </label>
           <label>
-            <span>Or collection URL</span>
+            <span data-i18n="imports.url_alternative">Or collection URL</span>
             <input type="url" autocomplete="url" maxlength="2048"
               placeholder="https://example.org/stations.m3u" data-station-import-url>
           </label>
-          <button type="button" data-station-import-preview-button>Preview collection</button>
+          <button type="button" data-station-import-preview-button data-i18n="imports.preview">Preview collection</button>
           <pre class="station-import-preview" data-station-import-preview
-            aria-label="Playlist preview" tabindex="0" hidden></pre>
+            aria-label="Playlist preview" tabindex="0" hidden data-i18n-aria-label="imports.preview_label"></pre>
           <div class="station-import-destination" data-station-import-destination hidden>
             <label>
-              <span>Destination</span>
+              <span data-i18n="imports.destination">Destination</span>
               <select data-station-import-select disabled></select>
             </label>
             <label data-station-import-name-field>
-              <span>New playlist name</span>
+              <span data-i18n="playlists.new_name">New playlist name</span>
               <input type="text" maxlength="120" autocomplete="off"
                 data-station-import-name required disabled>
             </label>
@@ -955,8 +967,8 @@
           <p class="playlist-dialog-message" data-station-import-message
             role="status" aria-live="polite"></p>
           <div class="station-actions">
-            <button type="submit" data-station-import-submit disabled>Import stations</button>
-            <button type="button" data-station-import-cancel>Cancel</button>
+            <button type="submit" data-station-import-submit disabled data-i18n="imports.title">Import stations</button>
+            <button type="button" data-station-import-cancel data-i18n="common.cancel">Cancel</button>
           </div>
         </form>
       </div>
@@ -967,34 +979,34 @@
       <div class="playlist-dialog-card">
         <div class="dialog-heading">
           <div>
-            <p class="eyebrow">Personal library</p>
-            <h2 id="subscriptions-title">Remote catalogs</h2>
+            <p class="eyebrow" data-i18n="library.personal">Personal library</p>
+            <h2 id="subscriptions-title" data-i18n="nav.catalogs">Remote catalogs</h2>
           </div>
         </div>
-        <p>Subscribe to a remote collection and review changes before applying them.
+        <p data-i18n="subscriptions.help">Subscribe to a remote collection and review changes before applying them.
           Favorites and playlists remain independent.</p>
         <form class="playlist-dialog-form" data-subscriptions-form>
           <label>
-            <span>Collection URL</span>
+            <span data-i18n="subscriptions.url">Collection URL</span>
             <input type="url" required maxlength="2048"
               autocomplete="off" placeholder="https://example.org/stations.m3u"
               data-subscriptions-url>
           </label>
           <label>
-            <span>Catalog name (optional)</span>
+            <span data-i18n="subscriptions.name">Catalog name (optional)</span>
             <input type="text" maxlength="120" autocomplete="off"
-              placeholder="My favorite radio collection" data-subscriptions-name>
+              placeholder="My favorite radio collection" data-subscriptions-name data-i18n-placeholder="subscriptions.name_placeholder">
           </label>
-          <button type="submit" data-subscriptions-add>Add subscription</button>
+          <button type="submit" data-subscriptions-add data-i18n="subscriptions.add">Add subscription</button>
         </form>
-        <div data-subscriptions-list aria-label="Subscribed catalogs"></div>
+        <div data-subscriptions-list aria-label="Subscribed catalogs" data-i18n-aria-label="subscriptions.list"></div>
         <pre class="station-import-preview" data-subscriptions-preview
-          aria-label="Catalog changes" tabindex="0" hidden></pre>
+          aria-label="Catalog changes" tabindex="0" hidden data-i18n-aria-label="subscriptions.changes"></pre>
         <p class="playlist-dialog-message" data-subscriptions-message
           role="status" aria-live="polite"></p>
         <div class="station-actions">
-          <button type="button" data-subscriptions-confirm hidden>Apply changes</button>
-          <button type="button" data-subscriptions-close>Close</button>
+          <button type="button" data-subscriptions-confirm hidden data-i18n="subscriptions.apply">Apply changes</button>
+          <button type="button" data-subscriptions-close data-i18n="common.close">Close</button>
         </div>
       </div>
     </dialog>

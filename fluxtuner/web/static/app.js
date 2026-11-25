@@ -5,10 +5,12 @@ import { createBrowserNavigationController } from "./js/browser-navigation.js";
 
 import { createAccountRequestsController } from "./js/account-requests.js";
 import { createLazyAdminController } from "./js/admin-lazy.js";
-import { createApiFetch } from "./js/api.js";
+import { createApiFetch, knownApiErrorKey } from "./js/api.js";
 import { createAppElements } from "./js/app-elements.js";
 import { bindApplicationEvents } from "./js/app-events.js";
 import { bootstrapApplication } from "./js/app-bootstrap.js";
+import { initializeLanguageUi } from "./js/i18n-ui.js";
+import { createDynamicPresentation } from "./js/i18n-presentation.js";
 import { createAppState } from "./js/app-state.js";
 import { createNavigationAccordion } from "./js/navigation-accordion.js";
 import { createSidebarToggle } from "./js/sidebar-toggle.js";
@@ -168,9 +170,11 @@ const {
 } = createAppElements();
 
 const appState = createAppState();
+const presentation = createDynamicPresentation();
 let browserNavigation = null;
 
 createMobileDrawer({
+  presentation,
   root: appShell,
   header: appHeader,
   toggleButton: navToggleButton,
@@ -182,6 +186,7 @@ createNavigationAccordion({
 }).bind();
 
 createSidebarToggle({
+  presentation,
   shell: appShell,
   button: sidebarToggleButton,
   windowNode: window,
@@ -199,6 +204,7 @@ navigationPresentation.bind();
 const playerRuntime = createPlayerRuntime();
 
 const uiShellController = createUiShellController({
+  presentation,
   accountPanel,
   adminPanel,
   appContentNodes,
@@ -231,6 +237,7 @@ const {
 } = uiShellController;
 
 const themeController = createThemeController({
+  presentation,
   toggleButton: themeToggleButton,
   labelNode: themeLabelNode,
 });
@@ -239,6 +246,7 @@ const toggleTheme = themeController.toggleTheme;
 
 themeController.initializeTheme();
 const healthController = createHealthController({
+  presentation,
   fetch: window.fetch.bind(window),
   statusNode,
   healthStateNode,
@@ -253,25 +261,27 @@ const discoveryPending = createDiscoveryPendingController({
 });
 
 const publicStatsController = createPublicStatsController({
+  presentation,
   contentNode: publicStatsContentNode,
   messageNode: publicStatsMessageNode,
   fetchImpl: window.fetch.bind(window),
   onSelect: (reference) => {
     if (!discoveryPending.select(reference)) {
       if (publicStatsMessageNode) {
-        publicStatsMessageNode.textContent = "Could not save this selection in your browser.";
+        presentation.present(publicStatsMessageNode, "public.selection_error", "Could not save this selection in your browser.");
       }
       return;
     }
     if (publicStatsMessageNode) {
-      publicStatsMessageNode.textContent =
-        "Selection saved for 15 minutes. Sign in to add the station to favorites.";
+      presentation.present(publicStatsMessageNode, "public.selection_saved",
+        "Selection saved for 15 minutes. Sign in to add the station to favorites.");
     }
     loginForm?.querySelector('input[name="username"]')?.focus();
   },
 });
 
 const playerDebugController = createPlayerDebugController({
+  presentation,
   panel: playerDebugPanel,
   summaryNode: playerDebugSummaryNode,
   enableInput: playerDebugEnableInput,
@@ -310,6 +320,7 @@ const apiFetch = createApiFetch({
 });
 
 const recommendationController = createRecommendationsController({
+  presentation,
   apiFetch,
   dialog: recommendationsDialog,
   openButton: recommendationsOpenButton,
@@ -333,6 +344,7 @@ const recommendationController = createRecommendationsController({
 recommendationController.bind();
 
 const dashboardController = createDashboardController({
+  presentation,
   apiFetch,
   getCurrentUser: appState.getCurrentUser,
   isDashboardVisible: () => dashboardPanel?.hidden === false,
@@ -355,6 +367,7 @@ const { loadDashboard } = dashboardController;
 
 
 const accountRequestsController = createAccountRequestsController({
+  presentation,
   apiFetch,
   authMessageNode,
   passwordChangeDialog,
@@ -373,6 +386,7 @@ const accountRequestsController = createAccountRequestsController({
 const { showRecoveryCodes } = accountRequestsController;
 
 const setupController = createSetupController({
+  presentation,
   appContent,
   authPanel,
   getCurrentUser: appState.getCurrentUser,
@@ -395,6 +409,7 @@ const setupController = createSetupController({
 const { createFirstAdmin, loadSetupState, updateSetupUi } = setupController;
 
 const adminController = createLazyAdminController({
+  presentation,
   apiFetch,
   usersNode: adminUsersNode,
   messageNode: adminMessageNode,
@@ -412,6 +427,8 @@ const {
 } = adminController;
 
 const customStationController = createLazyCustomStationController({
+  presentation,
+  knownApiErrorKey,
   apiFetch,
   dialog: customStationDialog,
   form: customStationForm,
@@ -427,14 +444,15 @@ const customStationController = createLazyCustomStationController({
     await loadFavorites();
     if (authMessageNode && appState.isAuthenticated()) {
       authMessageNode.hidden = false;
-      authMessageNode.textContent = added
-        ? "Station added to favorites."
-        : "Station is already in favorites.";
+      presentation.present(authMessageNode, added ? "custom.saved" : "favorite.exists",
+        added ? "Station added to favorites." : "Station is already in favorites.");
     }
   },
 });
 
 const stationImportController = createLazyStationImportController({
+  presentation,
+  knownApiErrorKey,
   apiFetch,
   elements: stationImportElements,
   getCurrentUser: appState.getCurrentUser,
@@ -448,14 +466,16 @@ const stationImportController = createLazyStationImportController({
     await loadPlaylistStations(payload.name);
     if (authMessageNode && appState.isAuthenticated()) {
       authMessageNode.hidden = false;
-      authMessageNode.textContent =
-        `Imported ${payload.added_to_playlist} stations into ${payload.name}. ` +
-        `${payload.existing_favorites} already in favorites.`;
+      presentation.present(authMessageNode, "imports.feedback.saved",
+        `Imported ${payload.added_to_playlist} stations into ${payload.name}. ${payload.existing_favorites} already in favorites.`,
+        "textContent", { added: payload.added_to_playlist, name: payload.name, existing: payload.existing_favorites });
     }
   },
 });
 
 const subscriptionController = createLazyRemoteSubscriptionController({
+  presentation,
+  knownApiErrorKey,
   apiFetch,
   onChanged: ({ type, sourceId }) => {
     if (!appState.isAuthenticated()) return;
@@ -484,6 +504,7 @@ const subscriptionController = createLazyRemoteSubscriptionController({
 });
 
 const sessionUiController = createSessionUiController({
+  presentation,
   recommendationController,
   subscriptionController,
   stationImportController,
@@ -518,6 +539,7 @@ const sessionUiController = createSessionUiController({
 const { renderAuthRequired, updateAuthUi } = sessionUiController;
 
 const authController = createAuthController({
+  presentation,
   onAuthReady: async () => {
     await browserNavigation?.onAuthReady();
     if (!appState.isAuthenticated() || !appState.getCsrfToken()) return;
@@ -527,16 +549,15 @@ const authController = createAuthController({
       showRadioBrowserView();
       await loadFavorites();
       if (resultCountNode) {
-        resultCountNode.textContent = result.added
-          ? "Discovered station saved to your favorites."
-          : "Discovered station was already in your favorites.";
+        presentation.present(resultCountNode, result.added ? "discovery.saved" : "discovery.exists",
+          result.added ? "Discovered station saved to your favorites." : "Discovered station was already in your favorites.");
       }
     } else if (dashboardMessageNode) {
       showDashboardView();
-      dashboardMessageNode.textContent = result.network
-        ? "Discovery could not be completed. Sign in again soon to retry."
-        : result.limited ? "Too many discovery attempts. Please try again later."
-          : "Your discovery selection has expired or is no longer available.";
+      presentation.present(dashboardMessageNode, result.network ? "discovery.network" : result.limited ? "discovery.limited" : "discovery.expired",
+        result.network ? "Discovery could not be completed. Sign in again soon to retry."
+          : result.limited ? "Too many discovery attempts. Please try again later."
+            : "Your discovery selection has expired or is no longer available.");
     }
   },
   onLogout: () => browserNavigation?.onLogout(),
@@ -556,6 +577,7 @@ const authController = createAuthController({
 const { loadAuthState, login, logout } = authController;
 
 const mediaSessionController = createMediaSessionController({
+  translate: presentation.translate,
   getCurrentStation: playerRuntime.getCurrentStation,
   logPlayerEvent,
   pauseCurrentStationPlayback: playerRuntime.pauseCurrentStationPlayback,
@@ -567,6 +589,7 @@ const mediaSessionController = createMediaSessionController({
 const { setupMediaSessionHandlers } = mediaSessionController;
 
 const metadataController = createMetadataController({
+  presentation,
   apiFetch,
   titleNode: playerTitleNode,
   copyButton: playerCopyButton,
@@ -589,6 +612,7 @@ const artworkController = createPlayerArtworkController({
 });
 
 const playerController = createPlayerController({
+  presentation,
   audioNode,
   playerBar,
   titleNode: playerTitleNode,
@@ -608,6 +632,7 @@ const playerController = createPlayerController({
 playerRuntime.attach(playerController);
 
 const stationPublicationController = createStationPublicationController({
+  presentation,
   apiFetch,
   getCurrentUser: appState.getCurrentUser,
   getSessionKey: appState.getCsrfToken,
@@ -617,6 +642,7 @@ const stationPublicationController = createStationPublicationController({
 });
 
 const stationRenderer = createStationRenderer({
+  presentation,
   renderState: () => ({
     currentUser: appState.getCurrentUser(),
     currentView: appState.getCurrentView(),
@@ -635,13 +661,14 @@ const stationRenderer = createStationRenderer({
   },
   onTogglePublication: stationPublicationController.toggle,
   onStationActionError: (error) => {
-    playerRuntime.setPlayerState("error", `Could not read station data. ${error}`);
+    playerRuntime.setPlayerState("error", `Could not read station data. ${error}`, undefined, "stations.read_failed", { error: String(error) });
   },
 });
 
 const { bindResultActions, renderStation } = stationRenderer;
 
 const searchController = createSearchController({
+  presentation,
   searchForm,
   getCurrentView: appState.getCurrentView,
   getCurrentUser: appState.getCurrentUser,
@@ -692,10 +719,10 @@ async function exportPlaylistDownload(name, format) {
 
     playerRuntime.setPlayerState(
       "idle",
-      `${format.toUpperCase()} download started. Shared files may expose stream URL access tokens.`,
+      `${format.toUpperCase()} download started. Shared files may expose stream URL access tokens.`, undefined, "export.playlist", { format: format.toUpperCase() }
     );
   } catch (error) {
-    playerRuntime.setPlayerState("error", `Could not export playlist. ${error}`);
+    playerRuntime.setPlayerState("error", `Could not export playlist. ${error}`, undefined, "export.playlist_failed", { error: String(error) });
   }
 }
 
@@ -717,13 +744,14 @@ async function exportFavoriteDownload(endpoint, filename) {
     } finally {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
-    playerRuntime.setPlayerState("idle", "Download started. Shared files may expose stream URL access tokens.");
+    playerRuntime.setPlayerState("idle", "Download started. Shared files may expose stream URL access tokens.", undefined, "export.favorites");
   } catch (error) {
-    playerRuntime.setPlayerState("error", `Could not export favorites. ${error}`);
+    playerRuntime.setPlayerState("error", `Could not export favorites. ${error}`, undefined, "export.favorites_failed", { error: String(error) });
   }
 }
 
 const playlistRenderer = createPlaylistRenderer({
+  presentation,
   resultsNode,
   resultCountNode,
   onCreatePlaylist: (name) => playlistController.createPlaylist(name),
@@ -736,6 +764,7 @@ const playlistRenderer = createPlaylistRenderer({
 const { bindPlaylistActions, renderPlaylists } = playlistRenderer;
 
 const libraryViewsController = createLibraryViewsController({
+  presentation,
   apiFetch,
   onExportFavorites: (format) => {
     if (["m3u", "pls"].includes(format)) {
@@ -762,6 +791,7 @@ const { loadFavorites, loadHistory, loadPlaylists, loadPlaylistStations } = libr
 
 
 const unifiedLibraryController = createUnifiedLibraryController({
+  presentation,
   apiFetch,
   getCurrentUser: appState.getCurrentUser,
   getCurrentView: appState.getCurrentView,
@@ -807,6 +837,8 @@ const favoriteController = createFavoriteController({
 const { addFavorite, recordHistory, removeFavorite } = favoriteController;
 
 const playlistController = createPlaylistController({
+  presentation,
+  knownApiErrorKey,
   apiFetch,
   dialog: playlistDialog,
   form: playlistForm,
@@ -959,6 +991,8 @@ bindApplicationEvents({
   toggleTheme,
   logPlayerEvent,
 });
+
+initializeLanguageUi(document, window, presentation);
 
 bootstrapApplication({
   loadSetupState,

@@ -16,6 +16,7 @@ export function createLazyStationImportController(options) {
       `${getCurrentUser()?.id ?? ""}:${getSessionKey() ?? ""}:${options.getProfileName?.() ?? ""}`,
     onError: () => {
       elements.messageNode.textContent = "Could not load station import controls.";
+      options.presentation?.present(elements.messageNode, "imports.lazy.error", elements.messageNode.textContent);
     },
   });
 

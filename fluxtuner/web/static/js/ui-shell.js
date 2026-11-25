@@ -3,6 +3,7 @@
  */
 
 export function createUiShellController({
+  presentation,
   accountPanel,
   adminPanel,
   appContentNodes,
@@ -19,13 +20,15 @@ export function createUiShellController({
   setCurrentView,
   setCurrentSection = () => {},
 }) {
-  function setResultsHeader(kicker, title) {
+  function setResultsHeader(kicker, title, kickerKey, titleKey, titleParams = {}) {
     if (resultsKickerNode) {
-      resultsKickerNode.textContent = kicker;
+      if (kickerKey && presentation) presentation.present(resultsKickerNode, kickerKey, kicker);
+      else { presentation?.clear(resultsKickerNode); resultsKickerNode.textContent = kicker; }
     }
 
     if (resultsTitleNode) {
-      resultsTitleNode.textContent = title;
+      if (titleKey && presentation) presentation.present(resultsTitleNode, titleKey, title, "textContent", titleParams);
+      else { presentation?.clear(resultsTitleNode); resultsTitleNode.textContent = title; }
     }
   }
 
@@ -147,14 +150,16 @@ export function createUiShellController({
     showRadioBrowserView();
     setCurrentView("search");
     setCurrentPlaylistName("");
-    setResultsHeader("Radio Browser", "Search stations");
+    setResultsHeader("Radio Browser", "Search stations", "shell.radio", "search.title");
 
     if (resultCountNode) {
+      presentation?.clear(resultCountNode);
       resultCountNode.textContent = "";
     }
 
     if (resultsNode) {
-      resultsNode.innerHTML = '<p class="empty">Search Radio Browser to find internet radio stations.</p>';
+      resultsNode.innerHTML = '<p class="empty" data-render-i18n="shell.initial">Search Radio Browser to find internet radio stations.</p>';
+      presentation?.bindRendered(resultsNode);
     }
   }
 

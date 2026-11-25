@@ -12,7 +12,32 @@ export function createPlaylistRenderer({
   onDeletePlaylist,
   onExportPlaylist,
   onSharePlaylist,
+  presentation,
 }) {
+  function translateRenderedPlaylists() {
+    if (!presentation) return;
+    const labels = [
+      ["[data-create-playlist-form] .sr-only", "playlists.new_name", "New playlist name"],
+      ["[data-create-playlist-form] input", "playlists.new_name", "New playlist name", "placeholder"],
+      ["[data-create-playlist-form] button", "playlists.create", "Create playlist"],
+      ["[data-open-playlist]", "playlists.open", "Open playlist"],
+      ["[data-delete-playlist]", "playlists.delete", "Delete playlist"],
+      ["[data-export-playlist-m3u]", "library.export_format_m3u", "Export M3U"],
+      ["[data-export-playlist-pls]", "library.export_format_pls", "Export PLS"],
+      ["[data-share-playlist]", "library.share", "Share"],
+      ["[data-playlists-empty]", "playlists.empty", "No playlists yet."],
+    ];
+    for (const [selector, key, fallback, attribute] of labels) {
+      for (const node of resultsNode.querySelectorAll(selector)) {
+        presentation.present(node, key, fallback, attribute);
+      }
+    }
+    for (const node of resultsNode.querySelectorAll("[data-playlist-station-count]")) {
+      const count = Number(node.dataset.playlistStationCount);
+      presentation.present(node, "stations.count", node.textContent, "textContent", { count });
+    }
+  }
+
   function renderCreatePlaylistForm() {
     return `
       <form class="playlist-create-form station-actions" data-create-playlist-form>
@@ -36,15 +61,17 @@ export function createPlaylistRenderer({
     if (!resultsNode || !resultCountNode) return;
 
     const playlists = payload.playlists || [];
-    resultCountNode.textContent = `${payload.count ?? playlists.length} playlist${
-      playlists.length === 1 ? "" : "s"
-    }`;
+    const count = payload.count ?? playlists.length;
+    const countText = `${count} playlist${count === 1 ? "" : "s"}`;
+    if (presentation) presentation.present(resultCountNode, "playlists.count", countText, "textContent", { count: Number(count) });
+    else resultCountNode.textContent = countText;
 
     if (!playlists.length) {
       resultsNode.innerHTML = `
-        <p class="empty">No playlists yet.</p>
+        <p class="empty" data-playlists-empty>No playlists yet.</p>
         ${renderCreatePlaylistForm()}
       `;
+      translateRenderedPlaylists();
       bindPlaylistActions();
       return;
     }
@@ -60,7 +87,7 @@ export function createPlaylistRenderer({
                   <h3>${escapeHtml(playlist.name)}</h3>
                 </div>
                 <div class="station-meta">
-                  <span>${Number(playlist.count || 0)} station${
+                  <span data-playlist-station-count="${Number(playlist.count || 0)}">${Number(playlist.count || 0)} station${
                     Number(playlist.count || 0) === 1 ? "" : "s"
                   }</span>
                 </div>
@@ -89,6 +116,7 @@ export function createPlaylistRenderer({
         .join("")}
     `;
 
+    translateRenderedPlaylists();
     bindPlaylistActions();
   }
 

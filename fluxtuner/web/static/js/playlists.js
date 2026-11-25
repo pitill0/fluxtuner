@@ -8,6 +8,8 @@ const MAX_PLAYLIST_NAME_LENGTH = 120;
 
 export function createPlaylistController({
   apiFetch,
+  presentation,
+  knownApiErrorKey = () => undefined,
   dialog,
   form,
   selectNode,
@@ -21,9 +23,13 @@ export function createPlaylistController({
 }) {
   let pendingPlaylistStation = null;
 
-  function setPlaylistDialogMessage(message) {
+  function setPlaylistDialogMessage(message, key, params = {}) {
     if (messageNode) {
-      messageNode.textContent = message || "";
+      if (presentation && key) presentation.present(messageNode, key, message, "textContent", params);
+      else {
+        presentation?.clear(messageNode);
+        messageNode.textContent = message || "";
+      }
     }
   }
 
@@ -56,12 +62,20 @@ export function createPlaylistController({
 
     selectNode.innerHTML =
       '<option value="">Choose existing playlist...</option>' + options;
+    if (presentation && selectNode.options) {
+      presentation.present(selectNode.options[0], "playlist.dialog.choose_option", "Choose existing playlist...");
+      items.forEach((playlist, index) => {
+        const option = selectNode.options[index + 1];
+        presentation.present(option, "playlist.dialog.option", option.textContent, "textContent", { name: playlist.name || "", count: Number(playlist.count || 0) });
+      });
+    }
   }
 
   async function loadPlaylistChoices() {
     if (!selectNode) return;
 
     selectNode.innerHTML = '<option value="">Loading playlists...</option>';
+    if (selectNode.options) presentation?.present(selectNode.options[0], "playlist.dialog.loading", "Loading playlists...");
 
     const response = await apiFetch("/api/playlists", {
       headers: {
@@ -77,21 +91,21 @@ export function createPlaylistController({
     renderPlaylistOptions(payload.playlists || []);
 
     if (!(payload.playlists || []).length) {
-      setPlaylistDialogMessage("No playlists yet. Enter a new playlist name below.");
+      setPlaylistDialogMessage("No playlists yet. Enter a new playlist name below.", "playlist.dialog.empty");
     } else {
-      setPlaylistDialogMessage("Choose an existing playlist or enter a new name.");
+      setPlaylistDialogMessage("Choose an existing playlist or enter a new name.", "playlist.dialog.choose");
     }
   }
 
   async function openPlaylistDialog(station) {
     const url = stationUrl(station);
     if (!url) {
-      setPlayerState("error", "This station has no URL to add to a playlist.");
+      setPlayerState("error", "This station has no URL to add to a playlist.", undefined, "playlist.no_station_url");
       return;
     }
 
     if (!dialog || !form) {
-      setPlayerState("error", "Playlist dialog is not available.");
+      setPlayerState("error", "Playlist dialog is not available.", undefined, "playlist.dialog_unavailable");
       return;
     }
 
@@ -99,17 +113,17 @@ export function createPlaylistController({
     dialog.hidden = false;
 
     if (stationNameNode) {
-      stationNameNode.textContent = station.name
-        ? `Station: ${station.name}`
-        : "Station selected.";
+      const label = station.name ? `Station: ${station.name}` : "Station selected.";
+      if (presentation) presentation.present(stationNameNode, station.name ? "playlist.dialog.station" : "playlist.dialog.selected", label, "textContent", { name: station.name });
+      else stationNameNode.textContent = label;
     }
 
-    setPlaylistDialogMessage("Loading playlists...");
+    setPlaylistDialogMessage("Loading playlists...", "playlist.dialog.loading");
 
     try {
       await loadPlaylistChoices();
     } catch (error) {
-      setPlaylistDialogMessage(`Could not load playlists. ${error}`);
+      setPlaylistDialogMessage(`Could not load playlists. ${error}`, "playlist.dialog.load_error", { error: String(error) });
     }
 
     const firstInput = dialog.querySelector("select, input, button");
@@ -134,16 +148,17 @@ export function createPlaylistController({
     if (playlistName.length > MAX_PLAYLIST_NAME_LENGTH) {
       setPlaylistDialogMessage(
         `Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`,
+        "playlist.dialog.length", { limit: MAX_PLAYLIST_NAME_LENGTH },
       );
       return;
     }
 
     if (!playlistName) {
-      setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.");
+      setPlaylistDialogMessage("Choose an existing playlist or enter a new playlist name.", "playlist.dialog.required");
       return;
     }
 
-    setPlaylistDialogMessage("Adding station...");
+    setPlaylistDialogMessage("Adding station...", "playlist.dialog.adding");
 
     try {
       const response = await apiFetch(
@@ -169,6 +184,7 @@ export function createPlaylistController({
         payload.added
           ? `Added to playlist "${payload.name}".`
           : `Station is already in playlist "${payload.name}".`,
+        undefined, payload.added ? "playlist.added" : "playlist.station_exists", { name: payload.name },
       );
 
       if (getCurrentView() === "playlists") {
@@ -180,7 +196,7 @@ export function createPlaylistController({
         await loadPlaylistStations(getCurrentPlaylistName());
       }
     } catch (error) {
-      setPlaylistDialogMessage(`Could not add station. ${error}`);
+      setPlaylistDialogMessage(`Could not add station. ${error}`, "playlist.dialog.add_error", { error: String(error) });
     }
   }
 
@@ -215,24 +231,25 @@ export function createPlaylistController({
         payload.removed
           ? `Removed from playlist "${payload.name}".`
           : `Station was not in playlist "${payload.name}".`,
+        undefined, payload.removed ? "playlist.removed" : "playlist.station_absent", { name: payload.name },
       );
 
       await loadPlaylistStations(getCurrentPlaylistName());
     } catch (error) {
-      setPlayerState("error", `Could not remove station from playlist. ${error}`);
+      setPlayerState("error", `Could not remove station from playlist. ${error}`, undefined, "playlist.remove_failed", { error: String(error) });
     }
   }
 
   async function createPlaylist(playlistName) {
     const cleanPlaylistName = String(playlistName || "").trim();
     if (!cleanPlaylistName) {
-      setPlayerState("error", "Enter a playlist name.");
+      setPlayerState("error", "Enter a playlist name.", undefined, "playlist.name_required");
       return;
     }
     if (cleanPlaylistName.length > MAX_PLAYLIST_NAME_LENGTH) {
       setPlayerState(
         "error",
-        `Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`,
+        `Playlist name must be ${MAX_PLAYLIST_NAME_LENGTH} characters or less.`, undefined, "playlist.name_length", { limit: MAX_PLAYLIST_NAME_LENGTH }
       );
       return;
     }
@@ -248,6 +265,12 @@ export function createPlaylistController({
       });
 
       if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const key = knownApiErrorKey(payload.detail);
+        if (key) {
+          setPlayerState("error", payload.detail, undefined, key);
+          return;
+        }
         throw new Error(`HTTP ${response.status}`);
       }
 
@@ -257,16 +280,18 @@ export function createPlaylistController({
         payload.created
           ? `Created playlist "${payload.name}".`
           : `Playlist "${payload.name}" already exists.`,
+        undefined, payload.created ? "playlist.created" : "playlist.exists", { name: payload.name },
       );
 
       await loadPlaylists();
     } catch (error) {
-      setPlayerState("error", `Could not create playlist. ${error}`);
+      setPlayerState("error", `Could not create playlist. ${error}`, undefined, "playlist.create_failed", { error: String(error) });
     }
   }
 
   async function deletePlaylist(name) {
-    if (!window.confirm(`Delete playlist "${name}"? Stations will stay in favorites.`)) {
+    const warning = `Delete playlist "${name}"? Stations will stay in favorites.`;
+    if (!window.confirm(presentation?.translate("playlist.confirm_delete", warning, { name }) ?? warning)) {
       return;
     }
 
@@ -288,11 +313,12 @@ export function createPlaylistController({
         payload.removed
           ? `Deleted playlist "${payload.name}".`
           : `Playlist "${payload.name}" was not found.`,
+        undefined, payload.removed ? "playlist.deleted" : "playlist.not_found", { name: payload.name },
       );
 
       await loadPlaylists();
     } catch (error) {
-      setPlayerState("error", `Could not delete playlist. ${error}`);
+      setPlayerState("error", `Could not delete playlist. ${error}`, undefined, "playlist.delete_failed", { error: String(error) });
     }
   }
 

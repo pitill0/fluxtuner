@@ -11,6 +11,7 @@ export function createSidebarToggle({
   shell,
   button,
   windowNode,
+  presentation,
 }) {
   let collapsed = false;
 
@@ -21,14 +22,23 @@ export function createSidebarToggle({
     button.setAttribute("aria-expanded", String(!collapsed));
 
     const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
-    button.setAttribute("aria-label", label);
-    button.setAttribute("title", label);
+    const key = collapsed ? "nav.expand" : "nav.collapse";
+    if (presentation) {
+      presentation.present(button, key, label, "aria-label");
+      presentation.present(button, key, label, "title");
+    } else {
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+    }
 
     const icon = button.querySelector?.("[data-sidebar-toggle-icon]");
     if (icon) icon.textContent = collapsed ? "›" : "‹";
 
     const labelNode = button.querySelector?.("[data-sidebar-toggle-label]");
-    if (labelNode) labelNode.textContent = "Menu";
+    if (labelNode) {
+      if (presentation) presentation.present(labelNode, "nav.menu", "Menu");
+      else labelNode.textContent = "Menu";
+    }
   }
 
   function toggle() {

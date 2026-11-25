@@ -46,8 +46,8 @@ export function createPlayerRuntime() {
     return requireController().setPlayerState(...args);
   }
 
-  function startCurrentStationPlayback(message) {
-    return requireController().startCurrentStationPlayback(message);
+  function startCurrentStationPlayback(...args) {
+    return requireController().startCurrentStationPlayback(...args);
   }
 
   function stopPlayback(...args) {

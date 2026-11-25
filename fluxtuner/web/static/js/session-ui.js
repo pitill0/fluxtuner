@@ -3,6 +3,7 @@
  */
 
 export function createSessionUiController({
+  presentation,
   recommendationController,
   subscriptionController,
   stationImportController,
@@ -34,6 +35,15 @@ export function createSessionUiController({
   showRadioBrowserView,
   adminPanel,
 }) {
+  function presentMessage(node, message, key, params = {}) {
+    if (!node) return;
+    if (key && presentation) presentation.present(node, key, message, "textContent", params);
+    else {
+      presentation?.clear(node);
+      node.textContent = message || "";
+    }
+  }
+
   function updateAuthUi() {
     recommendationController?.syncSession();
     stationImportController?.syncSession();
@@ -125,22 +135,21 @@ export function createSessionUiController({
 
     if (authMessageNode) {
       authMessageNode.hidden = !authenticated;
-      authMessageNode.textContent = authenticated
-        ? "Private library tools are available."
-        : "";
+      if (authenticated) presentMessage(authMessageNode, "Private library tools are available.", "session.private_tools");
+      else presentMessage(authMessageNode, "");
     }
   }
 
   function renderAuthRequired() {
     if (resultsNode && resultCountNode) {
-      resultCountNode.textContent = "Login required.";
+      presentMessage(resultCountNode, "Login required.", "session.login_required");
       resultsNode.innerHTML =
         '<p class="empty">Sign in to use favorites, history and playlists.</p>';
     }
 
     if (authMessageNode) {
       authMessageNode.hidden = false;
-      authMessageNode.textContent = "Session expired or login required.";
+      presentMessage(authMessageNode, "Session expired or login required.", "session.expired");
     }
   }
 

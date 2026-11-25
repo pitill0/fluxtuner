@@ -7,6 +7,7 @@ const PLAYER_DEBUG_STORAGE_KEY = "fluxtunerPlayerDebug";
 const PLAYER_DEBUG_QUERY_KEY = "player_debug";
 
 export function createPlayerDebugController({
+  presentation,
   panel,
   summaryNode,
   enableInput,
@@ -42,6 +43,12 @@ export function createPlayerDebugController({
     return lines.join("\n");
   }
 
+  function present(node, key, fallback, params = {}) {
+    if (!node) return;
+    if (presentation) presentation.present(node, key, fallback, "textContent", params);
+    else node.textContent = fallback;
+  }
+
   function render() {
     if (!panel) return;
 
@@ -51,30 +58,30 @@ export function createPlayerDebugController({
 
     if (summaryNode) {
       const count = events.length;
-      summaryNode.textContent = enabled
-        ? count
-          ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
-          : "Debug logging is enabled."
-        : "Debug logging is disabled.";
+      present(summaryNode, enabled ? count ? "debug.count" : "debug.enabled" : "debug.disabled",
+        enabled ? count ? `${count} recent player event${count === 1 ? "" : "s"} captured.`
+          : "Debug logging is enabled." : "Debug logging is disabled.", { count });
     }
 
     if (!enabled) {
       if (snapshotNode) {
-        snapshotNode.textContent = "Enable player debug to capture playback diagnostics.";
+        present(snapshotNode, "debug.enable_hint", "Enable player debug to capture playback diagnostics.");
       }
 
       if (logNode) {
-        logNode.textContent = "No player events captured while debug is disabled.";
+        present(logNode, "debug.events_disabled", "No player events captured while debug is disabled.");
       }
 
       return;
     }
 
     if (snapshotNode) {
+      presentation?.clear(snapshotNode);
       snapshotNode.textContent = JSON.stringify(getSnapshot(), null, 2);
     }
 
     if (logNode) {
+      presentation?.clear(logNode);
       logNode.textContent = events.length
         ? events
             .map(
@@ -83,13 +90,12 @@ export function createPlayerDebugController({
             )
             .join("\n\n")
         : "No player events yet.";
+      if (!events.length) present(logNode, "debug.no_events", "No player events yet.");
     }
   }
 
-  function setSummary(message) {
-    if (summaryNode) {
-      summaryNode.textContent = message;
-    }
+  function setSummary(message, key, params) {
+    present(summaryNode, key, message, params);
   }
 
   function showExport(data) {
@@ -125,7 +131,7 @@ export function createPlayerDebugController({
     }
 
     if (toggleButton) {
-      toggleButton.textContent = detailsNode?.open && enabled ? "Hide" : "Show";
+      present(toggleButton, detailsNode?.open && enabled ? "debug.hide" : "debug.show", detailsNode?.open && enabled ? "Hide" : "Show");
       toggleButton.disabled = !enabled;
     }
 
@@ -201,14 +207,14 @@ export function createPlayerDebugController({
       }
 
       void navigator.clipboard.writeText(data).then(
-        () => setSummary("Player debug log copied to clipboard and shown below."),
+        () => setSummary("Player debug log copied to clipboard and shown below.", "debug.copied"),
         () =>
           setSummary(
-            "Clipboard unavailable. Select and copy the log below, or use Download log.",
+            "Clipboard unavailable. Select and copy the log below, or use Download log.", "debug.clipboard_error",
           ),
       );
     } catch (_error) {
-      setSummary("Clipboard unavailable. Select and copy the log below, or use Download log.");
+      setSummary("Clipboard unavailable. Select and copy the log below, or use Download log.", "debug.clipboard_error");
     }
   }
 
@@ -232,7 +238,7 @@ export function createPlayerDebugController({
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    setSummary(`Player debug log download started: ${filename}`);
+    setSummary(`Player debug log download started: ${filename}`, "debug.download_started", { filename });
   }
 
   function clearLog() {
@@ -252,7 +258,7 @@ export function createPlayerDebugController({
     detailsNode.open = !detailsNode.open;
 
     if (toggleButton) {
-      toggleButton.textContent = detailsNode.open ? "Hide" : "Show";
+      present(toggleButton, detailsNode.open ? "debug.hide" : "debug.show", detailsNode.open ? "Hide" : "Show");
     }
 
     render();

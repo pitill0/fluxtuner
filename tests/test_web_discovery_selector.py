@@ -21,4 +21,7 @@ def test_web_search_controller_invalidates_pending_requests_on_source_change() -
     assert "activeSearchController?.abort();" in script
     assert "++searchRequestId;" in script
     assert 'params.set("source", selectedSource());' in script
-    assert 'setResultsHeader(sourceLabel, "Search stations");' in script
+    assert (
+        'setResultsHeader(sourceLabel, "Search stations", sourceKeys[selectedSource()], "search.title");'
+        in script
+    )

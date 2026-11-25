@@ -4,16 +4,17 @@
 
 import { escapeHtml } from "./stations.js";
 
-function renderDashboardMetric(label, value) {
+function renderDashboardMetric(label, value, key) {
   return `
     <article class="dashboard-metric">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
+      <span data-render-i18n="${key}">${escapeHtml(label)}</span>
+      <strong${typeof value === "number" ? ` data-render-number="${value}"` : ""}>${escapeHtml(value)}</strong>
     </article>
   `;
 }
 
 export function createDashboardController({
+  presentation,
   apiFetch,
   panelNode,
   messageNode,
@@ -33,17 +34,20 @@ export function createDashboardController({
   isDashboardVisible,
 }) {
   let generation = 0;
-  function setDashboardMessage(message) {
+  function setDashboardMessage(message, key) {
     if (messageNode) {
-      messageNode.textContent = message || "";
+      presentation?.clear(messageNode);
+      if (presentation && key) presentation.present(messageNode, key, message);
+      else messageNode.textContent = message || "";
     }
   }
 
-  function renderDashboardStations(node, stations, emptyMessage) {
+  function renderDashboardStations(node, stations, emptyMessage, key) {
     if (!node) return;
 
     if (!stations.length) {
-      node.innerHTML = `<p class="empty">${escapeHtml(emptyMessage)}</p>`;
+      node.innerHTML = `<p class="empty" data-render-i18n="${key}">${escapeHtml(emptyMessage)}</p>`;
+      presentation?.bindRendered(node);
       return;
     }
 
@@ -57,25 +61,26 @@ export function createDashboardController({
 
     if (userMetricsNode) {
       userMetricsNode.innerHTML = [
-        renderDashboardMetric("Favorites", Number(userMetrics.favorites_count || 0)),
-        renderDashboardMetric("Playlists", Number(userMetrics.playlists_count || 0)),
+        renderDashboardMetric("Favorites", Number(userMetrics.favorites_count || 0), "nav.favorites"),
+        renderDashboardMetric("Playlists", Number(userMetrics.playlists_count || 0), "nav.playlists"),
         renderDashboardMetric(
           "Playlist stations",
-          Number(userMetrics.playlist_stations_count || 0),
+          Number(userMetrics.playlist_stations_count || 0), "dashboard.playlist_stations",
         ),
-        renderDashboardMetric("History", Number(userMetrics.history_count || 0)),
+        renderDashboardMetric("History", Number(userMetrics.history_count || 0), "nav.history"),
       ].join("");
+      presentation?.bindRendered(userMetricsNode);
     }
 
     renderDashboardStations(
       recentHistoryNode,
       userMetrics.recent_history || [],
-      "No recent playback yet.",
+      "No recent playback yet.", "dashboard.no_recent",
     );
     renderDashboardStations(
       favoriteHighlightsNode,
       userMetrics.favorite_highlights || [],
-      "No favorites yet.",
+      "No favorites yet.", "dashboard.no_favorites",
     );
 
     if (adminPanelNode) {
@@ -88,13 +93,14 @@ export function createDashboardController({
 
     if (adminMetricsNode && adminMetrics) {
       adminMetricsNode.innerHTML = [
-        renderDashboardMetric("Users", Number(adminMetrics.users_count || 0)),
-        renderDashboardMetric("New today", Number(adminMetrics.users_created_today || 0)),
-        renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0)),
-        renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0)),
-        renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0)),
-        renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown")),
+        renderDashboardMetric("Users", Number(adminMetrics.users_count || 0), "dashboard.users"),
+        renderDashboardMetric("New today", Number(adminMetrics.users_created_today || 0), "dashboard.new_today"),
+        renderDashboardMetric("New 7 days", Number(adminMetrics.users_created_7_days || 0), "dashboard.new_7"),
+        renderDashboardMetric("New 30 days", Number(adminMetrics.users_created_30_days || 0), "dashboard.new_30"),
+        renderDashboardMetric("Pending approval", Number(adminMetrics.pending_users_count || 0), "dashboard.pending"),
+        renderDashboardMetric("Server", String(adminMetrics.server?.status || "unknown"), "dashboard.server"),
       ].join("");
+      presentation?.bindRendered(adminMetricsNode);
     }
   }
 
@@ -118,7 +124,7 @@ export function createDashboardController({
     }
 
     if (!silent) {
-      setDashboardMessage("Loading dashboard...");
+      setDashboardMessage("Loading dashboard...", "dashboard.loading");
     }
 
     try {
@@ -140,10 +146,13 @@ export function createDashboardController({
       if (!stillCurrent()) return;
       renderDashboard(payload);
       if (!silent) {
-        setDashboardMessage("Dashboard updated.");
+        setDashboardMessage("Dashboard updated.", "dashboard.updated");
       }
     } catch (error) {
-      if (stillCurrent()) setDashboardMessage(String(error));
+      if (stillCurrent()) {
+        const message = String(error);
+        setDashboardMessage(message, message === "Error: Could not load dashboard." ? "dashboard.load_error" : undefined);
+      }
     }
   }
 

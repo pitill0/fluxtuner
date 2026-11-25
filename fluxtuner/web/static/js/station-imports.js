@@ -3,6 +3,8 @@
  */
 
 export function createStationImportController({
+  presentation,
+  knownApiErrorKey = () => undefined,
   apiFetch, elements, getCurrentUser, getSessionKey, getProfileName = () => null, beforeOpen, onSaved,
 }) {
   const {
@@ -18,6 +20,20 @@ export function createStationImportController({
   let playlists = [];
   let pending = "";
   let bound = false;
+
+  function message(value, key) {
+    if (key && presentation) presentation.present(messageNode, key, value);
+    else { presentation?.clear(messageNode); messageNode.textContent = value; }
+  }
+
+  function showError(error, fallback, fallbackKey) {
+    const text = error?.message;
+    const localKey = text === "The playlist exceeds 1 MiB." ? "imports.feedback.size"
+      : text === "Could not download remote collection." ? "api.collection_retrieve"
+      : text === "Could not import this file. Please try again." ? "imports.feedback.import_error"
+      : undefined;
+    message(text || fallback, text ? (knownApiErrorKey(text) || localKey) : fallbackKey);
+  }
 
   function sameSession(captured) {
     return Boolean(
@@ -52,6 +68,7 @@ export function createStationImportController({
     playlists = [];
     selectNode.replaceChildren();
     selectNode.value = "";
+    presentation?.clear(previewNode);
     previewNode.textContent = "";
     previewNode.hidden = true;
     updateControls();
@@ -64,7 +81,7 @@ export function createStationImportController({
     if (dialog.open) dialog.close();
     form.reset();
     clearPreview();
-    messageNode.textContent = "";
+    message("");
     openButton?.focus();
   }
 
@@ -88,7 +105,7 @@ export function createStationImportController({
     pending = "";
     form.reset();
     clearPreview();
-    messageNode.textContent = "";
+    message("");
     dialog.showModal();
     fileInput.focus();
   }
@@ -97,7 +114,7 @@ export function createStationImportController({
     generation += 1;
     pending = "";
     clearPreview();
-    messageNode.textContent = "";
+    message("");
   }
 
   function profileEndpoint(endpoint, captured) {
@@ -135,6 +152,7 @@ export function createStationImportController({
       const node = selectNode.ownerDocument.createElement("option");
       node.value = value;
       node.textContent = label;
+      if (value === "") presentation?.present(node, "imports.destination.new", label);
       return node;
     };
     selectNode.replaceChildren(
@@ -156,10 +174,27 @@ export function createStationImportController({
       if (payload.issues.length > 100) lines.push("Additional skipped entries omitted.");
     }
     previewNode.textContent = lines.join("\n\n");
+    if (presentation) {
+      const parts = payload.entries.slice(0, 200).map((entry, index) => ({
+        key: entry.existing ? "imports.preview.existing" : "imports.preview.new",
+        fallback: lines[index], params: { name: entry.name, url: entry.url },
+      }));
+      if (payload.entries.length > 200) parts.push({ key: "imports.preview.limit",
+        fallback: `Showing the first 200 of ${payload.entries.length} stations. All will be imported.`, params: { total: payload.entries.length } });
+      if (payload.issues.length) {
+        parts.push({ key: "imports.preview.skipped", fallback: "Skipped entries:" });
+        for (const issue of payload.issues.slice(0, 100)) parts.push({ key: "imports.preview.line",
+          fallback: `Line ${issue.line_number}: ${issue.reason}`, params: { line: issue.line_number, reason: issue.reason } });
+        if (payload.issues.length > 100) parts.push({ key: "imports.preview.omitted", fallback: "Additional skipped entries omitted." });
+      }
+      presentation.presentParts(previewNode, parts, "\n\n");
+    }
     previewNode.hidden = false;
     messageNode.textContent =
       `${payload.entries.length} valid stations; ${payload.duplicates} repeated URLs; ` +
       `${payload.issues.length} skipped entries. Nothing has been saved yet.`;
+    presentation?.present(messageNode, "imports.summary", messageNode.textContent, "textContent",
+      { valid: payload.entries.length, duplicates: payload.duplicates, issues: payload.issues.length });
   }
 
   async function preview() {
@@ -172,15 +207,15 @@ export function createStationImportController({
     const url = urlInput?.value.trim() || "";
     const file = fileInput.files?.[0];
     if (!url && !file) {
-      messageNode.textContent = "Choose a playlist file or enter an HTTP/HTTPS URL.";
+      message("Choose a playlist file or enter an HTTP/HTTPS URL.", "imports.feedback.choose_source");
       return;
     }
     if (!url && file.size > MAX_BYTES) {
-      messageNode.textContent = "The playlist exceeds 1 MiB.";
+      message("The playlist exceeds 1 MiB.", "imports.feedback.size");
       return;
     }
     if (url && !/^https?:\/\//i.test(url)) {
-      messageNode.textContent = "Enter an HTTP/HTTPS collection URL.";
+      message("Enter an HTTP/HTTPS collection URL.", "imports.feedback.url");
       return;
     }
 
@@ -188,7 +223,8 @@ export function createStationImportController({
     const requestContext = context;
     pending = "preview";
     updateControls();
-    messageNode.textContent = url ? "Downloading collection…" : "Reading playlist…";
+    if (url) message("Downloading collection…", "imports.feedback.download");
+    else message("Reading playlist…", "imports.feedback.read");
     try {
       let data;
       if (url) {
@@ -229,7 +265,7 @@ export function createStationImportController({
     } catch (error) {
       if (!current(requestGeneration, requestContext)) return;
       clearPreview();
-      messageNode.textContent = error?.message || "Could not read playlist.";
+      showError(error, "Could not read playlist.", "imports.feedback.read_error");
     } finally {
       if (requestGeneration === generation) {
         pending = "";
@@ -252,7 +288,7 @@ export function createStationImportController({
       ? playlists[index]
       : nameInput.value.trim();
     if (!name || (existing && (!Number.isInteger(index) || index < 0))) {
-      messageNode.textContent = "Choose a destination playlist.";
+      message("Choose a destination playlist.", "imports.feedback.destination");
       return;
     }
 
@@ -260,7 +296,7 @@ export function createStationImportController({
     const requestContext = context;
     pending = "import";
     updateControls();
-    messageNode.textContent = "Importing stations…";
+    message("Importing stations…", "imports.feedback.importing");
     try {
       const query = new URLSearchParams({ playlist: name, existing: String(existing) });
       const endpoint = profileEndpoint(`/api/stations/import?${query}`, requestContext);
@@ -282,7 +318,7 @@ export function createStationImportController({
       await onSaved(payload);
     } catch (error) {
       if (!current(requestGeneration, requestContext)) return;
-      messageNode.textContent = error?.message || "Could not import stations.";
+      showError(error, "Could not import stations.", "imports.feedback.import_error");
     } finally {
       if (requestGeneration === generation) {
         pending = "";

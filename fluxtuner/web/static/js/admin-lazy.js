@@ -15,8 +15,10 @@ export function createLazyAdminController(options, {
 
   function showError(error) {
     if (options.messageNode) {
-      options.messageNode.textContent =
-        `Could not load administration controls. ${String(error)}`;
+      options.presentation?.clear(options.messageNode);
+      const message = `Could not load administration controls. ${String(error)}`;
+      if (options.presentation) options.presentation.present(options.messageNode, "admin.lazy_error", message, "textContent", { error: String(error) });
+      else options.messageNode.textContent = message;
     }
   }
 
@@ -83,9 +85,13 @@ export function createLazyAdminController(options, {
 
       // Preserve synchronous UI cleanup while the module is still loading.
       if (!controller) {
-        if (options.messageNode) options.messageNode.textContent = "";
+        if (options.messageNode) {
+          options.presentation?.clear(options.messageNode);
+          options.messageNode.textContent = "";
+        }
         if (options.usersNode) {
-          options.usersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
+          options.usersNode.innerHTML = '<p class="empty" data-render-i18n="admin.users_empty">Admin users will appear here.</p>';
+          options.presentation?.bindRendered(options.usersNode);
         }
       }
     },

@@ -16,7 +16,7 @@ def test_web_static_js_uses_module_entrypoint() -> None:
     assert app_response.status_code == 200
     assert api_response.status_code == 200
     assert '<script type="module" src="/static/app.js"></script>' in html_response.text
-    assert 'import { createApiFetch } from "./js/api.js";' in app_response.text
+    assert 'import { createApiFetch, knownApiErrorKey } from "./js/api.js";' in app_response.text
     assert "export function createApiFetch" in api_response.text
     assert "X-FluxTuner-CSRF" in api_response.text
     assert "response.status === 401" in api_response.text
@@ -168,9 +168,9 @@ def test_web_static_js_uses_account_requests_module() -> None:
     assert "authMessageNode.hidden = false;" in module_response.text
     assert module_response.text.count("authMessageNode.hidden = false;") == 2
     assert "function errorMessage" in module_response.text
-    assert "setPasswordChangeMessage(errorMessage(error));" in module_response.text
+    assert "setPasswordChangeMessage(message, knownApiErrorKey(message));" in module_response.text
     assert "function showRecoveryCodes" in module_response.text
-    assert "setRegisterMessage(errorMessage(error));" in module_response.text
+    assert "setRegisterMessage(message, knownApiErrorKey(message));" in module_response.text
     assert "function focusFirstDialogControl" in module_response.text
     assert "function setRegisterMessage" not in app_response.text
     assert "function setPasswordChangeMessage" not in app_response.text
@@ -561,7 +561,7 @@ def test_web_static_js_sets_media_session_metadata_and_handlers() -> None:
     assert "new URL(src, window.location.href).href" in module_response.text
     assert "/static/icons/icon-192.png" in module_response.text
     assert "/static/icons/icon-512.png" in module_response.text
-    assert "function stationTitle(station)" in module_response.text
+    assert 'function stationTitle(station, unknown = "Unknown station")' in module_response.text
     assert "function setupMediaSessionHandlers()" in module_response.text
     assert 'navigator.mediaSession.setActionHandler("play"' in module_response.text
     assert 'navigator.mediaSession.setActionHandler("pause"' in module_response.text
@@ -592,7 +592,7 @@ def test_web_static_js_restarts_live_stream_from_system_controls() -> None:
     assert player_response.text.count("function attemptCurrentStationPlayback") == 1
     assert "function setupMediaSessionHandlers" not in app_response.text
     assert (
-        'startCurrentStationPlayback("Starting stream from system controls...")'
+        'startCurrentStationPlayback("Starting stream from system controls...", { messageKey: "player.system_start" })'
         in module_response.text
     )
     assert "stream did not start in time" in player_response.text

@@ -2,7 +2,10 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { knownApiErrorKey } from "./api.js";
+
 export function createAuthController({
+  presentation,
   apiFetch,
   authMessageNode,
   loginForm,
@@ -18,6 +21,15 @@ export function createAuthController({
   stopPlayback,
   updateAuthUi,
 }) {
+  function presentMessage(node, message, key, params = {}) {
+    if (!node) return;
+    if (key && presentation) presentation.present(node, key, message, "textContent", params);
+    else {
+      presentation?.clear(node);
+      node.textContent = message || "";
+    }
+  }
+
   async function loadAuthState() {
     try {
       const response = await fetch("/api/auth/me", {
@@ -62,7 +74,7 @@ export function createAuthController({
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "");
 
-    authMessageNode.textContent = "Signing in...";
+    presentMessage(authMessageNode, "Signing in...", "auth.signing");
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -100,7 +112,8 @@ export function createAuthController({
       setCsrfToken("");
       updateAuthUi();
       authMessageNode.hidden = false;
-      authMessageNode.textContent = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
+      presentMessage(authMessageNode, message, knownApiErrorKey(message));
     }
   }
 

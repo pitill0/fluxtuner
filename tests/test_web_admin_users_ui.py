@@ -37,7 +37,7 @@ def test_web_static_js_wires_admin_user_api() -> None:
     assert 'data-admin-user-action="delete"' in admin_response.text
     assert "DELETE ${username}" in admin_response.text
     assert '<details class="admin-user-danger-zone">' in admin_response.text
-    assert "<summary>${dangerTitle}</summary>" in admin_response.text
+    assert ">${dangerTitle}</summary>" in admin_response.text
     assert "Deleting a user is permanent and cannot be undone." in admin_response.text
     assert "data-admin-user-danger-feedback" in admin_response.text
     assert "Confirmation did not match" in admin_response.text
@@ -56,10 +56,14 @@ def test_web_static_js_renders_only_applicable_admin_user_actions() -> None:
 
     assert response.status_code == 200
     assert "function adminUserActions(user, username, isCurrentUser = false)" in response.text
-    assert 'approvalStatus === "pending"' in response.text
-    assert 'approvalStatus === "approved"' in response.text
-    assert 'approvalStatus === "rejected"' not in response.text
-    assert 'approvalStatus === "disabled"' not in response.text
+    actions_source = response.text.split(
+        "function adminUserActions(user, username, isCurrentUser = false) {",
+        1,
+    )[1].split("export function createAdminController(", 1)[0]
+    assert 'approvalStatus === "pending"' in actions_source
+    assert 'approvalStatus === "approved"' in actions_source
+    assert 'approvalStatus === "rejected"' not in actions_source
+    assert 'approvalStatus === "disabled"' not in actions_source
     assert 'actions.push(adminUserActionButton("approve", username, "Approve"));' in response.text
     assert 'actions.push(adminUserActionButton("reject", username, "Reject"));' in response.text
     assert 'actions.push(adminUserActionButton("activate", username, "Activate"));' in response.text

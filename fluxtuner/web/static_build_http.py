@@ -178,7 +178,7 @@ class StaticBuildHTTP:
             not use_range
             and not range_header
             and len(data) >= 1000
-            and asset.endswith((".js", ".css", ".svg", ".webmanifest"))
+            and asset.endswith((".js", ".css", ".svg", ".webmanifest", ".json"))
             and _accepts_gzip(scope)
         )
         etag = f'W/"gzip-{digest}"' if gzip_ok else identity_etag

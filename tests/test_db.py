@@ -258,9 +258,8 @@ def test_favorites_station_id_index_exists_and_is_used(tmp_path) -> None:
         ).fetchall()
 
     details = [str(row["detail"]) for row in plan]
-    assert any(
-        "SEARCH f USING" in detail and "idx_favorites_station_id" in detail for detail in details
-    ), details
+    assert any("idx_favorites_station_id" in detail for detail in details), details
+    assert not any("SCAN f" in detail for detail in details), details
 
 
 def test_schema_v9_to_v10_preserves_favorites(tmp_path) -> None:

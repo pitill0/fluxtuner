@@ -2,13 +2,15 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-function setLoadingState({ resultsNode, resultCountNode, countText, emptyText }) {
+function setLoadingState({ resultsNode, resultCountNode, countText, emptyText, countKey, emptyKey, presentation }) {
   if (resultCountNode) {
-    resultCountNode.textContent = countText;
+    if (presentation) presentation.present(resultCountNode, countKey, countText);
+    else resultCountNode.textContent = countText;
   }
 
   if (resultsNode) {
     resultsNode.innerHTML = `<p class="empty">${emptyText}</p>`;
+    if (presentation) presentation.present(resultsNode.querySelector?.(".empty"), emptyKey, emptyText);
   }
 }
 
@@ -25,6 +27,7 @@ export function createLibraryViewsController({
   getCurrentView,
   getCurrentUser,
   isLibraryVisible,
+  presentation,
 }) {
   let generation = 0;
 
@@ -48,12 +51,15 @@ export function createLibraryViewsController({
     );
 
     setLibraryView("history", "");
-    setResultsHeader("Playback", "History");
+    setResultsHeader("Playback", "History", "player.playback", "nav.history");
     setLoadingState({
+      presentation,
       resultsNode,
       resultCountNode,
       countText: "Loading history...",
+      countKey: "library.loading_history",
       emptyText: "Loading playback history...",
+      emptyKey: "library.loading_playback",
     });
 
     try {
@@ -86,12 +92,15 @@ export function createLibraryViewsController({
     );
 
     setLibraryView("favorites", "");
-    setResultsHeader("Library", "Favorites");
+    setResultsHeader("Library", "Favorites", "shell.library", "nav.favorites");
     setLoadingState({
+      presentation,
       resultsNode,
       resultCountNode,
       countText: "Loading favorites...",
+      countKey: "library.loading_favorites",
       emptyText: "Loading favorites...",
+      emptyKey: "library.loading_favorites",
     });
 
     try {
@@ -119,6 +128,9 @@ export function createLibraryViewsController({
         </div>
       `);
         resultsNode.querySelectorAll("[data-export-favorites]").forEach((button) => {
+          const format = button.dataset.exportFavorites;
+          presentation?.present(button, format === "m3u" ? "library.export_m3u" : "library.export_pls",
+            format === "m3u" ? "Export favorites M3U" : "Export favorites PLS");
           button.addEventListener("click", () => onExportFavorites(button.dataset.exportFavorites));
         });
       }
@@ -136,12 +148,15 @@ export function createLibraryViewsController({
     );
 
     setLibraryView("playlists", "");
-    setResultsHeader("Library", "Playlists");
+    setResultsHeader("Library", "Playlists", "shell.library", "nav.playlists");
     setLoadingState({
+      presentation,
       resultsNode,
       resultCountNode,
       countText: "Loading playlists...",
+      countKey: "library.loading_playlists",
       emptyText: "Loading playlists...",
+      emptyKey: "library.loading_playlists",
     });
 
     try {
@@ -174,12 +189,15 @@ export function createLibraryViewsController({
     );
 
     setLibraryView("playlist", name);
-    setResultsHeader("Playlist", name);
+    setResultsHeader("Playlist", name, "playlists.single");
     setLoadingState({
+      presentation,
       resultsNode,
       resultCountNode,
       countText: "Loading playlist...",
+      countKey: "library.loading_playlist",
       emptyText: "Loading playlist stations...",
+      emptyKey: "library.loading_playlist_stations",
     });
 
     try {

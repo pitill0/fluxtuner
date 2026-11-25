@@ -4,7 +4,7 @@
 
 /** Update an owned favorite without optimistic publication state changes. */
 export function createStationPublicationController({
-  apiFetch, getCurrentUser, getSessionKey, getCurrentView, loadFavorites, setMessage,
+  presentation, apiFetch, getCurrentUser, getSessionKey, getCurrentView, loadFavorites, setMessage,
 }) {
   async function toggle(station, button) {
     const id = Number(station?.station_id);
@@ -16,13 +16,9 @@ export function createStationPublicationController({
     if (published && !station.publication_eligible) return;
 
     if (published) {
+      const warning = "Make this station public?\n\nOther users may discover it through public station lists and activity rankings. Its name, associated public metadata and shareable stream URL may become accessible to others.\n\nYou can make it private again, but copies already saved by other people cannot be recalled.";
       const confirmed = window.confirm(
-        "Make this station public?\\n\\n" +
-        "Other users may discover it through public station lists and " +
-        "activity rankings. Its name, associated public metadata and " +
-        "shareable stream URL may become accessible to others.\\n\\n" +
-        "You can make it private again, but copies already saved by " +
-        "other people cannot be recalled."
+        presentation?.translate("station.confirm_public", warning) ?? warning
       );
       if (!confirmed) return;
     }
@@ -37,10 +33,10 @@ export function createStationPublicationController({
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       if (owner.id !== getCurrentUser()?.id || session !== getSessionKey()) return;
       if (getCurrentView() === "favorites") await loadFavorites();
-      setMessage("idle", published ? "Station made public." : "Station made private.");
+      setMessage("idle", published ? "Station made public." : "Station made private.", undefined, published ? "publication.public" : "publication.private");
     } catch (_error) {
       if (owner.id === getCurrentUser()?.id && session === getSessionKey()) {
-        setMessage("error", "Could not update station visibility. Please try again.");
+        setMessage("error", "Could not update station visibility. Please try again.", undefined, "publication.failed");
       }
     } finally {
       if (button.isConnected && owner.id === getCurrentUser()?.id &&

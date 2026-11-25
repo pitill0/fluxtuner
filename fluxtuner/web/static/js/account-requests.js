@@ -2,6 +2,8 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { knownApiErrorKey } from "./api.js";
+
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -16,6 +18,7 @@ function focusFirstDialogControl(dialogNode) {
 }
 
 export function createAccountRequestsController({
+  presentation,
   apiFetch,
   authMessageNode,
   fetchImpl = fetch,
@@ -31,9 +34,18 @@ export function createAccountRequestsController({
   registerForm,
   registerMessageNode,
 }) {
-  function setPasswordChangeMessage(message) {
+  function presentMessage(node, message, key, params = {}) {
+    if (!node) return;
+    if (key && presentation) presentation.present(node, key, message, "textContent", params);
+    else {
+      presentation?.clear(node);
+      node.textContent = message || "";
+    }
+  }
+
+  function setPasswordChangeMessage(message, key) {
     if (passwordChangeMessageNode) {
-      passwordChangeMessageNode.textContent = message || "";
+      presentMessage(passwordChangeMessageNode, message, key);
     }
   }
 
@@ -56,9 +68,9 @@ export function createAccountRequestsController({
     }
   }
 
-  function setRecoveryCodesRegenerateMessage(message) {
+  function setRecoveryCodesRegenerateMessage(message, key) {
     if (recoveryCodesRegenerateMessageNode) {
-      recoveryCodesRegenerateMessageNode.textContent = message || "";
+      presentMessage(recoveryCodesRegenerateMessageNode, message, key);
     }
   }
 
@@ -118,7 +130,7 @@ export function createAccountRequestsController({
     const formData = new FormData(recoveryCodesRegenerateForm);
     const currentPassword = String(formData.get("current_password") || "");
 
-    setRecoveryCodesRegenerateMessage("Generating recovery codes...");
+    setRecoveryCodesRegenerateMessage("Generating recovery codes...", "account.generating_codes");
 
     try {
       const response = await apiFetch("/api/auth/recovery-codes/regenerate", {
@@ -141,7 +153,8 @@ export function createAccountRequestsController({
       closeRecoveryCodeRegenerationDialog();
       showRecoveryCodes(payload.recovery_codes);
     } catch (error) {
-      setRecoveryCodesRegenerateMessage(errorMessage(error));
+      const message = errorMessage(error);
+      setRecoveryCodesRegenerateMessage(message, knownApiErrorKey(message));
     }
   }
 
@@ -157,11 +170,11 @@ export function createAccountRequestsController({
     const confirmPassword = String(formData.get("confirm_password") || "");
 
     if (newPassword !== confirmPassword) {
-      setPasswordChangeMessage("Passwords do not match.");
+      setPasswordChangeMessage("Passwords do not match.", "account.password_mismatch");
       return;
     }
 
-    setPasswordChangeMessage("Recovering account...");
+    setPasswordChangeMessage("Recovering account...", "account.recovering");
 
     try {
       const response = await fetchImpl("/api/auth/recover-password", {
@@ -184,18 +197,18 @@ export function createAccountRequestsController({
 
       closePasswordChangeDialog();
       authMessageNode.hidden = false;
-      authMessageNode.textContent =
-        "Password updated. Sign in with your new password.";
+      presentMessage(authMessageNode, "Password updated. Sign in with your new password.", "account.password_recovered");
 
       showRecoveryCodes(payload.recovery_codes);
     } catch (error) {
-      setPasswordChangeMessage(errorMessage(error));
+      const message = errorMessage(error);
+      setPasswordChangeMessage(message, knownApiErrorKey(message));
     }
   }
 
-  function setRegisterMessage(message) {
+  function setRegisterMessage(message, key) {
     if (registerMessageNode) {
-      registerMessageNode.textContent = message || "";
+      presentMessage(registerMessageNode, message, key);
     }
   }
 
@@ -229,7 +242,7 @@ export function createAccountRequestsController({
     const displayName = String(formData.get("display_name") || "").trim();
     const note = String(formData.get("note") || "").trim();
 
-    setRegisterMessage("Requesting account...");
+    setRegisterMessage("Requesting account...", "account.requesting");
 
     try {
       const response = await fetchImpl("/api/auth/register", {
@@ -253,9 +266,11 @@ export function createAccountRequestsController({
 
       closeRegisterDialog();
       authMessageNode.hidden = false;
-      authMessageNode.textContent = payload.message || "Account request received.";
+      if (payload.message) presentMessage(authMessageNode, payload.message);
+      else presentMessage(authMessageNode, "Account request received.", "account.request_received");
     } catch (error) {
-      setRegisterMessage(errorMessage(error));
+      const message = errorMessage(error);
+      setRegisterMessage(message, knownApiErrorKey(message));
     }
   }
 

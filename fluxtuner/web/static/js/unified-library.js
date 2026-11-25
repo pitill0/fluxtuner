@@ -7,6 +7,7 @@
  * Does not own navigation, playback, or authentication state.
  */
 export function createUnifiedLibraryController({
+  presentation,
   apiFetch,
   getCurrentUser,
   getCurrentView,
@@ -26,18 +27,20 @@ export function createUnifiedLibraryController({
     generation += 1;
   }
 
-  function begin(view, kicker, title, loadingText) {
+  function begin(view, kicker, title, loadingText, kickerKey, titleKey, loadingKey, titleParams = {}) {
     const generationAtStart = ++generation;
     const user = getCurrentUser();
 
     setLibraryView(view);
-    setResultsHeader(kicker, title);
+    setResultsHeader(kicker, title, kickerKey, titleKey, titleParams);
     resultCountNode.textContent = loadingText;
+    presentation?.present(resultCountNode, loadingKey, loadingText);
     resultsNode.replaceChildren();
 
     const loading = resultsNode.ownerDocument.createElement("p");
     loading.className = "empty";
     loading.textContent = loadingText;
+    presentation?.present(loading, loadingKey, loadingText);
     resultsNode.append(loading);
 
     return () =>
@@ -63,6 +66,7 @@ export function createUnifiedLibraryController({
   async function loadMyStations() {
     const current = begin(
       "stations", "Library", "My stations", "Loading my stations...",
+      "shell.library", "nav.stations", "unified.loading_stations",
     );
 
     try {
@@ -78,6 +82,7 @@ export function createUnifiedLibraryController({
 
     resultCountNode.textContent =
       `${catalogs.length} catalog${catalogs.length === 1 ? "" : "s"}`;
+    presentation?.present(resultCountNode, "unified.count", resultCountNode.textContent, "textContent", { count: catalogs.length });
 
     const cards = catalogs.map((catalog) => {
       const id = Number(catalog.source_id);
@@ -89,13 +94,13 @@ export function createUnifiedLibraryController({
       return `
         <article class="station-card">
           <header>
-            <h3>${escapedName}</h3>
+            <h3${catalog.label ? "" : ` data-catalog-fallback="${id}"`}>${escapedName}</h3>
             <div class="station-meta">
-              <span>Catalog #${id} · Revision ${Number(catalog.revision) || 1}</span>
+              <span data-catalog-meta="${id}" data-revision="${Number(catalog.revision) || 1}">Catalog #${id} · Revision ${Number(catalog.revision) || 1}</span>
             </div>
           </header>
           <div class="station-actions">
-            <button type="button" data-open-catalog="${id}">
+            <button type="button" data-open-catalog="${id}" data-render-i18n="unified.browse">
               Browse stations
             </button>
           </div>
@@ -105,13 +110,22 @@ export function createUnifiedLibraryController({
 
     resultsNode.innerHTML = `
       <div class="station-actions">
-        <button type="button" data-manage-catalogs>
+        <button type="button" data-manage-catalogs data-render-i18n="unified.manage">
           Manage subscriptions
         </button>
       </div>
-      ${cards || '<p class="empty">No remote catalogs subscribed.</p>'}
+      ${cards || '<p class="empty" data-render-i18n="subscriptions.empty">No remote catalogs subscribed.</p>'}
     `;
 
+    presentation?.bindRendered(resultsNode);
+    if (presentation) {
+      for (const node of resultsNode.querySelectorAll("[data-catalog-meta]")) {
+        presentation.present(node, "subscriptions.revision", node.textContent, "textContent", { id: Number(node.dataset.catalogMeta), revision: Number(node.dataset.revision) });
+      }
+      for (const node of resultsNode.querySelectorAll("[data-catalog-fallback]")) {
+        presentation.present(node, "subscriptions.catalog", node.textContent, "textContent", { id: Number(node.dataset.catalogFallback) });
+      }
+    }
     resultsNode.querySelector("[data-manage-catalogs]")
       ?.addEventListener("click", () => onManageCatalogs());
 
@@ -129,6 +143,7 @@ export function createUnifiedLibraryController({
   async function loadCatalogs() {
     const current = begin(
       "catalogs", "Library", "Remote catalogs", "Loading catalogs...",
+      "shell.library", "nav.catalogs", "unified.loading_catalogs",
     );
 
     try {
@@ -150,6 +165,7 @@ export function createUnifiedLibraryController({
       "Remote catalog",
       `Catalog #${id}`,
       "Loading catalog stations...",
+      "shell.remote", "subscriptions.catalog", "unified.loading_catalog", { id },
     );
 
     try {
@@ -160,6 +176,7 @@ export function createUnifiedLibraryController({
         setResultsHeader(
           "Remote catalog",
           `${String(payload.label || `Catalog #${id}`)} · Catalog #${id}`,
+          "shell.remote", payload.label ? "unified.named_catalog" : "subscriptions.catalog", { name: String(payload.label || ""), id },
         );
         renderResults(payload);
       }

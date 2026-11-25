@@ -16,6 +16,7 @@ export function createMobileDrawer({
   header,
   toggleButton,
   windowNode,
+  presentation,
 }) {
   let selected = null;
   let previouslyOpen = false;
@@ -47,7 +48,9 @@ export function createMobileDrawer({
 
     menu.dataset.mobileLevel = selected ? "group" : "root";
     back.hidden = !selected;
-    title.textContent = selected ? GROUP_TITLES[selected] : "Navigation";
+    const label = selected ? GROUP_TITLES[selected] : "Navigation";
+    if (presentation) presentation.present(title, selected ? `nav.${selected}` : "nav.title", label);
+    else title.textContent = label;
 
     for (const key of Object.keys(GROUP_TITLES)) {
       const { group } = groupNodes(key);

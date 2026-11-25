@@ -3,7 +3,8 @@
  */
 
 export function createCustomStationController({
-  apiFetch, dialog, form, messageNode, openButton, cancelButtons, toolsNode,
+  presentation, apiFetch, dialog, form, messageNode, openButton, cancelButtons, toolsNode,
+  knownApiErrorKey = () => undefined,
   getCurrentUser, getSessionKey, onSaved, beforeOpen,
 }) {
   let opener = openButton;
@@ -36,6 +37,7 @@ export function createCustomStationController({
     if (submitButton) submitButton.disabled = false;
     if (dialog?.open) dialog.close();
     form?.reset();
+    presentation?.clear(messageNode);
     if (messageNode) messageNode.textContent = "";
     opener?.focus();
   }
@@ -60,6 +62,7 @@ export function createCustomStationController({
     context = { userId: user.id, sessionKey: getSessionKey() };
     pending = false;
     if (submitButton) submitButton.disabled = false;
+    presentation?.clear(messageNode);
     if (messageNode) messageNode.textContent = "";
     if (toolsNode) toolsNode.open = false;
     dialog.showModal();
@@ -82,7 +85,8 @@ export function createCustomStationController({
     };
     pending = true;
     if (submitButton) submitButton.disabled = true;
-    if (messageNode) messageNode.textContent = "Saving station…";
+    if (presentation) presentation.present(messageNode, "custom.saving", "Saving station…");
+    else if (messageNode) messageNode.textContent = "Saving station…";
 
     try {
       const response = await apiFetch("/api/stations/custom", {
@@ -108,7 +112,11 @@ export function createCustomStationController({
     } catch (error) {
       if (requestGeneration !== generation || !sameSession(requestContext)) return;
       if (messageNode) {
-        messageNode.textContent = error?.message || "Could not save station. Please try again.";
+        const message = error?.message || "Could not save station. Please try again.";
+        presentation?.clear(messageNode);
+        const key = knownApiErrorKey(message) || (message === "Could not save station. Please try again." ? "custom.save_error" : undefined);
+        if (presentation && key) presentation.present(messageNode, key, message);
+        else messageNode.textContent = message;
       }
     } finally {
       if (requestGeneration === generation) {

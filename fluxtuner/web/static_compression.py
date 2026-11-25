@@ -5,7 +5,7 @@ from pathlib import Path
 from starlette.datastructures import Headers
 from starlette.middleware.gzip import GZipMiddleware
 
-COMPRESSIBLE_SUFFIXES = (".js", ".css", ".svg", ".webmanifest")
+COMPRESSIBLE_SUFFIXES = (".js", ".css", ".svg", ".webmanifest", ".json")
 
 
 def _accepts_gzip(scope) -> bool:

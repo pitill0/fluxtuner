@@ -94,6 +94,39 @@
   gap: 0.55rem;
 }
 
+[data-language-control] {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+[data-language-control][hidden] {
+  display: none;
+}
+
+[data-language-control] label {
+  font-size: 0.82rem;
+}
+
+[data-language-select] {
+  min-height: 2.3rem;
+  max-width: 100%;
+  padding: 0 0.55rem;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 38rem) {
+  [data-language-control] label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
 .app-user {
   display: flex;
   min-width: 0;
@@ -191,6 +224,7 @@
   }
 
   .app-header {
+    grid-template-columns: 1fr;
     gap: 0.65rem;
     padding: 0.7rem;
     border-radius: 1.25rem;
@@ -769,7 +803,7 @@ html[data-theme="light"] .theme-toggle span::before {
     max-height: calc(100dvh - 6rem);
   }
 }
-@media (max-width: 30rem) {
+@media (max-width: 38rem) {
   .shell { padding-top: 8.5rem; }
   .shell > .app-sidebar-region { top: 8.5rem; max-height: calc(100dvh - 9rem); }
   .shell > .app-sidebar-region .app-menu { max-height: calc(100dvh - 9rem); }
@@ -778,4 +812,48 @@ html[data-theme="light"] .theme-toggle span::before {
 /* Keep the version footer centered across the authenticated shell columns. */
 .shell > footer {
   grid-column: 1 / -1;
+}
+
+/* Keep the authenticated narrow header stable across locales. */
+[data-language-mobile-slot]:empty { display: none; }
+@media (max-width: 58rem) {
+  [data-language-select] { font-size: max(16px, 1rem); }
+  [data-language-mobile-slot] { margin-bottom: 0.75rem; }
+  [data-language-mobile-slot] [data-language-control] { width: 100%; }
+  [data-language-mobile-slot] [data-language-select] { width: 100%; }
+}
+@media (max-width: 38rem) {
+  .app-header-actions:has(> .app-user:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto 2.55rem;
+    justify-content: normal;
+  }
+  .app-header-actions .app-user:not([hidden]) span { min-width: 0; max-width: none; }
+  .app-header-actions .app-user:not([hidden]) button { min-width: 0; }
+  .app-header-actions:has(> .app-user:not([hidden])) .app-menu-toggle {
+    margin-inline-start: 0;
+    justify-self: end;
+  }
+  .app-header-actions:has(> .app-user:not([hidden])) .theme-toggle {
+    width: 2.55rem;
+    min-width: 2.55rem !important;
+    padding: 0 !important;
+  }
+  .app-header-actions:has(> .app-user:not([hidden])) .theme-toggle span {
+    font-size: 0;
+    gap: 0 !important;
+  }
+  .app-header-actions:has(> .app-user:not([hidden])) .theme-toggle span::before {
+    content: "☀" !important;
+    width: auto !important;
+    height: auto !important;
+    font-size: 1.1rem;
+    line-height: 1;
+    background: none !important;
+    box-shadow: none !important;
+  }
+  html[data-theme="light"] .app-header-actions:has(> .app-user:not([hidden])) .theme-toggle span::before {
+    content: "☾" !important;
+    box-shadow: none !important;
+  }
 }

@@ -62,6 +62,7 @@ export function trackOverflowDistance(scrollWidth, clientWidth) {
 }
 
 export function createMetadataController({
+  presentation,
   apiFetch,
   titleNode,
   copyButton,
@@ -83,6 +84,7 @@ export function createMetadataController({
   let currentTrackText = "";
   let lastRenderedMetadata = null;
   let feedbackTimeoutId = 0;
+  let restoreFeedback;
   let overflowFrameId = 0;
   let documentVisible = documentRef.visibilityState !== "hidden";
   let immediatePollPending = false;
@@ -98,12 +100,23 @@ export function createMetadataController({
     if (!feedbackTimeoutId) return;
     windowRef.clearTimeout(feedbackTimeoutId);
     feedbackTimeoutId = 0;
+    restoreFeedback?.();
+    restoreFeedback = undefined;
   }
 
-  function showCopyFeedback(message) {
+  function showCopyFeedback(message, key) {
     if (!statusNode) return;
 
     clearFeedbackTimer();
+    if (presentation) {
+      restoreFeedback = presentation.temporary(statusNode, key, message);
+      feedbackTimeoutId = windowRef.setTimeout(() => {
+        feedbackTimeoutId = 0;
+        restoreFeedback?.();
+        restoreFeedback = undefined;
+      }, 1800);
+      return;
+    }
     const previousMessage = statusNode.textContent;
     statusNode.textContent = message;
     feedbackTimeoutId = windowRef.setTimeout(() => {
@@ -155,8 +168,15 @@ export function createMetadataController({
     const label = currentTrackText
       ? `Copy current track: ${currentTrackText}`
       : "Current track information unavailable";
-    copyButton.setAttribute("aria-label", label);
-    copyButton.setAttribute("title", label);
+    if (presentation) {
+      const key = currentTrackText ? "player.copy" : "player.track_unavailable";
+      for (const attribute of ["aria-label", "title"]) {
+        presentation.present(copyButton, key, label, attribute, { track: currentTrackText });
+      }
+    } else {
+      copyButton.setAttribute("aria-label", label);
+      copyButton.setAttribute("title", label);
+    }
     scheduleTrackOverflowRefresh();
   }
 
@@ -165,10 +185,10 @@ export function createMetadataController({
 
     try {
       await copyTextToClipboard(currentTrackText, { navigatorRef, documentRef });
-      showCopyFeedback("Track copied to clipboard.");
+      showCopyFeedback("Track copied to clipboard.", "player.copied");
       logPlayerEvent("metadata-track-copied");
     } catch (error) {
-      showCopyFeedback("Could not copy track information.");
+      showCopyFeedback("Could not copy track information.", "player.copy_failed");
       logPlayerEvent("metadata-track-copy-failed", {
         error: String(error),
       });
@@ -202,7 +222,9 @@ export function createMetadataController({
       stationNode.hidden = !fallbackTitle;
     }
     if (titleNode) {
-      titleNode.textContent = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";
+      const label = fallbackTitle ? "Waiting for track info…" : "Nothing playing yet";
+      if (presentation) presentation.present(titleNode, fallbackTitle ? "player.waiting" : "player.empty", label);
+      else titleNode.textContent = label;
     }
     setCopyTrack("");
   }
@@ -225,6 +247,7 @@ export function createMetadataController({
       stationNode.hidden = !fallbackTitle;
     }
     if (titleNode) {
+      presentation?.clear(titleNode);
       titleNode.textContent = displayTitle;
     }
     setCopyTrack(displayTitle);
@@ -232,7 +255,8 @@ export function createMetadataController({
 
   function showRetryingTrackInfo() {
     if (!lastRenderedMetadata && titleNode && playbackActive && documentVisible) {
-      titleNode.textContent = "Retrying track info…";
+      if (presentation) presentation.present(titleNode, "player.metadata_retry", "Retrying track info…");
+      else titleNode.textContent = "Retrying track info…";
     }
   }
 

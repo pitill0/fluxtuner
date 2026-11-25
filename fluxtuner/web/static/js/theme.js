@@ -29,7 +29,7 @@ function saveThemePreference(theme) {
   }
 }
 
-export function createThemeController({ documentRef = document, toggleButton, labelNode } = {}) {
+export function createThemeController({ documentRef = document, toggleButton, labelNode, presentation } = {}) {
   function applyTheme(theme) {
     const nextTheme = theme === "light" ? "light" : "dark";
 
@@ -37,13 +37,22 @@ export function createThemeController({ documentRef = document, toggleButton, la
     documentRef.documentElement.style.colorScheme = nextTheme;
 
     if (labelNode) {
-      labelNode.textContent = nextTheme === "light" ? "Dark" : "Light";
+      const label = nextTheme === "light" ? "Dark" : "Light";
+      const key = nextTheme === "light" ? "theme.dark" : "theme.light";
+      if (presentation) presentation.present(labelNode, key, label);
+      else labelNode.textContent = label;
     }
 
     if (toggleButton) {
       const label = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
-      toggleButton.setAttribute("aria-label", label);
-      toggleButton.title = label;
+      const key = nextTheme === "light" ? "theme.switch_dark" : "theme.switch_light";
+      if (presentation) {
+        presentation.present(toggleButton, key, label, "aria-label");
+        presentation.present(toggleButton, key, label, "title");
+      } else {
+        toggleButton.setAttribute("aria-label", label);
+        toggleButton.title = label;
+      }
     }
   }
 

@@ -20,6 +20,38 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.7.0] - 2026-11-24
+
+### Added
+
+- FluxTuner Web internationalization with English, Spanish,
+  Valencian and French translations.
+- Automatic browser language detection and persistent manual
+  language selection.
+- Locale-aware pluralization, number formatting and dates.
+- Translation contribution guide for community contributors.
+- Browser-based localization regression tests in CI.
+
+### Changed
+
+- Localized navigation, account management, administration,
+  playback controls, station discovery, libraries, playlists,
+  imports, remote subscriptions and recommendations.
+- Early and parallel language catalog loading with graceful
+  fallback and recovery after transient failures.
+- Language changes preserve playback and user data without
+  reloading the application.
+- Language catalogs included in versioned static assets
+  and distribution packages.
+- Responsive language selector integrated into mobile navigation.
+
+### Fixed
+
+- Mobile header stability and navigation drawer positioning.
+- Localized user-facing API errors and Media Session fallbacks.
+- Player live-region scope for improved accessibility.
+- SQLite query-plan regression test compatibility.
+
 ## [1.6.2] - 2026-11-24
 
 ### Fixed

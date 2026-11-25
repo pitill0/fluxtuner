@@ -356,6 +356,7 @@ They are not separate user accounts in local CLI/TUI/GTK mode. Web/server mode a
 - [Licensing details](docs/licensing.md)
 - [Smoke test](SMOKE_TEST.md)
 - [Contributing](CONTRIBUTING.md)
+- [Contributing Web translations](TRANSLATING.md)
 - [Engineering process](docs/ENGINEERING-PROCESS.md)
 - [Security policy](SECURITY.md)
 

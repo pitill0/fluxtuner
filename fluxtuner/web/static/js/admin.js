@@ -2,20 +2,11 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { knownApiErrorKey } from "./api.js";
 import { escapeHtml } from "./stations.js";
 
-function setAdminUserDangerFeedback(button, message) {
-  const feedbackNode = button
-    ?.closest(".admin-user-danger-zone")
-    ?.querySelector("[data-admin-user-danger-feedback]");
-
-  if (feedbackNode) {
-    feedbackNode.textContent = message || "";
-  }
-}
-
 function adminUserActionButton(action, username, label) {
-  return `<button type="button" data-admin-user-action="${action}" data-admin-username="${username}">${label}</button>`;
+  return `<button type="button" data-admin-user-action="${action}" data-admin-username="${username}" data-render-i18n="admin.action.${action}">${label}</button>`;
 }
 
 function adminUserActions(user, username, isCurrentUser = false) {
@@ -45,6 +36,7 @@ function adminUserActions(user, username, isCurrentUser = false) {
 }
 
 export function createAdminController({
+  presentation,
   apiFetch,
   usersNode,
   messageNode,
@@ -53,15 +45,24 @@ export function createAdminController({
   getCurrentUser,
   loadDashboard,
 }) {
+  function presentMessage(node, message, key, params = {}) {
+    if (!node) return;
+    if (key && presentation) presentation.present(node, key, message, "textContent", params);
+    else {
+      presentation?.clear(node);
+      node.textContent = message || "";
+    }
+  }
+
   let usersLoaded = false;
 
   function currentUser() {
     return getCurrentUser?.() || null;
   }
 
-  function setMessage(message) {
+  function setMessage(message, key, params) {
     if (messageNode) {
-      messageNode.textContent = message || "";
+      presentMessage(messageNode, message, key, params);
     }
   }
 
@@ -69,11 +70,12 @@ export function createAdminController({
     usersLoaded = false;
 
     if (messageNode) {
-      messageNode.textContent = "";
+      presentMessage(messageNode, "");
     }
 
     if (usersNode) {
-      usersNode.innerHTML = '<p class="empty">Admin users will appear here.</p>';
+      usersNode.innerHTML = '<p class="empty" data-render-i18n="admin.users_empty">Admin users will appear here.</p>';
+      presentation?.bindRendered(usersNode);
     }
 
   }
@@ -82,18 +84,19 @@ export function createAdminController({
     if (!usersNode) return;
 
     if (!users.length) {
-      usersNode.innerHTML = '<p class="empty">No web users found.</p>';
+      usersNode.innerHTML = '<p class="empty" data-render-i18n="admin.no_users">No web users found.</p>';
+      presentation?.bindRendered(usersNode);
       return;
     }
 
     usersNode.innerHTML = `
-      <div class="admin-users-table" role="table" aria-label="Web users">
+      <div class="admin-users-table" role="table" aria-label="Web users" data-render-aria="admin.table">
         <div class="admin-users-row admin-users-head" role="row">
-          <span role="columnheader">User</span>
-          <span role="columnheader">Admin</span>
-          <span role="columnheader">Active</span>
-          <span role="columnheader">Status</span>
-          <span role="columnheader">Actions</span>
+          <span role="columnheader" data-render-i18n="admin.column.user">User</span>
+          <span role="columnheader" data-render-i18n="admin.column.admin">Admin</span>
+          <span role="columnheader" data-render-i18n="admin.column.active">Active</span>
+          <span role="columnheader" data-render-i18n="admin.column.status">Status</span>
+          <span role="columnheader" data-render-i18n="admin.column.actions">Actions</span>
         </div>
         ${users
           .map((user) => {
@@ -105,8 +108,8 @@ export function createAdminController({
             const isCurrentUser = currentUser()?.username === user.username;
             const userActions = adminUserActions(user, username, isCurrentUser);
             const deleteAction = isCurrentUser
-              ? `<small class="admin-user-danger-note">You cannot delete your own user.</small>`
-              : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}">Delete user</button>`;
+              ? `<small class="admin-user-danger-note" data-render-i18n="admin.protected_note">You cannot delete your own user.</small>`
+              : `<button type="button" data-admin-user-action="delete" data-admin-username="${username}" data-render-i18n="admin.action.delete">Delete user</button>`;
             const dangerTitle = isCurrentUser ? "Protected user" : "Danger zone";
             const dangerDescription = isCurrentUser
               ? "The current signed-in user cannot be deleted."
@@ -119,25 +122,25 @@ export function createAdminController({
                   <small>${username}</small>
                 </span>
                 <span role="cell" data-cell-label="Admin">
-                  <span class="admin-cell-label" aria-hidden="true">Admin</span>
-                  <span>${adminLabel}</span>
+                  <span class="admin-cell-label" aria-hidden="true" data-render-i18n="admin.column.admin">Admin</span>
+                  <span data-render-i18n="admin.${adminLabel}">${adminLabel}</span>
                 </span>
                 <span role="cell" data-cell-label="Active">
-                  <span class="admin-cell-label" aria-hidden="true">Active</span>
-                  <span>${activeLabel}</span>
+                  <span class="admin-cell-label" aria-hidden="true" data-render-i18n="admin.column.active">Active</span>
+                  <span data-render-i18n="admin.${activeLabel}">${activeLabel}</span>
                 </span>
                 <span role="cell" data-cell-label="Status">
-                  <span class="admin-cell-label" aria-hidden="true">Status</span>
-                  <span>${approvalStatus}</span>
+                  <span class="admin-cell-label" aria-hidden="true" data-render-i18n="admin.column.status">Status</span>
+                  <span${["pending", "approved", "rejected", "disabled"].includes(user.approval_status || "approved") ? ` data-render-i18n="${approvalStatus === "rejected" ? "status.admin.rejected" : `status.${approvalStatus}`}"` : ""}>${approvalStatus}</span>
                 </span>
                 <span class="admin-user-actions" role="cell" data-cell-label="Actions">
                   <div class="admin-user-actions-normal">
                     ${userActions}
                   </div>
                   <details class="admin-user-danger-zone">
-                    <summary>${dangerTitle}</summary>
+                    <summary data-render-i18n="${isCurrentUser ? "admin.protected" : "admin.danger"}">${dangerTitle}</summary>
                     <div>
-                      <strong>${dangerDescription}</strong>
+                      <strong data-render-i18n="${isCurrentUser ? "admin.protected_description" : "admin.danger_description"}">${dangerDescription}</strong>
                       ${deleteAction}
                       <small class="admin-user-danger-feedback" data-admin-user-danger-feedback></small>
                     </div>
@@ -149,13 +152,14 @@ export function createAdminController({
           .join("")}
       </div>
     `;
+    presentation?.bindRendered(usersNode);
   }
 
   async function loadUsers() {
     const user = currentUser();
     if (!user || !user.is_admin) return;
 
-    setMessage("Loading users...");
+    setMessage("Loading users...", "admin.loading");
 
     try {
       const response = await apiFetch("/api/admin/users", {
@@ -172,9 +176,9 @@ export function createAdminController({
       const payload = await response.json();
       usersLoaded = true;
       renderUsers(payload.users || []);
-      setMessage(`${payload.count ?? 0} web user(s).`);
+      setMessage(`${payload.count ?? 0} web user(s).`, "admin.users_count", { count: payload.count ?? 0 });
     } catch (error) {
-      setMessage(String(error));
+      setMessage(String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -198,11 +202,11 @@ export function createAdminController({
     const isAdmin = formData.get("is_admin") === "on";
 
     if (password !== confirmPassword) {
-      setMessage("Passwords do not match.");
+      setMessage("Passwords do not match.", "account.password_mismatch");
       return;
     }
 
-    setMessage("Creating user...");
+    setMessage("Creating user...", "admin.creating");
 
     try {
       const response = await apiFetch("/api/admin/users", {
@@ -227,10 +231,10 @@ export function createAdminController({
         throw new Error(payload.detail || "Could not create user.");
       }
 
-      setMessage("User created.");
+      setMessage("User created.", "admin.created");
       await loadUsers();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -245,11 +249,11 @@ export function createAdminController({
     const confirmPassword = String(formData.get("confirm_password") || "");
 
     if (password !== confirmPassword) {
-      setMessage("Passwords do not match.");
+      setMessage("Passwords do not match.", "account.password_mismatch");
       return;
     }
 
-    setMessage("Updating password...");
+    setMessage("Updating password...", "admin.updating_password");
 
     try {
       const response = await apiFetch(
@@ -271,10 +275,10 @@ export function createAdminController({
         throw new Error(payload.detail || "Could not update password.");
       }
 
-      setMessage("Password updated. Active sessions for that user were revoked.");
+      setMessage("Password updated. Active sessions for that user were revoked.", "admin.password_updated");
       await loadUsers();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
     }
   }
 
@@ -316,23 +320,27 @@ export function createAdminController({
 
     if (action === "delete") {
       const expectedConfirmation = `DELETE ${username}`;
-      const confirmation = window.prompt(
-        `This permanently deletes ${username} and all related data. Type "${expectedConfirmation}" to continue.`,
-      );
+      const promptText = `This permanently deletes ${username} and all related data. Type "${expectedConfirmation}" to continue.`;
+      const confirmation = window.prompt(presentation?.translate("admin.confirm_delete", promptText, {
+        username, confirmation: expectedConfirmation,
+      }) ?? promptText);
 
       if (confirmation !== expectedConfirmation) {
         const message = confirmation === null
           ? "User deletion cancelled."
           : `Confirmation did not match. Type exactly: ${expectedConfirmation}`;
-        setMessage(message);
-        setAdminUserDangerFeedback(button, message);
+        const key = confirmation === null ? "admin.cancelled" : "admin.confirm_mismatch";
+        const params = { confirmation: expectedConfirmation };
+        setMessage(message, key, params);
+        presentMessage(button?.closest(".admin-user-danger-zone")?.querySelector("[data-admin-user-danger-feedback]"), message, key, params);
         return;
       }
     }
 
-    setMessage(action === "delete" ? "Deleting user..." : "Updating user...");
+    if (action === "delete") setMessage("Deleting user...", "admin.deleting");
+    else setMessage("Updating user...", "admin.updating");
     if (action === "delete") {
-      setAdminUserDangerFeedback(button, "Deleting user...");
+      presentMessage(button?.closest(".admin-user-danger-zone")?.querySelector("[data-admin-user-danger-feedback]"), "Deleting user...", "admin.deleting");
     }
 
     try {
@@ -348,16 +356,17 @@ export function createAdminController({
         throw new Error(payload.detail || "Could not update user.");
       }
 
-      setMessage(action === "delete" ? "User deleted." : "User updated.");
+      if (action === "delete") setMessage("User deleted.", "admin.deleted");
+    else setMessage("User updated.", "admin.updated");
       if (action === "delete") {
-        setAdminUserDangerFeedback(button, "User deleted.");
+        presentMessage(button?.closest(".admin-user-danger-zone")?.querySelector("[data-admin-user-danger-feedback]"), "User deleted.", "admin.deleted");
       }
       await loadUsers();
       await loadDashboard({ preserveView: true, silent: true });
     } catch (error) {
-      setMessage(String(error));
+      setMessage(String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
       if (action === "delete") {
-        setAdminUserDangerFeedback(button, String(error));
+        presentMessage(button?.closest(".admin-user-danger-zone")?.querySelector("[data-admin-user-danger-feedback]"), String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
       }
     }
   }

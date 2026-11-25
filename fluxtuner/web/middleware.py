@@ -118,7 +118,7 @@ async def add_static_cache_headers(request: Request, call_next: Any) -> Response
     if (
         path.startswith("/static/")
         and not path.startswith("/static/build/")
-        and path.endswith((".js", ".css", ".webmanifest"))
+        and path.endswith((".js", ".css", ".webmanifest", ".json"))
     ):
         response.headers["Cache-Control"] = "no-cache"
     for name, value in SECURITY_HEADERS.items():

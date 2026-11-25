@@ -8,8 +8,8 @@ const DEFAULT_ARTWORK = [
   { src: "/static/app-icon.png", sizes: "512x512", type: "image/png" },
 ];
 
-function stationTitle(station) {
-  return station?.name || station?.custom_name || station?.title || station?.url || "Unknown station";
+function stationTitle(station, unknown = "Unknown station") {
+  return station?.name || station?.custom_name || station?.title || station?.url || unknown;
 }
 
 function defaultStationUrl(station) {
@@ -21,8 +21,8 @@ function cleanText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function nowPlayingValues(metadata, fallbackTitle) {
-  const station = cleanText(fallbackTitle) || "Unknown station";
+function nowPlayingValues(metadata, fallbackTitle, unknown = "Unknown station") {
+  const station = cleanText(fallbackTitle) || unknown;
   const artist = cleanText(metadata?.artist);
   const title = cleanText(metadata?.title);
   const raw = cleanText(metadata?.raw);
@@ -90,7 +90,9 @@ export function createMediaSessionController({
   startCurrentStationPlayback,
   stopPlayback,
   stationUrl = defaultStationUrl,
+  translate = (_key, fallback) => fallback,
 }) {
+  const unknown = () => translate("station.unknown_station", "Unknown station");
   let nowPlaying = null;
   let nowPlayingStationTitle = "";
   let nowPlayingStreamUrl = "";
@@ -107,7 +109,7 @@ export function createMediaSessionController({
     lastUpdate = {
       reason,
       state,
-      stationTitle: stationTitle(getCurrentStation()),
+      stationTitle: stationTitle(getCurrentStation(), unknown()),
       error: "",
       snapshot: metadataSnapshot(),
     };
@@ -117,7 +119,7 @@ export function createMediaSessionController({
     lastUpdate = {
       reason,
       state: "",
-      stationTitle: stationTitle(getCurrentStation()),
+      stationTitle: stationTitle(getCurrentStation(), unknown()),
       error: String(error),
       snapshot: metadataSnapshot(),
     };
@@ -130,7 +132,7 @@ export function createMediaSessionController({
     }
 
     try {
-      const fallbackTitle = stationTitle(station);
+      const fallbackTitle = stationTitle(station, unknown());
       const currentStreamUrl = stationUrl(station);
       const activeNowPlaying =
         nowPlaying && nowPlayingStreamUrl === currentStreamUrl ? nowPlaying : null;
@@ -158,14 +160,14 @@ export function createMediaSessionController({
     reason = "now-playing",
   ) {
     const currentStation = getCurrentStation();
-    const currentTitle = stationTitle(currentStation);
+    const currentTitle = stationTitle(currentStation, unknown());
 
     if (!metadata) {
       nowPlaying = null;
       nowPlayingStationTitle = "";
       nowPlayingStreamUrl = "";
     } else {
-      nowPlaying = nowPlayingValues(metadata, fallbackTitle);
+      nowPlaying = nowPlayingValues(metadata, fallbackTitle, unknown());
       nowPlayingStationTitle = cleanText(fallbackTitle) || currentTitle;
       nowPlayingStreamUrl = cleanText(streamUrl);
     }
@@ -255,7 +257,7 @@ export function createMediaSessionController({
         logPlayerEvent("media-session-play");
         if (getCurrentStation()) {
           reapplyCurrentMetadata("media-session-play");
-          void startCurrentStationPlayback("Starting stream from system controls...");
+          void startCurrentStationPlayback("Starting stream from system controls...", { messageKey: "player.system_start" });
         }
       });
       navigator.mediaSession.setActionHandler("pause", () => {

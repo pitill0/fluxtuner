@@ -2,7 +2,10 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
+import { knownApiErrorKey } from "./api.js";
+
 export function createSetupController({
+  presentation,
   appContent,
   authPanel,
   getCurrentUser,
@@ -21,6 +24,15 @@ export function createSetupController({
   setupTokenField,
   updateAuthUi,
 }) {
+  function presentMessage(node, message, key, params = {}) {
+    if (!node) return;
+    if (key && presentation) presentation.present(node, key, message, "textContent", params);
+    else {
+      presentation?.clear(node);
+      node.textContent = message || "";
+    }
+  }
+
   let setupAvailable = false;
   let setupRequiresToken = false;
 
@@ -52,9 +64,8 @@ export function createSetupController({
     }
 
     if (setupMessageNode && setupAvailable) {
-      setupMessageNode.textContent = setupRequiresToken
-        ? "Enter the setup verification token configured on the server."
-        : "Local first-run setup is available. Create the first administrator.";
+      if (setupRequiresToken) presentMessage(setupMessageNode, "Enter the setup verification token configured on the server.", "setup.token_instruction");
+      else presentMessage(setupMessageNode, "Local first-run setup is available. Create the first administrator.", "setup.local");
     }
   }
 
@@ -107,11 +118,11 @@ export function createSetupController({
     const setupToken = String(formData.get("setup_token") || "");
 
     if (password !== confirmPassword) {
-      setupMessageNode.textContent = "Passwords do not match.";
+      presentMessage(setupMessageNode, "Passwords do not match.", "account.password_mismatch");
       return;
     }
 
-    setupMessageNode.textContent = "Creating administrator...";
+    presentMessage(setupMessageNode, "Creating administrator...", "setup.creating");
 
     try {
       const body = {
@@ -161,7 +172,7 @@ export function createSetupController({
       setCurrentUser(null);
       setCsrfToken("");
       updateAuthUi();
-      setupMessageNode.textContent = String(error);
+      presentMessage(setupMessageNode, String(error), knownApiErrorKey(error instanceof Error ? error.message : String(error)));
     }
   }
 

@@ -13,6 +13,7 @@ import {
 
 export function createStationRenderer({
   renderState,
+  presentation,
   onPlayStation,
   onAddFavorite,
   onRemoveFavorite,
@@ -52,13 +53,13 @@ export function createStationRenderer({
               <span class="station-artwork-fallback">${escapeHtml(stationName.trim().charAt(0).toUpperCase() || "♫")}</span>
               ${artworkUrl ? `<img data-station-artwork src="${artworkUrl}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
             </span>
-            <h3>${escapeHtml(stationName)}</h3>
+            <h3${station.custom_name || station.name ? "" : ' data-station-i18n="station.unknown_station"'}>${escapeHtml(stationName)}</h3>
           </div>
           <div class="station-meta">
-            <span>${escapeHtml(station.country || "Unknown")}</span>
-            <span>${escapeHtml(station.codec || "Unknown codec")}</span>
+            <span${station.country ? "" : ' data-station-i18n="station.unknown"'}>${escapeHtml(station.country || "Unknown")}</span>
+            <span${station.codec ? "" : ' data-station-i18n="station.unknown_codec"'}>${escapeHtml(station.codec || "Unknown codec")}</span>
             <span>${Number(station.bitrate || 0)} kbps</span>
-            ${playCount ? `<span>${playCount} play${playCount === 1 ? "" : "s"}</span>` : ""}
+            ${playCount ? `<span data-station-play-count="${playCount}">${playCount} play${playCount === 1 ? "" : "s"}</span>` : ""}
             ${favoriteTags.length ? `<span>${escapeHtml(favoriteTags.join(", "))}</span>` : ""}
           </div>
         </header>
@@ -66,12 +67,12 @@ export function createStationRenderer({
         ${
           tags
             ? `<p class="station-tags">${escapeHtml(tags)}</p>`
-            : '<p class="station-tags">No tags available.</p>'
+            : '<p class="station-tags" data-station-i18n="station.no_tags">No tags available.</p>'
         }
 
         ${
           lastPlayedAt !== "unknown"
-            ? `<p class="station-tags">Last played: ${lastPlayedAt}</p>`
+            ? `<p class="station-tags" data-station-last-played="${escapeHtml(station.last_played_at)}">Last played: ${escapeHtml(lastPlayedAt)}</p>`
             : ""
         }
 
@@ -80,28 +81,28 @@ export function createStationRenderer({
             streamUrl
               ? `<button type="button" data-play-station="${stationButtonPayload(
                   station,
-                )}"${artworkUrl ? ` data-station-artwork-ref="${artworkRef}"` : ""}>Play</button>`
+                )}"${artworkUrl ? ` data-station-artwork-ref="${artworkRef}"` : ""} data-station-i18n="station.play">Play</button>`
               : ""
           }
           ${
             currentUser && currentView !== "favorites" && streamUrl
               ? `<button type="button" data-add-favorite="${stationButtonPayload(
                   station,
-                )}">Add favorite</button>`
+                )}" data-station-i18n="station.add_favorite">Add favorite</button>`
               : ""
           }
           ${
             currentUser && streamUrl
               ? `<button type="button" data-add-to-playlist="${stationButtonPayload(
                   station,
-                )}">Add to playlist</button>`
+                )}" data-station-i18n="station.add_playlist">Add to playlist</button>`
               : ""
           }
           ${
             currentUser && currentView === "favorites" && streamUrl
               ? `<button type="button" data-remove-favorite="${stationButtonPayload(
                   station,
-                )}">Remove favorite</button>`
+                )}" data-station-i18n="station.remove_favorite">Remove favorite</button>`
               : ""
           }
           ${
@@ -109,7 +110,7 @@ export function createStationRenderer({
               ? `<button type="button" data-toggle-publication="${stationButtonPayload(
                   station,
                 )}"${!station.published && !station.publication_eligible
-                  ? ' disabled title="This stream URL cannot be made public."' : ""}>${station.published
+                  ? ' disabled data-station-publication-tooltip title="This stream URL cannot be made public."' : ""} data-station-i18n="${station.published ? "station.private" : "station.public"}">${station.published
                   ? "Make private" : "Make public"}</button>`
               : ""
           }
@@ -117,31 +118,31 @@ export function createStationRenderer({
             currentUser && currentView === "playlist" && streamUrl
               ? `<button type="button" data-remove-from-playlist="${stationButtonPayload(
                   station,
-                )}">Remove from playlist</button>`
+                )}" data-station-i18n="station.remove_playlist">Remove from playlist</button>`
               : ""
           }
           ${
             currentUser && ["favorites", "playlist"].includes(currentView) && streamUrl
               ? `<button type="button" data-share-station="${stationButtonPayload(
                   station,
-                )}">Share</button>`
+                )}" data-station-i18n="station.share">Share</button>`
               : ""
           }
           ${
             currentUser && currentView === "favorites" && Number.isSafeInteger(publicationId) && publicationId > 0
               ? `<button type="button" data-export-station="${stationButtonPayload(
                   station,
-                )}">Download M3U</button>`
+                )}" data-station-i18n="station.download">Download M3U</button>`
               : ""
           }
           ${
             streamUrl
-              ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer">Stream URL</a>`
+              ? `<a class="station-external-link" href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer" data-station-i18n="station.stream">Stream URL</a>`
               : ""
           }
           ${
             homepage
-              ? `<a class="station-external-link" href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer">Homepage</a>`
+              ? `<a class="station-external-link" href="${escapeHtml(homepage)}" target="_blank" rel="noopener noreferrer" data-station-i18n="station.homepage">Homepage</a>`
               : ""
           }
         </div>
@@ -182,7 +183,25 @@ export function createStationRenderer({
     });
   }
 
+  function bindTranslations() {
+    if (!presentation) return;
+    for (const [selector, key, attribute, parameters] of [
+      ["[data-station-i18n]", null, "textContent", () => ({})],
+      ["[data-station-play-count]", "station.plays", "textContent", node => ({ count: Number(node.dataset.stationPlayCount) })],
+      ["[data-station-last-played]", "station.last_played", "textContent", node => ({ date: node.dataset.stationLastPlayed })],
+      ["[data-station-publication-tooltip]", "station.not_public", "title", () => ({})],
+    ]) {
+      for (const node of document.querySelectorAll(selector)) {
+        if (presentation.owns(node, attribute)) continue;
+        const fallback = attribute === "textContent" ? node.textContent : node.getAttribute(attribute);
+        presentation.present(node, key || node.dataset.stationI18n, fallback, attribute, parameters(node),
+          key === "station.last_played" ? { date: "datetime" } : {});
+      }
+    }
+  }
+
   function bindResultActions() {
+    bindTranslations();
     document.querySelectorAll("img[data-station-artwork]").forEach((image) => {
       if (image.dataset.artworkBound === "true") return;
       image.dataset.artworkBound = "true";

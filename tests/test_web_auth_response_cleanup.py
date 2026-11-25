@@ -11,6 +11,10 @@ SOURCE = ROOT / "fluxtuner/web/static/js/auth.js"
 
 
 def test_auth_state_401_cleanup_preserves_anonymous_and_authenticated_flow(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('{"type":"module"}', encoding="utf-8")
+    (tmp_path / "api.js").write_text(
+        SOURCE.with_name("api.js").read_text(encoding="utf-8"), encoding="utf-8"
+    )
     module = tmp_path / "auth.mjs"
     module.write_text(SOURCE.read_text(encoding="utf-8"), encoding="utf-8")
     script = r"""

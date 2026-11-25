@@ -16,6 +16,7 @@ export function createLazyRemoteSubscriptionController(options) {
       `${options.getCurrentUser()?.id ?? ""}:${options.getSessionKey() ?? ""}`,
     onError: () => {
       elements.messageNode.textContent = "Could not load subscriptions.";
+      options.presentation?.present(elements.messageNode, "subscriptions.lazy.error", elements.messageNode.textContent);
     },
   });
 

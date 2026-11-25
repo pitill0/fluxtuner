@@ -14,7 +14,10 @@ def test_web_index_exposes_login_ui() -> None:
     assert "data-login-form" in response.text
     assert 'method="post" action="/api/auth/login" data-login-form' in response.text
     assert 'method="post" action="/api/auth/login" data-login-form inert' in response.text
-    assert '<button type="submit" data-login-submit disabled>Login</button>' in response.text
+    assert (
+        '<button type="submit" data-login-submit disabled data-i18n="auth.login">Login</button>'
+        in response.text
+    )
     assert "data-auth-panel" in response.text
     assert "data-logout" in response.text
 
@@ -443,7 +446,9 @@ def test_web_player_starts_hidden_until_authenticated() -> None:
 
     assert html.status_code == 200
     assert player_css.status_code == 200
-    assert 'data-player-bar aria-live="polite" hidden' in html.text
+    assert "data-player-bar hidden" in html.text
+    assert "data-player-bar aria-live=" not in html.text
+    assert 'data-player-status role="status" aria-live="polite"' in html.text
     assert ".player-bar[hidden]" in player_css.text
     assert "display: none !important;" in player_css.text
 
@@ -498,7 +503,10 @@ def test_web_static_js_resets_search_view_on_auth_changes() -> None:
     assert "function resetRadioBrowserView()" in module_response.text
     assert 'setCurrentView("search");' in module_response.text
     assert 'setCurrentPlaylistName("");' in module_response.text
-    assert 'setResultsHeader("Radio Browser", "Search stations");' in module_response.text
+    assert (
+        'setResultsHeader("Radio Browser", "Search stations", "shell.radio", "search.title");'
+        in module_response.text
+    )
     assert "resetRadioBrowserView();" in navigation_response.text
 
 

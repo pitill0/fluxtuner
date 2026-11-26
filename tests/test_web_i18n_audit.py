@@ -9,6 +9,23 @@ from pathlib import Path
 
 WEB = Path(__file__).resolve().parents[1] / "fluxtuner/web"
 
+LOCALES = (
+    "en",
+    "es",
+    "ca",
+    "fr",
+    "de",
+    "zh-CN",
+    "zh-TW",
+    "ko",
+    "ja",
+    "gl",
+    "eu",
+    "it",
+    "pl",
+    "ru",
+)
+
 
 def test_audit_error_contract():
     source = (WEB / "static/js/api.js").read_text()
@@ -38,7 +55,7 @@ def test_audit_error_contract():
             ):
                 details.add(node.value.value)
     assert not details - set(mapped) - technical, sorted(details - set(mapped) - technical)
-    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
+    for locale in LOCALES:
         catalog = json.loads((WEB / f"static/locales/{locale}.json").read_text())
         assert set(mapped.values()) <= catalog.keys()
     ca = json.loads((WEB / "static/locales/ca.json").read_text())

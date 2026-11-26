@@ -1,11 +1,11 @@
 # Translating FluxTuner Web
 
-FluxTuner Web currently supports English (`en`), Spanish (`es`), Valencian (`ca`), French (`fr`), German (`de`), Simplified Chinese (`zh-CN`), Traditional Chinese (`zh-TW`), Korean (`ko`) and Japanese (`ja`). Native speakers and contributors are welcome to improve existing translations or propose additional languages. This guide covers the Web interface, not the GTK or terminal interfaces.
+FluxTuner Web currently supports English (`en`), Spanish (`es`), Valencian (`ca`), French (`fr`), German (`de`), Simplified Chinese (`zh-CN`), Traditional Chinese (`zh-TW`), Korean (`ko`), Japanese (`ja`), Galician (`gl`), Basque (`eu`), Italian (`it`), Polish (`pl`) and Russian (`ru`). Native speakers and contributors are welcome to improve existing translations or propose additional languages. This guide covers the Web interface, not the GTK or terminal interfaces.
 
 ## Improve an existing translation
 
 1. Fork the repository on GitHub and create a branch from `main`.
-2. Open the corresponding UTF-8 JSON file in [`fluxtuner/web/static/locales/`](fluxtuner/web/static/locales/): `en.json`, `es.json`, `ca.json`, `fr.json`, `de.json`, `zh-CN.json`, `zh-TW.json`, `ko.json` or `ja.json`.
+2. Open the corresponding UTF-8 JSON file in [`fluxtuner/web/static/locales/`](fluxtuner/web/static/locales/): `en.json`, `es.json`, `ca.json`, `fr.json`, `de.json`, `zh-CN.json`, `zh-TW.json`, `ko.json`, `ja.json`, `gl.json`, `eu.json`, `it.json`, `pl.json` or `ru.json`.
 3. Edit message values, not their keys. Use `en.json` as the reference for meaning and context.
 4. Validate the catalog and, if possible, check the affected screens in the browser (see below).
 5. Open a focused pull request. State the language, what changed, any terminology choices and which checks you ran. Screenshots are welcome, but remove personal information first.
@@ -34,7 +34,9 @@ Small corrections are welcome. For a typo, GitHub's file editor is sufficient; i
 - Preserve the meaning of security warnings, destructive confirmations and privacy notices. Do not make them less explicit.
 - Do not hard-code regional number grouping or dates into messages; the application handles formatting where supported. Keep button text concise and check narrow screens and accessible labels.
 
-For Chinese, keep the mainland Chinese and Taiwanese terminology distinct. Explicit `Hans` or `Hant` browser preferences take precedence over the region; otherwise `TW`, `HK` and `MO` select `zh-TW`, and other Chinese preferences select `zh-CN`. Japanese, Korean and both Chinese catalogs use the `other` plural category at runtime; their `one` variants are retained for catalog parity. The initial Chinese, Korean and Japanese translations are open to native-speaker review.
+For Chinese, keep the mainland Chinese and Taiwanese terminology distinct. Explicit `Hans` or `Hant` browser preferences take precedence over the region; otherwise `TW`, `HK` and `MO` select `zh-TW`, and other Chinese preferences select `zh-CN`. Japanese, Korean and both Chinese catalogs use the `other` plural category at runtime; their `one` variants are retained for catalog parity. The initial Chinese, Korean, Japanese, Galician, Basque, Italian, Polish and Russian translations are open to native-speaker review.
+
+For Galician and Basque, use `one` and `other`; Italian uses `one`, `many` and `other`. Polish and Russian require `one`, `few`, `many` and `other`. Do not assume the same category for the same number in both languages: for example, 21 is `many` in Polish and `one` in Russian. Test 0, 1, 2, 5, 11, 21, 22 and a fractional value such as 1.5. The existing catalogs retain their original plural variants for compatibility.
 
 ## Propose a new language
 

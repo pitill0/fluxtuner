@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-export const SUPPORTED_LOCALES = Object.freeze(["en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"]);
+export const SUPPORTED_LOCALES = Object.freeze(["en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja", "gl", "eu", "it", "pl", "ru"]);
 export const LANGUAGE_STORAGE_KEY = "fluxtuner.language";
 
 export function resolveLocale(preferences = []) {

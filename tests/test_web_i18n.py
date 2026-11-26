@@ -10,6 +10,30 @@ from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[1] / "fluxtuner/web/static"
 
+LOCALES = (
+    "en",
+    "es",
+    "ca",
+    "fr",
+    "de",
+    "zh-CN",
+    "zh-TW",
+    "ko",
+    "ja",
+    "gl",
+    "eu",
+    "it",
+    "pl",
+    "ru",
+)
+NEW_PLURAL_CATEGORIES = {
+    "gl": {"one", "other"},
+    "eu": {"one", "other"},
+    "it": {"one", "many", "other"},
+    "pl": {"one", "few", "many", "other"},
+    "ru": {"one", "few", "many", "other"},
+}
+
 
 def _unique(pairs):
     result = {}
@@ -24,9 +48,9 @@ def test_catalogs_have_matching_keys_and_parameters():
         path.stem: json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique)
         for path in (STATIC / "locales").glob("*.json")
     }
-    assert set(catalogs) == {"en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"}
+    assert set(catalogs) == set(LOCALES)
     base = catalogs["en"]
-    for catalog in catalogs.values():
+    for locale, catalog in catalogs.items():
         assert set(catalog) == set(base)
         for key, value in catalog.items():
             original = base[key]
@@ -34,6 +58,8 @@ def test_catalogs_have_matching_keys_and_parameters():
             variants = value if isinstance(value, dict) else {"other": value}
             originals = original if isinstance(original, dict) else {"other": original}
             assert "other" in variants
+            if isinstance(value, dict) and locale in NEW_PLURAL_CATEGORIES:
+                assert set(variants) == NEW_PLURAL_CATEGORIES[locale], (locale, key)
             for category, message in variants.items():
                 assert isinstance(message, str) and message.strip()
                 reference = originals.get(category, originals["other"])
@@ -50,16 +76,20 @@ def test_native_engine(tmp_path):
     script = r"""
 import assert from 'node:assert/strict';
 const {createI18n, resolveLocale, loadCatalog} = await import(process.argv[1]);
-assert.equal(resolveLocale(['invalid_locale', 'it-IT', 'ca-ES-valencia']), 'ca');
-assert.equal(resolveLocale(['it-IT']), 'en');
+assert.equal(resolveLocale(['invalid_locale', 'pt-PT', 'ca-ES-valencia']), 'ca');
+assert.equal(resolveLocale(['pt-PT']), 'en');
 for (const [preference, expected] of Object.entries({
   'de-DE': 'de', 'de-AT': 'de', 'de-CH': 'de', 'ko-KR': 'ko', 'ja-JP': 'ja',
+  'gl-ES': 'gl', 'eu-ES': 'eu', 'eu-FR': 'eu', 'it-IT': 'it', 'it-CH': 'it',
+  'pl-PL': 'pl', 'ru-RU': 'ru', 'ru-KZ': 'ru',
   'zh': 'zh-CN', 'zh-CN': 'zh-CN', 'zh-SG': 'zh-CN', 'zh-Hans': 'zh-CN',
   'zh-TW': 'zh-TW', 'zh-HK': 'zh-TW', 'zh-MO': 'zh-TW', 'zh-Hant': 'zh-TW',
   'zh-Hans-TW': 'zh-CN', 'zh-Hant-CN': 'zh-TW', 'zh-hant-hk': 'zh-TW',
 })) assert.equal(resolveLocale([preference]), expected, preference);
-assert.equal(resolveLocale([null, 'invalid_locale', 'it-IT', 'zh-HK']), 'zh-TW');
+assert.equal(resolveLocale([null, 'invalid_locale', 'pt-PT', 'zh-HK']), 'zh-TW');
 assert.equal(resolveLocale(['ja-JP', 'de-DE']), 'ja');
+assert.equal(resolveLocale(['it-IT', 'ca-ES-valencia']), 'it');
+assert.equal(resolveLocale(['ru-RU', 'pl-PL']), 'ru');
 const base = {hello: 'Hello {name}', count: {one: '{count} station', other: '{count} stations'}};
 const saved = new Map();
 const i = createI18n({preferences: ['es-ES'], storage: {getItem: k => saved.get(k), setItem: (k,v) => saved.set(k,v)},
@@ -105,7 +135,7 @@ def test_catalog_http_contract(tmp_path, monkeypatch):
     html = client.get("/")
     prefix = re.search(r"/static/build/[0-9a-f]{16}/", html.text)
     assert prefix is not None
-    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
+    for locale in LOCALES:
         asset = f"locales/{locale}.json"
         versioned = client.get(prefix.group() + asset)
         legacy = client.get("/static/" + asset)
@@ -131,6 +161,7 @@ const storage = new Map();
 const store = {getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v)};
 for (const [locale, preference] of Object.entries({
   de: 'de-AT', 'zh-CN': 'zh-Hans-TW', 'zh-TW': 'zh-Hant-CN', ko: 'ko-KR', ja: 'ja-JP',
+  gl: 'gl-ES', eu: 'eu-FR', it: 'it-CH', pl: 'pl-PL', ru: 'ru-RU',
 })) {
   storage.clear();
   const engine = createI18n({loader, storage: store, preferences: [preference]});
@@ -138,11 +169,24 @@ for (const [locale, preference] of Object.entries({
   assert.equal(engine.locale, locale);
   const catalog = await loader(locale);
   assert.equal(engine.t('settings.language'), catalog['settings.language']);
-  for (const count of [0, 1, 2, 1234567]) {
-    const category = new Intl.PluralRules(locale).select(count);
-    const expected = (catalog['stations.count'][category] ?? catalog['stations.count'].other)
-      .replace('{count}', new Intl.NumberFormat(locale).format(count));
-    assert.equal(engine.t('stations.count', {count}), expected);
+  const counts = [0, 1, 2, 3, 4, 5, 11, 12, 14, 21, 22, 25, 101, 102, 111,
+    1000000, 1234567, 0.1, 1.5, 2.5];
+  for (const [key, variants] of Object.entries(catalog)) {
+    if (typeof variants === 'string') continue;
+    for (const count of counts) {
+      const category = new Intl.PluralRules(locale).select(count);
+      const params = {count, name: 'Test <station>', number: new Intl.NumberFormat(locale).format(count)};
+      const display = {...params, count: new Intl.NumberFormat(locale).format(count)};
+      const expected = (variants[category] ?? variants.other).replace(/\{(\w+)\}/g,
+        (match, name) => Object.hasOwn(display, name) ? String(display[name]) : match);
+      assert.equal(engine.t(key, params), expected, `${locale} ${key} ${count}`);
+    }
+  }
+  if (locale === 'pl' || locale === 'ru') {
+    const expected = locale === 'pl'
+      ? ['0 stacji', '1 stacja', '2 stacje', '5 stacji', '21 stacji', '22 stacje', '25 stacji', '1,5 stacji']
+      : ['0 станций', '1 станция', '2 станции', '5 станций', '21 станция', '22 станции', '25 станций', '1,5 станции'];
+    assert.deepEqual([0, 1, 2, 5, 21, 22, 25, 1.5].map(count => engine.t('stations.count', {count})), expected);
   }
   await engine.setLocale(locale);
   assert.equal(storage.get('fluxtuner.language'), locale);

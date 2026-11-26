@@ -10,6 +10,23 @@ from pathlib import Path
 
 WEB = Path(__file__).resolve().parents[1] / "fluxtuner/web"
 
+LOCALES = (
+    "en",
+    "es",
+    "ca",
+    "fr",
+    "de",
+    "zh-CN",
+    "zh-TW",
+    "ko",
+    "ja",
+    "gl",
+    "eu",
+    "it",
+    "pl",
+    "ru",
+)
+
 
 class TemplateParser(HTMLParser):
     def __init__(self):
@@ -40,11 +57,9 @@ def test_template_catalog_contract():
     parser = TemplateParser()
     parser.feed((WEB / "templates/index.html").read_text(encoding="utf-8"))
     assert not parser.selector_hidden
-    assert parser.options == [
-        (lang, lang) for lang in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja")
-    ]
+    assert parser.options == [(lang, lang) for lang in LOCALES]
     assert len(parser.keys) >= 180
-    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
+    for locale in LOCALES:
         catalog = json.loads((WEB / f"static/locales/{locale}.json").read_text(encoding="utf-8"))
         assert all(isinstance(catalog[key], str) for key in parser.keys)
 
@@ -103,7 +118,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 const {initializeLanguageUi} = await import(process.argv[1]);
 const {createDynamicPresentation} = await import(new URL('./i18n-presentation.js', process.argv[1]));
-const catalogs = Object.fromEntries(['en','es','ca','fr','de','zh-CN','zh-TW','ko','ja'].map(locale => [locale,
+const catalogs = Object.fromEntries(['en','es','ca','fr','de','zh-CN','zh-TW','ko','ja','gl','eu','it','pl','ru'].map(locale => [locale,
   JSON.parse(readFileSync(join(process.argv[2], `${locale}.json`), 'utf8'))]));
 const storage = new Map();
 const requests = [];
@@ -129,17 +144,17 @@ function start(languages) {
   const ui = initializeLanguageUi(root, browser, presentation);
   return {ui, root, label, dynamic, selector};
 }
-const a = start(['it-IT','ca-ES-valencia']);
+const a = start(['pt-PT','ca-ES-valencia']);
 await a.ui.ready;
 assert.equal(a.root.documentElement.lang, 'ca');
-for (const locale of ['ca','en','es','fr','de','zh-CN','zh-TW','ko','ja','ca']) {
+for (const locale of ['ca','en','es','fr','de','zh-CN','zh-TW','ko','ja','gl','eu','it','pl','ru','ca']) {
   await a.ui.controller.change(locale);
   assert.equal(a.root.documentElement.lang, locale);
   assert.equal(a.selector.value, locale);
   assert.equal(a.label.textContent, catalogs[locale]['brand.subtitle']);
   assert.equal(a.dynamic.textContent, catalogs[locale]['settings.language']);
 }
-assert.deepEqual(requests, ['en','ca','es','fr','de','zh-CN','zh-TW','ko','ja']);
+assert.deepEqual(requests, ['en','ca','es','fr','de','zh-CN','zh-TW','ko','ja','gl','eu','it','pl','ru']);
 assert.equal(storage.get('fluxtuner.language'), 'ca');
 const b = start(['fr']);
 await b.ui.ready;

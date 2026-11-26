@@ -12,7 +12,22 @@ from pathlib import Path
 import httpx
 from playwright.sync_api import expect, sync_playwright
 
-LOCALES = ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja")
+LOCALES = (
+    "en",
+    "es",
+    "ca",
+    "fr",
+    "de",
+    "zh-CN",
+    "zh-TW",
+    "ko",
+    "ja",
+    "gl",
+    "eu",
+    "it",
+    "pl",
+    "ru",
+)
 SELECTOR = "[data-language-select]"
 USER = "[data-auth-user]"
 MENU = "[data-nav-toggle]"
@@ -82,7 +97,7 @@ def check_mobile(page, authenticated):
                 and max(abs(a - b) for a, b in zip(first, point, strict=True)) <= 2
                 for point in positions
             ), positions
-        print(f"PASS: {width}px, authenticated={authenticated}, nine locales")
+        print(f"PASS: {width}px, authenticated={authenticated}, {len(LOCALES)} locales")
 
 
 def check_cached_switches(page):
@@ -105,7 +120,7 @@ def check_cached_switches(page):
         page.remove_listener("request", record)
     assert not requests, [request.url for request in requests]
     page.locator(MENU).click()
-    print("PASS: nine cached language switches without network requests")
+    print(f"PASS: {len(LOCALES)} cached language switches without network requests")
 
 
 def check_early_and_fallback(browser, url):
@@ -187,6 +202,11 @@ def run_browser(url):
                 ("zh-Hant-CN", "zh-TW"),
                 ("ko-KR", "ko"),
                 ("ja-JP", "ja"),
+                ("gl-ES", "gl"),
+                ("eu-ES", "eu"),
+                ("it-IT", "it"),
+                ("pl-PL", "pl"),
+                ("ru-RU", "ru"),
             ):
                 localized = browser.new_context(locale=preference)
                 try:

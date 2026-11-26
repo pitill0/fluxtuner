@@ -20,6 +20,28 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.7.1] - 2026-11-26
+
+### Added
+
+- German, Simplified Chinese, Traditional Chinese, Korean and Japanese
+  translations for FluxTuner Web, expanding language support from four
+  to nine locales.
+- Script-aware Chinese locale resolution, including regional browser
+  language preferences.
+
+### Changed
+
+- Expanded internationalization coverage across catalog validation,
+  browser behavior, responsive layouts and packaged distributions.
+- Updated translation contribution documentation.
+
+### Translation review
+
+- German has received linguistic feedback from a German speaker.
+- Chinese, Korean and Japanese translations are initial community-review
+  editions. Native speakers are encouraged to suggest improvements.
+
 ## [1.7.0] - 2026-11-24
 
 ### Added

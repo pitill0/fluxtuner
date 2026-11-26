@@ -38,7 +38,7 @@ def test_audit_error_contract():
             ):
                 details.add(node.value.value)
     assert not details - set(mapped) - technical, sorted(details - set(mapped) - technical)
-    for locale in ("en", "es", "ca", "fr"):
+    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
         catalog = json.loads((WEB / f"static/locales/{locale}.json").read_text())
         assert set(mapped.values()) <= catalog.keys()
     ca = json.loads((WEB / "static/locales/ca.json").read_text())

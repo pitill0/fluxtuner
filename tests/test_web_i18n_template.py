@@ -40,9 +40,11 @@ def test_template_catalog_contract():
     parser = TemplateParser()
     parser.feed((WEB / "templates/index.html").read_text(encoding="utf-8"))
     assert not parser.selector_hidden
-    assert parser.options == [(lang, lang) for lang in ("en", "es", "ca", "fr")]
+    assert parser.options == [
+        (lang, lang) for lang in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja")
+    ]
     assert len(parser.keys) >= 180
-    for locale in ("en", "es", "ca", "fr"):
+    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
         catalog = json.loads((WEB / f"static/locales/{locale}.json").read_text(encoding="utf-8"))
         assert all(isinstance(catalog[key], str) for key in parser.keys)
 
@@ -101,7 +103,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 const {initializeLanguageUi} = await import(process.argv[1]);
 const {createDynamicPresentation} = await import(new URL('./i18n-presentation.js', process.argv[1]));
-const catalogs = Object.fromEntries(['en','es','ca','fr'].map(locale => [locale,
+const catalogs = Object.fromEntries(['en','es','ca','fr','de','zh-CN','zh-TW','ko','ja'].map(locale => [locale,
   JSON.parse(readFileSync(join(process.argv[2], `${locale}.json`), 'utf8'))]));
 const storage = new Map();
 const requests = [];
@@ -127,17 +129,17 @@ function start(languages) {
   const ui = initializeLanguageUi(root, browser, presentation);
   return {ui, root, label, dynamic, selector};
 }
-const a = start(['de-DE','ca-ES-valencia']);
+const a = start(['it-IT','ca-ES-valencia']);
 await a.ui.ready;
 assert.equal(a.root.documentElement.lang, 'ca');
-for (const locale of ['ca','en','es','fr','ca']) {
+for (const locale of ['ca','en','es','fr','de','zh-CN','zh-TW','ko','ja','ca']) {
   await a.ui.controller.change(locale);
   assert.equal(a.root.documentElement.lang, locale);
   assert.equal(a.selector.value, locale);
   assert.equal(a.label.textContent, catalogs[locale]['brand.subtitle']);
   assert.equal(a.dynamic.textContent, catalogs[locale]['settings.language']);
 }
-assert.deepEqual(requests, ['en','ca','es','fr']);
+assert.deepEqual(requests, ['en','ca','es','fr','de','zh-CN','zh-TW','ko','ja']);
 assert.equal(storage.get('fluxtuner.language'), 'ca');
 const b = start(['fr']);
 await b.ui.ready;

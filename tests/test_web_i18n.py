@@ -24,7 +24,7 @@ def test_catalogs_have_matching_keys_and_parameters():
         path.stem: json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique)
         for path in (STATIC / "locales").glob("*.json")
     }
-    assert set(catalogs) == {"en", "es", "ca", "fr"}
+    assert set(catalogs) == {"en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"}
     base = catalogs["en"]
     for catalog in catalogs.values():
         assert set(catalog) == set(base)
@@ -50,8 +50,16 @@ def test_native_engine(tmp_path):
     script = r"""
 import assert from 'node:assert/strict';
 const {createI18n, resolveLocale, loadCatalog} = await import(process.argv[1]);
-assert.equal(resolveLocale(['invalid_locale', 'de-DE', 'ca-ES-valencia']), 'ca');
-assert.equal(resolveLocale(['de-DE']), 'en');
+assert.equal(resolveLocale(['invalid_locale', 'it-IT', 'ca-ES-valencia']), 'ca');
+assert.equal(resolveLocale(['it-IT']), 'en');
+for (const [preference, expected] of Object.entries({
+  'de-DE': 'de', 'de-AT': 'de', 'de-CH': 'de', 'ko-KR': 'ko', 'ja-JP': 'ja',
+  'zh': 'zh-CN', 'zh-CN': 'zh-CN', 'zh-SG': 'zh-CN', 'zh-Hans': 'zh-CN',
+  'zh-TW': 'zh-TW', 'zh-HK': 'zh-TW', 'zh-MO': 'zh-TW', 'zh-Hant': 'zh-TW',
+  'zh-Hans-TW': 'zh-CN', 'zh-Hant-CN': 'zh-TW', 'zh-hant-hk': 'zh-TW',
+})) assert.equal(resolveLocale([preference]), expected, preference);
+assert.equal(resolveLocale([null, 'invalid_locale', 'it-IT', 'zh-HK']), 'zh-TW');
+assert.equal(resolveLocale(['ja-JP', 'de-DE']), 'ja');
 const base = {hello: 'Hello {name}', count: {one: '{count} station', other: '{count} stations'}};
 const saved = new Map();
 const i = createI18n({preferences: ['es-ES'], storage: {getItem: k => saved.get(k), setItem: (k,v) => saved.set(k,v)},
@@ -97,7 +105,7 @@ def test_catalog_http_contract(tmp_path, monkeypatch):
     html = client.get("/")
     prefix = re.search(r"/static/build/[0-9a-f]{16}/", html.text)
     assert prefix is not None
-    for locale in ("en", "es", "ca", "fr"):
+    for locale in ("en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"):
         asset = f"locales/{locale}.json"
         versioned = client.get(prefix.group() + asset)
         legacy = client.get("/static/" + asset)
@@ -106,3 +114,50 @@ def test_catalog_http_contract(tmp_path, monkeypatch):
         assert versioned.headers["cache-control"].endswith("immutable")
         assert legacy.headers["cache-control"] == "no-cache"
         assert versioned.headers["content-type"].startswith("application/json")
+
+
+def test_additional_locale_plural_and_persistence_contract(tmp_path):
+    node = shutil.which("node")
+    assert node is not None
+    module = tmp_path / "i18n.mjs"
+    shutil.copyfile(STATIC / "js/i18n.js", module)
+    script = r"""
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+const {createI18n, loadCatalog} = await import(process.argv[1]);
+const loader = async l => JSON.parse(readFileSync(join(process.argv[2], `${l}.json`), 'utf8'));
+const storage = new Map();
+const store = {getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v)};
+for (const [locale, preference] of Object.entries({
+  de: 'de-AT', 'zh-CN': 'zh-Hans-TW', 'zh-TW': 'zh-Hant-CN', ko: 'ko-KR', ja: 'ja-JP',
+})) {
+  storage.clear();
+  const engine = createI18n({loader, storage: store, preferences: [preference]});
+  await engine.initialize();
+  assert.equal(engine.locale, locale);
+  const catalog = await loader(locale);
+  assert.equal(engine.t('settings.language'), catalog['settings.language']);
+  for (const count of [0, 1, 2, 1234567]) {
+    const category = new Intl.PluralRules(locale).select(count);
+    const expected = (catalog['stations.count'][category] ?? catalog['stations.count'].other)
+      .replace('{count}', new Intl.NumberFormat(locale).format(count));
+    assert.equal(engine.t('stations.count', {count}), expected);
+  }
+  await engine.setLocale(locale);
+  assert.equal(storage.get('fluxtuner.language'), locale);
+  const restored = createI18n({loader, storage: store, preferences: ['en-US']});
+  await restored.initialize();
+  assert.equal(restored.locale, locale);
+  let url;
+  await loadCatalog(locale, async u => {url = u; return {ok: true, json: async () => catalog};});
+  assert.equal(url.pathname.split('/').at(-1), `${locale}.json`);
+}
+const fallback = createI18n({preferences: ['zh-HK'], loader: l => l === 'en' ? loader(l) : Promise.reject()});
+await fallback.initialize();
+assert.equal(fallback.locale, 'en');
+"""
+    subprocess.run(
+        [node, "--input-type=module", "--eval", script, module.as_uri(), str(STATIC / "locales")],
+        check=True,
+    )

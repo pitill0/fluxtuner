@@ -2,14 +2,19 @@
  * SPDX-License-Identifier: LicenseRef-FluxTuner-Web-NC
  */
 
-export const SUPPORTED_LOCALES = Object.freeze(["en", "es", "ca", "fr"]);
+export const SUPPORTED_LOCALES = Object.freeze(["en", "es", "ca", "fr", "de", "zh-CN", "zh-TW", "ko", "ja"]);
 export const LANGUAGE_STORAGE_KEY = "fluxtuner.language";
 
 export function resolveLocale(preferences = []) {
   for (const preference of preferences) {
     if (typeof preference !== "string") continue;
     try {
-      const language = new Intl.Locale(preference).language;
+      const { language, script, region } = new Intl.Locale(preference);
+      if (language === "zh") {
+        if (script === "Hans") return "zh-CN";
+        if (script === "Hant") return "zh-TW";
+        return ["TW", "HK", "MO"].includes(region) ? "zh-TW" : "zh-CN";
+      }
       if (SUPPORTED_LOCALES.includes(language)) return language;
     } catch {
       // Invalid locale: consider the next preference.

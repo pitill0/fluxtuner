@@ -20,6 +20,29 @@ The format is inspired by Keep a Changelog, and this project uses semantic versi
 
 - Nothing yet.
 
+## [1.7.2] - 2026-11-26
+
+### Added
+
+- Galician, Basque, Italian, Polish and Russian translations for
+  FluxTuner Web, expanding language support from nine to fourteen locales.
+- Language-specific plural forms for Italian, Polish and Russian,
+  using the existing internationalization engine.
+
+### Changed
+
+- Expanded catalog validation, regional locale resolution and browser
+  acceptance coverage to all fourteen supported languages.
+- Updated translation contribution documentation and plural conventions.
+
+### Translation review
+
+- Galician, Basque, Italian, Polish and Russian translations are initial
+  community-review editions. Native speakers are encouraged to suggest
+  improvements.
+- Feedback remains welcome for the Chinese, Korean and Japanese
+  translations introduced in 1.7.1.
+
 ## [1.7.1] - 2026-11-26
 
 ### Added

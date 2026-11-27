@@ -75,8 +75,7 @@ def _extinf_name(line: str) -> str:
     raise ValueError("Malformed EXTINF entry: station name separator is missing.")
 
 
-def parse_m3u(data: bytes) -> M3UPreview:  # noqa: C901 - reviewed ceiling 19; see docs/complexity-baseline.json
-    """Parse UTF-8 station collections without database or network access."""
+def _validated_m3u_lines(data: bytes) -> list[str]:
     if not isinstance(data, bytes):
         raise ValueError("Playlist content must be bytes.")
     if len(data) > MAX_FILE_BYTES:
@@ -93,6 +92,12 @@ def parse_m3u(data: bytes) -> M3UPreview:  # noqa: C901 - reviewed ceiling 19; s
         raise ValueError(f"Playlist exceeds the {MAX_LINES} line limit.")
     if any(line.strip().upper().startswith("#EXT-X-") for line in lines):
         raise ValueError("This is an HLS manifest, not a station collection.")
+    return lines
+
+
+def parse_m3u(data: bytes) -> M3UPreview:
+    """Parse UTF-8 station collections without database or network access."""
+    lines = _validated_m3u_lines(data)
 
     entries: list[M3UEntry] = []
     issues: list[M3UIssue] = []

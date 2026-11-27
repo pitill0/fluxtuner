@@ -90,6 +90,10 @@ class ArtworkService:
                 return flight.result
             return None
 
+        return self._complete_flight(candidate, flight)
+
+    def _complete_flight(self, candidate: str, flight: _Flight) -> DownloadedArtwork | None:
+        """Resolve the leader's request and always release its followers."""
         try:
             # A second cache read closes the race with another completed owner.
             cached = self.cache.get(candidate)

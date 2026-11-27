@@ -99,7 +99,7 @@ export function createBrowserNavigationController({ appState, browser, navigatio
     });
   }
 
-  async function replay(route, { fromPop = false } = {}) {
+  async function replay(route, { fromPop = false, initial = false } = {}) {
     const thisSequence = ++sequence;
     replaying = true;
     const user = appState.getCurrentUser();
@@ -116,7 +116,13 @@ export function createBrowserNavigationController({ appState, browser, navigatio
     const execute = navigation[chosen.view];
     if (!execute) chosen = { view: "dashboard" };
     try {
-      await navigation[chosen.view](chosen.name);
+      if (initial) {
+        await navigation[chosen.view](chosen.name, {
+          preserveMobileMenu: true,
+        });
+      } else {
+        await navigation[chosen.view](chosen.name);
+      }
     } finally {
       if (thisSequence === sequence) {
         // Preserve current history position when replaying a popstate.
@@ -131,7 +137,7 @@ export function createBrowserNavigationController({ appState, browser, navigatio
     if (!initialRestoration && ready) return;
     initialRestoration = false;
     ready = true;
-    return replay(readNavigationUrl(locationHref()));
+    return replay(readNavigationUrl(locationHref()), { initial: true });
   }
 
   function onLogout() {

@@ -55,7 +55,7 @@ def test_account_view_is_exclusive() -> None:
 def test_account_navigation_requires_authentication() -> None:
     module = _static("/static/js/navigation.js")
 
-    assert "function navigateToAccount()" in module
+    assert "function navigateToAccount({ preserveMobileMenu = false } = {})" in module
     assert "appState.isAuthenticated()" in module
     assert "showAccountView();" in module
     assert "scrollToSection(accountPanel);" in module

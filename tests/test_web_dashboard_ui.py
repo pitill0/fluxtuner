@@ -203,7 +203,9 @@ def test_web_static_js_resets_search_navigation() -> None:
     assert events_response.status_code == 200
     assert navigation_response.status_code == 200
     assert 'navSearchButton.addEventListener("click", navigateToSearch);' in events_response.text
-    assert "function navigateToSearch()" in navigation_response.text
+    assert (
+        "function navigateToSearch({ preserveMobileMenu = false } = {})" in navigation_response.text
+    )
     assert "resetRadioBrowserView();" in navigation_response.text
 
 

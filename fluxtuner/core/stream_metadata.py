@@ -133,32 +133,41 @@ def fetch_stream_metadata(
             response.headers.get("icy-metaint")
         )
         if metaint is None:
-            if metaint_reason == "missing":
-                logger.debug("ICY metadata unavailable: missing icy-metaint header")
-            elif metaint_reason == "invalid":
-                logger.debug("ICY metadata unavailable: invalid icy-metaint header")
-            else:
-                logger.debug("ICY metadata unavailable: icy-metaint outside allowed range")
+            logger.debug(
+                {
+                    "missing": "ICY metadata unavailable: missing icy-metaint header",
+                    "invalid": "ICY metadata unavailable: invalid icy-metaint header",
+                }.get(
+                    metaint_reason,
+                    "ICY metadata unavailable: icy-metaint outside allowed range",
+                )
+            )
             return None
 
         metadata, metadata_reason = _read_icy_metadata_block_with_reason(response.raw, metaint)
         if metadata is None:
-            if metadata_reason == "missing-length":
-                logger.debug("ICY metadata unavailable: missing metadata length byte")
-            elif metadata_reason == "empty":
-                logger.debug("ICY metadata unavailable: empty metadata block")
-            elif metadata_reason == "exceeds-limit":
-                logger.debug("ICY metadata unavailable: metadata block exceeds size limit")
-            else:
-                logger.debug("ICY metadata unavailable: icy-metaint outside allowed range")
+            logger.debug(
+                {
+                    "missing-length": "ICY metadata unavailable: missing metadata length byte",
+                    "empty": "ICY metadata unavailable: empty metadata block",
+                    "exceeds-limit": "ICY metadata unavailable: metadata block exceeds size limit",
+                }.get(
+                    metadata_reason,
+                    "ICY metadata unavailable: icy-metaint outside allowed range",
+                )
+            )
             return None
 
         parsed, parse_reason = _parse_icy_metadata_block_with_reason(metadata)
         if parsed is None:
-            if parse_reason == "empty-title":
-                logger.debug("ICY metadata unavailable: empty StreamTitle")
-            else:
-                logger.debug("ICY metadata unavailable: missing StreamTitle")
+            logger.debug(
+                {
+                    "empty-title": "ICY metadata unavailable: empty StreamTitle",
+                }.get(
+                    parse_reason,
+                    "ICY metadata unavailable: missing StreamTitle",
+                )
+            )
             return None
 
     except Exception:

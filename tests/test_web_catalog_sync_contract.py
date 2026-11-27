@@ -55,12 +55,24 @@ def test_private_navigation_and_browser_routes_are_connected():
     events = read("js/app-events.js")
     browser = read("js/browser-navigation.js")
 
-    assert "stations: () => navigateToPrivateView(loadMyStations)" in app
-    assert "catalogs: () => navigateToPrivateView(loadCatalogs)" in app
-    assert "catalog: (id) => navigateToPrivateView(" in app
+    assert "stations: (_name, options) => navigateToPrivateView(loadMyStations, options)" in app
+    assert "catalogs: (_name, options) => navigateToPrivateView(loadCatalogs, options)" in app
+    assert (
+        "catalog: (id, options) => navigateToPrivateView(() => loadCatalogStations(id), options)"
+        in app
+    )
 
     assert "navStationsButton.addEventListener(" in events
     assert "navCatalogsButton.addEventListener(" in events
 
     assert '"stations", "catalogs", "catalog"' in browser
     assert 'url.searchParams.delete("catalog")' in browser
+
+    assert (
+        "playlist: (name, options) => navigateToPrivateView("
+        "() => loadPlaylistStations(name), options)" in app
+    )
+    assert "preserveMobileMenu: true" in browser
+    assert "navigation[chosen.view](chosen.name);" in browser
+    assert "{ initial: true }" in browser
+    assert "{ fromPop: true }" in browser

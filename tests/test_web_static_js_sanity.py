@@ -989,12 +989,25 @@ def test_web_static_js_uses_navigation_module() -> None:
     assert "export function createNavigationController" in navigation_response.text
     assert "const navigationController = createNavigationController({" in app_response.text
     assert "function closeOpenDialog()" in navigation_response.text
-    assert "async function navigateToPrivateView(loader)" in navigation_response.text
-    assert "async function navigateToDashboard()" in navigation_response.text
-    assert "function navigateToSearch()" in navigation_response.text
-    assert "async function navigateToAdmin()" in navigation_response.text
+    assert (
+        "async function navigateToPrivateView(loader, { preserveMobileMenu = false } = {})"
+        in navigation_response.text
+    )
+    assert (
+        "async function navigateToDashboard({ preserveMobileMenu = false } = {})"
+        in navigation_response.text
+    )
+    assert (
+        "function navigateToSearch({ preserveMobileMenu = false } = {})" in navigation_response.text
+    )
+    assert (
+        "async function navigateToAdmin({ preserveMobileMenu = false } = {})"
+        in navigation_response.text
+    )
+    assert "if (!preserveMobileMenu) closeMobileMenu();" in navigation_response.text
+    assert navigation_response.text.count("if (!preserveMobileMenu) closeMobileMenu();") == 5
     assert "function closeOpenDialog()" not in app_response.text
-    assert "async function navigateToPrivateView(loader)" not in app_response.text
+    assert "async function navigateToPrivateView(" not in app_response.text
     assert (
         'navDashboardButton.addEventListener("click", navigateToDashboard);' in events_response.text
     )

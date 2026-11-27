@@ -541,6 +541,145 @@ def check_csp_enforcement(browser, url):
         context.close()
 
 
+def check_initial_navigation_menu(browser, url):
+    """Initial route restoration must not close a user-opened menu."""
+    routes = (
+        ("dashboard", "[data-dashboard-panel]"),
+        ("explore", "[data-search-panel]"),
+        ("favorites", "[data-search-panel]"),
+        ("playlists", "[data-search-panel]"),
+        ("history", "[data-search-panel]"),
+        ("stations", "[data-search-panel]"),
+        ("catalogs", "[data-search-panel]"),
+        ("account", "[data-account-panel]"),
+        ("admin", "[data-admin-panel]"),
+    )
+
+    for view, panel in routes:
+        context = browser.new_context(
+            locale="en-US",
+            viewport={"width": 320, "height": 740},
+            is_mobile=True,
+            has_touch=True,
+        )
+        held = []
+        errors = []
+        try:
+            result = context.request.post(
+                f"{url}/api/auth/login",
+                data={
+                    "username": "audit",
+                    "password": "disposable browser test password",
+                },
+            )
+            assert result.ok, (result.status, result.text())
+
+            page = context.new_page()
+            page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
+
+            dashboard_requests = []
+
+            def hold_dashboard(route, *, dashboard_requests=dashboard_requests, held=held):
+                dashboard_requests.append(route.request.url)
+                if len(dashboard_requests) == 1:
+                    held.append(route)
+                else:
+                    route.continue_()
+
+            page.route("**/api/dashboard", hold_dashboard)
+
+            destination = url if view == "dashboard" else f"{url}/?view={view}"
+
+            with page.expect_request("**/api/dashboard"):
+                page.goto(destination)
+
+            expect(page.locator(USER)).to_be_visible()
+
+            deadline = time.monotonic() + 10
+            while not held and time.monotonic() < deadline:
+                page.wait_for_timeout(20)
+
+            assert len(held) == 1, view
+
+            set_mobile_menu(page, True)
+
+            selector = page.locator(SELECTOR)
+            toggle = page.locator(MENU)
+
+            expect(selector).to_be_visible()
+
+            with page.expect_response(
+                lambda response: response.url == f"{url}/api/dashboard" and response.ok
+            ) as response:
+                held.pop().continue_()
+
+            assert response.value.finished() is None
+
+            if view == "dashboard":
+                deadline = time.monotonic() + 10
+                while len(dashboard_requests) < 2 and time.monotonic() < deadline:
+                    page.wait_for_timeout(20)
+                assert len(dashboard_requests) >= 2
+
+            expect(page.locator(panel)).to_be_visible()
+
+            # Wait for the restored route's network activity to finish.
+            page.wait_for_load_state("networkidle")
+
+            assert page.url.rstrip("/") == destination.rstrip("/")
+
+            assert toggle.get_attribute("aria-expanded") == "true", (
+                "INITIAL_NAVIGATION_CLOSED_MENU",
+                view,
+            )
+
+            expect(page.locator(HEADER)).to_have_attribute("data-mobile-menu-open", "true")
+            expect(selector).to_be_visible()
+
+            selector.select_option("es")
+
+            expect(page.locator("html")).to_have_attribute("lang", "es")
+            expect(selector).to_have_value("es")
+
+            page.locator("[data-nav-dashboard]").click()
+
+            expect(toggle).to_have_attribute("aria-expanded", "false")
+            expect(selector).not_to_be_visible()
+            expect(page.locator("[data-dashboard-panel]")).to_be_visible()
+            page.wait_for_load_state("networkidle")
+
+            # Explicit navigation and browser history must retain
+            # their normal menu-closing semantics.
+            if view == "account":
+                expect(page).to_have_url(url + "/")
+
+                set_mobile_menu(page, True)
+                page.go_back()
+
+                expect(page.locator(panel)).to_be_visible()
+                expect(toggle).to_have_attribute("aria-expanded", "false")
+                expect(selector).not_to_be_visible()
+
+                set_mobile_menu(page, True)
+                page.go_forward()
+
+                expect(page.locator("[data-dashboard-panel]")).to_be_visible()
+                expect(toggle).to_have_attribute("aria-expanded", "false")
+                expect(selector).not_to_be_visible()
+
+                print("PASS: browser back/forward closes mobile menu")
+
+            select_language(page, "en", True)
+            assert not errors, errors
+
+            print(f"PASS: initial navigation preserves mobile menu: {view}")
+
+        finally:
+            for route in held:
+                route.abort()
+            context.close()
+
+
 def run_browser(url):
     with sync_playwright() as playwright:
         executable = os.environ.get("FLUXTUNER_TEST_CHROMIUM")
@@ -596,6 +735,7 @@ def run_browser(url):
             page.reload()
             expect(page.locator("html")).to_have_attribute("lang", "ca")
             context.close()
+            check_initial_navigation_menu(browser, url)
         finally:
             browser.close()
 

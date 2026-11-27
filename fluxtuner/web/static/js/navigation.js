@@ -59,8 +59,8 @@ export function createNavigationController({
     return false;
   }
 
-  async function navigateToPrivateView(loader) {
-    closeMobileMenu();
+  async function navigateToPrivateView(loader, { preserveMobileMenu = false } = {}) {
+    if (!preserveMobileMenu) closeMobileMenu();
     showRadioBrowserView();
 
     if (!appState.isAuthenticated()) {
@@ -73,8 +73,8 @@ export function createNavigationController({
     scrollToSection(searchPanel);
   }
 
-  async function navigateToDashboard() {
-    closeMobileMenu();
+  async function navigateToDashboard({ preserveMobileMenu = false } = {}) {
+    if (!preserveMobileMenu) closeMobileMenu();
 
     if (!appState.isAuthenticated()) {
       renderAuthRequired();
@@ -86,14 +86,14 @@ export function createNavigationController({
     scrollToSection(dashboardPanel);
   }
 
-  function navigateToSearch() {
-    closeMobileMenu();
+  function navigateToSearch({ preserveMobileMenu = false } = {}) {
+    if (!preserveMobileMenu) closeMobileMenu();
     resetRadioBrowserView();
     scrollToSection(searchPanel);
   }
 
-  function navigateToAccount() {
-    closeMobileMenu();
+  function navigateToAccount({ preserveMobileMenu = false } = {}) {
+    if (!preserveMobileMenu) closeMobileMenu();
     if (!appState.isAuthenticated() || !accountPanel) {
       renderAuthRequired();
       scrollToSection(authPanel);
@@ -103,8 +103,8 @@ export function createNavigationController({
     scrollToSection(accountPanel);
   }
 
-  async function navigateToAdmin() {
-    closeMobileMenu();
+  async function navigateToAdmin({ preserveMobileMenu = false } = {}) {
+    if (!preserveMobileMenu) closeMobileMenu();
 
     const currentUser = appState.getCurrentUser();
     if (!currentUser || !currentUser.is_admin || !adminPanel) return;

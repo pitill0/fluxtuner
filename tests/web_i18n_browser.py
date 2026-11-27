@@ -100,6 +100,44 @@ def check_mobile(page, authenticated):
         print(f"PASS: {width}px, authenticated={authenticated}, {len(LOCALES)} locales")
 
 
+def check_dashboard_geometry(page):
+    """Cover desktop widths immediately above the sidebar breakpoint."""
+    widths = (929, 930, 935, 940, 948, 960, 1024, 1280)
+    page.set_viewport_size({"width": 1024, "height": 800})
+    expect(page.locator("[data-dashboard-panel]")).to_be_visible()
+    expect(page.locator("[data-dashboard-user-metrics] .dashboard-metric")).to_have_count(4)
+    expect(page.locator("[data-dashboard-admin-metrics] .dashboard-metric")).to_have_count(6)
+
+    for language in LOCALES:
+        selector = page.locator(SELECTOR)
+        expect(selector).to_be_visible()
+        selector.select_option(language)
+        expect(page.locator("html")).to_have_attribute("lang", language)
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": 800})
+            overflow = page.evaluate("""() => {
+                const panel = document.querySelector(".dashboard-panel");
+                const box = panel.getBoundingClientRect();
+                const nodes = [...panel.querySelectorAll(
+                    ".dashboard-grid,.dashboard-sections,.dashboard-card,"
+                    + ".dashboard-metric,.panel-heading"
+                )].filter(node => node.getClientRects().length);
+                return {
+                    page: document.documentElement.scrollWidth - innerWidth,
+                    panel: Math.round(Math.max(
+                        0, ...nodes.map(node =>
+                            node.getBoundingClientRect().right - box.right)
+                    )),
+                    internal: Math.max(
+                        0, ...nodes.map(node => node.scrollWidth - node.clientWidth)
+                    ),
+                };
+            }""")
+            assert max(overflow.values()) <= 1, (language, width, overflow)
+
+    print(f"PASS: dashboard geometry, {len(widths) * len(LOCALES)} cases")
+
+
 def check_cached_switches(page):
     page.locator(MENU).click()
     selector = page.locator(SELECTOR)
@@ -235,6 +273,8 @@ def run_browser(url):
             check_mobile(page, True)
             page.set_viewport_size({"width": 375, "height": 740})
             check_cached_switches(page)
+            check_dashboard_geometry(page)
+            page.set_viewport_size({"width": 375, "height": 740})
             check_portability_errors(page)
             select_language(page, "ca", True)
             page.reload()

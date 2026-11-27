@@ -14,6 +14,25 @@ def _valid_dimensions(width: int, height: int) -> bool:
     return 0 < width <= MAX_DIMENSION and 0 < height <= MAX_DIMENSION
 
 
+def _valid_png_header(payload: bytes) -> bool:
+    width, height = struct.unpack(">II", payload[:8])
+    bit_depth, color_type, compression, filtering, interlace = payload[8:]
+    supported_depths = {
+        0: {1, 2, 4, 8, 16},
+        2: {8, 16},
+        3: {1, 2, 4, 8},
+        4: {8, 16},
+        6: {8, 16},
+    }
+    return (
+        _valid_dimensions(width, height)
+        and bit_depth in supported_depths.get(color_type, set())
+        and compression == 0
+        and filtering == 0
+        and interlace in {0, 1}
+    )
+
+
 def _is_png(data: bytes) -> bool:
     if not data.startswith(PNG_SIGNATURE):
         return False
@@ -32,22 +51,7 @@ def _is_png(data: bytes) -> bool:
         if position == len(PNG_SIGNATURE):
             if kind != b"IHDR" or length != 13:
                 return False
-            width, height = struct.unpack(">II", payload[:8])
-            bit_depth, color_type, compression, filtering, interlace = payload[8:]
-            supported_depths = {
-                0: {1, 2, 4, 8, 16},
-                2: {8, 16},
-                3: {1, 2, 4, 8},
-                4: {8, 16},
-                6: {8, 16},
-            }
-            if (
-                not _valid_dimensions(width, height)
-                or bit_depth not in supported_depths.get(color_type, set())
-                or compression != 0
-                or filtering != 0
-                or interlace not in {0, 1}
-            ):
+            if not _valid_png_header(payload):
                 return False
             saw_ihdr = True
         elif kind == b"IHDR":
@@ -61,6 +65,21 @@ def _is_png(data: bytes) -> bool:
 
 
 _JPEG_FRAMES = frozenset({0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB})
+
+
+def _valid_jpeg_frame(data: bytes, position: int, length: int) -> bool:
+    if length < 7:
+        return False
+    height = int.from_bytes(data[position + 3 : position + 5], "big")
+    width = int.from_bytes(data[position + 5 : position + 7], "big")
+    return _valid_dimensions(width, height)
+
+
+def _valid_jpeg_scan(data: bytes, position: int) -> bool:
+    if position + 2 > len(data):
+        return False
+    length = int.from_bytes(data[position : position + 2], "big")
+    return length >= 6 and position + length < len(data) - 2
 
 
 def _is_jpeg(data: bytes) -> bool:
@@ -78,10 +97,7 @@ def _is_jpeg(data: bytes) -> bool:
         marker = data[position]
         position += 1
         if marker == 0xDA:  # Start of scan: entropy coding is decoder-owned.
-            if position + 2 > len(data):
-                return False
-            length = int.from_bytes(data[position : position + 2], "big")
-            return saw_frame and length >= 6 and position + length < len(data) - 2
+            return saw_frame and _valid_jpeg_scan(data, position)
         if marker in {0x00, 0x01, 0xD8, 0xD9} or 0xD0 <= marker <= 0xD7:
             return False
         if position + 2 > len(data):
@@ -90,11 +106,7 @@ def _is_jpeg(data: bytes) -> bool:
         if length < 2 or position + length > len(data):
             return False
         if marker in _JPEG_FRAMES:
-            if length < 7:
-                return False
-            height = int.from_bytes(data[position + 3 : position + 5], "big")
-            width = int.from_bytes(data[position + 5 : position + 7], "big")
-            if not _valid_dimensions(width, height):
+            if not _valid_jpeg_frame(data, position, length):
                 return False
             saw_frame = True
         position += length

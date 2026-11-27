@@ -63,27 +63,31 @@ class ArtworkCache:
             candidates.append((info.st_mtime, mime, path))
 
         for _mtime, mime, path in sorted(candidates, reverse=True):
-            descriptor: int | None = None
-            try:
-                descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-                info = os.fstat(descriptor)
-                if not stat.S_ISREG(info.st_mode):
-                    continue
-                if time.time() - info.st_mtime > self.ttl_seconds:
-                    continue
-                if not 24 <= info.st_size <= MAX_ARTWORK_BYTES:
-                    continue
-                with os.fdopen(descriptor, "rb") as stream:
-                    descriptor = None
-                    data = stream.read(MAX_ARTWORK_BYTES + 1)
-            except OSError:
-                continue
-            finally:
-                if descriptor is not None:
-                    os.close(descriptor)
-            if detect_artwork_type(data) == mime:
+            data = self._read_candidate(path)
+            if data is not None and detect_artwork_type(data) == mime:
                 return data, mime
         return None
+
+    def _read_candidate(self, path: Path) -> bytes | None:
+        """Read a bounded regular file, retaining descriptor-level checks."""
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode):
+                return None
+            if time.time() - info.st_mtime > self.ttl_seconds:
+                return None
+            if not 24 <= info.st_size <= MAX_ARTWORK_BYTES:
+                return None
+            with os.fdopen(descriptor, "rb") as stream:
+                descriptor = None
+                return stream.read(MAX_ARTWORK_BYTES + 1)
+        except OSError:
+            return None
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
 
     def _enforce_limits(self) -> None:
         """Evict oldest cache-owned regular files; never touch unrelated paths."""

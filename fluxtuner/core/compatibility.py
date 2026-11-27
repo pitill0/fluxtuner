@@ -36,6 +36,28 @@ _CODEC_ALIASES = {
 }
 
 
+# Order matters when metadata contains multiple codec hints.
+_CODEC_FRAGMENTS = (
+    ("mp3", "mp3"),
+    ("aac", "aac"),
+    ("vorbis", "vorbis"),
+    ("opus", "opus"),
+    ("ogg", "ogg"),
+    ("flac", "flac"),
+    ("m3u8", "hls"),
+    ("mpegurl", "hls"),
+)
+
+_URL_CODEC_SUFFIXES = (
+    (".mp3", "mp3"),
+    (".ogg", "ogg"),
+    (".oga", "ogg"),
+    (".opus", "opus"),
+    (".flac", "flac"),
+    (".m3u8", "hls"),
+)
+
+
 def normalize_codec(value: Any) -> str | None:
     """Normalize station codec or MIME metadata to a compact codec key."""
     if value is None:
@@ -55,20 +77,9 @@ def normalize_codec(value: Any) -> str | None:
     if compact in _CODEC_ALIASES:
         return _CODEC_ALIASES[compact]
 
-    if "mp3" in compact or compact == "mpeg":
-        return "mp3"
-    if "aac" in compact:
-        return "aac"
-    if "vorbis" in compact:
-        return "vorbis"
-    if "opus" in compact:
-        return "opus"
-    if "ogg" in compact:
-        return "ogg"
-    if "flac" in compact:
-        return "flac"
-    if "m3u8" in compact or "mpegurl" in compact:
-        return "hls"
+    for fragment, codec in _CODEC_FRAGMENTS:
+        if fragment in compact:
+            return codec
 
     return clean_value
 
@@ -93,16 +104,10 @@ def station_codec_candidates(station: dict[str, Any] | None) -> set[str]:
     url = station_url(station)
     if url:
         path = urlparse(url).path.lower()
-        if path.endswith(".mp3"):
-            candidates.add("mp3")
-        elif path.endswith(".ogg") or path.endswith(".oga"):
-            candidates.add("ogg")
-        elif path.endswith(".opus"):
-            candidates.add("opus")
-        elif path.endswith(".flac"):
-            candidates.add("flac")
-        elif path.endswith(".m3u8"):
-            candidates.add("hls")
+        for suffix, codec in _URL_CODEC_SUFFIXES:
+            if path.endswith(suffix):
+                candidates.add(codec)
+                break
 
     return candidates
 

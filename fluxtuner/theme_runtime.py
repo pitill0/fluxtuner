@@ -106,7 +106,28 @@ def _set_if_supported(styles: Any, attr: str, value: Any) -> None:
         logger.debug("Ignoring unsupported runtime theme style property: %s", attr, exc_info=True)
 
 
-def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:  # noqa: C901 - reviewed ceiling 16; see docs/complexity-baseline.json
+def _apply_margin_left(styles: Any, value: str) -> None:
+    try:
+        left = int(value)
+    except ValueError:
+        return
+
+    current = getattr(styles, "margin", None)
+    if current is not None:
+        try:
+            _set_if_supported(
+                styles,
+                "margin",
+                (current.top, current.right, current.bottom, left),
+            )
+        except AttributeError:
+            logger.debug(
+                "Runtime theme margin object has no edge attributes; using fallback margin"
+            )
+            _set_if_supported(styles, "margin", (0, 0, 0, left))
+
+
+def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:
     styles = widget.styles
     for prop, value in declarations.items():
         if prop in COLOR_PROPS:
@@ -128,24 +149,7 @@ def _apply_declarations(widget: Any, declarations: dict[str, str]) -> None:  # n
                 _set_if_supported(styles, "margin", spacing)
 
         elif prop == "margin-left":
-            try:
-                left = int(value)
-            except ValueError:
-                continue
-
-            current = getattr(styles, "margin", None)
-            if current is not None:
-                try:
-                    _set_if_supported(
-                        styles,
-                        "margin",
-                        (current.top, current.right, current.bottom, left),
-                    )
-                except AttributeError:
-                    logger.debug(
-                        "Runtime theme margin object has no edge attributes; using fallback margin"
-                    )
-                    _set_if_supported(styles, "margin", (0, 0, 0, left))
+            _apply_margin_left(styles, value)
 
         elif prop == "text-style":
             _set_if_supported(styles, "text_style", value)

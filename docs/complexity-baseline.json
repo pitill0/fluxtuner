@@ -8,12 +8,6 @@
       "reason": "Provider fallback, stable ranking and per-source diagnostics retain their existing search contract; isolate this orchestration in a dedicated follow-up."
     },
     {
-      "path": "fluxtuner/core/m3u_import.py",
-      "function": "parse_m3u",
-      "max_complexity": 19,
-      "reason": "Stateful EXTINF association, candidate bounds and diagnostic ordering are preserved while the PLS parser is extracted independently."
-    },
-    {
       "path": "fluxtuner/gui/app.py",
       "function": "run_gui",
       "max_complexity": 21,
@@ -30,12 +24,6 @@
       "function": "_read_body",
       "max_complexity": 17,
       "reason": "Security-sensitive HTTP framing and byte bounds remain unchanged; further decomposition requires a dedicated adversarial transport review."
-    },
-    {
-      "path": "fluxtuner/theme_runtime.py",
-      "function": "_apply_declarations",
-      "max_complexity": 16,
-      "reason": "Property-specific theme parsing and compatibility fallbacks remain unchanged pending a focused theme-runtime refactor."
     },
     {
       "path": "fluxtuner/web/app.py",

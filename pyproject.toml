@@ -87,6 +87,8 @@ packages = [
     "fluxtuner",
     "fluxtuner.core",
     "fluxtuner.gui",
+    "fluxtuner.gui.assets",
+    "fluxtuner.gui.themes",
     "fluxtuner.gui.tray",
     "fluxtuner.players",
     "fluxtuner.recorders",
@@ -96,6 +98,9 @@ packages = [
     "fluxtuner.network",
     "fluxtuner.web",
     "fluxtuner.web.static",
+    "fluxtuner.web.static.icons",
+    "fluxtuner.web.static.js",
+    "fluxtuner.web.static.locales",
     "fluxtuner.web.templates",
 ]
 include-package-data = true

@@ -27,8 +27,8 @@ CONTENT_SECURITY_POLICY = " ".join(
     (
         "default-src 'self';",
         "script-src 'self';",
-        "style-src 'self' 'unsafe-inline';",
-        "img-src 'self' data: blob: http: https:;",
+        "style-src 'self';",
+        "img-src 'self';",
         "media-src 'self' blob: http: https:;",
         "connect-src 'self';",
         "font-src 'self' data:;",

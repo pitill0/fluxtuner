@@ -335,11 +335,218 @@ def check_portability_errors(page):
     print("PASS: translated subscription and import errors; live region scoped to status")
 
 
+def check_csp_enforcement(browser, url):
+    """Verify strict CSP enforcement without weakening media playback."""
+    context = browser.new_context(locale="en-US")
+    violations = []
+    errors = []
+    external_requests = []
+
+    try:
+        page = context.new_page()
+        page.on("pageerror", lambda error: errors.append(str(error)))
+
+        def record_violation(_source, event):
+            violations.append(event)
+
+        page.expose_binding("auditRecordViolation", record_violation)
+
+        external_url = "https://csp-control.invalid/audit.svg"
+
+        def external_image(route):
+            external_requests.append(route.request.url)
+            route.fulfill(
+                status=200,
+                content_type="image/svg+xml",
+                body=('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>'),
+            )
+
+        page.route(external_url, external_image)
+
+        response = page.goto(url)
+        assert response is not None
+        assert response.ok
+
+        policy = response.headers["content-security-policy"]
+        directives = {
+            part.strip().split()[0]: part.strip().split()[1:]
+            for part in policy.split(";")
+            if part.strip()
+        }
+
+        assert directives["script-src"] == ["'self'"]
+        assert directives["style-src"] == ["'self'"]
+        assert directives["img-src"] == ["'self'"]
+        assert directives["media-src"] == ["'self'", "blob:", "http:", "https:"]
+
+        expect(page.locator("[data-login-submit]")).to_be_enabled()
+
+        page.evaluate("""() => {
+            document.addEventListener(
+                "securitypolicyviolation",
+                event => {
+                    void window.auditRecordViolation({
+                        directive: event.effectiveDirective,
+                        blocked: event.blockedURI,
+                        disposition: event.disposition
+                    });
+                }
+            );
+        }""")
+
+        page.evaluate("""async () => {
+            await window.auditRecordViolation({
+                directive: "binding-probe"
+            });
+        }""")
+
+        assert violations == [{"directive": "binding-probe"}], violations
+        violations.clear()
+
+        result = page.evaluate(
+            """async external => {
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" '
+                + 'width="16" height="16"/>';
+
+            function imageResult(src) {
+                return new Promise(resolve => {
+                    const image = new Image();
+
+                    const timer = setTimeout(
+                        () => finish(false, true),
+                        5000
+                    );
+
+                    function finish(loaded, timedOut = false) {
+                        clearTimeout(timer);
+
+                        const result = {
+                            loaded,
+                            timedOut,
+                            width: image.naturalWidth
+                        };
+
+                        image.onload = null;
+                        image.onerror = null;
+                        image.remove();
+
+                        resolve(result);
+                    }
+
+                    image.onload = () => finish(true);
+                    image.onerror = () => finish(false);
+
+                    document.body.append(image);
+                    image.src = src;
+                });
+            }
+
+            const style = document.createElement("style");
+            style.textContent =
+                "#audit-style-block { opacity: 0.123 }";
+            document.head.append(style);
+
+            const block = document.createElement("div");
+            block.id = "audit-style-block";
+            document.body.append(block);
+
+            const attribute = document.createElement("div");
+            attribute.setAttribute("style", "opacity: 0.456");
+            document.body.append(attribute);
+
+            const cssom = document.createElement("div");
+            cssom.style.opacity = "0.789";
+            cssom.style.setProperty("--audit-distance", "-120px");
+            document.body.append(cssom);
+
+            const objectUrl = URL.createObjectURL(
+                new Blob([svg], {type: "image/svg+xml"})
+            );
+
+            try {
+                const images = await Promise.all([
+                    imageResult(external),
+                    imageResult(
+                        "data:image/svg+xml," + encodeURIComponent(svg)
+                    ),
+                    imageResult(objectUrl),
+                    imageResult("/static/brand-icon.webp"),
+                    imageResult("/static/icons/icon-192.png"),
+                    imageResult("/static/icons/icon-512.png"),
+                    imageResult("/static/app-icon.png")
+                ]);
+
+                return {
+                    block: getComputedStyle(block).opacity,
+                    attribute: getComputedStyle(attribute).opacity,
+                    cssom: getComputedStyle(cssom).opacity,
+                    property: getComputedStyle(cssom)
+                        .getPropertyValue("--audit-distance").trim(),
+                    images
+                };
+            } finally {
+                URL.revokeObjectURL(objectUrl);
+                style.remove();
+                block.remove();
+                attribute.remove();
+                cssom.remove();
+            }
+        }""",
+            external_url,
+        )
+
+        assert result["block"] == "1", result
+        assert result["attribute"] == "1", result
+        assert result["cssom"] == "0.789", result
+        assert result["property"] == "-120px", result
+
+        images = result["images"]
+
+        assert not any(item["timedOut"] for item in images), images
+
+        assert all(not item["loaded"] and item["width"] == 0 for item in images[:3]), images
+
+        assert all(item["loaded"] and item["width"] > 0 for item in images[3:]), images
+
+        deadline = time.monotonic() + 5
+
+        while len(violations) < 5 and time.monotonic() < deadline:
+            page.wait_for_timeout(25)
+
+        assert len(violations) == 5, violations
+
+        styles = [item for item in violations if item["directive"].startswith("style-src")]
+
+        blocked_images = [item for item in violations if item["directive"] == "img-src"]
+
+        assert len(styles) == 2, styles
+        assert len(blocked_images) == 3, blocked_images
+
+        assert all(item["disposition"] == "enforce" for item in violations), violations
+
+        for prefix in ("https://csp-control.invalid", "data", "blob"):
+            assert any(item["blocked"].startswith(prefix) for item in blocked_images), (
+                blocked_images
+            )
+
+        assert not external_requests, external_requests
+        assert not errors, errors
+
+        print(
+            "PASS: strict CSP enforcement, five intentional blocks, "
+            "local images and CSSOM preserved"
+        )
+
+    finally:
+        context.close()
+
+
 def run_browser(url):
     with sync_playwright() as playwright:
         executable = os.environ.get("FLUXTUNER_TEST_CHROMIUM")
         browser = playwright.chromium.launch(executable_path=executable)
         try:
+            check_csp_enforcement(browser, url)
             check_catalog_warmup(browser, url)
             check_early_and_fallback(browser, url)
             for preference, locale in (

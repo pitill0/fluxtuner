@@ -19,11 +19,11 @@ def test_security_policy_has_expected_restrictions() -> None:
     assert "form-action 'self';" in policy
 
     assert "media-src 'self' blob: http: https:;" in policy
-    assert "img-src 'self' data: blob: http: https:;" in policy
-    assert "style-src 'self' 'unsafe-inline';" in policy
+    assert "img-src 'self';" in policy
+    assert "style-src 'self';" in policy
 
     assert "unsafe-eval" not in policy
-    assert "script-src 'self' 'unsafe-inline'" not in policy
+    assert "'unsafe-inline'" not in policy
 
 
 def test_security_headers_cover_document_api_static_and_errors() -> None:

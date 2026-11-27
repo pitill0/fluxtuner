@@ -48,19 +48,40 @@ def wait_for_server(url, process):
     raise RuntimeError("Development server did not become ready")
 
 
+def set_mobile_menu(page, opened):
+    """Use semantic menu state rather than transient layout geometry."""
+    assert page.evaluate('matchMedia("(max-width: 58rem)").matches')
+    toggle = page.locator(MENU)
+    expect(toggle).to_be_visible()
+
+    desired = str(opened).lower()
+    current = toggle.get_attribute("aria-expanded")
+    assert current in ("true", "false"), current
+
+    if current != desired:
+        toggle.click()
+
+    expect(toggle).to_have_attribute("aria-expanded", desired)
+    expect(page.locator(HEADER)).to_have_attribute("data-mobile-menu-open", desired)
+
+    selector = page.locator(SELECTOR)
+    if opened:
+        expect(selector).to_be_visible()
+    else:
+        expect(selector).not_to_be_visible()
+
+
 def select_language(page, language, authenticated):
     selector = page.locator(SELECTOR)
-    if authenticated and not selector.is_visible():
-        page.locator(MENU).click()
+    if authenticated:
+        set_mobile_menu(page, True)
     expect(selector).to_be_visible()
     assert selector.evaluate("node => parseFloat(getComputedStyle(node).fontSize)") >= 16
     selector.select_option(language)
     expect(page.locator("html")).to_have_attribute("lang", language)
     expect(selector).to_have_value(language)
-    if authenticated and selector.is_visible():
-        page.locator(MENU).click()
     if authenticated:
-        expect(selector).not_to_be_visible()
+        set_mobile_menu(page, False)
 
 
 def geometry(page, authenticated):
@@ -136,6 +157,25 @@ def check_dashboard_geometry(page):
             assert max(overflow.values()) <= 1, (language, width, overflow)
 
     print(f"PASS: dashboard geometry, {len(widths) * len(LOCALES)} cases")
+
+
+def check_viewport_transitions(page):
+    """Exercise desktop-to-mobile transitions without visibility races."""
+    cases = (
+        (1280, 375, "es"),
+        (1024, 320, "ru"),
+        (929, 600, "de"),
+        (940, 375, "en"),
+    )
+
+    for _ in range(5):
+        for desktop, mobile, language in cases:
+            page.set_viewport_size({"width": desktop, "height": 800})
+            expect(page.locator(SELECTOR)).to_be_visible()
+            page.set_viewport_size({"width": mobile, "height": 740})
+            select_language(page, language, True)
+
+    print(f"PASS: {len(cases) * 5} desktop-to-mobile transitions")
 
 
 def check_cached_switches(page):
@@ -344,6 +384,7 @@ def run_browser(url):
             check_dashboard_geometry(page)
             page.set_viewport_size({"width": 375, "height": 740})
             check_portability_errors(page)
+            check_viewport_transitions(page)
             select_language(page, "ca", True)
             page.reload()
             expect(page.locator("html")).to_have_attribute("lang", "ca")

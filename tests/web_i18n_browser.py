@@ -161,6 +161,73 @@ def check_cached_switches(page):
     print(f"PASS: {len(LOCALES)} cached language switches without network requests")
 
 
+def check_catalog_warmup(browser, url):
+    """Warm catalogs independently of the DOM translation bootstrap."""
+    cases = (
+        ("es-ES", None, "es"),
+        ("ru-RU", None, "ru"),
+        ("en-US", "ru", "ru"),
+        ("en-US", None, "en"),
+        ("zh-Hant-HK", None, "zh-TW"),
+    )
+
+    for preference, saved, selected in cases:
+        context = browser.new_context(locale=preference)
+        try:
+            if saved:
+                context.add_init_script(f"localStorage.setItem('fluxtuner.language', '{saved}')")
+
+            page = context.new_page()
+            requests = []
+            responses = []
+            errors = []
+
+            page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
+            page.on(
+                "request",
+                lambda request, requests=requests: (
+                    requests.append(request.url) if "/locales/" in request.url else None
+                ),
+            )
+            page.on(
+                "response",
+                lambda response, responses=responses: (
+                    responses.append(response.url)
+                    if "/locales/" in response.url and response.ok
+                    else None
+                ),
+            )
+
+            page.route("**/app.js", lambda route: route.abort())
+            page.route("**/js/i18n-early.js", lambda route: route.abort())
+
+            expected = {"en.json", f"{selected}.json"}
+
+            page.goto(url)
+
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if {item.rsplit("/", 1)[-1] for item in responses} == expected:
+                    break
+                page.wait_for_timeout(50)
+
+            actual = [item.rsplit("/", 1)[-1] for item in requests]
+
+            assert set(actual) == expected, (preference, saved, actual)
+            assert len(actual) == len(expected), actual
+            assert {item.rsplit("/", 1)[-1] for item in responses} == expected, responses
+
+            expect(page.locator("html")).to_have_attribute("lang", "en")
+            expect(page.locator("[data-login-submit]")).to_have_text("Login")
+
+            assert not errors, errors
+            assert all("/static/build/" in item for item in requests), requests
+
+            print(f"PASS: independent warmup, {preference}, saved={saved}")
+        finally:
+            context.close()
+
+
 def check_early_and_fallback(browser, url):
     # Block only the application entry point: the independent bootstrap must
     # still translate the actual HTML with the preferred catalog.
@@ -233,6 +300,7 @@ def run_browser(url):
         executable = os.environ.get("FLUXTUNER_TEST_CHROMIUM")
         browser = playwright.chromium.launch(executable_path=executable)
         try:
+            check_catalog_warmup(browser, url)
             check_early_and_fallback(browser, url)
             for preference, locale in (
                 ("de-DE", "de"),
